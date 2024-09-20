@@ -117,6 +117,19 @@ modbus:
       allowed: ['uart1', 'uart2', 'uart3', 'uart4', 'uart5']
       meta:
         label: Uart ID to use
+    baudrate:
+      type: integer
+      default: 9600
+    stopbits:
+      type: integer
+      default: 1
+    bytesize:
+      type: integer
+      default: 8
+    parity:
+      type: string
+      allowed: ['N', 'E', 'O']
+      default: 'N'
 
 modbus_sensors:
   type: list

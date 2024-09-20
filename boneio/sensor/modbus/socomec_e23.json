@@ -4,6 +4,7 @@
     {
       "base": 50520,
       "length": 26,
+      "register_type": "holding",
       "registers": [
         {
           "name": "Voltage_Phase1",
@@ -11,15 +12,17 @@
           "unit_of_measurement": "V",
           "state_class": "measurement",
           "device_class": "voltage",
-          "return_type": "multiply0_01"
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.01 }]
         },
         {
           "name": "Frequency",
           "address": 50526,
-          "unit_of_measurement": "V",
+          "unit_of_measurement": "Hz",
           "state_class": "measurement",
           "device_class": "voltage",
-          "return_type": "multiply0_001"
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.01 }]
         },
         {
           "name": "Current",
@@ -27,48 +30,55 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "multiply0_001"
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.001 }]
         },
         {
           "name": "Sum_Active_Power",
           "address": 50536,
           "unit_of_measurement": "W",
           "state_class": "measurement",
-          "return_type": "multiply0_10"
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
         },
         {
           "name": "Sum_Reactive_Power",
           "address": 50538,
           "unit_of_measurement": "var",
           "state_class": "measurement",
-          "return_type": "multiply0_10"
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
         },
         {
           "name": "Sum_Apparent_Power",
           "address": 50540,
           "unit_of_measurement": "VA",
           "state_class": "measurement",
-          "return_type": "multiply0_10"
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 10 }]
         },
         {
           "name": "Sum_Power_Factor",
           "address": 50542,
           "unit_of_measurement": "",
           "state_class": "measurement",
-          "return_type": "multiply0_10"
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 0.001 }]
         },
         {
           "name": "Active_Power_Phase",
           "address": 50544,
           "unit_of_measurement": "W",
           "state_class": "measurement",
-          "return_type": "multiply10"
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 0.001 }]
         }
       ]
     },
     {
       "base": 50946,
       "length": 8,
+      "register_type": "holding",
       "registers": [
         {
           "name": "Total_Positive_Active_Energy",

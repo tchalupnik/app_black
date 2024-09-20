@@ -24,6 +24,8 @@ from boneio.modbus import Modbus
 
 _LOGGER = logging.getLogger(__name__)
 
+allowed_operations = {"multiply": lambda x, y: x * y}
+
 
 def float32(result, base, addr):
     """Read Float value from register."""
@@ -210,10 +212,11 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     break
             if not self._discovery_sent:
                 _LOGGER.error(
-                    "Discovery for %s not sent. First register not available.", self._id
+                    "Discovery for %s not sent. First register not available.",
+                    self._id,
                 )
 
-    async def async_update(self, time: datetime) -> None:
+    async def async_update(self, time: datetime) -> float | None:
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
@@ -253,9 +256,29 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                 update_interval = self._update_interval.total_in_seconds
             output = {}
             for register in data["registers"]:
-                output[register.get("name").replace(" ", "")] = CONVERT_METHODS[
-                    register.get("return_type", "regular")
-                ](result=values, base=data[BASE], addr=register.get("address"))
+                value_type = register.get("value_type")
+                if value_type:
+                    start_index = register.get("address") - data[BASE]
+                    payload = values.registers[start_index : start_index + 2]
+                    decoded_value = self._modbus.decode_value(
+                        payload, value_type
+                    )
+                else:
+                    # Go with old method. Remove when switch Sofar to new.
+                    decoded_value = CONVERT_METHODS[
+                        register.get("return_type", "regular")
+                    ](
+                        result=values,
+                        base=data[BASE],
+                        addr=register.get("address"),
+                    )
+                filters = register.get("filters", [])
+                for filter in filters:
+                    for key, value in filter.items():
+                        if key in allowed_operations:
+                            lamda_function = allowed_operations[key]
+                            decoded_value = lamda_function(decoded_value, value)
+                output[register.get("name").replace(" ", "")] = decoded_value
             self._send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
                 payload=output,
