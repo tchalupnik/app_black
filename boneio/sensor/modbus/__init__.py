@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import json
 import logging
@@ -216,7 +217,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     self._id,
                 )
 
-    async def async_update(self, time: datetime) -> float | None:
+    async def async_update(self, time: datetime) -> Optional[float]:
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()

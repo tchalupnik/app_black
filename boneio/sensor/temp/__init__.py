@@ -1,5 +1,6 @@
 """Manage BoneIO onboard temp sensors."""
 
+from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
@@ -24,7 +25,7 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         address: str,
         id: str = DefaultName,
         filters: list = ["round(x, 2)"],
-        **kwargs
+        **kwargs,
     ):
         """Initialize Temp class."""
         super().__init__(id=id, topic_type=SENSOR, **kwargs)
