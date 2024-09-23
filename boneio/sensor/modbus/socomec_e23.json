@@ -83,18 +83,19 @@
         {
           "name": "Total_Positive_Active_Energy",
           "address": 50946,
-          "unit_of_measurement": "Wh",
-          "state_class": "total_increasing",
+          "unit_of_measurement": "kWh",
+          "value_type": "U_DWORD",
+          "state_class": "total",
           "device_class": "energy",
-          "return_type": "multiply0_01"
+          "filters": [{ "multiply": 0.01 }]
         },
         {
           "name": "Total_Negative_Active_Energy",
           "address": 50952,
-          "unit_of_measurement": "Wh",
-          "state_class": "total_increasing",
+          "unit_of_measurement": "kWh",
+          "state_class": "total",
           "device_class": "energy",
-          "return_type": "multiply0_01"
+          "filters": [{ "multiply": 0.01 }]
         }
       ]
     }
