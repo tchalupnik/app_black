@@ -1,0 +1,20 @@
+{
+    "model": "orno-or-we-517",
+    "registers_base": [
+        {
+            "base": 14,
+            "length": 4,
+	    "register_type": "holding",
+	    "registers": [
+                {
+                    "name": "Napiecie_L1",
+                    "address": 14,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                }
+            ]
+        }
+    ]
+}
