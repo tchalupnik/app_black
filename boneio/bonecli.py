@@ -114,7 +114,7 @@ def get_arguments() -> argparse.Namespace:
         "--bytesize",
         type=int,
         required=True,
-        default=8
+        default=8,
         help="Bytesize",
     )
 
@@ -122,7 +122,7 @@ def get_arguments() -> argparse.Namespace:
         "--stopbits",
         type=int,
         required=True,
-        default=1
+        default=1,
         help="stopbits",
     )
 
@@ -130,6 +130,7 @@ def get_arguments() -> argparse.Namespace:
         "--parity",
         type=str,
         choices=["P", "E", "N"],
+        default="N",
         required=True,
         help="Parity",
     )
