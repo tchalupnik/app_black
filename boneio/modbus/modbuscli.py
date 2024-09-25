@@ -26,14 +26,17 @@ class ModbusHelper:
         model: dict,
         check_record: dict,
         check_record_method: str,
+        stopbits: int = 1,
+        bytesize: int = 8,
+        parity: str = "N",
     ) -> None:
         """Initialize Modbus Helper."""
         self._modbus = Modbus(
             uart=UARTS[uart],
             baudrate=baudrate,
-            stopbits=1,
-            bytesize=8,
-            parity="N",
+            stopbits=stopbits,
+            bytesize=bytesize,
+            parity=parity,
         )
         self._model = model
         self._device = device
@@ -112,6 +115,9 @@ async def async_run_modbus_set(
     baudrate: int,
     new_baudrate: int,
     new_address: int,
+    stopbits: int = 1,
+    bytesize: int = 8,
+    parity: str = "N",
 ):
     """Run Modbus Set Function."""
     if new_address and new_baudrate:
@@ -130,6 +136,9 @@ async def async_run_modbus_set(
         model=set_base,
         check_record=first_record,
         check_record_method=first_reg_base.get("register_type", "input"),
+        stopbits=stopbits,
+        bytesize=bytesize,
+        parity=parity,
     )
     if not await modbus_helper.check_connection():
         _LOGGER.error("Can't connect with sensor. Exiting")
@@ -150,14 +159,17 @@ async def async_run_modbus_get(
     register_type: str,
     baudrate: int,
     value_type: str,
+    stopbits: int = 1,
+    bytesize: int = 8,
+    parity: str = "N",
 ):
     """Run Modbus Get Function."""
     _modbus = Modbus(
         uart=UARTS[uart],
         baudrate=baudrate,
-        stopbits=1,
-        bytesize=8,
-        parity="N",
+        stopbits=stopbits,
+        bytesize=bytesize,
+        parity=parity,
     )
     count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
     value = await _modbus.read_multiple_registers(

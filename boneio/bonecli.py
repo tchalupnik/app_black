@@ -110,6 +110,30 @@ def get_arguments() -> argparse.Namespace:
         help="Current baudrate",
     )
 
+    modbus_parser.add_argument(
+        "--bytesize",
+        type=int,
+        required=True,
+        default=8
+        help="Bytesize",
+    )
+
+    modbus_parser.add_argument(
+        "--stopbits",
+        type=int,
+        required=True,
+        default=1
+        help="stopbits",
+    )
+
+    modbus_parser.add_argument(
+        "--parity",
+        type=str,
+        choices=["P", "E", "N"],
+        required=True,
+        help="Parity",
+    )
+
     modbus_sub_parser = modbus_parser.add_subparsers(
         dest="modbus_action", required=True
     )
@@ -205,6 +229,9 @@ def run_modbus_command(
                     uart=args.uart,
                     address=args.address,
                     baudrate=args.baudrate,
+                    parity=args.parity,
+                    bytesize=args.bytesize,
+                    stopbits=args.stopbits,
                     new_baudrate=args.new_baudrate,
                     new_address=args.new_address,
                 ),
@@ -217,6 +244,9 @@ def run_modbus_command(
                     baudrate=args.baudrate,
                     register_address=args.register_address,
                     register_type=args.register_type,
+                    parity=args.parity,
+                    bytesize=args.bytesize,
+                    stopbits=args.stopbits,
                     value_type=args.value_type,
                 ),
             )
