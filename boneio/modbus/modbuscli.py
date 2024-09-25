@@ -9,7 +9,7 @@ from .utils import REGISTERS_BASE, allowed_operations
 _LOGGER = logging.getLogger(__name__)
 SET_BASE = "set_base"
 SET_ADDRESS = "set_address_address"
-SET_BAUDRATE = "set_baudrate_address"
+SET_BAUDRATE = "set_baudrate"
 
 
 class ModbusHelper:
@@ -76,20 +76,23 @@ class ModbusHelper:
             return False
         return True
 
-    def set_connection_speed(self, new_baudrate: int):
-        ind = self.baud_rates.index(new_baudrate)
+    def set_connection_speed(self, new_baudrate: int) -> int:
+        baudrate_model = self._model[SET_BAUDRATE]
+        ind = baudrate_model["possible_baudrates"].index(new_baudrate)
         if ind:
             result = self._modbus.client.write_register(
-                address=self._model[SET_BAUDRATE],
+                address=baudrate_model["address"],
                 value=ind,
                 unit=self._device_address,
             )
         if result.isError():
             _LOGGER.error("Operation failed.")
+            return 1
         else:
             _LOGGER.info(
                 "Operation succeeded. Now restart device by disconnecting it."
             )
+            return 0
 
     def set_new_address(self, new_address: int):
         if 0 < new_address < 253:
@@ -128,6 +131,9 @@ async def async_run_modbus_set(
     if not first_reg_base:
         return False
     first_record = first_reg_base.get(REGISTERS, [])[0]
+    _LOGGER.debug(
+        f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+    )
     modbus_helper = ModbusHelper(
         device=device,
         uart=uart,
@@ -144,8 +150,7 @@ async def async_run_modbus_set(
         _LOGGER.error("Can't connect with sensor. Exiting")
         return 1
     if new_baudrate:
-        modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
-        return 0
+        return modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
     if new_address:
         modbus_helper.set_new_address(new_address=new_address)
         return 0
@@ -164,6 +169,9 @@ async def async_run_modbus_get(
     parity: str = "N",
 ):
     """Run Modbus Get Function."""
+    _LOGGER.debug(
+        f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+    )
     _modbus = Modbus(
         uart=UARTS[uart],
         baudrate=baudrate,

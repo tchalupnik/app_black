@@ -2,7 +2,10 @@
   "model": "CWT Temp and Humidity sensor",
   "set_base": {
     "set_address_address": 2000,
-    "set_baudrate_address": 2001
+    "set_baudrate": {
+      "address": 2001,
+      "possible_baudrates": [2400, 4800, 9600, 19200]
+    }
   },
   "registers_base": [
     {

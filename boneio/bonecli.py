@@ -113,7 +113,7 @@ def get_arguments() -> argparse.Namespace:
     modbus_parser.add_argument(
         "--bytesize",
         type=int,
-        required=True,
+        required=False,
         default=8,
         help="Bytesize",
     )
@@ -121,7 +121,7 @@ def get_arguments() -> argparse.Namespace:
     modbus_parser.add_argument(
         "--stopbits",
         type=int,
-        required=True,
+        required=False,
         default=1,
         help="stopbits",
     )
@@ -131,7 +131,7 @@ def get_arguments() -> argparse.Namespace:
         type=str,
         choices=["P", "E", "N"],
         default="N",
-        required=True,
+        required=False,
         help="Parity",
     )
 
@@ -142,7 +142,7 @@ def get_arguments() -> argparse.Namespace:
     set_modbus_parser.add_argument(
         "--device",
         type=str,
-        choices=["cwt"],
+        choices=["cwt", "r4dcb08"],
         help="Choose device to set modbus address/baudrate",
         required=True,
     )
@@ -156,8 +156,8 @@ def get_arguments() -> argparse.Namespace:
     set_modbus_parser_group.add_argument(
         "--new-baudrate",
         type=int,
-        choices=[2400, 4800, 9600, 19200],
-        help="Choose new baudrate to set",
+        choices=[1200, 2400, 4800, 9600, 19200],
+        help="Choose new baudrate to set. CWT doesn't work on 1200.",
     )
 
     get_modbus_parser = modbus_sub_parser.add_parser("get")
