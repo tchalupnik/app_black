@@ -71,8 +71,7 @@ SHOW_HA = "show_in_ha"
 # OLED CONST
 OLED = "oled"
 FONTS = "fonts"
-OLED_PIN = ("",)
-"P9_41"
+OLED_PIN = "P9_41"
 GIGABYTE = 1073741824
 MEGABYTE = 1048576
 WIDTH = 128

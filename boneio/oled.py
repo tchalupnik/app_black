@@ -26,8 +26,7 @@ fonts = {
     "big": make_font("DejaVuSans.ttf", 12),
     "small": make_font("DejaVuSans.ttf", 9),
     "extraSmall": make_font("DejaVuSans.ttf", 7),
-    "danube": make_font("danube__.ttf", 15, local=True)
-
+    "danube": make_font("danube__.ttf", 15, local=True),
 }
 
 # screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
@@ -96,7 +95,9 @@ class Oled:
 
     def _sleeptime(self):
         with canvas(self._device) as draw:
-            draw.rectangle(self._device.bounding_box, outline="black", fill="black")
+            draw.rectangle(
+                self._device.bounding_box, outline="black", fill="black"
+            )
         self._sleep = True
 
     def _draw_uptime(self, data: dict, draw: ImageDraw) -> None:
@@ -116,7 +117,12 @@ class Oled:
     def _draw_output(self, data: dict, draw: ImageDraw) -> None:
         "Draw outputs of GPIO/MCP relays."
         cols = cycle(OUTPUT_COLS)
-        draw.text((1, 1), f"Relay {self._current_screen}", font=fonts["small"], fill=WHITE)
+        draw.text(
+            (1, 1),
+            f"Relay {self._current_screen}",
+            font=fonts["small"],
+            fill=WHITE,
+        )
         i = 0
         j = next(cols)
         for k in data:
@@ -124,7 +130,10 @@ class Oled:
                 j = next(cols)
                 i = 0
             draw.text(
-                (j, OUTPUT_ROWS[i]), f"{shorten_name(k)} {data[k]}", font=fonts["extraSmall"], fill=WHITE
+                (j, OUTPUT_ROWS[i]),
+                f"{shorten_name(k)} {data[k]}",
+                font=fonts["extraSmall"],
+                fill=WHITE,
             )
             i += 1
 
@@ -133,7 +142,10 @@ class Oled:
         data = self._host_data.get(self._current_screen)
         if data:
             with canvas(self._device) as draw:
-                if self._output_groups and self._current_screen in self._output_groups:
+                if (
+                    self._output_groups
+                    and self._current_screen in self._output_groups
+                ):
                     self._draw_output(data, draw)
                 elif self._current_screen == UPTIME:
                     self._draw_uptime(data, draw)

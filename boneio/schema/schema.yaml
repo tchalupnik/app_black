@@ -123,6 +123,7 @@ modbus:
     stopbits:
       type: integer
       default: 1
+      allowed: [1, 2]
     bytesize:
       type: integer
       default: 8
