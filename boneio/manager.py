@@ -74,7 +74,7 @@ from boneio.helper.loader import (
 )
 from boneio.helper.logger import configure_logger
 from boneio.helper.yaml_util import load_config_from_file
-from boneio.modbus import Modbus
+from boneio.modbus.client import Modbus
 
 from w1thermsensor.errors import KernelModuleLoadError
 

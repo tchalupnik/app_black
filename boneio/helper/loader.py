@@ -103,7 +103,9 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
                 manager=manager,
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                update_interval=gpio.get(
+                    UPDATE_INTERVAL, TimePeriod(seconds=60)
+                ),
                 filters=gpio.get(FILTERS, []),
             )
             if gpio.get(SHOW_HA, True):
@@ -163,7 +165,10 @@ expander_class = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
 
 
 def create_expander(
-    expander_dict: dict, expander_config: list, exp_type: ExpanderTypes, i2cbusio: I2C
+    expander_dict: dict,
+    expander_config: list,
+    exp_type: ExpanderTypes,
+    i2cbusio: I2C,
 ) -> dict:
     grouped_outputs = {}
     for expander in expander_config:
@@ -189,7 +194,7 @@ def create_expander(
 
 def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
     """Create Modbus sensor for each device."""
-    from boneio.sensor.modbus import ModbusSensor
+    from boneio.modbus.sensor import ModbusSensor
 
     for sensor in sensors:
         name = sensor.get(ID)
@@ -202,7 +207,9 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
                 manager=manager,
                 model=sensor[MODEL],
                 send_message=manager.send_message,
-                update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                update_interval=sensor.get(
+                    UPDATE_INTERVAL, TimePeriod(seconds=60)
+                ),
                 **kwargs,
             )
         except FileNotFoundError as err:
@@ -272,7 +279,9 @@ def configure_relay(
         if restore_state
         else False
     )
-    if output_type == NONE and state_manager.get(attr_type=RELAY, attr=relay_id):
+    if output_type == NONE and state_manager.get(
+        attr_type=RELAY, attr=relay_id
+    ):
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
@@ -347,7 +356,7 @@ def configure_event_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | None = None
+    input: GpioEventButtonOld | GpioEventButtonNew | None = None,
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
@@ -473,7 +482,9 @@ def configure_cover(
     return cover
 
 
-def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
+def configure_ds2482(
+    i2cbusio: I2C, address: str = DS2482_ADDRESS
+) -> OneWireBus:
     ds2482 = DS2482(i2c=i2cbusio, address=address)
     ow_bus = OneWireBus(ds2482=ds2482)
     return ow_bus
@@ -493,7 +504,9 @@ def find_onewire_devices(
         devices = ow_bus.scan()
         for device in devices:
             _addr: int = device.int_address
-            _LOGGER.debug("Found device on bus %s with address %s", bus_id, hex(_addr))
+            _LOGGER.debug(
+                "Found device on bus %s with address %s", bus_id, hex(_addr)
+            )
             out[_addr] = device
     except RuntimeError as err:
         _LOGGER.error("Problem with scanning %s bus. %s", bus_type, err)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import struct
 from typing import Any
 
 from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
@@ -27,6 +28,8 @@ VALUE_TYPES = {
     "U_QWORD": {"f": "decode_64bit_uint", "byteorder": Endian.Big},
     "S_QWORD": {"f": "decode_64bit_int", "byteorder": Endian.Big},
     "U_QWORD_R": {"f": "decode_64bit_uint", "byteorder": Endian.Little},
+    "FP32": {"f": "decode_32bit_float", "byteorder": Endian.Big},
+    "FP32_R": {"f": "decode_32bit_float", "byteorder": Endian.Little},
 }
 
 
@@ -73,6 +76,11 @@ class Modbus:
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
 
+    @property
+    def client(self) -> ModbusSerialClient | None:
+        """Return client."""
+        return self._client
+
     async def async_close(self) -> None:
         """Disconnect client."""
         async with self._lock:
@@ -94,7 +102,11 @@ class Modbus:
             return False
 
     async def read_single_register(
-        self, unit: int, address: int, count: int = 2, method: str = "input"
+        self,
+        unit: int | str,
+        address: int,
+        count: int = 2,
+        method: str = "input",
     ) -> float | None:
         """Call sync. pymodbus."""
         async with self._lock:
@@ -106,7 +118,7 @@ class Modbus:
                 result: ReadInputRegistersResponse = self._read_methods[method](
                     address, **kwargs
                 )
-            except ModbusException as exception_error:
+            except (ModbusException, struct.error) as exception_error:
                 _LOGGER.error(exception_error)
                 return None
             if not hasattr(result, REGISTERS):
@@ -117,7 +129,11 @@ class Modbus:
             ).decode_32bit_float()
 
     async def read_multiple_registers(
-        self, unit: int, address: int, count: int = 2, method: str = "input"
+        self,
+        unit: int | str,  # device address
+        address: int,  # modbus register address
+        count: int = 2,  # number of registers to read
+        method: str = "input",  # type of register: input, holding
     ) -> ModbusResponse:
         """Call sync. pymodbus."""
         async with self._lock:

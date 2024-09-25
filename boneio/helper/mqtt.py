@@ -1,6 +1,8 @@
 """Class to help initialize classes which uses mqtt send."""
+
 from typing import Callable, Union
 from boneio.helper.util import strip_accents
+from typing import Optional
 
 
 class BasicMqtt:
@@ -11,7 +13,9 @@ class BasicMqtt:
         id: str,
         topic_prefix: str,
         name: str,
-        send_message: Callable[[str, Union[str, dict], bool], None],
+        send_message: Callable[
+            [str, Union[str, int, dict, None], Optional[bool]], None
+        ],
         topic_type: str,
         **kwargs,
     ):

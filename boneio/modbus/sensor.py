@@ -1,11 +1,10 @@
 from __future__ import annotations
 import asyncio
-import json
 import logging
 import os
 from datetime import datetime
-from struct import unpack
-
+from typing import Optional
+from .utils import CONVERT_METHODS, REGISTERS_BASE, allowed_operations
 from boneio.const import (
     ADDRESS,
     BASE,
@@ -21,87 +20,10 @@ from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
-from boneio.modbus import Modbus
+from .client import Modbus
+from boneio.helper.util import open_json
 
 _LOGGER = logging.getLogger(__name__)
-
-allowed_operations = {"multiply": lambda x, y: x * y}
-
-
-def float32(result, base, addr):
-    """Read Float value from register."""
-    low = result.getRegister(addr - base)
-    high = result.getRegister(addr - base + 1)
-    data = bytearray(4)
-    data[0] = high & 0xFF
-    data[1] = high >> 8
-    data[2] = low & 0xFF
-    data[3] = low >> 8
-    val = unpack("f", bytes(data))
-    return val[0]
-
-
-def floatsofar(result, base, addr):
-    """Read Float value from register."""
-    low = result.getRegister(addr - base)
-    high = result.getRegister(addr - base + 1)
-    return high + low
-
-
-def multiply0_1(result, base, addr):
-    low = result.getRegister(addr - base)
-    return round(low * 0.1, 4)
-
-
-def multiply0_01(result, base, addr):
-    low = result.getRegister(addr - base)
-    return round(low * 0.01, 4)
-
-
-def multiply0_001(result, base, addr):
-    low = result.getRegister(addr - base)
-    return round(low * 0.001, 4)
-
-
-def multiply10(result, base, addr):
-    low = result.getRegister(addr - base)
-    return round(low * 10, 4)
-
-
-def multiply100(result, base, addr):
-    low = result.getRegister(addr - base)
-    return round(low * 100, 4)
-
-
-def multiply1000(result, base, addr):
-    low = result.getRegister(addr - base)
-    return round(low * 1000, 4)
-
-
-def regular_result(result, base, addr):
-    return result.getRegister(addr - base)
-
-
-CONVERT_METHODS = {
-    "float32": float32,
-    "multiply0_1": multiply0_1,
-    "multiply0_01": multiply0_01,
-    "multiply0_001": multiply0_001,
-    "floatsofar": floatsofar,
-    "multiply10": multiply10,
-    "multiply100": multiply100,
-    "multiply1000": multiply1000,
-    "regular": regular_result,
-}
-REGISTERS_BASE = "registers_base"
-
-
-def open_json(model: str) -> dict:
-    """Open json file."""
-    file = f"{os.path.join(os.path.dirname(__file__))}/{model}.json"
-    with open(file, "r") as db_file:
-        datastore = json.load(db_file)
-        return datastore
 
 
 class ModbusSensor(BasicMqtt, AsyncUpdater):
@@ -129,7 +51,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
         )
         self._config_helper = config_helper
         self._modbus = modbus
-        self._db = open_json(model=model)
+        self._db = open_json(path=os.path.dirname(__file__), model=model)
         self._model = self._db[MODEL]
         self._address = address
         self._discovery_sent = False
@@ -164,7 +86,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
         )
         self._send_message(topic=topic, payload=payload)
 
-    def _send_discovery_for_all_registers(self, register: int = 0) -> datetime:
+    def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
         for data in self._db[REGISTERS_BASE]:
             for register in data[REGISTERS]:
@@ -207,7 +129,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                 )
                 if register is not None:
                     self._discovery_sent = (
-                        self._send_discovery_for_all_registers(register)
+                        self._send_discovery_for_all_registers()
                     )
                     await asyncio.sleep(2)
                     break
@@ -243,10 +165,10 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self._send_message(
-                        topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
+                        topic=f"{self._config_helper.topic_prefix}/{self._id}aa",
                         payload=self._payload_online,
                     )
-                _LOGGER.warn(
+                _LOGGER.warning(
                     "Can't fetch data from modbus device %s. Will sleep for %s seconds",
                     self.id,
                     update_interval,

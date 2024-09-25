@@ -1,20 +1,28 @@
 """Bonecli script."""
+
 from __future__ import annotations
+
+import os
+
+os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
+
 import argparse
 import asyncio
 import logging
 import sys
-import os
-from typing import Any
-
-os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
-
 from colorlog import ColoredFormatter
 from yaml import MarkedYAMLError
 
+from boneio.modbus.modbuscli import async_run_modbus_set, async_run_modbus_get
+from boneio.modbus.client import VALUE_TYPES
+
+
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
-from boneio.helper.exceptions import ConfigurationException, RestartRequestException
+from boneio.helper.exceptions import (
+    ConfigurationException,
+    RestartRequestException,
+)
 from boneio.helper.events import GracefulExit
 from boneio.helper.logger import configure_logger
 from boneio.runner import async_run
@@ -49,30 +57,107 @@ def get_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="boneIO app for BeagleBone Black.",
     )
-    parser.add_argument(ACTION, type=str, default="run")
-    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
+        "--debug",
+        "-d",
+        action="count",
+        help="Start boneIO in debug mode",
+        default=0,
+    )
+    subparsers = parser.add_subparsers(dest=ACTION, required=True)
+    run_parser = subparsers.add_parser("run")
+    run_parser.add_argument(
         "-c",
         "--config",
         metavar="path_to_config_dir",
         default="./config.yaml",
         help="File which contains boneIO configuration",
     )
-    parser.add_argument(
-        "--debug", "-d", action="count", help="Start boneIO in debug mode", default=0
+    run_parser.add_argument(
+        "--mqttusername",
+        help="Mqtt username to use if you don't want provide in file.",
     )
-    parser.add_argument(
-        "--mqttusername", help="Mqtt username to use if you don't want provide in file."
+    run_parser.add_argument(
+        "--mqttpassword",
+        help="Mqtt password to use if you don't want provide in file.",
     )
-    parser.add_argument(
-        "--mqttpassword", help="Mqtt password to use if you don't want provide in file."
+    modbus_parser = subparsers.add_parser("modbus")
+    modbus_parser.add_argument(
+        "--uart",
+        type=str,
+        choices=["uart1", "uart4"],
+        help="Choose UART",
+        required=True,
     )
+    modbus_parser.add_argument(
+        "--address",
+        type=lambda x: int(x, 0),
+        required=True,
+        help="Current device address (hex or integer)",
+    )
+    modbus_parser.add_argument(
+        "--baudrate",
+        type=int,
+        choices=[2400, 4800, 9600, 19200],
+        required=True,
+        help="Current baudrate",
+    )
+
+    modbus_sub_parser = modbus_parser.add_subparsers(
+        dest="modbus_action", required=True
+    )
+    set_modbus_parser = modbus_sub_parser.add_parser("set")
+    set_modbus_parser.add_argument(
+        "--device",
+        type=str,
+        choices=["cwt"],
+        help="Choose device to set modbus address/baudrate",
+        required=True,
+    )
+    set_modbus_parser_group = set_modbus_parser.add_mutually_exclusive_group()
+    set_modbus_parser_group.add_argument(
+        "--new-address",
+        type=lambda x: int(x, 0),
+        help="Set new address (hex or integer / 1 - 253/)",
+    )
+
+    set_modbus_parser_group.add_argument(
+        "--new-baudrate",
+        type=int,
+        choices=[2400, 4800, 9600, 19200],
+        help="Choose new baudrate to set",
+    )
+
+    get_modbus_parser = modbus_sub_parser.add_parser("get")
+    get_modbus_parser.add_argument(
+        "--register-address",
+        type=int,
+        help="Register address",
+        required=True,
+    )
+    get_modbus_parser.add_argument(
+        "--register-type",
+        type=str,
+        choices=["input", "holding"],
+        help="Register type",
+        required=True,
+    )
+    get_modbus_parser.add_argument(
+        "--value-type",
+        type=str,
+        choices=VALUE_TYPES.keys(),
+        help="Value types",
+        required=True,
+    )
+    parser.add_argument("--version", action="version", version=__version__)
     arguments = parser.parse_args()
 
     return arguments
 
 
-def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "") -> int:
+def run(
+    config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""
+) -> int:
     """Run BoneIO."""
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
@@ -99,6 +184,45 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
         return 1
 
 
+def run_modbus_command(
+    args: argparse.Namespace,
+) -> int:
+    """Run BoneIO."""
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        configure_logger(log_config={}, debug=args.debug)
+        if args.modbus_action == "set":
+            ret = asyncio.run(
+                async_run_modbus_set(
+                    device=args.device,
+                    uart=args.uart,
+                    address=args.address,
+                    baudrate=args.baudrate,
+                    new_baudrate=args.new_baudrate,
+                    new_address=args.new_address,
+                ),
+            )
+        else:
+            ret = asyncio.run(
+                async_run_modbus_get(
+                    uart=args.uart,
+                    device_address=args.address,
+                    baudrate=args.baudrate,
+                    register_address=args.register_address,
+                    register_type=args.register_type,
+                    value_type=args.value_type,
+                ),
+            )
+        return ret
+    except (RestartRequestException, GracefulExit) as err:
+        if err is not None:
+            _LOGGER.info(err)
+        return 0
+    except (ConfigurationException, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        return 1
+
+
 def main() -> int:
     """Start boneIO."""
 
@@ -113,6 +237,12 @@ def main() -> int:
             mqttpassword=args.mqttpassword,
             debug=debug,
         )
+    elif args.action == "modbus":
+        _LOGGER.info("BoneIO Modbus helper %s .", __version__)
+        exit_code = run_modbus_command(
+            args=args,
+        )
+
     _LOGGER.info("Exiting with exit code %s", exit_code)
     return exit_code
 
