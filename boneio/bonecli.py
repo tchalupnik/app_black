@@ -57,15 +57,15 @@ def get_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="boneIO app for BeagleBone Black.",
     )
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest=ACTION, required=True)
+    run_parser = subparsers.add_parser("run")
+    run_parser.add_argument(
         "--debug",
         "-d",
         action="count",
         help="Start boneIO in debug mode",
         default=0,
     )
-    subparsers = parser.add_subparsers(dest=ACTION, required=True)
-    run_parser = subparsers.add_parser("run")
     run_parser.add_argument(
         "-c",
         "--config",
@@ -82,6 +82,13 @@ def get_arguments() -> argparse.Namespace:
         help="Mqtt password to use if you don't want provide in file.",
     )
     modbus_parser = subparsers.add_parser("modbus")
+    modbus_parser.add_argument(
+        "--debug",
+        "-d",
+        action="count",
+        help="Start boneIO in debug mode",
+        default=0,
+    )
     modbus_parser.add_argument(
         "--uart",
         type=str,
