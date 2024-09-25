@@ -1,4 +1,5 @@
 """State files manager."""
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -38,16 +39,19 @@ class StateManager:
         if attr_type in self._state and attribute in self._state[attr_type]:
             del self._state[attr_type][attribute]
 
-    def save_attribute(self, attr_type: str, attribute: str, value: str) -> None:
+    def save_attribute(
+        self, attr_type: str, attribute: str, value: str
+    ) -> None:
         """Save single attribute to file."""
         if attr_type not in self._state:
             self._state[attr_type] = {}
         self._state[attr_type][attribute] = value
         if self._save_attributes_callback is not None:
-            print(self._save_attributes_callback)
             self._save_attributes_callback.cancel()
             self._save_attributes_callback = None
-        self._save_attributes_callback = self._loop.call_later(1, lambda: self._loop.create_task(self.save_state()))
+        self._save_attributes_callback = self._loop.call_later(
+            1, lambda: self._loop.create_task(self.save_state())
+        )
 
     def get(self, attr_type: str, attr: str, default_value: Any = None) -> Any:
         """Retrieve attribute from json."""
@@ -60,7 +64,7 @@ class StateManager:
     def state(self) -> dict:
         """Retrieve all states."""
         return self._state
-    
+
     def _save_state(self) -> None:
         with open(self._file, "w+", encoding="utf-8") as f:
             json.dump(self._state, f, indent=2)
