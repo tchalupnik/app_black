@@ -53,7 +53,7 @@ class ModbusHelper:
             f"Checking connection {self._device_address}, address {address}."
         )
         count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
-        value = await self._modbus.read_multiple_registers(
+        value = await self._modbus.read_registers(
             unit=self._device_address,
             address=address,
             count=count,
@@ -180,7 +180,7 @@ async def async_run_modbus_get(
         parity=parity,
     )
     count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
-    value = await _modbus.read_multiple_registers(
+    value = await _modbus.read_registers(
         unit=device_address,
         address=register_address,
         count=count,

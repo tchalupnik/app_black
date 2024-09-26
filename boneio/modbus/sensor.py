@@ -122,10 +122,13 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
             register_method = first_register_base.get("register_type", "input")
             # Let's try fetch register 2 times in case something wrong with initial packet.
             for _ in [0, 1]:
-                register = await self._modbus.read_single_register(
+                register = await self._modbus.read_and_decode(
                     unit=self._address,
                     address=first_register_base[REGISTERS][0][ADDRESS],
                     method=register_method,
+                    payload_type=first_register_base[REGISTERS][0].get(
+                        "value_type", "FP32"
+                    ),
                 )
                 if register is not None:
                     self._discovery_sent = (
@@ -144,7 +147,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
         for data in self._db[REGISTERS_BASE]:
-            values = await self._modbus.read_multiple_registers(
+            values = await self._modbus.read_registers(
                 unit=self._address,
                 address=data[BASE],
                 count=data[LENGTH],
