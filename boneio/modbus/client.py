@@ -109,7 +109,7 @@ class Modbus:
         count: int = 2,
         method: str = "input",
     ) -> float | None:
-        """Call sync. pymodbus."""
+        """Call read_registers and decode."""
         result = await self.read_registers(
             unit=unit, address=address, count=count, method=method
         )
@@ -127,7 +127,7 @@ class Modbus:
         count: int = 2,  # number of registers to read
         method: str = "input",  # type of register: input, holding
     ) -> ModbusResponse:
-        """Call sync. pymodbus."""
+        """Call async pymodbus."""
         async with self._lock:
             if not self._pymodbus_connect():
                 _LOGGER.error("Can't connect to Modbus.")
@@ -136,7 +136,7 @@ class Modbus:
             try:
                 read_method = self._read_methods[method]
                 _LOGGER.debug(
-                    "Multiple reading %s registers from %s with method %s from device %s.",
+                    "Reading %s registers from %s with method %s from device %s.",
                     count,
                     address,
                     method,
