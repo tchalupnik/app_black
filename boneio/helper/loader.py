@@ -15,7 +15,6 @@ from boneio.const import (
     DEVICE_CLASS,
     FILTERS,
     GPIO,
-    PCA,
     ID,
     INIT_SLEEP,
     INPUT,
@@ -135,6 +134,8 @@ def create_temp_sensor(
     else:
         return
     name = config.get(ID)
+    if not name:
+        return
     id = name.replace(" ", "")
     try:
         temp_sensor = TempSensor(

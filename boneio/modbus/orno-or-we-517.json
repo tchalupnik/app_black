@@ -1,20 +1,36 @@
 {
-    "model": "orno-or-we-517",
-    "registers_base": [
+  "model": "orno-or-we-517",
+  "registers_base": [
+    {
+      "base": 14,
+      "length": 6,
+      "register_type": "holding",
+      "registers": [
         {
-            "base": 14,
-            "length": 4,
-	    "register_type": "holding",
-	    "registers": [
-                {
-                    "name": "Napiecie_L1",
-                    "address": 14,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "return_type": "float32"
-                }
-            ]
+          "name": "Voltage_L1",
+          "address": 14,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Voltage_L2",
+          "address": 16,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Voltage_L3",
+          "address": 18,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
         }
-    ]
+      ]
+    }
+  ]
 }

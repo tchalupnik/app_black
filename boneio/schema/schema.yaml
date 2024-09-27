@@ -432,6 +432,12 @@ output_group:
         required: True
         meta:
           label: List of outputs.
+      all_on_behaviour:
+        type: boolean
+        required: True
+        default: False
+        meta:
+          label: Behaviour if set true toggle when all outputs are on, otherwise if any is on then group is on.
       output_type:
         type: string
         required: True

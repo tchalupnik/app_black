@@ -299,7 +299,7 @@ class Manager:
                 if x in self._output:
                     output = self._output[x]
                     if output.output_type == COVER:
-                        _LOGGER.warn("You can't add cover output to group.")
+                        _LOGGER.warning("You can't add cover output to group.")
                     else:
                         outputs.append(output)
             return outputs

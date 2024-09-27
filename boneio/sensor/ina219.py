@@ -1,4 +1,5 @@
 """INA219 Black sensor."""
+
 from __future__ import annotations
 from datetime import datetime
 import logging
@@ -10,24 +11,24 @@ from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 
 _LOGGER = logging.getLogger(__name__)
 
-unit_converter = {
-    "current": "A",
-    "power": "W",
-    "voltage": "V"
-}
+unit_converter = {"current": "A", "power": "W", "voltage": "V"}
 
 
 class INA219Sensor(BasicMqtt, Filter):
     """Represent singel value from INA219 as sensor."""
 
-    def __init__(self, device_class: str, filters: list, state: float | None, **kwargs) -> None:
+    def __init__(
+        self, device_class: str, filters: list, state: float | None, **kwargs
+    ) -> None:
         super().__init__(topic_type=SENSOR, **kwargs)
         self._unit_of_measurement = unit_converter[device_class]
         self._device_class = device_class
         self._filters = filters
         self._raw_state = state
         self._state = (
-            self._apply_filters(value=self._raw_state) if self._raw_state else None
+            self._apply_filters(value=self._raw_state)
+            if self._raw_state
+            else None
         )
 
     @property
@@ -41,18 +42,22 @@ class INA219Sensor(BasicMqtt, Filter):
     @property
     def state(self) -> float | None:
         return self._state
-    
+
     @property
     def device_class(self) -> str:
         return self._device_class
-    
+
     @property
     def unit_of_measurement(self) -> str:
         return self._unit_of_measurement
 
     def update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
-        _state = self._apply_filters(value=self._raw_state) if self._raw_state else None
+        _state = (
+            self._apply_filters(value=self._raw_state)
+            if self._raw_state
+            else None
+        )
         if not _state:
             return
         self._state = _state
@@ -65,7 +70,9 @@ class INA219Sensor(BasicMqtt, Filter):
 class INA219(AsyncUpdater, Filter):
     """Represent INA219 sensors."""
 
-    def __init__(self, address: int, id: str, sensors: list[dict] = [], **kwargs) -> None:
+    def __init__(
+        self, address: int, id: str, sensors: list[dict] = [], **kwargs
+    ) -> None:
         """Setup GPIO ADC Sensor"""
         self._loop = asyncio.get_event_loop()
         self._ina_219 = INA219_I2C(address=address)

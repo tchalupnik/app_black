@@ -63,7 +63,7 @@ def get_network_info():
         for addr in addrs:
             if addr.family == socket.AF_INET:
                 out["ip"] = addr.address
-                out["mask"] = addr.netmask
+                out["mask"] = addr.netmask if addr.netmask is not None else ""
             elif addr.family == psutil.AF_LINK:
                 out["mac"] = addr.address
         return out
@@ -139,7 +139,9 @@ class HostSensor(AsyncUpdater):
 
     async def async_update(self, time: datetime) -> None:
         self._state = self._update_function()
-        self._loop.call_soon_threadsafe(partial(self._manager_callback, self._type))
+        self._loop.call_soon_threadsafe(
+            partial(self._manager_callback, self._type)
+        )
 
     @property
     def state(self) -> dict:
@@ -155,7 +157,7 @@ class HostData:
         self,
         output: dict,
         callback: Callable,
-        temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
+        temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
         ina219: INA219Class | None,
         manager: Manager,
         enabled_screens: List[str],
@@ -164,27 +166,68 @@ class HostData:
         self._hostname = socket.gethostname()
         self._temp_sensor = temp_sensor
         host_stats = {
-            NETWORK: {"f": get_network_info, "update_interval": TimePeriod(seconds=60)},
+            NETWORK: {
+                "f": get_network_info,
+                "update_interval": TimePeriod(seconds=60),
+            },
             CPU: {"f": get_cpu_info, "update_interval": TimePeriod(seconds=5)},
-            DISK: {"f": get_disk_info, "update_interval": TimePeriod(seconds=60)},
-            MEMORY: {"f": get_memory_info, "update_interval": TimePeriod(seconds=10)},
-            SWAP: {"f": get_swap_info, "update_interval": TimePeriod(seconds=60)},
+            DISK: {
+                "f": get_disk_info,
+                "update_interval": TimePeriod(seconds=60),
+            },
+            MEMORY: {
+                "f": get_memory_info,
+                "update_interval": TimePeriod(seconds=10),
+            },
+            SWAP: {
+                "f": get_swap_info,
+                "update_interval": TimePeriod(seconds=60),
+            },
             UPTIME: {
-                "f": lambda: {
-                    "uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3},
-                    "MQTT": {"data": "CONN" if manager.mqtt_state else "DOWN", "fontSize": "small", "row": 3, "col": 60},
-                    "T": {
-                        "data": f"{self._temp_sensor.state} C",
-                        "fontSize": "small",
-                        "row": 3,
-                        "col": 3
-                    },
-                }
-                if self._temp_sensor
-                else {"uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3}},
+                "f": lambda: (
+                    {
+                        "uptime": {
+                            "data": get_uptime(),
+                            "fontSize": "small",
+                            "row": 2,
+                            "col": 3,
+                        },
+                        "MQTT": {
+                            "data": "CONN" if manager.mqtt_state else "DOWN",
+                            "fontSize": "small",
+                            "row": 3,
+                            "col": 60,
+                        },
+                        "T": {
+                            "data": f"{self._temp_sensor.state} C",
+                            "fontSize": "small",
+                            "row": 3,
+                            "col": 3,
+                        },
+                    }
+                    if self._temp_sensor
+                    else {
+                        "uptime": {
+                            "data": get_uptime(),
+                            "fontSize": "small",
+                            "row": 2,
+                            "col": 3,
+                        }
+                    }
+                ),
                 "static": {
-                    HOST: {"data": self._hostname, "fontSize": "small", "row": 0, "col": 3},
-                    "ver": {"data": __version__, "fontSize": "small", "row": 1, "col": 3},
+                    HOST: {
+                        "data": self._hostname,
+                        "fontSize": "small",
+                        "row": 0,
+                        "col": 3,
+                    },
+                    "ver": {
+                        "data": __version__,
+                        "fontSize": "small",
+                        "row": 1,
+                        "col": 3,
+                    },
                 },
                 "update_interval": TimePeriod(seconds=30),
             },
@@ -192,9 +235,12 @@ class HostData:
         if ina219 is not None:
             host_stats[INA219] = {
                 "f": lambda: {
-                    *{sensor.device_class: sensor.state for sensor in ina219.sensors}
+                    *{
+                        sensor.device_class: sensor.state
+                        for sensor in ina219.sensors.values()
+                    }
                 },
-                "update_interval": TimePeriod(seconds=60)
+                "update_interval": TimePeriod(seconds=60),
             }
         self._data = {}
         for k, _v in host_stats.items():

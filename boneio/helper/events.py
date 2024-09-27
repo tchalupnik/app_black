@@ -4,7 +4,7 @@ import logging
 import signal
 import time
 from datetime import datetime
-from typing import Any, Coroutine, List, Optional, Callable, Optional
+from typing import Any, Coroutine, List, Optional, Callable
 
 
 from boneio.helper.util import callback
@@ -85,7 +85,9 @@ class EventBus:
         self._output_listeners = {}
         self._sigterm_listeners = []
         self._haonline_listeners = []
-        self._timer_handle = _async_create_timer(self._loop, self._run_second_event)
+        self._timer_handle = _async_create_timer(
+            self._loop, self._run_second_event
+        )
         for signame in {"SIGINT", "SIGTERM"}:
             self._loop.add_signal_handler(
                 getattr(signal, signame),
@@ -121,17 +123,19 @@ class EventBus:
         """Add sigterm listener."""
         self._sigterm_listeners.append(target)
 
-    def add_output_listener(self, name, target):
+    def add_output_listener(self, output_id, group_id, target):
         """Add output listener."""
-        self._output_listeners[name] = ListenerJob(target=target)
-        return self._output_listeners[name]
-    
+        if output_id not in self._output_listeners:
+            self._output_listeners[output_id] = {}
+        self._output_listeners[output_id][group_id] = ListenerJob(target=target)
+        return self._output_listeners[output_id]
+
     def trigger_output_event(self, event):
         asyncio.create_task(self.async_trigger_output_event(event=event))
-    
+
     async def async_trigger_output_event(self, event):
-        listener = self._output_listeners.get(event)
-        if listener:
+        listeners = self._output_listeners.get(event, {})
+        for listener in listeners.values():
             await listener.target(event)
 
     def add_haonline_listener(self, target):
