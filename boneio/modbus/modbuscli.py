@@ -78,7 +78,7 @@ class ModbusHelper:
 
     def set_connection_speed(self, new_baudrate: int) -> int:
         baudrate_model = self._model[SET_BAUDRATE]
-        ind = baudrate_model["possible_baudrates"].index(new_baudrate)
+        ind = baudrate_model["possible_baudrates"].get(str(new_baudrate))
         if ind:
             result = self._modbus.client.write_register(
                 address=baudrate_model["address"],
@@ -110,6 +110,19 @@ class ModbusHelper:
         else:
             _LOGGER.error("Invalid new address.")
 
+    def set_custom_command(self, register_address: int, value: int | float):
+        result = self._modbus.client.write_register(
+            address=register_address,
+            value=value,
+            unit=self._device_address,
+        )
+        if result.isError():
+            _LOGGER.error("Operation failed.")
+        else:
+            _LOGGER.info(
+                "Operation succeeded. Now restart device by disconnecting it."
+            )
+
 
 async def async_run_modbus_set(
     device: str,
@@ -118,6 +131,8 @@ async def async_run_modbus_set(
     baudrate: int,
     new_baudrate: int,
     new_address: int,
+    custom_address: int,
+    custom_value: int,
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
@@ -125,15 +140,21 @@ async def async_run_modbus_set(
     """Run Modbus Set Function."""
     if new_address and new_baudrate:
         _LOGGER.error("Can't set both methods new_address and new_baudrate.")
-    _db = open_json(path=os.path.dirname(__file__), model=device)
-    set_base = _db.get(SET_BASE, {})
-    first_reg_base = _db.get(REGISTERS_BASE, [])[0]
-    if not first_reg_base:
-        return False
-    first_record = first_reg_base.get(REGISTERS, [])[0]
-    _LOGGER.debug(
-        f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
-    )
+    custom_cmd = True if device == "custom" else False
+    set_base = {}
+    if not custom_cmd:
+        _db = open_json(path=os.path.dirname(__file__), model=device)
+        set_base = _db.get(SET_BASE, {})
+        first_reg_base = _db.get(REGISTERS_BASE, [])[0]
+        if not first_reg_base:
+            return False
+        first_record = first_reg_base.get(REGISTERS, [])[0]
+        _LOGGER.debug(
+            f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+        )
+    else:
+        first_record = {}
+        first_reg_base = {}
     modbus_helper = ModbusHelper(
         device=device,
         uart=uart,
@@ -146,15 +167,67 @@ async def async_run_modbus_set(
         bytesize=bytesize,
         parity=parity,
     )
-    if not await modbus_helper.check_connection():
-        _LOGGER.error("Can't connect with sensor. Exiting")
-        return 1
-    if new_baudrate:
-        return modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
-    if new_address:
-        modbus_helper.set_new_address(new_address=new_address)
-        return 0
+
+    async def default_action():
+        if not await modbus_helper.check_connection():
+            _LOGGER.error("Can't connect with sensor. Exiting")
+            return 1
+        if new_baudrate:
+            return modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
+        if new_address:
+            modbus_helper.set_new_address(new_address=new_address)
+            return 0
+
+    if not custom_cmd:
+        _LOGGER.debug("Invoking default action.")
+        return await default_action()
+    elif custom_address is not None and custom_value is not None:
+        _LOGGER.debug("Invoking custom command action.")
+        modbus_helper.set_custom_command(
+            register_address=custom_address, value=custom_value
+        )
     return 1
+
+
+async def async_run_modbus_search(
+    uart: str,
+    baudrate: int,
+    register_address: int,
+    register_type: str = "holding",
+    stopbits: int = 1,
+    bytesize: int = 8,
+    parity: str = "N",
+):
+    """Run Modbus Seach Function."""
+    _modbus = Modbus(
+        uart=UARTS[uart],
+        baudrate=baudrate,
+        stopbits=stopbits,
+        bytesize=bytesize,
+        parity=parity,
+        timeout=0.1,
+    )
+    units_found = []
+    for unit_id in range(1, 248):  # Modbus RTU address range is 1 to 247
+        _LOGGER.debug(f"Searching device at address {unit_id}.")
+        value = await _modbus.read_registers(
+            unit=unit_id,
+            address=register_address,
+            count=2,
+            method=register_type,
+        )
+        if value:
+            units_found.append(unit_id)
+            _LOGGER.info(f"Found device at address {unit_id}.")
+        else:
+            _LOGGER.debug(f"No device found at address {unit_id}.")
+    if units_found:
+        _LOGGER.info(
+            "Found devices: [%s]", ", ".join(str(x) for x in units_found)
+        )
+    else:
+        _LOGGER.info("No devices found.")
+    return 0
 
 
 async def async_run_modbus_get(

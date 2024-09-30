@@ -43,6 +43,7 @@ class Modbus:
         stopbits: int = 1,
         bytesize: int = 8,
         parity: str = "N",
+        timeout: float = 3,
     ) -> None:
         """Initialize the Modbus hub."""
         rx = uart.get(RX)
@@ -68,6 +69,7 @@ class Modbus:
                 stopbits=stopbits,
                 bytesize=bytesize,
                 parity=parity,
+                timeout=timeout,
             )
             self._read_methods = {
                 "input": self._client.read_input_registers,

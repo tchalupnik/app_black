@@ -13,7 +13,11 @@ import sys
 from colorlog import ColoredFormatter
 from yaml import MarkedYAMLError
 
-from boneio.modbus.modbuscli import async_run_modbus_set, async_run_modbus_get
+from boneio.modbus.modbuscli import (
+    async_run_modbus_set,
+    async_run_modbus_get,
+    async_run_modbus_search,
+)
 from boneio.modbus.client import VALUE_TYPES
 
 
@@ -99,13 +103,14 @@ def get_arguments() -> argparse.Namespace:
     modbus_parser.add_argument(
         "--address",
         type=lambda x: int(x, 0),
-        required=True,
+        required=False,
+        default=1,
         help="Current device address (hex or integer)",
     )
     modbus_parser.add_argument(
         "--baudrate",
         type=int,
-        choices=[2400, 4800, 9600, 19200],
+        choices=[2400, 4800, 9600, 14400, 19200],
         required=True,
         help="Current baudrate",
     )
@@ -140,10 +145,20 @@ def get_arguments() -> argparse.Namespace:
     )
     set_modbus_parser = modbus_sub_parser.add_parser("set")
     set_modbus_parser.add_argument(
+        "--custom-value",
+        type=int,
+        help="Set Custom value",
+    )
+    set_modbus_parser.add_argument(
+        "--custom-register-address",
+        type=int,
+        help="Register address for custom value",
+    )
+    set_modbus_parser.add_argument(
         "--device",
         type=str,
-        choices=["cwt", "r4dcb08"],
-        help="Choose device to set modbus address/baudrate",
+        choices=["cwt", "r4dcb08", "liquid-sensor", "sht20", "custom"],
+        help="Choose device to set modbus address/baudrate. For custom you must provide --custom-value and --custom-register-address",
         required=True,
     )
     set_modbus_parser_group = set_modbus_parser.add_mutually_exclusive_group()
@@ -182,6 +197,23 @@ def get_arguments() -> argparse.Namespace:
         required=True,
     )
     parser.add_argument("--version", action="version", version=__version__)
+    search_modbus_parser = modbus_sub_parser.add_parser(
+        name="search",
+        help="Search for device. Iterate over every address 1-253 with provided register address",
+    )
+    search_modbus_parser.add_argument(
+        "--register-address",
+        type=int,
+        help="Register address",
+        required=True,
+    )
+    search_modbus_parser.add_argument(
+        "--register-type",
+        type=str,
+        choices=["input", "holding"],
+        help="Register type",
+        required=True,
+    )
     arguments = parser.parse_args()
 
     return arguments
@@ -223,6 +255,7 @@ def run_modbus_command(
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         configure_logger(log_config={}, debug=args.debug)
+        ret = 0
         if args.modbus_action == "set":
             ret = asyncio.run(
                 async_run_modbus_set(
@@ -235,9 +268,11 @@ def run_modbus_command(
                     stopbits=args.stopbits,
                     new_baudrate=args.new_baudrate,
                     new_address=args.new_address,
+                    custom_address=args.custom_register_address,
+                    custom_value=args.custom_value,
                 ),
             )
-        else:
+        elif args.modbus_action == "get":
             ret = asyncio.run(
                 async_run_modbus_get(
                     uart=args.uart,
@@ -249,6 +284,18 @@ def run_modbus_command(
                     bytesize=args.bytesize,
                     stopbits=args.stopbits,
                     value_type=args.value_type,
+                ),
+            )
+        else:
+            ret = asyncio.run(
+                async_run_modbus_search(
+                    uart=args.uart,
+                    baudrate=args.baudrate,
+                    register_address=args.register_address,
+                    register_type=args.register_type,
+                    parity=args.parity,
+                    bytesize=args.bytesize,
+                    stopbits=args.stopbits,
                 ),
             )
         return ret
@@ -281,7 +328,10 @@ def main() -> int:
             args=args,
         )
 
-    _LOGGER.info("Exiting with exit code %s", exit_code)
+    if exit_code == 0:
+        _LOGGER.info("Exiting with exit code %s", exit_code)
+    else:
+        _LOGGER.error("Exiting with exit code %s", exit_code)
     return exit_code
 
 

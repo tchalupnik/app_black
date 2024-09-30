@@ -4,7 +4,13 @@
     "set_address_address": 254,
     "set_baudrate": {
       "address": 255,
-      "possible_baudrates": [1200, 2400, 4800, 9600, 19200]
+      "possible_baudrates": {
+        "1200": 0,
+        "2400": 1,
+        "4800": 2,
+        "9600": 3,
+        "19200": 4
+      }
     }
   },
   "registers_base": [
