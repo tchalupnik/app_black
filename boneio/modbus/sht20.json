@@ -10,7 +10,7 @@
   "registers_base": [
     {
       "base": 1,
-      "length": 4,
+      "length": 2,
       "register_type": "input",
       "registers": [
         {

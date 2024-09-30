@@ -19,8 +19,9 @@ FILTERS = {
 class Filter:
     _filters = []
 
-    def _apply_filters(self, value: float) -> float | None:
-        for filter in self._filters:
+    def _apply_filters(self, value: float, filters: list = []) -> float | None:
+        filters = filters if filters else self._filters
+        for filter in filters:
             for k, v in filter.items():
                 if k not in FILTERS:
                     _LOGGER.warning(

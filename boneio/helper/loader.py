@@ -211,6 +211,7 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
                 update_interval=sensor.get(
                     UPDATE_INTERVAL, TimePeriod(seconds=60)
                 ),
+                sensors_filters=sensor.get("sensors_filters", {}),
                 **kwargs,
             )
         except FileNotFoundError as err:

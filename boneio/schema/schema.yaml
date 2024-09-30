@@ -170,6 +170,14 @@ modbus_sensors:
         default: 30s
         meta:
           label: Update interval.
+      sensors_filters:
+        type: dict
+        required: False
+        meta:
+          label: List of sub sensors to use to filter. Available values are temperature or humidity.
+        schema:
+          temperature: !include filters.yaml
+          humidity: !include filters.yaml
 lm75:
   type: list
   required: False

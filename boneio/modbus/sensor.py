@@ -4,6 +4,8 @@ import logging
 import os
 from datetime import datetime
 from typing import Optional
+
+from boneio.helper.filter import Filter
 from .utils import CONVERT_METHODS, REGISTERS_BASE, allowed_operations
 from boneio.const import (
     ADDRESS,
@@ -26,7 +28,7 @@ from boneio.helper.util import open_json
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusSensor(BasicMqtt, AsyncUpdater):
+class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus sensor in BoneIO."""
 
     SensorClass = None
@@ -37,6 +39,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
         modbus: Modbus,
         address: str,
         model: str,
+        sensors_filters: dict,
         config_helper: ConfigHelper,
         event_bus: EventBus,
         id: str = DefaultName,
@@ -56,6 +59,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
         self._address = address
         self._discovery_sent = False
         self._payload_online = OFFLINE
+        self._sensors_filters = {
+            k.lower(): v for k, v in sensors_filters.items()
+        }
         event_bus.add_haonline_listener(target=self.set_payload_offline)
         AsyncUpdater.__init__(self, **kwargs)
 
@@ -154,7 +160,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                 method=data.get("register_type", "input"),
             )
             if self._payload_online == OFFLINE and values:
-                _LOGGER.info("Sending online payload about device.")
+                _LOGGER.info(
+                    "Sending online payload about device %s.", self._name
+                )
                 self._payload_online = ONLINE
                 self._send_message(
                     topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
@@ -204,6 +212,12 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                         if key in allowed_operations:
                             lamda_function = allowed_operations[key]
                             decoded_value = lamda_function(decoded_value, value)
+                name = register.get("name").replace(" ", "")
+                user_filters = self._sensors_filters.get(name.lower(), [])
+                decoded_value = self._apply_filters(
+                    value=decoded_value,
+                    filters=user_filters,
+                )
                 output[register.get("name").replace(" ", "")] = decoded_value
             self._send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
