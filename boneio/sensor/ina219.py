@@ -15,7 +15,7 @@ unit_converter = {"current": "A", "power": "W", "voltage": "V"}
 
 
 class INA219Sensor(BasicMqtt, Filter):
-    """Represent singel value from INA219 as sensor."""
+    """Represent single value from INA219 as sensor."""
 
     def __init__(
         self, device_class: str, filters: list, state: float | None, **kwargs
@@ -52,7 +52,7 @@ class INA219Sensor(BasicMqtt, Filter):
         return self._unit_of_measurement
 
     def update(self, time: datetime) -> None:
-        """Fetch temperature periodically and send to MQTT."""
+        """Fetch sensor data periodically and send to MQTT."""
         _state = (
             self._apply_filters(value=self._raw_state)
             if self._raw_state
@@ -111,4 +111,4 @@ class INA219(AsyncUpdater, Filter):
         for k, sensor in self._sensors.items():
             if sensor.raw_state != self._states[k]:
                 sensor.raw_state = self._states[k]
-                self._loop.call_soon(sensor.update, time)
+                self._loop.call_soon_threadsafe(sensor.update, time)
