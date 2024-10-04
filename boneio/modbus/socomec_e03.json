@@ -1,5 +1,5 @@
 {
-  "model": "Socomec E23/E24",
+  "model": "Socomec E03",
   "registers_base": [
     {
       "base": 50520,
@@ -16,62 +16,17 @@
           "filters": [{ "multiply": 0.01 }]
         },
         {
-          "name": "Voltage_Phase2",
-          "address": 50522,
-          "unit_of_measurement": "V",
-          "state_class": "measurement",
-          "device_class": "voltage",
-          "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }]
-        },
-        {
-          "name": "Voltage_Phase3",
-          "address": 50524,
-          "unit_of_measurement": "V",
-          "state_class": "measurement",
-          "device_class": "voltage",
-          "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }]
-        },
-        {
           "name": "Frequency",
           "address": 50526,
           "unit_of_measurement": "Hz",
           "state_class": "measurement",
           "device_class": "voltage",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.01 }]
         },
         {
-          "name": "Current_Phase1",
+          "name": "Current",
           "address": 50528,
-          "unit_of_measurement": "A",
-          "state_class": "measurement",
-          "device_class": "current",
-          "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
-        },
-        {
-          "name": "Current_Phase2",
-          "address": 50530,
-          "unit_of_measurement": "A",
-          "state_class": "measurement",
-          "device_class": "current",
-          "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
-        },
-        {
-          "name": "Current_Phase3",
-          "address": 50532,
-          "unit_of_measurement": "A",
-          "state_class": "measurement",
-          "device_class": "current",
-          "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
-        },
-        {
-          "name": "Current_In",
-          "address": 50534,
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
@@ -111,28 +66,12 @@
           "filters": [{ "multiply": 0.001 }]
         },
         {
-          "name": "Active_Power_Phase1",
+          "name": "Active_Power_Phase",
           "address": 50544,
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 10 }]
-        },
-        {
-          "name": "Active_Power_Phase2",
-          "address": 50546,
-          "unit_of_measurement": "W",
-          "state_class": "measurement",
-          "value_type": "S_DWORD",
-          "filters": [{ "multiply": 10 }]
-        },
-        {
-          "name": "Active_Power_Phase3",
-          "address": 50548,
-          "unit_of_measurement": "W",
-          "state_class": "measurement",
-          "value_type": "S_DWORD",
-          "filters": [{ "multiply": 10 }]
+          "filters": [{ "multiply": 0.001 }]
         }
       ]
     },

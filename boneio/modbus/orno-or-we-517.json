@@ -29,6 +29,14 @@
           "state_class": "measurement",
           "device_class": "voltage",
           "value_type": "FP32"
+        },
+        {
+          "name": "Grid Frequency",
+          "address": 18,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
         }
       ]
     }

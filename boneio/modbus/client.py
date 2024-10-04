@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import struct
+import time
 from typing import Any
 
 from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
@@ -131,6 +132,7 @@ class Modbus:
     ) -> ModbusResponse:
         """Call async pymodbus."""
         async with self._lock:
+            start_time = time.perf_counter()
             if not self._pymodbus_connect():
                 _LOGGER.error("Can't connect to Modbus.")
                 return None
@@ -153,6 +155,11 @@ class Modbus:
             if not hasattr(result, REGISTERS):
                 _LOGGER.error(str(result))
                 return None
+            end_time = time.perf_counter()
+            _LOGGER.debug(
+                "Time of execution of read_registers: %s ms.",
+                round((end_time - start_time) * 1000, 3),
+            )
             return result
 
     def decode_value(self, payload, value_type):
