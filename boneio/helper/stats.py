@@ -233,13 +233,15 @@ class HostData:
             },
         }
         if ina219 is not None:
+
+            def get_ina_values():
+                return {
+                    sensor.device_class: f"{sensor.state} {sensor.unit_of_measurement}"
+                    for sensor in ina219.sensors.values()
+                }
+
             host_stats[INA219] = {
-                "f": lambda: {
-                    *{
-                        sensor.device_class: sensor.state
-                        for sensor in ina219.sensors.values()
-                    }
-                },
+                "f": get_ina_values,
                 "update_interval": TimePeriod(seconds=60),
             }
         self._data = {}

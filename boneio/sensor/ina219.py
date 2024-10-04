@@ -67,7 +67,7 @@ class INA219Sensor(BasicMqtt, Filter):
         )
 
 
-class INA219(AsyncUpdater, Filter):
+class INA219(AsyncUpdater):
     """Represent INA219 sensors."""
 
     def __init__(
@@ -77,16 +77,14 @@ class INA219(AsyncUpdater, Filter):
         self._loop = asyncio.get_event_loop()
         self._ina_219 = INA219_I2C(address=address)
         self._sensors = {}
-        self._states = {}
         self._id = id
         for sensor in sensors:
             _name = sensor["id"]
             _id = f"{id}{_name.replace(' ', '')}"
-            self._states[sensor["device_class"]] = None
             self._sensors[sensor["device_class"]] = INA219Sensor(
                 device_class=sensor["device_class"],
                 filters=sensor.get("filters", []),
-                state=self._states[sensor["device_class"]],
+                state=None,
                 name=_name,
                 id=_id,
                 **kwargs,
@@ -104,11 +102,9 @@ class INA219(AsyncUpdater, Filter):
 
     async def async_update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
-        for k in self._states.keys():
-            value = getattr(self._ina_219, k)
-            self._states[k] = value
-            _LOGGER.debug("Read %s with value: %s", k, value)
         for k, sensor in self._sensors.items():
-            if sensor.raw_state != self._states[k]:
-                sensor.raw_state = self._states[k]
-                self._loop.call_soon_threadsafe(sensor.update, time)
+            value = getattr(self._ina_219, k)
+            _LOGGER.debug("Fetched INA219 value: %s %s", k, value)
+            if sensor.raw_state != value:
+                sensor.raw_state = value
+                sensor.update(time=time)
