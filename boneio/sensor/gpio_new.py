@@ -8,7 +8,6 @@ from boneio.helper.gpio import add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
 
-soc
 class GpioInputBinarySensorNew(GpioBaseClass):
     """Represent Gpio sensor on input boards."""
 

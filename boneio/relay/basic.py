@@ -92,7 +92,7 @@ class BasicRelay(BasicMqtt):
     @callback
     def _momentary_callback(self, time, action):
         _LOGGER.info("Momentary callback at %s", time)
-        action()
+        action(time=time)
 
     @property
     def is_active(self) -> bool:
@@ -113,27 +113,28 @@ class BasicRelay(BasicMqtt):
         else:
             await self.async_turn_on()
 
-    def turn_on(self) -> None:
+    def turn_on(self, time=None) -> None:
         """Call turn on action."""
         raise NotImplementedError
     
-    def turn_off(self) -> None:
+    def turn_off(self, time=None) -> None:
         """Call turn off action."""
         raise NotImplementedError
 
     def _execute_momentary_turn(self, momentary_type: str) -> None:
         """Execute momentary action."""
         if self._momentary_action:
+            _LOGGER.debug("Cancelling momentary action for %s", self.name)
             self._momentary_action()
-        (action, time) = (
-            (self.turn_on, self._momentary_turn_on)
+        (action, delayed_action) = (
+            (self.turn_off, self._momentary_turn_on)
             if momentary_type == ON
-            else (self.turn_off, self._momentary_turn_off)
+            else (self.turn_on, self._momentary_turn_off)
         )
-        if time:
-            _LOGGER.debug("Applying momentary action for %s in %s", self.name, time.as_timedelta)
+        if delayed_action:
+            _LOGGER.debug("Applying momentary action for %s in %s", self.name, delayed_action.as_timedelta)
             self._momentary_action = async_track_point_in_time(
                 loop=self._loop,
                 action=lambda x: self._momentary_callback(time=x, action=action),
-                point_in_time=utcnow() + time.as_timedelta,
+                point_in_time=utcnow() + delayed_action.as_timedelta,
             )
