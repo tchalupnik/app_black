@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from boneio.helper.filter import Filter
-from .utils import CONVERT_METHODS, REGISTERS_BASE, allowed_operations
+from .utils import CONVERT_METHODS, REGISTERS_BASE
 from boneio.const import (
     ADDRESS,
     BASE,
@@ -17,12 +17,14 @@ from boneio.const import (
     REGISTERS,
     SENSOR,
     STATE,
+    ID,
+    NAME,
 )
 from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
-from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from .client import Modbus
+from .single_sensor import SingleSensor
 from boneio.helper.util import open_json
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,59 +64,52 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         self._sensors_filters = {
             k.lower(): v for k, v in sensors_filters.items()
         }
+        self._modbus_sensors = []
+        for data in self._db[REGISTERS_BASE]:
+            base = data[BASE]
+            for register in data[REGISTERS]:
+                name = register.get("name")
+                self._modbus_sensors.append(
+                    SingleSensor(
+                        name=name,
+                        parent={
+                            NAME: self._name,
+                            ID: self._id,
+                            MODEL: self._model,
+                        },
+                        register_address=register[ADDRESS],
+                        base_address=base,
+                        unit_of_measurement=register.get("unit_of_measurement"),
+                        state_class=register.get("state_class"),
+                        device_class=register.get("device_class"),
+                        value_type=register.get("value_type"),
+                        user_filters=self._sensors_filters.get(
+                            name.replace(" ", "").lower(), []
+                        ),
+                        return_type=register.get("return_type", "regular"),
+                        filters=register.get("filters", []),
+                        send_message=self._send_message,
+                        config_helper=self._config_helper,
+                        ha_filter=register.get("ha_filter", "round(2)"),
+                    ),
+                )
         event_bus.add_haonline_listener(target=self.set_payload_offline)
         AsyncUpdater.__init__(self, **kwargs)
+
+    def get_sensor_by_name(self, name: str) -> Optional[SingleSensor]:
+        """Return sensor by name."""
+        for sensor in self._modbus_sensors:
+            if sensor.decoded_name == name:
+                return sensor
+        return None
 
     def set_payload_offline(self):
         self._payload_online = OFFLINE
 
-    def _send_ha_autodiscovery(
-        self, id: str, sdm_name: str, sensor_id: str, **kwargs
-    ) -> None:
-        """Send HA autodiscovery information for each Modbus sensor."""
-        _LOGGER.debug(
-            "Sending HA discovery for modbus sensor %s %s.", sdm_name, sensor_id
-        )
-        topic = (
-            f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{id}"
-            f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
-        )
-        payload = modbus_sensor_availabilty_message(
-            topic=self._config_helper.topic_prefix,
-            id=id,
-            name=sdm_name,
-            model=self._model,
-            sensor_id=sensor_id,
-            **kwargs,
-        )
-        self._config_helper.add_autodiscovery_msg(
-            topic=topic, payload=payload, ha_type=SENSOR
-        )
-        self._send_message(topic=topic, payload=payload)
-
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
-        for data in self._db[REGISTERS_BASE]:
-            for register in data[REGISTERS]:
-                value_template = (
-                    f'{{{{ value_json.{register.get("name").replace(" ", "")} | '
-                    f'{register.get("ha_filter", "round(2)")} }}}}'
-                )
-                kwargs = {
-                    "unit_of_measurement": register.get("unit_of_measurement"),
-                    "state_class": register.get("state_class"),
-                    "value_template": value_template,
-                    "sensor_id": register.get("name"),
-                }
-                device_class = register.get("device_class")
-                if device_class:
-                    kwargs["device_class"] = device_class
-                self._send_ha_autodiscovery(
-                    id=self._id,
-                    sdm_name=self._name,
-                    state_topic_base=data[BASE],
-                    **kwargs,
-                )
+        for sensor in self._modbus_sensors:
+            sensor.send_ha_discovery()
         return datetime.now()
 
     async def check_availability(self) -> None:
@@ -189,36 +184,24 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
             elif update_interval != self._update_interval.total_in_seconds:
                 update_interval = self._update_interval.total_in_seconds
             output = {}
-            for register in data["registers"]:
-                value_type = register.get("value_type")
-                if value_type:
-                    start_index = register.get("address") - data[BASE]
-                    payload = values.registers[start_index : start_index + 2]
-                    decoded_value = self._modbus.decode_value(
-                        payload, value_type
+            for sensor in self._modbus_sensors:
+                if not sensor.value_type:
+                    # Go with old method. Remove when switch Sofar to new.
+                    decoded_value = CONVERT_METHODS[sensor.return_type](
+                        result=values,
+                        base=sensor.base_address,
+                        addr=sensor.address,
                     )
                 else:
-                    # Go with old method. Remove when switch Sofar to new.
-                    decoded_value = CONVERT_METHODS[
-                        register.get("return_type", "regular")
-                    ](
-                        result=values,
-                        base=data[BASE],
-                        addr=register.get("address"),
+                    start_index = sensor.address - sensor.base_address
+                    payload = values.registers[
+                        start_index : start_index + 2
+                    ]  # fix this in future
+                    decoded_value = self._modbus.decode_value(
+                        payload, sensor.value_type
                     )
-                filters = register.get("filters", [])
-                for filter in filters:
-                    for key, value in filter.items():
-                        if key in allowed_operations:
-                            lamda_function = allowed_operations[key]
-                            decoded_value = lamda_function(decoded_value, value)
-                name = register.get("name").replace(" ", "")
-                user_filters = self._sensors_filters.get(name.lower(), [])
-                decoded_value = self._apply_filters(
-                    value=decoded_value,
-                    filters=user_filters,
-                )
-                output[register.get("name").replace(" ", "")] = decoded_value
+                sensor.set_value(value=decoded_value)
+                output[sensor.decoded_name] = sensor.state
             self._send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
                 payload=output,
