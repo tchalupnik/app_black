@@ -140,13 +140,14 @@ class Manager:
         self._covers = {}
         self._temp_sensors = []
         self._ina219_sensors = []
+        self._modbus_sensors = {}
         self._modbus = None
 
         self._configure_modbus(modbus=modbus)
 
         self._configure_temp_sensors(sensors=sensors)
 
-        self._configure_modbus_sensors(sensors=sensors)
+        self._modbus_sensors = self._configure_modbus_sensors(sensors=sensors)
         self._configure_ina219_sensors(sensors=sensors)
         self._configure_sensors(
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
@@ -261,6 +262,7 @@ class Manager:
             from boneio.oled import Oled
 
             screens = oled.get("screens", [])
+            extra_sensors = oled.get("extra_screen_sensors", [])
 
             self._host_data = HostData(
                 manager=self,
@@ -272,6 +274,7 @@ class Manager:
                 ina219=(
                     self._ina219_sensors[0] if self._ina219_sensors else None
                 ),
+                extra_sensors=extra_sensors,
                 callback=self._host_data_callback,
             )
             try:
@@ -290,6 +293,14 @@ class Manager:
     @property
     def mqtt_state(self) -> bool:
         return self._mqtt_state()
+
+    @property
+    def modbus_sensors(self) -> dict:
+        return self._modbus_sensors
+
+    @property
+    def temp_sensors(self) -> list:
+        return self._temp_sensors
 
     def _configure_output_group(self):
         def get_outputs(output_list):
@@ -547,17 +558,18 @@ class Manager:
                 if ina219:
                     self._ina219_sensors.append(ina219)
 
-    def _configure_modbus_sensors(self, sensors: dict) -> None:
+    def _configure_modbus_sensors(self, sensors: dict) -> dict:
         if sensors.get(MODBUS) and self._modbus:
             from boneio.helper.loader import create_modbus_sensors
 
-            create_modbus_sensors(
+            return create_modbus_sensors(
                 manager=self,
                 event_bus=self._event_bus,
                 sensors=sensors.get(MODBUS),
                 modbus=self._modbus,
                 config_helper=self._config_helper,
             )
+        return {}
 
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established."""

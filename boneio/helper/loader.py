@@ -193,15 +193,16 @@ def create_expander(
     return grouped_outputs
 
 
-def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
+def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> dict:
     """Create Modbus sensor for each device."""
     from boneio.modbus.sensor import ModbusSensor
 
+    modbus_sensors = {}
     for sensor in sensors:
         name = sensor.get(ID)
         id = name.replace(" ", "")
         try:
-            ModbusSensor(
+            modbus_sensors[id.lower()] = ModbusSensor(
                 address=sensor[ADDRESS],
                 id=id,
                 name=name,
@@ -221,6 +222,7 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
                 err,
             )
             pass
+    return modbus_sensors
 
 
 OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")

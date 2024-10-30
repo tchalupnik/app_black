@@ -86,6 +86,7 @@ oled:
           'memory',
           'swap',
           'outputs',
+          'extra_sensors',
         ]
       default:
         - uptime
@@ -96,6 +97,32 @@ oled:
         - memory
         - swap
         - outputs
+    extra_screen_sensors:
+      type: list
+      required: False
+      meta:
+        label: Extra sensors
+      schema:
+        type: dict
+        schema:
+          sensor_type:
+            type: string
+            required: True
+            allowed: ['modbus', 'dallas']
+          modbus_id:
+            type: string
+            required: False
+            coerce:
+              - lower
+              - remove_space
+            meta:
+              label: Only needed if sensor type is modbus.
+          sensor_id:
+            type: string
+            required: True
+            coerce:
+              - lower
+              - remove_space
     screensaver_timeout:
       type:
         - string

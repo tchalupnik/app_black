@@ -1,8 +1,10 @@
 """Class to help initialize classes which uses mqtt send."""
 
-from typing import Callable, Union
+from __future__ import annotations
+
+
+from typing import Callable, Union, Optional
 from boneio.helper.util import strip_accents
-from typing import Optional
 
 
 class BasicMqtt:

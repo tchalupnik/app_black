@@ -161,6 +161,7 @@ class HostData:
         ina219: INA219Class | None,
         manager: Manager,
         enabled_screens: List[str],
+        extra_sensors: List[dict],
     ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
@@ -242,6 +243,38 @@ class HostData:
 
             host_stats[INA219] = {
                 "f": get_ina_values,
+                "update_interval": TimePeriod(seconds=60),
+            }
+        if extra_sensors:
+
+            def get_extra_sensors_values():
+                output = {}
+                for sensor in extra_sensors[:3]:
+                    sensor_type = sensor.get("sensor_type")
+                    sensor_id = sensor.get("sensor_id")
+                    if sensor_type == "modbus":
+                        modbus_id = sensor.get("modbus_id")
+                        _modbus_sensors = manager.modbus_sensors.get(modbus_id)
+                        if _modbus_sensors:
+                            single_sensor = _modbus_sensors.get_sensor_by_name(
+                                sensor_id
+                            )
+                            short_name = "".join(
+                                [x[:3] for x in single_sensor.name.split()]
+                            )
+                            output[short_name] = (
+                                f"{round(single_sensor.state, 2)} {single_sensor.unit_of_measurement}"
+                            )
+                    elif sensor_type == "dallas":
+                        for single_sensor in manager.temp_sensors:
+                            if sensor_id == single_sensor.id:
+                                output[single_sensor.name] = (
+                                    f"{round(single_sensor.state, 2)} C"
+                                )
+                return output
+
+            host_stats["extra_sensors"] = {
+                "f": get_extra_sensors_values,
                 "update_interval": TimePeriod(seconds=60),
             }
         self._data = {}
