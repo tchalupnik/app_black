@@ -91,7 +91,7 @@ class BasicRelay(BasicMqtt):
 
     @callback
     def _momentary_callback(self, time, action):
-        _LOGGER.info("Momentary callback at %s", time)
+        _LOGGER.info("Momentary callback at %s for output %s", time, self.name)
         action(time=time)
 
     @property

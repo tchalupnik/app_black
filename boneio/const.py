@@ -213,3 +213,4 @@ PINS = {
     "P9_27": {"chip": 3, "line": 19},
     "P9_25": {"chip": 3, "line": 21},
 }
+NAME = "name"
