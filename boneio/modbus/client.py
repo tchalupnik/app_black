@@ -169,7 +169,7 @@ class Modbus:
         )
         try:
             value = getattr(decoder, _payload_type["f"])()
+            return value
         except Exception as e:
             _LOGGER.error(e)
-            pass
-        return value
+            return None
