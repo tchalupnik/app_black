@@ -2,6 +2,7 @@
 Provide an MQTT client for providing BoneIO MQTT broker.
 Code based on cgarwood/python-openzwave-mqtt.
 """
+
 from __future__ import annotations
 import asyncio
 import json
@@ -48,8 +49,18 @@ class MQTTClient:
         self.reconnect_interval = 1
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
-        self._discovery_topics = [f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/#" for ha_type in self._config_helper.ha_types] if self._config_helper.ha_discovery else []
-        self._topics = [self._config_helper.subscribe_topic, "homeassistant/status"]
+        self._discovery_topics = (
+            [
+                f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/#"
+                for ha_type in self._config_helper.ha_types
+            ]
+            if self._config_helper.ha_discovery
+            else []
+        )
+        self._topics = [
+            self._config_helper.subscribe_topic,
+            "homeassistant/status",
+        ]
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -110,7 +121,9 @@ class MQTTClient:
             params["properties"] = properties
 
         # e.g. subscribe([("my/topic", SubscribeOptions(qos=0), ("another/topic", SubscribeOptions(qos=2)])
-        await self.asyncio_client.subscribe(topic=args, **params, timeout=timeout)
+        await self.asyncio_client.subscribe(
+            topic=args, **params, timeout=timeout
+        )
 
     async def unsubscribe(
         self,
@@ -129,7 +142,10 @@ class MQTTClient:
         await self.asyncio_client.unsubscribe(topic=topics, **params)
 
     def send_message(
-        self, topic: str, payload: Union[str, int, dict, None], retain: bool = False
+        self,
+        topic: str,
+        payload: Union[str, int, dict, None],
+        retain: bool = False,
     ) -> None:
         """Send a message from the manager options."""
         to_publish = (
@@ -154,7 +170,9 @@ class MQTTClient:
                 try:
                     await self._subscribe_manager(manager)
                 except MqttError as err:
-                    self.reconnect_interval = min(self.reconnect_interval * 2, 900)
+                    self.reconnect_interval = min(
+                        self.reconnect_interval * 2, 600
+                    )
                     _LOGGER.error(
                         "MQTT error: %s. Reconnecting in %s seconds",
                         err,
@@ -168,15 +186,13 @@ class MQTTClient:
             pass
 
     async def stop_client(self) -> None:
-        await self.unsubscribe(
-            topics=self._topics
-        )
+        await self.unsubscribe(topics=self._topics)
         raise RestartRequestException("Restart requested.")
-    
+
     def state(self) -> bool:
         """State of MQTT Client."""
         return self._connection_established
-    
+
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
@@ -200,21 +216,21 @@ class MQTTClient:
             )
             if not self._connection_established:
                 self._connection_established = True
-                reconnect_task = asyncio.create_task(manager.reconnect_callback())
+                reconnect_task = asyncio.create_task(
+                    manager.reconnect_callback()
+                )
                 tasks.add(reconnect_task)
             tasks.add(messages_task)
 
-            await self.subscribe(
-                topics=self._topics
-            )
-            await self.subscribe(
-                topics=self._discovery_topics
-            )
+            await self.subscribe(topics=self._topics)
+            await self.subscribe(topics=self._discovery_topics)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
 
-    async def handle_messages(self, messages: Any, callback: Callable[[str, str], Awaitable[None]]):
+    async def handle_messages(
+        self, messages: Any, callback: Callable[[str, str], Awaitable[None]]
+    ):
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
             payload = message.payload.decode()
@@ -223,10 +239,23 @@ class MQTTClient:
                 if message.topic.matches(discovery_topic):
                     callback_start = False
                     topic = str(message.topic)
-                    if message.payload and not self._config_helper.is_topic_in_autodiscovery(topic):
-                        _LOGGER.info("Removing unused discovery entity %s", topic)
-                        self.send_message(topic=topic, payload=None, retain=True)
+                    if (
+                        message.payload
+                        and not self._config_helper.is_topic_in_autodiscovery(
+                            topic
+                        )
+                    ):
+                        _LOGGER.info(
+                            "Removing unused discovery entity %s", topic
+                        )
+                        self.send_message(
+                            topic=topic, payload=None, retain=True
+                        )
                     break
             if callback_start:
-                _LOGGER.debug("Received message topic: %s, payload: %s", message.topic, payload)
+                _LOGGER.debug(
+                    "Received message topic: %s, payload: %s",
+                    message.topic,
+                    payload,
+                )
                 await callback(str(message.topic), payload)

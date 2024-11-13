@@ -1,10 +1,20 @@
 """Cover module."""
+
 from __future__ import annotations
 import asyncio
 import logging
 from typing import Callable
 
-from boneio.const import CLOSE, CLOSED, CLOSING, COVER, IDLE, OPEN, OPENING, STOP
+from boneio.const import (
+    CLOSE,
+    CLOSED,
+    CLOSING,
+    COVER,
+    IDLE,
+    OPEN,
+    OPENING,
+    STOP,
+)
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.timeperiod import TimePeriod
@@ -121,7 +131,9 @@ class Cover(BasicMqtt):
 
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
-        self._send_message(topic=f"{self._send_topic}/state", payload=self.cover_state)
+        self._send_message(
+            topic=f"{self._send_topic}/state", payload=self.cover_state
+        )
         pos = round(self._position, 0)
         self._send_message(topic=f"{self._send_topic}/pos", payload=str(pos))
         self._state_save(position=pos)
@@ -161,7 +173,9 @@ class Cover(BasicMqtt):
         if self._set_position:
             # Set position is only working for every 10%, so round to nearest 10.
             # Except for start moving time
-            if (self._requested_closing and rounded_pos < 95) or rounded_pos > 5:
+            if (
+                self._requested_closing and rounded_pos < 95
+            ) or rounded_pos > 5:
                 rounded_pos = round(self._position, -1)
         else:
             if rounded_pos > 100:
@@ -170,7 +184,8 @@ class Cover(BasicMqtt):
                 rounded_pos = 0
         self._send_message(topic=f"{self._send_topic}/pos", payload=rounded_pos)
         if rounded_pos == self._set_position or (
-            self._set_position is None and (rounded_pos >= 100 or rounded_pos <= 0)
+            self._set_position is None
+            and (rounded_pos >= 100 or rounded_pos <= 0)
         ):
             self._position = rounded_pos
             self._closed = self.current_cover_position <= 0
@@ -222,9 +237,13 @@ class Cover(BasicMqtt):
         self._requested_closing = set_position < self._position
         current_operation = CLOSING if self._requested_closing else OPENING
         _LOGGER.debug(
-            "Requested set position %s. Operation %s", set_position, current_operation
+            "Requested set position %s. Operation %s",
+            set_position,
+            current_operation,
         )
-        self._send_message(topic=f"{self._send_topic}/state", payload=current_operation)
+        self._send_message(
+            topic=f"{self._send_topic}/state", payload=current_operation
+        )
         await self.run_cover(
             current_operation=current_operation,
         )

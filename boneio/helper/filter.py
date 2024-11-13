@@ -28,7 +28,7 @@ class Filter:
                         "Filter %s doesn't exists. Fix it in config.", k
                     )
                     continue
-                value = FILTERS[k](value, v)
                 if value is None:
                     return None
+                value = FILTERS[k](value, v)
         return value
