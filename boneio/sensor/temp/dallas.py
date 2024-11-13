@@ -10,7 +10,11 @@ from w1thermsensor import SensorNotReadyError, NoSensorFoundError
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import OneWireError
-from boneio.helper.onewire import AsyncBoneIOW1ThermSensor, OneWireAddress, OneWireBus
+from boneio.helper.onewire import (
+    AsyncBoneIOW1ThermSensor,
+    OneWireAddress,
+    OneWireBus,
+)
 
 from . import TempSensor
 
@@ -54,6 +58,7 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
         self._loop = asyncio.get_event_loop()
         BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
         self._filters = filters
+        self._state = None
         try:
             self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
         except ValueError as err:

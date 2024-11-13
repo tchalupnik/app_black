@@ -32,7 +32,8 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         self._loop = asyncio.get_event_loop()
         self._filters = filters
         try:
-            self._pct = self.SensorClass(i2c_bus=i2c, address=address)
+            if self.SensorClass:
+                self._pct = self.SensorClass(i2c_bus=i2c, address=address)
             self._state: float | None = None
         except ValueError as err:
             raise I2CError(err)
@@ -41,7 +42,7 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
     @property
     def state(self) -> float:
         """Give rounded value of temperature."""
-        return self._state
+        return self._state or -1
 
     def update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
