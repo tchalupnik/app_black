@@ -18,13 +18,13 @@
   },
   "registers_base": [
     {
-      "base": 0,
+      "base": 7,
       "length": 2,
       "register_type": "holding",
       "registers": [
         {
           "name": "Immersion depth",
-          "address": 0,
+          "address": 7,
           "unit_of_measurement": "mm",
           "state_class": "measurement",
           "device_class": "humidity",

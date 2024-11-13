@@ -23,7 +23,7 @@ from boneio.const import (
 from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
-from .client import Modbus
+from .client import Modbus, VALUE_TYPES
 from .single_sensor import SingleSensor
 from boneio.helper.util import open_json
 
@@ -194,12 +194,24 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     )
                 else:
                     start_index = sensor.address - sensor.base_address
+                    count = VALUE_TYPES[sensor.value_type]["count"]
                     payload = values.registers[
-                        start_index : start_index + 2
-                    ]  # fix this in future
-                    decoded_value = self._modbus.decode_value(
-                        payload, sensor.value_type
-                    )
+                        start_index : start_index + count
+                    ]
+                    try:
+                        decoded_value = self._modbus.decode_value(
+                            payload, sensor.value_type
+                        )
+                    except Exception as e:
+                        _LOGGER.error(
+                            "Decoding error for %s at address %s, base: %s, length: %s, error %s",
+                            sensor.name,
+                            sensor.address,
+                            sensor.base_address,
+                            sensor.length,
+                            e,
+                        )
+                        decoded_value = None
                 sensor.set_value(value=decoded_value)
                 output[sensor.decoded_name] = sensor.state
             self._send_message(

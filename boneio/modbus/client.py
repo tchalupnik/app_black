@@ -20,17 +20,61 @@ from boneio.helper.exceptions import ModbusUartException
 _LOGGER = logging.getLogger(__name__)
 
 VALUE_TYPES = {
-    "U_WORD": {"f": "decode_16bit_uint", "byteorder": Endian.Big},
-    "S_WORD": {"f": "decode_16bit_int", "byteorder": Endian.Big},
-    "U_DWORD": {"f": "decode_32bit_uint", "byteorder": Endian.Big},
-    "S_DWORD": {"f": "decode_32bit_int", "byteorder": Endian.Big},
-    "U_DWORD_R": {"f": "decode_32bit_uint", "byteorder": Endian.Little},
-    "S_DWORD_R": {"f": "decode_32bit_int", "byteorder": Endian.Little},
-    "U_QWORD": {"f": "decode_64bit_uint", "byteorder": Endian.Big},
-    "S_QWORD": {"f": "decode_64bit_int", "byteorder": Endian.Big},
-    "U_QWORD_R": {"f": "decode_64bit_uint", "byteorder": Endian.Little},
-    "FP32": {"f": "decode_32bit_float", "byteorder": Endian.Big},
-    "FP32_R": {"f": "decode_32bit_float", "byteorder": Endian.Little},
+    "U_WORD": {
+        "f": "decode_16bit_uint",
+        "byteorder": Endian.Big,
+        "count": 1,
+    },
+    "S_WORD": {
+        "f": "decode_16bit_int",
+        "byteorder": Endian.Big,
+        "count": 1,
+    },
+    "U_DWORD": {
+        "f": "decode_32bit_uint",
+        "byteorder": Endian.Big,
+        "count": 2,
+    },
+    "S_DWORD": {
+        "f": "decode_32bit_int",
+        "byteorder": Endian.Big,
+        "count": 2,
+    },
+    "U_DWORD_R": {
+        "f": "decode_32bit_uint",
+        "byteorder": Endian.Little,
+        "count": 2,
+    },
+    "S_DWORD_R": {
+        "f": "decode_32bit_int",
+        "byteorder": Endian.Little,
+        "count": 2,
+    },
+    "U_QWORD": {
+        "f": "decode_64bit_uint",
+        "byteorder": Endian.Big,
+        "count": 4,
+    },
+    "S_QWORD": {
+        "f": "decode_64bit_int",
+        "byteorder": Endian.Big,
+        "count": 4,
+    },
+    "U_QWORD_R": {
+        "f": "decode_64bit_uint",
+        "byteorder": Endian.Little,
+        "count": 4,
+    },
+    "FP32": {
+        "f": "decode_32bit_float",
+        "byteorder": Endian.Big,
+        "count": 2,
+    },
+    "FP32_R": {
+        "f": "decode_32bit_float",
+        "byteorder": Endian.Little,
+        "count": 2,
+    },
 }
 
 
@@ -167,9 +211,5 @@ class Modbus:
         decoder = BinaryPayloadDecoder.fromRegisters(
             registers=payload, byteorder=_payload_type["byteorder"]
         )
-        try:
-            value = getattr(decoder, _payload_type["f"])()
-            return value
-        except Exception as e:
-            _LOGGER.error(e)
-            return None
+        value = getattr(decoder, _payload_type["f"])()
+        return value

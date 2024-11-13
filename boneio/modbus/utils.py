@@ -2,7 +2,7 @@ from __future__ import annotations
 from struct import unpack
 
 
-allowed_operations = {"multiply": lambda x, y: x * y}
+allowed_operations = {"multiply": lambda x, y: x * y if x else x}
 
 
 def float32(result, base, addr):

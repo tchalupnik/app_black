@@ -63,7 +63,11 @@ class ModbusHelper:
             _LOGGER.error("No returned value.")
             return False
         payload = value.registers[0:count]
-        decoded_value = self._modbus.decode_value(payload, value_type)
+        try:
+            decoded_value = self._modbus.decode_value(payload, value_type)
+        except Exception as e:
+            _LOGGER.error("Decoding error during checking connection %s", e)
+            decoded_value = None
         for filter in self._check_record.get("filters", []):
             for key, value in filter.items():
                 if key in allowed_operations:
