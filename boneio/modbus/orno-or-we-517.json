@@ -1,0 +1,590 @@
+{
+  "model": "Orno OR-WE-517",
+  "registers_base": [
+    {
+      "base": 14,
+      "length": 46,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Voltage L1",
+          "address": 14,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Voltage L2",
+          "address": 16,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Voltage L3",
+          "address": 18,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Frequency",
+          "address": 20,
+          "unit_of_measurement": "Hz",
+          "state_class": "measurement",
+          "device_class": "frequency",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Current L1",
+          "address": 22,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Current L2",
+          "address": 24,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Current L3",
+          "address": 26,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Active Power Total",
+          "address": 28,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Active Power L1",
+          "address": 30,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Active Power L2",
+          "address": 32,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Active Power L3",
+          "address": 34,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Power Total",
+          "address": 36,
+          "unit_of_measurement": "kVar",
+          "state_class": "measurement",
+          "device_class": "reactive_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Power L1",
+          "address": 38,
+          "unit_of_measurement": "kVar",
+          "state_class": "measurement",
+          "device_class": "reactive_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Power L2",
+          "address": 40,
+          "unit_of_measurement": "kVar",
+          "state_class": "measurement",
+          "device_class": "reactive_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Power L3",
+          "address": 42,
+          "unit_of_measurement": "kVar",
+          "state_class": "measurement",
+          "device_class": "reactive_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Apparent Power Total",
+          "address": 44,
+          "unit_of_measurement": "kVA",
+          "state_class": "measurement",
+          "device_class": "apparent_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Apparent Power L1",
+          "address": 46,
+          "unit_of_measurement": "kVA",
+          "state_class": "measurement",
+          "device_class": "apparent_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Apparent Power L2",
+          "address": 48,
+          "unit_of_measurement": "kVA",
+          "state_class": "measurement",
+          "device_class": "apparent_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Apparent Power L3",
+          "address": 50,
+          "unit_of_measurement": "kVA",
+          "state_class": "measurement",
+          "device_class": "apparent_power",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Power Factor Total",
+          "address": 52,
+          "state_class": "measurement",
+          "device_class": "power_factor",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Power Factor L1",
+          "address": 54,
+          "state_class": "measurement",
+          "device_class": "power_factor",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Power Factor L2",
+          "address": 56,
+          "state_class": "measurement",
+          "device_class": "power_factor",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Power Factor L3",
+          "address": 58,
+          "state_class": "measurement",
+          "device_class": "power_factor",
+          "value_type": "FP32"
+        }
+      ]
+    },
+    {
+      "base": 256,
+      "length": 50,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Total Active Energy",
+          "address": 256,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Total Active Energy L1",
+          "address": 258,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Total Active Energy L2",
+          "address": 260,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Total Active Energy L3",
+          "address": 262,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Active Energy",
+          "address": 264,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Active Energy L1",
+          "address": 266,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Active Energy L2",
+          "address": 268,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Active Energy L3",
+          "address": 270,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Active Energy",
+          "address": 272,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Active Energy L1",
+          "address": 274,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Active Energy L2",
+          "address": 276,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Active Energy L3",
+          "address": 278,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Energy Total",
+          "address": 280,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Energy L1",
+          "address": 282,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Energy L2",
+          "address": 284,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reactive Energy L3",
+          "address": 286,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Reactive Energy",
+          "address": 288,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Reactive Energy L1",
+          "address": 290,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Reactive Energy L2",
+          "address": 292,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Forward Reactive Energy L3",
+          "address": 294,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Reactive Energy",
+          "address": 296,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Reactive Energy L1",
+          "address": 298,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Reactive Energy L2",
+          "address": 300,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "Reverse Reactive Energy L3",
+          "address": 302,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        }
+      ]
+    },
+    {
+      "base": 304,
+      "length": 48,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "T1 Total Active Energy",
+          "address": 304,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T1 Forward Active Energy",
+          "address": 306,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T1 Reverse Active Energy",
+          "address": 308,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T1 Total Reactive Energy",
+          "address": 310,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T1 Forward Reactive Energy",
+          "address": 312,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T1 Reverse Reactive Energy",
+          "address": 314,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T2 Total Active Energy",
+          "address": 316,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T2 Forward Active Energy",
+          "address": 318,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T2 Reverse Active Energy",
+          "address": 320,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T2 Total Reactive Energy",
+          "address": 322,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T2 Forward Reactive Energy",
+          "address": 324,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T2 Reverse Reactive Energy",
+          "address": 326,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T3 Total Active Energy",
+          "address": 328,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T3 Forward Active Energy",
+          "address": 330,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T3 Reverse Active Energy",
+          "address": 332,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T3 Total Reactive Energy",
+          "address": 334,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T3 Forward Reactive Energy",
+          "address": 336,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T3 Reverse Reactive Energy",
+          "address": 338,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T4 Total Active Energy",
+          "address": 340,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T4 Forward Active Energy",
+          "address": 342,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T4 Reverse Active Energy",
+          "address": 344,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T4 Total Reactive Energy",
+          "address": 346,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T4 Forward Reactive Energy",
+          "address": 348,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        },
+        {
+          "name": "T4 Reverse Reactive Energy",
+          "address": 350,
+          "unit_of_measurement": "kVarh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "FP32"
+        }
+      ]
+    }
+  ]
+}

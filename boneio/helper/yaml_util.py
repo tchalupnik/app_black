@@ -41,20 +41,28 @@ class BoneIOLoader(SafeLoader):
     def construct_secret(self, node):
         secrets = load_yaml_file(self._rel_path(SECRET_YAML))
         if node.value not in secrets:
-            raise MarkedYAMLError(f"Secret '{node.value}' not defined", node.start_mark)
+            raise MarkedYAMLError(
+                f"Secret '{node.value}' not defined", node.start_mark
+            )
         val = secrets[node.value]
         _SECRET_VALUES[str(val)] = node.value
         return val
 
     def represent_stringify(self, value):
-        return self.represent_scalar(tag="tag:yaml.org,2002:str", value=str(value))
+        return self.represent_scalar(
+            tag="tag:yaml.org,2002:str", value=str(value)
+        )
 
     def construct_include_dir_list(self, node):
-        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
+        files = filter_yaml_files(
+            _find_files(self._rel_path(node.value), "*.yaml")
+        )
         return [load_yaml_file(f) for f in files]
 
     def construct_include_dir_merge_list(self, node):
-        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
+        files = filter_yaml_files(
+            _find_files(self._rel_path(node.value), "*.yaml")
+        )
         merged_list = []
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
@@ -63,7 +71,9 @@ class BoneIOLoader(SafeLoader):
         return merged_list
 
     def construct_include_dir_named(self, node):
-        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
+        files = filter_yaml_files(
+            _find_files(self._rel_path(node.value), "*.yaml")
+        )
         mapping = OrderedDict()
         for fname in files:
             filename = os.path.splitext(os.path.basename(fname))[0]
@@ -71,7 +81,9 @@ class BoneIOLoader(SafeLoader):
         return mapping
 
     def construct_include_dir_merge_named(self, node):
-        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
+        files = filter_yaml_files(
+            _find_files(self._rel_path(node.value), "*.yaml")
+        )
         mapping = OrderedDict()
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
@@ -103,7 +115,9 @@ BoneIOLoader.add_constructor(
 BoneIOLoader.add_constructor(
     "!include_dir_merge_named", BoneIOLoader.construct_include_dir_merge_named
 )
-BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
+BoneIOLoader.add_constructor(
+    "!include_files", BoneIOLoader.construct_include_files
+)
 
 
 def filter_yaml_files(files):
@@ -240,6 +254,9 @@ class CustomValidator(Validator):
     def _normalize_coerce_lower(self, value):
         return str(value).lower()
 
+    def _normalize_coerce_remove_space(self, value):
+        return str(value).replace(" ", "")
+
     def _normalize_coerce_upper(self, value):
         return str(value).upper()
 
@@ -273,7 +290,9 @@ class CustomValidator(Validator):
         if isinstance(value, TimePeriod):
             value = str(value)
         if not isinstance(value, str):
-            raise ConfigurationException("Expected string for time period with unit.")
+            raise ConfigurationException(
+                "Expected string for time period with unit."
+            )
 
         unit_to_kwarg = {
             "us": "microseconds",
@@ -295,12 +314,16 @@ class CustomValidator(Validator):
 
         match = re.match(r"^([-+]?[0-9]*\.?[0-9]*)\s*(\w*)$", value)
         if match is None:
-            raise ConfigurationException(f"Expected time period with unit, got {value}")
+            raise ConfigurationException(
+                f"Expected time period with unit, got {value}"
+            )
         kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
         return TimePeriod(**{kwarg: float(match.group(1))})
 
     def _normalize_coerce_check_action_def(self, value):
-        parent = self.root_document[self.document_path[0]][self.document_path[1]]
+        parent = self.root_document[self.document_path[0]][
+            self.document_path[1]
+        ]
         _schema = self.schema["actions"]
         keys = value.keys()
         out = {}

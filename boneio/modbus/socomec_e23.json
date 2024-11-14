@@ -1,0 +1,164 @@
+{
+  "model": "Socomec E23/E24",
+  "registers_base": [
+    {
+      "base": 50520,
+      "length": 26,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Voltage_Phase1",
+          "address": 50520,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.01 }]
+        },
+        {
+          "name": "Voltage_Phase2",
+          "address": 50522,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.01 }]
+        },
+        {
+          "name": "Voltage_Phase3",
+          "address": 50524,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.01 }]
+        },
+        {
+          "name": "Frequency",
+          "address": 50526,
+          "unit_of_measurement": "Hz",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.001 }]
+        },
+        {
+          "name": "Current_Phase1",
+          "address": 50528,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.001 }]
+        },
+        {
+          "name": "Current_Phase2",
+          "address": 50530,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.001 }]
+        },
+        {
+          "name": "Current_Phase3",
+          "address": 50532,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.001 }]
+        },
+        {
+          "name": "Current_In",
+          "address": 50534,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 0.001 }]
+        },
+        {
+          "name": "Sum_Active_Power",
+          "address": 50536,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
+        },
+        {
+          "name": "Sum_Reactive_Power",
+          "address": 50538,
+          "unit_of_measurement": "var",
+          "state_class": "measurement",
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
+        },
+        {
+          "name": "Sum_Apparent_Power",
+          "address": 50540,
+          "unit_of_measurement": "VA",
+          "state_class": "measurement",
+          "value_type": "U_DWORD",
+          "filters": [{ "multiply": 10 }]
+        },
+        {
+          "name": "Sum_Power_Factor",
+          "address": 50542,
+          "unit_of_measurement": "",
+          "state_class": "measurement",
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 0.001 }]
+        },
+        {
+          "name": "Active_Power_Phase1",
+          "address": 50544,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
+        },
+        {
+          "name": "Active_Power_Phase2",
+          "address": 50546,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
+        },
+        {
+          "name": "Active_Power_Phase3",
+          "address": 50548,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "value_type": "S_DWORD",
+          "filters": [{ "multiply": 10 }]
+        }
+      ]
+    },
+    {
+      "base": 50946,
+      "length": 8,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Total_Positive_Active_Energy",
+          "address": 50946,
+          "unit_of_measurement": "kWh",
+          "value_type": "U_DWORD",
+          "state_class": "total",
+          "device_class": "energy",
+          "filters": [{ "multiply": 0.01 }]
+        },
+        {
+          "name": "Total_Negative_Active_Energy",
+          "address": 50952,
+          "unit_of_measurement": "kWh",
+          "state_class": "total",
+          "device_class": "energy",
+          "filters": [{ "multiply": 0.01 }]
+        }
+      ]
+    }
+  ]
+}

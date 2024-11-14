@@ -86,6 +86,7 @@ oled:
           'memory',
           'swap',
           'outputs',
+          'extra_sensors',
         ]
       default:
         - uptime
@@ -96,6 +97,32 @@ oled:
         - memory
         - swap
         - outputs
+    extra_screen_sensors:
+      type: list
+      required: False
+      meta:
+        label: Extra sensors
+      schema:
+        type: dict
+        schema:
+          sensor_type:
+            type: string
+            required: True
+            allowed: ['modbus', 'dallas']
+          modbus_id:
+            type: string
+            required: False
+            coerce:
+              - lower
+              - remove_space
+            meta:
+              label: Only needed if sensor type is modbus.
+          sensor_id:
+            type: string
+            required: True
+            coerce:
+              - lower
+              - remove_space
     screensaver_timeout:
       type:
         - string
@@ -117,6 +144,20 @@ modbus:
       allowed: ['uart1', 'uart2', 'uart3', 'uart4', 'uart5']
       meta:
         label: Uart ID to use
+    baudrate:
+      type: integer
+      default: 9600
+    stopbits:
+      type: integer
+      default: 1
+      allowed: [1, 2]
+    bytesize:
+      type: integer
+      default: 8
+    parity:
+      type: string
+      allowed: ['N', 'E', 'O']
+      default: 'N'
 
 modbus_sensors:
   type: list
@@ -141,7 +182,8 @@ modbus_sensors:
       model:
         type: string
         required: True
-        allowed: ['sdm630', 'sdm120', 'sofar']
+        allowed:
+          ['sdm630', 'sdm120', 'sofar', 'socomec_e23', 'cwt', 'orno-or-we-517']
         meta:
           label: Model to load from database.
       update_interval:
@@ -155,6 +197,14 @@ modbus_sensors:
         default: 30s
         meta:
           label: Update interval.
+      sensors_filters:
+        type: dict
+        required: False
+        meta:
+          label: List of sub sensors to use to filter. Available values are temperature or humidity.
+        schema:
+          temperature: !include filters.yaml
+          humidity: !include filters.yaml
 lm75:
   type: list
   required: False
@@ -417,6 +467,12 @@ output_group:
         required: True
         meta:
           label: List of outputs.
+      all_on_behaviour:
+        type: boolean
+        required: True
+        default: False
+        meta:
+          label: Behaviour if set true toggle when all outputs are on, otherwise if any is on then group is on.
       output_type:
         type: string
         required: True
@@ -485,6 +541,12 @@ binary_sensor:
         required: True
         meta:
           label: Check if sensor type is inverted. Only aplicable for sensor kind.
+      initial_send:
+        type: boolean
+        default: False
+        required: True
+        meta:
+          label: If set to true, then on startup of application initial status of the binary sensor will be send to MQTT.
       device_class:
         type: string
         required: False

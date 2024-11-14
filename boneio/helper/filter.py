@@ -1,4 +1,5 @@
 """Filter class to adjust sensor values."""
+
 from __future__ import annotations
 import logging
 
@@ -18,13 +19,16 @@ FILTERS = {
 class Filter:
     _filters = []
 
-    def _apply_filters(self, value: float) -> float | None:
-        for filter in self._filters:
+    def _apply_filters(self, value: float, filters: list = []) -> float | None:
+        filters = filters if filters else self._filters
+        for filter in filters:
             for k, v in filter.items():
                 if k not in FILTERS:
-                    _LOGGER.warn("Filter %s doesn't exists. Fix it in config.", k)
+                    _LOGGER.warning(
+                        "Filter %s doesn't exists. Fix it in config.", k
+                    )
                     continue
-                value = FILTERS[k](value, v)
                 if value is None:
                     return None
+                value = FILTERS[k](value, v)
         return value

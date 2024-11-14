@@ -60,14 +60,16 @@ class MCPRelay(BasicRelay):
         """PIN of the relay"""
         return self._pin
 
-    def turn_on(self) -> None:
+    def turn_on(self, time=None) -> None:
         """Call turn on action."""
         self.pin.value = True
-        self._execute_momentary_turn(momentary_type=ON)
+        if not time:
+            self._execute_momentary_turn(momentary_type=ON)
         self._loop.call_soon_threadsafe(self.send_state, ON)
 
-    def turn_off(self) -> None:
+    def turn_off(self, time=None) -> None:
         """Call turn off action."""
         self.pin.value = False
-        self._execute_momentary_turn(momentary_type=OFF)
+        if not time:
+            self._execute_momentary_turn(momentary_type=OFF)
         self._loop.call_soon_threadsafe(self.send_state, OFF)

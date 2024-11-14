@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
+
 try:
     from Adafruit_BBIO import GPIO
 except ModuleNotFoundError:
@@ -21,7 +22,14 @@ from typing import Callable, Awaitable, List
 
 from boneio.const import CONFIG_PIN, FALLING
 from boneio.const import GPIO as GPIO_STR
-from boneio.const import GPIO_MODE, LOW, ClickTypes, Gpio_Edges, Gpio_States, InputTypes
+from boneio.const import (
+    GPIO_MODE,
+    LOW,
+    ClickTypes,
+    Gpio_Edges,
+    Gpio_States,
+    InputTypes,
+)
 from boneio.helper.exceptions import GPIOInputException
 from boneio.helper.timeperiod import TimePeriod
 from concurrent.futures import ThreadPoolExecutor
@@ -79,7 +87,9 @@ def edge_detect(
 ) -> None:
     """Add detection for RISING and FALLING events."""
     try:
-        GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
+        GPIO.add_event_detect(
+            gpio=pin, edge=edge, callback=callback, bouncetime=bounce
+        )
     except RuntimeError as err:
         raise GPIOInputException(err)
 
@@ -107,7 +117,8 @@ class GpioBaseClass:
         self,
         pin: str,
         press_callback: Callable[
-            [ClickTypes, str, List, InputTypes, bool, float | None], Awaitable[None]
+            [ClickTypes, str, List, InputTypes, bool, float | None],
+            Awaitable[None],
         ],
         name: str,
         actions: dict,
@@ -118,7 +129,9 @@ class GpioBaseClass:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        bounce_time: TimePeriod = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
+        bounce_time: TimePeriod = kwargs.get(
+            "bounce_time", TimePeriod(milliseconds=50)
+        )
         self._bounce_time = bounce_time.total_in_seconds
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback
@@ -129,14 +142,21 @@ class GpioBaseClass:
         self._input_type = input_type
         self._empty_message_after = empty_message_after
 
-    def press_callback(self, click_type: ClickTypes, duration: float | None = None) -> None:
+    def press_callback(
+        self, click_type: ClickTypes, duration: float | None = None
+    ) -> None:
         actions = self._actions.get(click_type, [])
-        self._loop.create_task(self.async_press_callback(click_type, duration, actions))
+        self._loop.create_task(
+            self.async_press_callback(click_type, duration, actions)
+        )
 
     async def async_press_callback(
-        self, click_type: ClickTypes, duration: float | None = None, actions: List = []
+        self,
+        click_type: ClickTypes,
+        duration: float | None = None,
+        actions: List = [],
     ) -> None:
-        _LOGGER.warn("press callback %s", datetime.now())
+
         await self._press_callback(
             click_type,
             self._pin,

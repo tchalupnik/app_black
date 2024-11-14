@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import logging
 from datetime import datetime
 import socket
 import time
@@ -37,6 +38,7 @@ from boneio.helper.timeperiod import TimePeriod
 from boneio.sensor import LM75Sensor, MCP9808Sensor, INA219 as INA219Class
 from boneio.version import __version__
 
+_LOGGER = logging.getLogger(__name__)
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 
 
@@ -63,7 +65,7 @@ def get_network_info():
         for addr in addrs:
             if addr.family == socket.AF_INET:
                 out["ip"] = addr.address
-                out["mask"] = addr.netmask
+                out["mask"] = addr.netmask if addr.netmask is not None else ""
             elif addr.family == psutil.AF_LINK:
                 out["mac"] = addr.address
         return out
@@ -139,7 +141,9 @@ class HostSensor(AsyncUpdater):
 
     async def async_update(self, time: datetime) -> None:
         self._state = self._update_function()
-        self._loop.call_soon_threadsafe(partial(self._manager_callback, self._type))
+        self._loop.call_soon_threadsafe(
+            partial(self._manager_callback, self._type)
+        )
 
     @property
     def state(self) -> dict:
@@ -155,46 +159,130 @@ class HostData:
         self,
         output: dict,
         callback: Callable,
-        temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
+        temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
         ina219: INA219Class | None,
         manager: Manager,
         enabled_screens: List[str],
+        extra_sensors: List[dict],
     ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
         self._temp_sensor = temp_sensor
         host_stats = {
-            NETWORK: {"f": get_network_info, "update_interval": TimePeriod(seconds=60)},
+            NETWORK: {
+                "f": get_network_info,
+                "update_interval": TimePeriod(seconds=60),
+            },
             CPU: {"f": get_cpu_info, "update_interval": TimePeriod(seconds=5)},
-            DISK: {"f": get_disk_info, "update_interval": TimePeriod(seconds=60)},
-            MEMORY: {"f": get_memory_info, "update_interval": TimePeriod(seconds=10)},
-            SWAP: {"f": get_swap_info, "update_interval": TimePeriod(seconds=60)},
+            DISK: {
+                "f": get_disk_info,
+                "update_interval": TimePeriod(seconds=60),
+            },
+            MEMORY: {
+                "f": get_memory_info,
+                "update_interval": TimePeriod(seconds=10),
+            },
+            SWAP: {
+                "f": get_swap_info,
+                "update_interval": TimePeriod(seconds=60),
+            },
             UPTIME: {
-                "f": lambda: {
-                    "uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3},
-                    "MQTT": {"data": "CONN" if manager.mqtt_state else "DOWN", "fontSize": "small", "row": 3, "col": 60},
-                    "T": {
-                        "data": f"{self._temp_sensor.state} C",
-                        "fontSize": "small",
-                        "row": 3,
-                        "col": 3
-                    },
-                }
-                if self._temp_sensor
-                else {"uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3}},
+                "f": lambda: (
+                    {
+                        "uptime": {
+                            "data": get_uptime(),
+                            "fontSize": "small",
+                            "row": 2,
+                            "col": 3,
+                        },
+                        "MQTT": {
+                            "data": "CONN" if manager.mqtt_state else "DOWN",
+                            "fontSize": "small",
+                            "row": 3,
+                            "col": 60,
+                        },
+                        "T": {
+                            "data": f"{self._temp_sensor.state} C",
+                            "fontSize": "small",
+                            "row": 3,
+                            "col": 3,
+                        },
+                    }
+                    if self._temp_sensor
+                    else {
+                        "uptime": {
+                            "data": get_uptime(),
+                            "fontSize": "small",
+                            "row": 2,
+                            "col": 3,
+                        }
+                    }
+                ),
                 "static": {
-                    HOST: {"data": self._hostname, "fontSize": "small", "row": 0, "col": 3},
-                    "ver": {"data": __version__, "fontSize": "small", "row": 1, "col": 3},
+                    HOST: {
+                        "data": self._hostname,
+                        "fontSize": "small",
+                        "row": 0,
+                        "col": 3,
+                    },
+                    "ver": {
+                        "data": __version__,
+                        "fontSize": "small",
+                        "row": 1,
+                        "col": 3,
+                    },
                 },
                 "update_interval": TimePeriod(seconds=30),
             },
         }
         if ina219 is not None:
+
+            def get_ina_values():
+                return {
+                    sensor.device_class: f"{sensor.state} {sensor.unit_of_measurement}"
+                    for sensor in ina219.sensors.values()
+                }
+
             host_stats[INA219] = {
-                "f": lambda: {
-                    *{sensor.device_class: sensor.state for sensor in ina219.sensors}
-                },
-                "update_interval": TimePeriod(seconds=60)
+                "f": get_ina_values,
+                "update_interval": TimePeriod(seconds=60),
+            }
+        if extra_sensors:
+
+            def get_extra_sensors_values():
+                output = {}
+                for sensor in extra_sensors[:3]:
+                    sensor_type = sensor.get("sensor_type")
+                    sensor_id = sensor.get("sensor_id")
+                    if sensor_type == "modbus":
+                        modbus_id = sensor.get("modbus_id")
+                        _modbus_sensors = manager.modbus_sensors.get(modbus_id)
+                        if _modbus_sensors:
+                            single_sensor = _modbus_sensors.get_sensor_by_name(
+                                sensor_id
+                            )
+                            if not single_sensor:
+                                _LOGGER.warning(
+                                    "Sensor %s not found", sensor_id
+                                )
+                                continue
+                            short_name = "".join(
+                                [x[:3] for x in single_sensor.name.split()]
+                            )
+                            output[short_name] = (
+                                f"{round(single_sensor.state, 2)} {single_sensor.unit_of_measurement}"
+                            )
+                    elif sensor_type == "dallas":
+                        for single_sensor in manager.temp_sensors:
+                            if sensor_id == single_sensor.id.lower():
+                                output[single_sensor.name] = (
+                                    f"{round(single_sensor.state, 2)} C"
+                                )
+                return output
+
+            host_stats["extra_sensors"] = {
+                "f": get_extra_sensors_values,
+                "update_interval": TimePeriod(seconds=60),
             }
         self._data = {}
         for k, _v in host_stats.items():

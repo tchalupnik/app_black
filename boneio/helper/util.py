@@ -1,4 +1,6 @@
 import unicodedata
+import os
+import json
 from typing import Any, Callable, TypeVar
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
@@ -17,5 +19,17 @@ def is_callback(func: Callable[..., Any]) -> bool:
 
 
 def strip_accents(s):
-    return ''.join(c for c in unicodedata.normalize('NFD', s)
-                   if unicodedata.category(c) != 'Mn' and c != ' ')
+
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn" and c != " "
+    )
+
+
+def open_json(path: str, model: str) -> dict:
+    """Open json file."""
+    file = f"{os.path.join(path)}/{model}.json"
+    with open(file, "r") as db_file:
+        datastore = json.load(db_file)
+        return datastore

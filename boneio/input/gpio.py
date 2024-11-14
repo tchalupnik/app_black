@@ -1,4 +1,5 @@
 """GpioEventButton to receive signals."""
+
 from __future__ import annotations
 import logging
 import asyncio
@@ -39,6 +40,12 @@ class GpioEventButton(GpioBaseClass):
         self._is_waiting_for_second_click = False
         if not self._state and not self._timer_long.is_waiting():
             self.press_callback(click_type=SINGLE, duration=None)
+        else:
+            _LOGGER.error(
+                "Thats why it's not working %s %s",
+                self._state,
+                self._timer_long.is_waiting(),
+            )
 
     async def _run(self) -> None:
         while True:
@@ -49,7 +56,7 @@ class GpioEventButton(GpioBaseClass):
         if state == self._state:
             return
         self._state = state
-        if state: #is pressed?
+        if state:  # is pressed?
             self._timer_long.start_timer()
             if self._timer_double.is_waiting():
                 self._timer_double.reset()
@@ -59,8 +66,11 @@ class GpioEventButton(GpioBaseClass):
                 self._timer_double.start_timer()
                 self._is_waiting_for_second_click = True
 
-        else: #is released?
-            if not self._is_waiting_for_second_click and not self._double_click_ran:
+        else:  # is released?
+            if (
+                not self._is_waiting_for_second_click
+                and not self._double_click_ran
+            ):
                 if self._timer_long.is_waiting():
                     self.press_callback(click_type=SINGLE, duration=None)
             self._timer_long.reset()
