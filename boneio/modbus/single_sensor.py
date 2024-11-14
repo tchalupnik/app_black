@@ -96,7 +96,7 @@ class SingleSensor(Filter):
 
     def discovery_message(self):
         value_template = (
-            f"{{{{ value_json.{self._decoded_name} | " f"{self._ha_filter} }}}}"
+            f"{{{{ value_json.{self.decoded_name} | " f"{self._ha_filter} }}}}"
         )
         kwargs = {
             "unit_of_measurement": self._unit_of_measurement,
