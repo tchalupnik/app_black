@@ -267,7 +267,7 @@ class HostData:
                             )
                     elif sensor_type == "dallas":
                         for single_sensor in manager.temp_sensors:
-                            if sensor_id == single_sensor.id:
+                            if sensor_id == single_sensor.id.lower():
                                 output[single_sensor.name] = (
                                     f"{round(single_sensor.state, 2)} C"
                                 )
