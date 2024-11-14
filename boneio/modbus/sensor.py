@@ -94,13 +94,25 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 self._modbus_sensors[index][
                     single_sensor.decoded_name
                 ] = single_sensor
+        _LOGGER.info(
+            "Available single sensors for %s: %s",
+            self._name,
+            ", ".join(
+                [
+                    s.name
+                    for sensors in self._modbus_sensors
+                    for s in sensors.values()
+                ]
+            ),
+        )
         event_bus.add_haonline_listener(target=self.set_payload_offline)
         AsyncUpdater.__init__(self, **kwargs)
 
     def get_sensor_by_name(self, name: str) -> Optional[SingleSensor]:
         """Return sensor by name."""
         for sensors in self._modbus_sensors:
-            return sensors.get(name)
+            if name in sensors:
+                return sensors.get(name)
         return None
 
     def set_payload_offline(self):

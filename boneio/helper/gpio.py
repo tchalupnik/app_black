@@ -157,7 +157,6 @@ class GpioBaseClass:
         actions: List = [],
     ) -> None:
 
-        _LOGGER.warning("press callback %s", datetime.now())
         await self._press_callback(
             click_type,
             self._pin,

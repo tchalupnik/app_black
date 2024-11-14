@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import logging
 from datetime import datetime
 import socket
 import time
@@ -37,6 +38,7 @@ from boneio.helper.timeperiod import TimePeriod
 from boneio.sensor import LM75Sensor, MCP9808Sensor, INA219 as INA219Class
 from boneio.version import __version__
 
+_LOGGER = logging.getLogger(__name__)
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 
 
@@ -259,6 +261,11 @@ class HostData:
                             single_sensor = _modbus_sensors.get_sensor_by_name(
                                 sensor_id
                             )
+                            if not single_sensor:
+                                _LOGGER.warning(
+                                    "Sensor %s not found", sensor_id
+                                )
+                                continue
                             short_name = "".join(
                                 [x[:3] for x in single_sensor.name.split()]
                             )
