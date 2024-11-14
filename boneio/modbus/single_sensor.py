@@ -71,11 +71,7 @@ class SingleSensor(Filter):
         self._user_filters = user_filters
 
     def set_value(self, value):
-        for filter in self._filters:
-            for key, _v in filter.items():
-                if key in allowed_operations:
-                    lamda_function = allowed_operations[key]
-                    value = lamda_function(value, _v)
+        value = self._apply_filters(value=value)
         value = self._apply_filters(
             value=value,
             filters=self._user_filters,
