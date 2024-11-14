@@ -65,42 +65,42 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
             k.lower(): v for k, v in sensors_filters.items()
         }
         self._modbus_sensors = []
-        for data in self._db[REGISTERS_BASE]:
+        for index, data in enumerate(self._db[REGISTERS_BASE]):
             base = data[BASE]
+            self._modbus_sensors.append({})
             for register in data[REGISTERS]:
-                name = register.get("name")
-                self._modbus_sensors.append(
-                    SingleSensor(
-                        name=name,
-                        parent={
-                            NAME: self._name,
-                            ID: self._id,
-                            MODEL: self._model,
-                        },
-                        register_address=register[ADDRESS],
-                        base_address=base,
-                        unit_of_measurement=register.get("unit_of_measurement"),
-                        state_class=register.get("state_class"),
-                        device_class=register.get("device_class"),
-                        value_type=register.get("value_type"),
-                        user_filters=self._sensors_filters.get(
-                            name.replace(" ", "").lower(), []
-                        ),
-                        return_type=register.get("return_type", "regular"),
-                        filters=register.get("filters", []),
-                        send_message=self._send_message,
-                        config_helper=self._config_helper,
-                        ha_filter=register.get("ha_filter", "round(2)"),
-                    ),
+                single_sensor = SingleSensor(
+                    name=register.get("name"),
+                    parent={
+                        NAME: self._name,
+                        ID: self._id,
+                        MODEL: self._model,
+                    },
+                    register_address=register[ADDRESS],
+                    base_address=base,
+                    unit_of_measurement=register.get("unit_of_measurement"),
+                    state_class=register.get("state_class"),
+                    device_class=register.get("device_class"),
+                    value_type=register.get("value_type"),
+                    return_type=register.get("return_type", "regular"),
+                    filters=register.get("filters", []),
+                    send_message=self._send_message,
+                    config_helper=self._config_helper,
+                    ha_filter=register.get("ha_filter", "round(2)"),
                 )
+                single_sensor.set_user_filters(
+                    self._sensors_filters.get(single_sensor.decoded_name, [])
+                )
+                self._modbus_sensors[index][
+                    single_sensor.decoded_name
+                ] = single_sensor
         event_bus.add_haonline_listener(target=self.set_payload_offline)
         AsyncUpdater.__init__(self, **kwargs)
 
     def get_sensor_by_name(self, name: str) -> Optional[SingleSensor]:
         """Return sensor by name."""
-        for sensor in self._modbus_sensors:
-            if sensor.decoded_name == name:
-                return sensor
+        for sensors in self._modbus_sensors:
+            return sensors.get(name)
         return None
 
     def set_payload_offline(self):
@@ -108,8 +108,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
 
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
-        for sensor in self._modbus_sensors:
-            sensor.send_ha_discovery()
+        for sensors in self._modbus_sensors:
+            for sensor in sensors.values():
+                sensor.send_ha_discovery()
         return datetime.now()
 
     async def check_availability(self) -> None:
@@ -147,7 +148,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
-        for data in self._db[REGISTERS_BASE]:
+        for index, data in enumerate(self._db[REGISTERS_BASE]):
             values = await self._modbus.read_registers(
                 unit=self._address,
                 address=data[BASE],
@@ -184,7 +185,8 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
             elif update_interval != self._update_interval.total_in_seconds:
                 update_interval = self._update_interval.total_in_seconds
             output = {}
-            for sensor in self._modbus_sensors:
+            current_modbus_sensors = self._modbus_sensors[index]
+            for sensor in current_modbus_sensors.values():
                 if not sensor.value_type:
                     # Go with old method. Remove when switch Sofar to new.
                     decoded_value = CONVERT_METHODS[sensor.return_type](

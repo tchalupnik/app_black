@@ -23,12 +23,12 @@ class SingleSensor(Filter):
         device_class: str,
         value_type: str,
         return_type: str,
-        user_filters: list,
         filters: list,
         send_message: Callable[
             [str, Union[str, int, dict, None], Optional[bool]], None
         ],
         config_helper: ConfigHelper,
+        user_filters: Optional[list] = [],
         ha_filter: str = "round(2)",
     ) -> None:
         """
@@ -66,6 +66,9 @@ class SingleSensor(Filter):
             f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{self._parent[ID]}"
             f"/{self._parent[ID]}{self._decoded_name_low.replace('_', '')}/config"
         )
+
+    def set_user_filters(self, user_filters: list) -> None:
+        self._user_filters = user_filters
 
     def set_value(self, value):
         for filter in self._filters:
