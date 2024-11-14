@@ -208,7 +208,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                             sensor.name,
                             sensor.address,
                             sensor.base_address,
-                            sensor.length,
+                            data[LENGTH],
                             e,
                         )
                         decoded_value = None
