@@ -65,38 +65,34 @@
         {
           "name": "Active Power Total",
           "address": 28,
-          "unit_of_measurement": "W",
+          "unit_of_measurement": "kW",
           "state_class": "measurement",
           "device_class": "power",
-          "value_type": "FP32",
-          "filters": [{ "multiply": 1000 }]
+          "value_type": "FP32"
         },
         {
           "name": "Active Power L1",
           "address": 30,
-          "unit_of_measurement": "W",
+          "unit_of_measurement": "kW",
           "state_class": "measurement",
           "device_class": "power",
-          "value_type": "FP32",
-          "filters": [{ "multiply": 1000 }]
+          "value_type": "FP32"
         },
         {
           "name": "Active Power L2",
           "address": 32,
-          "unit_of_measurement": "W",
+          "unit_of_measurement": "kW",
           "state_class": "measurement",
           "device_class": "power",
-          "value_type": "FP32",
-          "filters": [{ "multiply": 1000 }]
+          "value_type": "FP32"
         },
         {
           "name": "Active Power L3",
           "address": 34,
-          "unit_of_measurement": "W",
+          "unit_of_measurement": "kW",
           "state_class": "measurement",
           "device_class": "power",
-          "value_type": "FP32",
-          "filters": [{ "multiply": 1000 }]
+          "value_type": "FP32"
         },
         {
           "name": "Reactive Power Total",
