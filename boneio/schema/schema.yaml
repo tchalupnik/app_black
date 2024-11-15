@@ -183,7 +183,15 @@ modbus_sensors:
         type: string
         required: True
         allowed:
-          ['sdm630', 'sdm120', 'sofar', 'socomec_e23', 'cwt', 'orno-or-we-517']
+          [
+            'sdm630',
+            'sdm120',
+            'sofar',
+            'socomec_e03',
+            'socomec_e23',
+            'cwt',
+            'orno-or-we-517',
+          ]
         meta:
           label: Model to load from database.
       update_interval:

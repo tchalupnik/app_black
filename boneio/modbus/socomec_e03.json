@@ -71,7 +71,7 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 10 }]
         }
       ]
     },
