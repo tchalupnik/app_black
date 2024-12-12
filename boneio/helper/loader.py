@@ -372,8 +372,8 @@ def configure_event_sensor(
         name = gpio.pop(ID, pin)
         if input:
             if not isinstance(input, GpioEventButtonClass):
-                _LOGGER.warn(
-                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                _LOGGER.warning(
+                    "You reconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
             input.set_actions(actions=gpio.get(ACTIONS, {}))
