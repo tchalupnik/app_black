@@ -30,6 +30,8 @@ from boneio.const import (
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
 
+from boneio.helper.gpio import GpioBaseClass
+
 if TYPE_CHECKING:
     from boneio.manager import Manager
 
@@ -158,6 +160,7 @@ class HostData:
     def __init__(
         self,
         output: dict,
+        inputs: dict[str, GpioBaseClass],
         callback: Callable,
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
         ina219: INA219Class | None,
@@ -298,6 +301,12 @@ class HostData:
                 update_interval=_v["update_interval"],
             )
         self._output = output
+        self._inputs = {
+            f"Inputs screen {i + 1}": list(inputs.values())[
+                i * 25 : (i + 1) * 25
+            ]
+            for i in range((len(inputs) + 24) // 25)
+        }
         self._callback = callback
         self._loop = asyncio.get_running_loop()
 
@@ -305,6 +314,8 @@ class HostData:
         """Get saved stats."""
         if type in self._output:
             return self._get_output(type)
+        if type in self._inputs:
+            return self._get_input(type)
         return self._data[type].state
 
     def _get_output(self, type: str) -> dict:
@@ -313,3 +324,16 @@ class HostData:
         for output in self._output[type].values():
             out[output.id] = output.state
         return out
+
+    def _get_input(self, type: str) -> dict:
+        """Get stats for input."""
+        inputs = {}
+        for input in self._inputs[type]:
+            inputs[input.name] = (
+                input.pressed_state[0].upper() if input.pressed_state else ""
+            )
+        return inputs
+
+    @property
+    def inputs_length(self) -> int:
+        return len(self._inputs)

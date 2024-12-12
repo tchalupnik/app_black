@@ -86,6 +86,7 @@ oled:
           'memory',
           'swap',
           'outputs',
+          'inputs',
           'extra_sensors',
         ]
       default:

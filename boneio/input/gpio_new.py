@@ -1,11 +1,13 @@
 """GpioEventButtonNew to receive signals."""
+
 from __future__ import annotations
 import time
 import logging
-from boneio.const import DOUBLE, LONG, SINGLE, BOTH
+from boneio.const import DOUBLE, LONG, SINGLE, BOTH, PRESSED, RELEASED
 from boneio.helper import GpioBaseClass, ClickTimer
 from boneio.helper.gpio import edge_detect
 from boneio.helper.timeperiod import TimePeriod
+
 _LOGGER = logging.getLogger(__name__)
 
 # TIMINGS FOR BUTTONS
@@ -20,6 +22,7 @@ class GpioEventButtonNew(GpioBaseClass):
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
         self._state = self.is_pressed
+        self._pressed_state = PRESSED if self._state else RELEASED
         self.button_pressed_time = 0.0
         self.last_click_time = 0.0
         self._double_test = None
@@ -35,7 +38,9 @@ class GpioEventButtonNew(GpioBaseClass):
         )
         self._double_click_ran = False
         self._long_press_ran = False
-        edge_detect(pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH)
+        edge_detect(
+            pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH
+        )
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):
@@ -55,6 +60,7 @@ class GpioEventButtonNew(GpioBaseClass):
         time_now = time.time()
         self._state = self.is_pressed
         if self._state:
+            self._pressed_state = PRESSED
             if time_now - self.button_pressed_time >= self._bounce_time:
                 self.button_pressed_time = time_now
                 self._timer_long.start_timer()
@@ -66,9 +72,12 @@ class GpioEventButtonNew(GpioBaseClass):
                 self._timer_double.start_timer()
 
         else:
-            if not self._timer_double.is_waiting() and not self._double_click_ran:
+            self._pressed_state = RELEASED
+            if (
+                not self._timer_double.is_waiting()
+                and not self._double_click_ran
+            ):
                 if self._timer_long.is_waiting():
                     self.press_callback(click_type=SINGLE, duration=None)
             self._timer_long.reset()
             self._double_click_ran = False
-
