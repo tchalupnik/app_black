@@ -35,7 +35,9 @@ fonts = {
 START_ROW = 17
 UPTIME_ROWS = list(range(22, 60, 10))
 OUTPUT_ROWS = list(range(14, 60, 6))
+INPUT_ROWS = list(range(12, 60, 6))
 OUTPUT_COLS = range(0, 113, 56)
+INPUT_COLS = range(0, 113, 30)
 
 
 def shorten_name(name: str) -> str:
@@ -57,17 +59,47 @@ class Oled:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
         self._output_groups = None
+        self._input_groups = []
+        self._host_data = host_data
+
+        def configure_outputs() -> None:
+            try:
+                _ind_screen = screen_order.index("outputs")
+                if not output_groups:
+                    _LOGGER.debug("No outputs configured. Omitting in screen.")
+                    return
+                screen_order.pop(_ind_screen)
+                screen_order[_ind_screen:_ind_screen] = output_groups
+                self._output_groups = output_groups
+            except ValueError:
+                pass
+
+        def configure_inputs() -> None:
+            try:
+                _inputs_screen = screen_order.index("inputs")
+                input_groups = [
+                    f"Inputs screen {i + 1}"
+                    for i in range(
+                        0, self._host_data.inputs_length, 1
+                    )  # self._host_data.inputs_length
+                ]
+                if not _inputs_screen:
+                    _LOGGER.debug("No inputs configured. Omitting in screen.")
+                    return
+                screen_order.pop(_inputs_screen)
+                screen_order[_inputs_screen:_inputs_screen] = input_groups
+                self._input_groups = input_groups
+            except ValueError:
+                pass
+
         try:
-            _ind_screen = screen_order.index("outputs")
-            if not output_groups:
-                _LOGGER.debug("No outputs configured. Omitting in screen.")
-            screen_order.pop(_ind_screen)
-            screen_order[_ind_screen:_ind_screen] = output_groups
-            self._output_groups = output_groups
             _ina219_screen = screen_order.index("ina219")
             screen_order.pop(_ina219_screen)
         except ValueError:
             pass
+
+        configure_outputs()
+        configure_inputs()
         self._screen_order = cycle(screen_order)
         self._current_screen = next(self._screen_order)
         self._host_data = host_data
@@ -145,6 +177,29 @@ class Oled:
             )
             i += 1
 
+    def _draw_input(self, data: dict, draw: ImageDraw) -> None:
+        "Draw inputs of boneIO Black."
+        cols = cycle(INPUT_COLS)
+        draw.text(
+            (1, 1),
+            f"{self._current_screen}",
+            font=fonts["small"],
+            fill=WHITE,
+        )
+        i = 0
+        j = next(cols)
+        for k in data:
+            if len(INPUT_ROWS) == i:
+                j = next(cols)
+                i = 0
+            draw.text(
+                (j, INPUT_ROWS[i]),
+                f"{shorten_name(k)} {data[k]}",
+                font=fonts["extraSmall"],
+                fill=WHITE,
+            )
+            i += 1
+
     def render_display(self) -> None:
         """Render display."""
         data = self._host_data.get(self._current_screen)
@@ -157,6 +212,11 @@ class Oled:
                     self._draw_output(data, draw)
                 elif self._current_screen == UPTIME:
                     self._draw_uptime(data, draw)
+                elif (
+                    self._input_groups
+                    and self._current_screen in self._input_groups
+                ):
+                    self._draw_input(data, draw)
                 else:
                     self._draw_standard(data, draw)
         else:
@@ -170,7 +230,11 @@ class Oled:
 
     def handle_data_update(self, type: str):
         """Callback to handle new data present into screen."""
-        if type == self._current_screen and not self._sleep:
+        if (
+            type == "inputs"
+            and self._current_screen in self._input_groups
+            or type == self._current_screen
+        ) and not self._sleep:
             self.render_display()
 
     def _handle_press(self, pin: any) -> None:

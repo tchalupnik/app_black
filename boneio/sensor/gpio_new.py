@@ -8,6 +8,7 @@ from boneio.helper.gpio import add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class GpioInputBinarySensorNew(GpioBaseClass):
     """Represent Gpio sensor on input boards."""
 
@@ -20,6 +21,9 @@ class GpioInputBinarySensorNew(GpioBaseClass):
             (RELEASED, PRESSED)
             if kwargs.get("inverted", False)
             else (PRESSED, RELEASED)
+        )
+        self._pressed_state = (
+            self._click_type[0] if self._state else self._click_type[1]
         )
         self._initial_send = kwargs.get("initial_send", False)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
@@ -36,11 +40,13 @@ class GpioInputBinarySensorNew(GpioBaseClass):
         ):
             return
         self._state = state
-        click_type = self._click_type[0] if state else self._click_type[1]
+        self._pressed_state = (
+            self._click_type[0] if state else self._click_type[1]
+        )
         _LOGGER.debug(
             "Binary sensor: %s event on pin %s - %s",
-            click_type,
+            self._pressed_state,
             self._pin,
             self.name,
         )
-        self.press_callback(click_type=click_type, duration=None)
+        self.press_callback(click_type=self._pressed_state, duration=None)

@@ -142,6 +142,7 @@ class Manager:
         self._ina219_sensors = []
         self._modbus_sensors = {}
         self._modbus = None
+        self._screens = []
 
         self._configure_modbus(modbus=modbus)
 
@@ -261,13 +262,14 @@ class Manager:
         if oled.get("enabled", False):
             from boneio.oled import Oled
 
-            screens = oled.get("screens", [])
+            self._screens = oled.get("screens", [])
             extra_sensors = oled.get("extra_screen_sensors", [])
 
             self._host_data = HostData(
                 manager=self,
-                enabled_screens=screens,
+                enabled_screens=self._screens,
                 output=self.grouped_outputs,
+                inputs=self._inputs,
                 temp_sensor=(
                     self._temp_sensors[0] if self._temp_sensors else None
                 ),
@@ -280,7 +282,7 @@ class Manager:
             try:
                 self._oled = Oled(
                     host_data=self._host_data,
-                    screen_order=screens,
+                    screen_order=self._screens,
                     output_groups=list(self.grouped_outputs),
                     sleep_timeout=oled.get("screensaver_timeout", 60),
                 )
@@ -387,7 +389,7 @@ class Manager:
                 pin=pin,
                 press_callback=self.press_callback,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self._inputs.get(pin, None),
+                input=self._inputs.get(pin, None),  # for reload actions.
             )
             if input:
                 self._inputs[input.pin] = input
@@ -728,6 +730,11 @@ class Manager:
             self._loop.call_soon_threadsafe(
                 self._loop.call_later, 0.2, self.send_message, topic, ""
             )
+        if (
+            "Inputs screen 1" in self._screens
+            or "Inputs screen 2" in self._screens
+        ):
+            self._host_data_callback(type="inputs")
 
     def send_ha_autodiscovery(
         self,

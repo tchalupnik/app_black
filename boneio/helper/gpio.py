@@ -141,6 +141,7 @@ class GpioBaseClass:
         self._actions = actions
         self._input_type = input_type
         self._empty_message_after = empty_message_after
+        self._pressed_state = ""
 
     def press_callback(
         self, click_type: ClickTypes, duration: float | None = None
@@ -173,6 +174,11 @@ class GpioBaseClass:
     def is_pressed(self) -> bool:
         """Is button pressed."""
         return read_input(self._pin)
+
+    @property
+    def pressed_state(self) -> str:
+        """Pressed state for"""
+        return self._pressed_state
 
     @property
     def name(self) -> str:
