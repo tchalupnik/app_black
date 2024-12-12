@@ -64,6 +64,8 @@ class Oled:
             screen_order.pop(_ind_screen)
             screen_order[_ind_screen:_ind_screen] = output_groups
             self._output_groups = output_groups
+            _ina219_screen = screen_order.index("ina219")
+            screen_order.pop(_ina219_screen)
         except ValueError:
             pass
         self._screen_order = cycle(screen_order)
