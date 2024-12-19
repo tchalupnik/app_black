@@ -385,20 +385,26 @@ output:
     schema:
       id:
         type: string
-        required: False
+        required: True
         coerce: str
         meta:
-          label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
+          label: Output ID
+      boneio_output:
+        type: string
+        required: False
+        meta:
+          label: Reference to predefined output configuration
       kind:
         type: string
+        required: False
         allowed: ['gpio', 'mcp', 'pca', 'pcf']
         meta:
-          label: Either GPIO or i2c.
+          label: Output kind (mcp, gpio, etc)
       mcp_id:
         type: string
         required: False
         meta:
-          label: MCP ID to connect
+          label: MCP ID reference
       pca_id:
         type: string
         required: False
@@ -410,12 +416,10 @@ output:
         meta:
           label: PCF ID to connect
       pin:
-        type:
-          - string
-          - integer
-        required: True
+        type: integer
+        required: False
         meta:
-          label: PIN to use.
+          label: Pin number
       momentary_turn_on:
         type:
           - string
@@ -839,3 +843,20 @@ sensor:
       filters: !include filters.yaml
       update_interval: !include update_interval.yaml
       unit_of_measurement: !include temp_unit.yaml
+
+boneio:
+  type: dict
+  required: False
+  meta:
+    label: BoneIO configuration section
+  schema:
+    version:
+      type: string
+      required: True
+      meta:
+        label: BoneIO version
+    relay_board:
+      type: string
+      required: True
+      meta:
+        label: Predefined relay board configuration

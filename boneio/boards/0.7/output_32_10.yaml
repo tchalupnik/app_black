@@ -1,0 +1,17 @@
+mcp23017:
+  - id: mcp1
+    address: 0x20
+  - id: mcp2
+    address: 0x21
+
+output_mapping:
+  out_01:
+    kind: mcp
+    mcp_id: mcp2
+    pin: 7
+    output_type: light
+  out_02:
+    kind: mcp
+    mcp_id: mcp2
+    pin: 6
+    output_type: light

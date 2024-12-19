@@ -155,16 +155,76 @@ def load_yaml_file(filename: str) -> Any:
             raise exception
 
 
+def get_board_config_path(board_name: str, version: str) -> str:
+    """Get the appropriate board configuration file path based on version."""
+    base_dir = os.path.join(os.path.dirname(__file__), "../boards")
+    version_dir = os.path.join(base_dir, version)
+    version_specific_file = os.path.join(version_dir, f"{board_name}.yaml")
+    
+    if not os.path.exists(version_dir):
+        raise ConfigurationException(
+            f"Board configurations for version {version} not found. "
+            f"Expected directory: {version_dir}"
+        )
+    
+    if os.path.exists(version_specific_file):
+        return version_specific_file
+        
+    raise ConfigurationException(
+        f"Board configuration '{board_name}' for version {version} not found. "
+        f"Expected file: {version_specific_file}"
+    )
+
+
+def merge_board_config(config: dict) -> dict:
+    """Merge predefined board configuration with user config."""
+    if not config.get("boneio", {}).get("relay_board"):
+        return config
+
+    board_name = config["boneio"]["relay_board"]
+    version = config["boneio"]["version"]
+    
+    try:
+        board_file = get_board_config_path(board_name, version)
+        board_config = load_yaml_file(board_file)
+        if not board_config:
+            raise ConfigurationException(f"Board configuration file {board_file} is empty")
+    except FileNotFoundError:
+        raise ConfigurationException(
+            f"Board configuration for {board_name} version {version} not found"
+        )
+
+    # Copy MCP configuration if not already defined
+    if "mcp23017" not in config and "mcp23017" in board_config:
+        config["mcp23017"] = board_config["mcp23017"]
+
+    # Process outputs
+    if "output" in config:
+        output_mapping = board_config.get("output_mapping", {})
+        for output in config["output"]:
+            if "boneio_output" in output:
+                mapped_output = output_mapping.get(output["boneio_output"])
+                if not mapped_output:
+                    raise ConfigurationException(
+                        f"Output mapping '{output['boneio_output']}' not found in board configuration"
+                    )
+                # Merge mapped output with user config, preserving user-specified values
+                output.update({k: v for k, v in mapped_output.items() if k not in output})
+                del output["boneio_output"]
+
+    return config
+
+
 def load_config_from_string(config_yaml: str):
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
-    v.validate(config_yaml)
-    # if v.errors:
-    #     _LOGGER.error("There are errors in your config %s", v.errors)
+    if not v.validate(config_yaml):
+        error_msg = "Configuration validation failed:\n"
+        for field, errors in v.errors.items():
+            error_msg += f"\n- {field}: {errors}"
+        raise ConfigurationException(error_msg)
     doc = v.normalized(v.document, always_return_document=True)
-    # validated = v.validated(document=doc, normalize=True, always_return_document=True)
-    # doc = v.normalized(validated, always_return_document=True)
-    return doc
+    return merge_board_config(doc)
 
 
 def load_config_from_file(config_file: str):
@@ -173,7 +233,7 @@ def load_config_from_file(config_file: str):
     except FileNotFoundError as err:
         raise ConfigurationException(err)
     if not config_yaml:
-        _LOGGER.warn("Missing yaml file. %s", config_file)
+        _LOGGER.warning("Missing yaml file. %s", config_file)
         return None
     return load_config_from_string(config_yaml)
 
