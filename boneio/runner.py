@@ -64,27 +64,34 @@ async def async_run(
 ) -> list[Any]:
     """Run BoneIO."""
     _config_helper = ConfigHelper(
-        topic_prefix=config[MQTT].pop(TOPIC_PREFIX),
-        ha_discovery=config[MQTT][HA_DISCOVERY].pop(ENABLED),
-        ha_discovery_prefix=config[MQTT][HA_DISCOVERY].pop(TOPIC_PREFIX),
+        topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, "boneio"),
+        ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
+        ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
     )
 
-    client = MQTTClient(
-        host=config[MQTT][HOST],
-        username=config[MQTT].get(USERNAME, mqttusername),
-        password=config[MQTT].get(PASSWORD, mqttpassword),
-        port=config[MQTT].get(PORT, 1883),
-        config_helper=_config_helper,
-    )
+    # Initialize message bus based on config
+    if MQTT in config:
+        client = MQTTClient(
+            host=config[MQTT][HOST],
+            username=config[MQTT].get(USERNAME, mqttusername),
+            password=config[MQTT].get(PASSWORD, mqttpassword),
+            port=config[MQTT].get(PORT, 1883),
+            config_helper=_config_helper,
+        )
+        message_bus = client
+    else:
+        from boneio.helper.message_bus import LocalMessageBus
+        message_bus = LocalMessageBus()
+
     manager_kwargs = {
         item["name"]: config.get(item["name"], item["default"])
         for item in config_modules
     }
 
     manager = Manager(
-        send_message=client.send_message,
-        stop_client=client.stop_client,
-        mqtt_state=client.state,
+        send_message=message_bus.send_message,
+        stop_client=message_bus.stop,
+        mqtt_state=message_bus.state,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),
@@ -104,6 +111,9 @@ async def async_run(
     )
     tasks = set()
     tasks.update(manager.get_tasks())
-    _LOGGER.info("Connecting to MQTT.")
-    tasks.add(client.start_client(manager))
+    
+    if isinstance(message_bus, MQTTClient):
+        _LOGGER.info("Connecting to MQTT.")
+        tasks.add(message_bus.start_client(manager))
+    
     return await asyncio.gather(*tasks)

@@ -11,6 +11,7 @@ import uuid
 from contextlib import AsyncExitStack
 from typing import Any, Callable, Optional, Set, Union, Awaitable
 
+from boneio.helper.message_bus import MessageBus
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient, MqttError, Will
 from paho.mqtt.properties import Properties
@@ -26,7 +27,7 @@ from boneio.helper.exceptions import RestartRequestException
 _LOGGER = logging.getLogger(__name__)
 
 
-class MQTTClient:
+class MQTTClient(MessageBus):
     """Represent an MQTT client."""
 
     def __init__(
@@ -184,6 +185,10 @@ class MQTTClient:
         except (asyncio.CancelledError, GracefulExit):
             _LOGGER.info("MQTT client task canceled.")
             pass
+
+    async def stop(self) -> None:
+        await self.unsubscribe(topics=self._topics)
+        await self.asyncio_client.disconnect()
 
     async def stop_client(self) -> None:
         await self.unsubscribe(topics=self._topics)
