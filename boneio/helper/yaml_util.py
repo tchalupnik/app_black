@@ -1,7 +1,8 @@
 import fnmatch
 import logging
-import os
 import re
+from operator import concat
+import os
 from collections import OrderedDict
 from typing import Any, Tuple
 
@@ -152,7 +153,11 @@ def load_yaml_file(filename: str) -> Any:
         try:
             return load(stream, Loader=BoneIOLoader) or OrderedDict()
         except YAMLError as exception:
-            raise exception
+            msg = ""
+            if hasattr(exception, "problem_mark"):
+                mark = exception.problem_mark
+                msg = f" at line {mark.line + 1} column {mark.column + 1}"
+            raise ConfigurationException(f"Error loading yaml{msg}") from exception
 
 
 def get_board_config_path(board_name: str, version: str) -> str:
@@ -215,29 +220,6 @@ def merge_board_config(config: dict) -> dict:
     return config
 
 
-def load_config_from_string(config_yaml: str):
-    schema = load_yaml_file(schema_file)
-    v = CustomValidator(schema, purge_unknown=True)
-    if not v.validate(config_yaml):
-        error_msg = "Configuration validation failed:\n"
-        for field, errors in v.errors.items():
-            error_msg += f"\n- {field}: {errors}"
-        raise ConfigurationException(error_msg)
-    doc = v.normalized(v.document, always_return_document=True)
-    return merge_board_config(doc)
-
-
-def load_config_from_file(config_file: str):
-    try:
-        config_yaml = load_yaml_file(config_file)
-    except FileNotFoundError as err:
-        raise ConfigurationException(err)
-    if not config_yaml:
-        _LOGGER.warning("Missing yaml file. %s", config_file)
-        return None
-    return load_config_from_string(config_yaml)
-
-
 def one_of(*values, **kwargs):
     """Validate that the config option is one of the given values.
     :param values: The valid values for this type
@@ -273,73 +255,89 @@ class CustomValidator(Validator):
     types_mapping = Validator.types_mapping.copy()
     types_mapping["timeperiod"] = timeperiod_type
 
-    def _lookup_field(self, path: str) -> Tuple:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allow_unknown = True
+
+    def _validate_case_insensitive(self, case_insensitive, field, value):
+        """Validate field allowing any case but check against lowercase values.
+        
+        The rule's arguments are validated against this schema:
+        {'type': 'boolean'}
         """
-        Implement relative paths with dot (.) notation, following Python
-        guidelines: https://www.python.org/dev/peps/pep-0328/#guido-s-decision
-        - A single leading dot indicates a relative import
-        starting with the current package.
-        - Two or more leading dots give a relative import to the parent(s)
-        of the current package, one level per dot after the first
-        Return: Tuple(dependency_name: str, dependency_value: Any)
+        if not isinstance(value, str):
+            self._error(field, "must be a string")
+            return
+
+        allowed = self.schema[field].get('allowed')
+        if allowed and value.lower() not in [a.lower() for a in allowed]:
+            self._error(field, f"unallowed value {value}")
+
+    def _validate_required_if(self, required_if, field, value):
+        """Validate that a field is required if a condition is met.
+        
+        The rule's arguments are validated against this schema:
+        {'type': 'dict'}
         """
-        # Python relative imports use a single leading dot
-        # for the current level, however no dot in Cerberus
-        # does the same thing, thus we need to check 2 or more dots
-        if path.startswith(".."):
-            parts = path.split(".")
-            dot_count = path.count(".")
-            context = self.root_document
+        if not required_if:
+            return
 
-            for key in self.document_path[:dot_count]:
-                context = context[key]
+        for key, values in required_if.items():
+            if key not in self.document:
+                continue
 
-            context = context.get(parts[-1])
+            doc_value = self.document[key]
+            if isinstance(doc_value, str):
+                doc_value = doc_value.lower()
+            if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
+                if field not in self.document:
+                    self._error(field, f"required when {key} is {doc_value}")
 
-            return parts[-1], context
+    def _validate_forbidden_if(self, forbidden_if, field, value):
+        """Validate that a field is forbidden if a condition is met.
+        
+        The rule's arguments are validated against this schema:
+        {'type': 'dict'}
+        """
+        if not forbidden_if:
+            return
 
-        else:
-            return super()._lookup_field(path)
+        for key, values in forbidden_if.items():
+            if key not in self.document:
+                continue
 
-    def _check_with_output_id_uniqueness(self, field, value):
-        """Check if outputs ids are unique if they exists."""
-        if self.document[OUTPUT] is not None:
-            all_ids = [x[ID] for x in self.document[OUTPUT]]
-            if len(all_ids) != len(set(all_ids)):
-                self._error(field, "Output IDs are not unique.")
+            doc_value = self.document[key]
+            if isinstance(doc_value, str):
+                doc_value = doc_value.lower()
+            if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
+                if field in self.document:
+                    self._error(field, f"forbidden when {key} is {doc_value}")
 
-    def _normalize_coerce_to_bool(self, value):
-        return True
+    def _normalize_coerce_action_field(self, value):
+        """Handle conditional defaults for action fields."""
+        if value is None:
+            action = self.document.get('action', '').lower()
+            field_name = self.schema_path[-1]
+            if (field_name == 'action_cover' and action == 'cover') or \
+               (field_name == 'action_output' and action == 'output'):
+                return 'TOGGLE'
+        return value
 
     def _normalize_coerce_lower(self, value):
-        return str(value).lower()
-
-    def _normalize_coerce_remove_space(self, value):
-        return str(value).replace(" ", "")
+        """Convert string to lowercase."""
+        if isinstance(value, str):
+            return value.lower()
+        return value
 
     def _normalize_coerce_upper(self, value):
-        return str(value).upper()
-
-    def _normalize_coerce_actions_output(self, value):
-        return str(value).upper()
+        """Convert string to uppercase."""
+        if isinstance(value, str):
+            return value.upper()
+        return value
 
     def _normalize_coerce_str(self, value):
+        """Convert value to string."""
         return str(value)
-
-    def _normalize_coerce_check_actions(self, value):
-        _path = self.document_path
-        parent = self.root_document[_path[0]][_path[1]]
-        keys = value.keys()
-        _schema = self.schema["actions"]
-        out = {}
-        for key in keys:
-            _deps = _schema["schema"][key]["dependencies"].items()
-            d = next(iter(_deps))
-            _parent_key_value = parent.get(d[0], "switch")
-            for _v in d[1]:
-                if _v == _parent_key_value:
-                    out[key] = value[key]
-        return out
 
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
         """Validate and transform time period with time unit and integer value."""
@@ -380,29 +378,77 @@ class CustomValidator(Validator):
         kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
         return TimePeriod(**{kwarg: float(match.group(1))})
 
-    def _normalize_coerce_check_action_def(self, value):
-        parent = self.root_document[self.document_path[0]][
-            self.document_path[1]
-        ]
-        _schema = self.schema["actions"]
-        keys = value.keys()
-        out = {}
-        for key in keys:
-            _deps = _schema["schema"][key]["dependencies"].items()
-            d = next(iter(_deps))
-            _parent_key_value = parent[d[0]]
-            for _v in d[1]:
-                if _v == _parent_key_value:
-                    out[key] = value[key]
-        return out
+    def _lookup_field(self, path: str) -> Tuple:
+        """
+        Implement relative paths with dot (.) notation, following Python
+        guidelines: https://www.python.org/dev/peps/pep-0328/#guido-s-decision
+        - A single leading dot indicates a relative import
+        starting with the current package.
+        - Two or more leading dots give a relative import to the parent(s)
+        of the current package, one level per dot after the first
+        Return: Tuple(dependency_name: str, dependency_value: Any)
+        """
+        # Python relative imports use a single leading dot
+        # for the current level, however no dot in Cerberus
+        # does the same thing, thus we need to check 2 or more dots
+        if path.startswith(".."):
+            parts = path.split(".")
+            dot_count = path.count(".")
+            context = self.root_document
 
-    def _normalize_default_setter_toggle_cover(self, document):
-        def get_parent():
-            out = self.root_document
-            for _p in self.document_path:
-                out = out[_p]
-            return out
+            for key in self.document_path[:dot_count]:
+                context = context[key]
 
-        parent = get_parent()
-        if parent["action"] == COVER:
-            return TOGGLE
+            context = context.get(parts[-1])
+
+            return parts[-1], context
+
+        else:
+            return super()._lookup_field(path)
+
+    def _check_with_output_id_uniqueness(self, field, value):
+        """Check if outputs ids are unique if they exists."""
+        if self.document[OUTPUT] is not None:
+            all_ids = [x[ID] for x in self.document[OUTPUT]]
+            if len(all_ids) != len(set(all_ids)):
+                self._error(field, "Output IDs are not unique.")
+
+    def _normalize_coerce_to_bool(self, value):
+        return True
+
+    def _normalize_coerce_remove_space(self, value):
+        return str(value).replace(" ", "")
+
+    def _normalize_coerce_actions_output(self, value):
+        return str(value).upper()
+
+
+def load_config_from_string(config_str: str) -> dict:
+    """Load config from string."""
+    schema = load_yaml_file(schema_file)
+    v = CustomValidator(schema, purge_unknown=True)
+
+    if not v.validate(config_str):
+        error_msg = "Configuration validation failed:\n"
+        for field, errors in v.errors.items():
+            error_lines = []
+            if "line" in v.errors[field][0]:
+                error_lines = [
+                    f"{v.errors[field][0]['line']}: {line}"
+                    for line in config_str.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]
+                ]
+            error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
+        raise ConfigurationException(error_msg)
+    doc = v.normalized(v.document, always_return_document=True)
+    return merge_board_config(doc)
+
+
+def load_config_from_file(config_file: str):
+    try:
+        config_yaml = load_yaml_file(config_file)
+    except FileNotFoundError as err:
+        raise ConfigurationException(err)
+    if not config_yaml:
+        _LOGGER.warning("Missing yaml file. %s", config_file)
+        return None
+    return load_config_from_string(config_yaml)

@@ -55,11 +55,16 @@ logger:
     default:
       type: string
       required: False
-      allowed: ['critical', 'error', 'warning', 'info', 'debug']
+      coerce: lower  # Convert to lowercase
+      allowed: ['critical', 'error', 'warning', 'info', 'debug', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
       meta:
         label: Module which you want logger to set. Default for app logger.
     logs:
       type: dict
+      valueschema:
+        type: string
+        coerce: lower  # Convert to lowercase for all values
+        allowed: ['critical', 'error', 'warning', 'info', 'debug', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
       meta:
         label: List of dict module\:level.
 
@@ -598,7 +603,6 @@ binary_sensor:
       actions:
         required: False
         type: dict
-        coerce: check_actions
         schema:
           pressed: !include actions_sensor.yaml
           released: !include actions_sensor.yaml
@@ -672,7 +676,6 @@ event:
       actions:
         required: False
         type: dict
-        coerce: check_actions
         schema:
           single: !include actions_switch.yaml
           double: !include actions_switch.yaml

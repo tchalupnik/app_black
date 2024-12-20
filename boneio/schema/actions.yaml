@@ -4,42 +4,47 @@ schema:
     type: string
     allowed: ['mqtt', 'output', 'cover']
     default: output
+    coerce: lower
+    case_insensitive: true
   pin:
     type: string
-    dependencies:
-      action: ['output', 'cover', 'group']
+    required_if:
+      action: ['output', 'group', 'cover']
   topic:
     type: string
-    dependencies:
+    required_if:
       action: ['mqtt']
+    forbidden_if:
+      action: ['output', 'cover']
     meta:
       label: If mqtt action then topic to send
   action_cover:
     type: string
-    required: False
-    nullable: True
-    allowed:
-      ['toggle', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-    default_setter: toggle_cover
-    dependencies:
+    required_if:
       action: ['cover']
-    coerce:
-      - actions_output
+    forbidden_if:
+      action: ['output', 'mqtt']
+    allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE']
+    coerce: action_field
+    case_insensitive: true
     meta:
       label: If cover action chosen then what action to perform.
   action_output:
     type: string
-    allowed: ['toggle', 'on', 'off']
-    default: toggle
-    dependencies:
+    required_if:
       action: ['output']
-    coerce:
-      - actions_output
+    forbidden_if:
+      action: ['cover', 'mqtt']
+    allowed: ['TOGGLE', 'ON', 'OFF']
+    coerce: action_field
+    case_insensitive: true
     meta:
       label: If output action chosen then what action to perform.
   action_mqtt_msg:
     type: string
-    dependencies:
+    required_if:
       action: ['mqtt']
+    forbidden_if:
+      action: ['output', 'cover']
     meta:
       label: What message to send to mqtt topic
