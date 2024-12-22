@@ -1,15 +1,14 @@
 import fnmatch
 import logging
-import re
-from operator import concat
 import os
+import re
 from collections import OrderedDict
 from typing import Any, Tuple
 
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, load
 
-from boneio.const import COVER, ID, OUTPUT, TOGGLE
+from boneio.const import ID, OUTPUT
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.timeperiod import TimePeriod
 
@@ -301,7 +300,7 @@ class CustomValidator(Validator):
         """
         if not forbidden_if:
             return
-
+        default_value = self.schema[field].get("default")
         for key, values in forbidden_if.items():
             if key not in self.document:
                 continue
@@ -309,19 +308,21 @@ class CustomValidator(Validator):
             doc_value = self.document[key]
             if isinstance(doc_value, str):
                 doc_value = doc_value.lower()
+            
             if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
-                if field in self.document:
+                if field in self.document and value != default_value:
                     self._error(field, f"forbidden when {key} is {doc_value}")
 
     def _normalize_coerce_action_field(self, value):
         """Handle conditional defaults for action fields."""
+        action = self.document.get('action', '').lower()
+        field_name = self.schema_path[-1]
         if value is None:
-            action = self.document.get('action', '').lower()
-            field_name = self.schema_path[-1]
             if (field_name == 'action_cover' and action == 'cover') or \
                (field_name == 'action_output' and action == 'output'):
                 return 'TOGGLE'
-        return value
+            return None
+        return str(value).upper()
 
     def _normalize_coerce_lower(self, value):
         """Convert string to lowercase."""
@@ -338,6 +339,9 @@ class CustomValidator(Validator):
     def _normalize_coerce_str(self, value):
         """Convert value to string."""
         return str(value)
+
+    def _normalize_coerce_actions_output(self, value):
+        return str(value).upper()
 
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
         """Validate and transform time period with time unit and integer value."""
