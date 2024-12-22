@@ -1,9 +1,11 @@
 """Group output module."""
 
 from __future__ import annotations
+
 import asyncio
 from typing import List
-from boneio.const import COVER, SWITCH, ON, OFF
+
+from boneio.const import COVER, OFF, ON, SWITCH
 from boneio.relay.basic import BasicRelay
 
 
@@ -56,25 +58,17 @@ class OutputGroup(BasicRelay):
             )
         if state != self._state or not relay_id:
             self._state = state
-            self._loop.call_soon_threadsafe(self.send_state)
+            self._loop.create_task(self.send_state())
 
     async def async_turn_on(self) -> None:
         """Call turn on action."""
-        await asyncio.gather(
-            *[
-                self._loop.run_in_executor(self.executor, x.turn_on)
-                for x in self._group_members
-            ]
-        )
+        for x in self._group_members:
+            self._loop.create_task(x.async_turn_on())
 
     async def async_turn_off(self) -> None:
         """Call turn off action."""
-        await asyncio.gather(
-            *[
-                self._loop.run_in_executor(self.executor, x.turn_off)
-                for x in self._group_members
-            ]
-        )
+        for x in self._group_members:
+            self._loop.create_task(x.async_turn_off())
 
     @property
     def is_active(self) -> bool:
