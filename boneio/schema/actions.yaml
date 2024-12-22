@@ -3,7 +3,6 @@ schema:
   action:
     type: string
     allowed: ['mqtt', 'output', 'cover']
-    default: output
     coerce: lower
     case_insensitive: true
   pin:
@@ -26,6 +25,7 @@ schema:
       action: ['output', 'mqtt']
     allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE']
     coerce: action_field
+    default: TOGGLE
     case_insensitive: true
     meta:
       label: If cover action chosen then what action to perform.
@@ -37,6 +37,7 @@ schema:
       action: ['cover', 'mqtt']
     allowed: ['TOGGLE', 'ON', 'OFF']
     coerce: action_field
+    default: TOGGLE
     case_insensitive: true
     meta:
       label: If output action chosen then what action to perform.
