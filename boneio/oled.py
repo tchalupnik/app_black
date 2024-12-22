@@ -83,13 +83,11 @@ class Oled:
                         0, self._host_data.inputs_length, 1
                     )  # self._host_data.inputs_length
                 ]
-                if not _inputs_screen:
-                    _LOGGER.debug("No inputs configured. Omitting in screen.")
-                    return
                 screen_order.pop(_inputs_screen)
                 screen_order[_inputs_screen:_inputs_screen] = input_groups
                 self._input_groups = input_groups
             except ValueError:
+                _LOGGER.debug("No inputs configured. Omitting in screen.")
                 pass
 
         try:
