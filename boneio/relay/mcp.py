@@ -3,7 +3,8 @@
 import logging
 
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
-from boneio.const import SWITCH, MCP, COVER, ON, OFF
+
+from boneio.const import COVER, MCP, OFF, ON, SWITCH
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,11 +66,9 @@ class MCPRelay(BasicRelay):
         self.pin.value = True
         if not time:
             self._execute_momentary_turn(momentary_type=ON)
-        self._loop.call_soon_threadsafe(self.send_state, ON)
 
     def turn_off(self, time=None) -> None:
         """Call turn off action."""
         self.pin.value = False
         if not time:
             self._execute_momentary_turn(momentary_type=OFF)
-        self._loop.call_soon_threadsafe(self.send_state, OFF)

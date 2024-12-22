@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import asyncio
 import logging
-from datetime import datetime
 import socket
 import time
-from math import floor
-from typing import Callable, List
+from datetime import datetime
 from functools import partial
+from math import floor
+
+# Typing imports that create a circular dependency
+from typing import TYPE_CHECKING, Callable, List
 
 import psutil
 
@@ -14,6 +17,7 @@ from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
+    HOST,
     INA219,
     IP,
     MAC,
@@ -24,12 +28,7 @@ from boneio.const import (
     NONE,
     SWAP,
     UPTIME,
-    HOST,
 )
-
-# Typing imports that create a circular dependency
-from typing import TYPE_CHECKING
-
 from boneio.helper.gpio import GpioBaseClass
 
 if TYPE_CHECKING:
@@ -37,7 +36,8 @@ if TYPE_CHECKING:
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.helper.timeperiod import TimePeriod
-from boneio.sensor import LM75Sensor, MCP9808Sensor, INA219 as INA219Class
+from boneio.sensor import INA219 as INA219Class
+from boneio.sensor import LM75Sensor, MCP9808Sensor
 from boneio.version import __version__
 
 _LOGGER = logging.getLogger(__name__)
