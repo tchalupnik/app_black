@@ -31,12 +31,10 @@ class ClickTimer:
             self._remove_listener.cancel()
             self._remove_listener = None
 
-    async def _start_async_timer(self) -> None:
-        start = time.time()
-        await asyncio.sleep(self._delay)
+    def _start_action(self, start: float) -> None:
         self._remove_listener = None
         self._action(round(time.time() - start, 2))
 
     def start_timer(self) -> None:
         """Start timer."""
-        self._remove_listener = self._loop.create_task(self._start_async_timer())
+        self._remove_listener = self._loop.call_later(self._delay, self._start_action, time.time())

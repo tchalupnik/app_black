@@ -1,6 +1,7 @@
 """GpioInputBinarySensor to receive signals."""
-import logging
 import asyncio
+import logging
+
 from boneio.const import PRESSED, RELEASED
 from boneio.helper import GpioBaseClass
 

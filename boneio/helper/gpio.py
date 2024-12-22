@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 import asyncio
 import logging
-from datetime import datetime
 
 try:
     from Adafruit_BBIO import GPIO
@@ -18,21 +18,23 @@ except ModuleNotFoundError:
     pass
 
 import subprocess
-from typing import Callable, Awaitable, List
+from typing import Awaitable, Callable, List
 
-from boneio.const import CONFIG_PIN, FALLING
-from boneio.const import GPIO as GPIO_STR
 from boneio.const import (
+    CONFIG_PIN,
+    FALLING,
     GPIO_MODE,
     LOW,
+    PRESSED,
+    RELEASED,
     ClickTypes,
     Gpio_Edges,
     Gpio_States,
     InputTypes,
 )
+from boneio.const import GPIO as GPIO_STR
 from boneio.helper.exceptions import GPIOInputException
 from boneio.helper.timeperiod import TimePeriod
-from concurrent.futures import ThreadPoolExecutor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -137,25 +139,34 @@ class GpioBaseClass:
         self._press_callback = press_callback
         self._name = name
         setup_input(pin=self._pin, pull_mode=gpio_mode)
-        self.executor = ThreadPoolExecutor()
         self._actions = actions
         self._input_type = input_type
         self._empty_message_after = empty_message_after
-        self._pressed_state = ""
+        self._click_type = (PRESSED, RELEASED)
 
     def press_callback(
         self, click_type: ClickTypes, duration: float | None = None
     ) -> None:
+        """Handle press callback."""
         actions = self._actions.get(click_type, [])
+        _LOGGER.debug(
+            "Press callback: %s on pin %s - %s", click_type, self._pin, self.name
+        )
         self._loop.create_task(
-            self.async_press_callback(click_type, duration, actions)
+            self.async_press_callback(
+                actions,
+                click_type,
+                self._empty_message_after,
+                duration,
+            )
         )
 
     async def async_press_callback(
         self,
+        actions: List,
         click_type: ClickTypes,
+        empty_message_after: bool,
         duration: float | None = None,
-        actions: List = [],
     ) -> None:
 
         await self._press_callback(
@@ -163,7 +174,7 @@ class GpioBaseClass:
             self._pin,
             actions,
             self._input_type,
-            self._empty_message_after,
+            empty_message_after,
             duration,
         )
 
@@ -178,7 +189,7 @@ class GpioBaseClass:
     @property
     def pressed_state(self) -> str:
         """Pressed state for"""
-        return self._pressed_state
+        return self._click_type[0] if self._state else self._click_type[1]
 
     @property
     def name(self) -> str:

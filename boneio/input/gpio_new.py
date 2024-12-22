@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time
 import logging
-from boneio.const import DOUBLE, LONG, SINGLE, BOTH, PRESSED, RELEASED
+from boneio.const import DOUBLE, LONG, SINGLE, BOTH
 from boneio.helper import GpioBaseClass, ClickTimer
 from boneio.helper.gpio import edge_detect
 from boneio.helper.timeperiod import TimePeriod
@@ -11,8 +11,8 @@ from boneio.helper.timeperiod import TimePeriod
 _LOGGER = logging.getLogger(__name__)
 
 # TIMINGS FOR BUTTONS
-DOUBLE_CLICK_DURATION_MS = 180
-LONG_PRESS_DURATION_MS = 600
+DOUBLE_CLICK_DURATION_MS = 220
+LONG_PRESS_DURATION_MS = 400
 
 
 class GpioEventButtonNew(GpioBaseClass):
@@ -22,12 +22,10 @@ class GpioEventButtonNew(GpioBaseClass):
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
         self._state = self.is_pressed
-        self._pressed_state = PRESSED if self._state else RELEASED
         self.button_pressed_time = 0.0
         self.last_click_time = 0.0
-        self._double_test = None
-        self._long_test = None
 
+        # Initialize timers
         self._timer_double = ClickTimer(
             delay=TimePeriod(milliseconds=DOUBLE_CLICK_DURATION_MS),
             action=lambda x: self.single_click_callback(),
@@ -36,48 +34,52 @@ class GpioEventButtonNew(GpioBaseClass):
             delay=TimePeriod(milliseconds=LONG_PRESS_DURATION_MS),
             action=lambda x: self.long_click_callback(x),
         )
-        self._double_click_ran = False
-        self._long_press_ran = False
+        
+        # State tracking
+        self._double_click_possible = False  # True after first click until window expires
+        
         edge_detect(
             pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH
         )
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):
-        """This is invoked by double timer if time is up for double timer."""
-        if not self._state and not self._timer_long.is_waiting():
+        """Called when double click window expires without second click."""
+        if not self._state:  # Only trigger if button is released
             self.press_callback(click_type=SINGLE, duration=None)
+        self._double_click_possible = False
 
     def double_click_callback(self):
-        """This is double click callback."""
+        """Handle double click."""
         self.press_callback(click_type=DOUBLE, duration=None)
+        self._double_click_possible = False
+        self._timer_double.reset()  # Cancel pending single click
 
     def long_click_callback(self, duration: float):
-        """This is long click callback."""
+        """Handle long press."""
+        self._double_click_possible = False  # Cancel any pending clicks
+        self._timer_double.reset()
         self.press_callback(click_type=LONG, duration=duration)
 
     def check_state(self, _) -> None:
         time_now = time.time()
         self._state = self.is_pressed
-        if self._state:
-            self._pressed_state = PRESSED
-            if time_now - self.button_pressed_time >= self._bounce_time:
-                self.button_pressed_time = time_now
-                self._timer_long.start_timer()
-                if self._timer_double.is_waiting():
-                    self._timer_double.reset()
-                    self._double_click_ran = True
-                    self.double_click_callback()
-                    return
-                self._timer_double.start_timer()
 
-        else:
-            self._pressed_state = RELEASED
-            if (
-                not self._timer_double.is_waiting()
-                and not self._double_click_ran
-            ):
-                if self._timer_long.is_waiting():
-                    self.press_callback(click_type=SINGLE, duration=None)
-            self._timer_long.reset()
-            self._double_click_ran = False
+        if self._state:  # Button pressed
+            # Ignore bounces
+            if time_now - self.button_pressed_time < self._bounce_time:
+                return
+                
+            self.button_pressed_time = time_now
+            
+            if self._double_click_possible:
+                # Second press within window - trigger double click
+                self.double_click_callback()
+            else:
+                # First press - start timers
+                self._timer_long.start_timer()
+                self._timer_double.start_timer()
+                self._double_click_possible = True
+
+        else:  # Button released
+            self._timer_long.reset()  # Cancel long press detection

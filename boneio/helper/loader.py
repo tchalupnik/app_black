@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 import time
 from collections import namedtuple
@@ -13,6 +14,7 @@ from boneio.const import (
     BINARY_SENSOR,
     COVER,
     DEVICE_CLASS,
+    EVENT_ENTITY,
     FILTERS,
     GPIO,
     ID,
@@ -23,11 +25,14 @@ from boneio.const import (
     LM75,
     MCP,
     MCP_ID,
-    PCA_ID,
     MCP_TEMP_9808,
     MODEL,
     NONE,
     OUTPUT_TYPE,
+    PCA,
+    PCA_ID,
+    PCF,
+    PCF_ID,
     PIN,
     RELAY,
     RESTORE_STATE,
@@ -35,11 +40,7 @@ from boneio.const import (
     SHOW_HA,
     UPDATE_INTERVAL,
     DallasBusTypes,
-    EVENT_ENTITY,
     ExpanderTypes,
-    PCF,
-    PCA,
-    PCF_ID,
 )
 from boneio.cover import Cover
 from boneio.group import OutputGroup
@@ -51,24 +52,24 @@ from boneio.helper import (
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
-    ha_sensor_temp_availabilty_message,
     ha_sensor_ina_availabilty_message,
+    ha_sensor_temp_availabilty_message,
 )
+from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.onewire import (
     DS2482,
     DS2482_ADDRESS,
-    OneWireBus,
     AsyncBoneIOW1ThermSensor,
     OneWireAddress,
+    OneWireBus,
 )
-from boneio.helper.ha_discovery import ha_cover_availabilty_message
-from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.pcf8575 import PCF8575
-from boneio.input import GpioEventButtonOld, GpioEventButtonNew
+from boneio.helper.timeperiod import TimePeriod
+from boneio.input import GpioEventButtonNew, GpioEventButtonOld
 from boneio.sensor import (
     DallasSensorDS2482,
-    GpioInputBinarySensorOld,
     GpioInputBinarySensorNew,
+    GpioInputBinarySensorOld,
 )
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -78,7 +79,7 @@ if TYPE_CHECKING:
 
 from busio import I2C
 
-from boneio.relay import GpioRelay, MCPRelay, PWMPCA, PCFRelay
+from boneio.relay import PWMPCA, GpioRelay, MCPRelay, PCFRelay
 from boneio.sensor import GpioADCSensor, initialize_adc
 
 _LOGGER = logging.getLogger(__name__)
@@ -336,6 +337,14 @@ def configure_relay(
         )
         return
 
+    # Create async callback wrapper
+    async def relay_callback_wrapper():
+        await relay_callback(
+            expander_id=getattr(output, "expander_id"),
+            relay_id=relay_id,
+            restore_state=False if output_type == NONE else restore_state,
+        )
+
     relay = getattr(output, "OutputClass")(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
@@ -345,11 +354,7 @@ def configure_relay(
         **config,
         **kwargs,
         **extra_args,
-        callback=lambda: relay_callback(
-            expander_id=getattr(output, "expander_id"),
-            relay_id=relay_id,
-            restore_state=False if output_type == NONE else restore_state,
-        ),
+        callback=relay_callback_wrapper,
     )
     manager.grouped_outputs[getattr(output, "expander_id")][relay_id] = relay
     return relay

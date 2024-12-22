@@ -1,26 +1,30 @@
 from __future__ import annotations
+
 import asyncio
 import logging
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set, Union, Awaitable
+from typing import Awaitable, Callable, Coroutine, List, Optional, Set, Union
+
 from board import SCL, SDA
 from busio import I2C
-from concurrent.futures import ThreadPoolExecutor
-
+from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.const import (
-    ACTION,
     ADDRESS,
     BINARY_SENSOR,
     BUTTON,
     CLOSE,
     COVER,
     DALLAS,
+    DS2482,
     EVENT_ENTITY,
     ID,
     INA219,
     INPUT,
+    LED,
+    LIGHT,
     LM75,
+    MCP,
     MCP_TEMP_9808,
     MODBUS,
     MQTT,
@@ -29,8 +33,11 @@ from boneio.const import (
     ONLINE,
     OPEN,
     OUTPUT,
+    PCA,
+    PCF,
     PIN,
     RELAY,
+    SET_BRIGHTNESS,
     STATE,
     STOP,
     TOPIC,
@@ -38,15 +45,8 @@ from boneio.const import (
     UARTS,
     ClickTypes,
     InputTypes,
-    relay_actions,
     cover_actions,
-    DS2482,
-    LIGHT,
-    LED,
-    SET_BRIGHTNESS,
-    MCP,
-    PCA,
-    PCF,
+    relay_actions,
 )
 from boneio.helper import (
     GPIOInputException,
@@ -54,29 +54,27 @@ from boneio.helper import (
     I2CError,
     StateManager,
     ha_button_availabilty_message,
+    ha_led_availabilty_message,
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
-    ha_led_availabilty_message,
 )
-from boneio.helper.util import strip_accents
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
 from boneio.helper.loader import (
+    configure_binary_sensor,
     configure_cover,
     configure_event_sensor,
-    configure_binary_sensor,
-    configure_relay,
     configure_output_group,
+    configure_relay,
     create_dallas_sensor,
     create_expander,
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
+from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus.client import Modbus
-
-from w1thermsensor.errors import KernelModuleLoadError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -254,7 +252,6 @@ class Manager:
 
         self._output_group = output_group
         self._configure_output_group()
-        self.executor = ThreadPoolExecutor()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
         self.configure_inputs(reload_config=False)
@@ -579,7 +576,7 @@ class Manager:
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
         self.send_message(topic=topic, payload=ONLINE, retain=True)
 
-    def _relay_callback(
+    async def _relay_callback(
         self,
         relay_id: str,
         restore_state: bool,
@@ -652,6 +649,24 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
+    def get_output_and_action(
+        self, device_id, action, action_output, action_cover
+    ):
+        """Get output device and its action based on configuration."""
+        if action == OUTPUT:
+            return (
+                self._output.get(
+                    strip_accents(device_id),
+                    self._configured_output_groups.get(device_id),
+                ),
+                relay_actions.get(action_output),
+            )
+        else:
+            return (
+                self._covers.get(strip_accents(device_id)),
+                cover_actions.get(action_cover),
+            )
+
     async def press_callback(
         self,
         x: ClickTypes,
@@ -667,63 +682,46 @@ class Manager:
         topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
 
         def generate_payload():
-            if input_type == INPUT:
+            if input_type == EVENT_ENTITY:
                 if duration:
-                    return {"event_type": x, "duration": duration}
-                return {"event_type": x}
+                    return {"action": x, "duration": duration}
+                return {"action": x}
             return x
 
-        def get_output_and_action(
-            device_id, action, action_output, action_cover
-        ):
-            if action == OUTPUT:
-                return (
-                    self._output.get(
-                        strip_accents(device_id),
-                        self._configured_output_groups.get(device_id),
-                    ),
-                    relay_actions.get(action_output),
-                )
-            else:
-                return (
-                    self._covers.get(strip_accents(device_id)),
-                    cover_actions.get(action_cover),
-                )
-
         for action_definition in actions:
-            _LOGGER.debug("Executing action %s", action_definition)
-            if action_definition[ACTION] in (OUTPUT, COVER):
-                device = action_definition.get(PIN)
-                if not device:
-                    continue
-                (output, action) = get_output_and_action(
-                    device_id=device.replace(" ", ""),
-                    action=action_definition[ACTION],
-                    action_output=action_definition.get("action_output"),
-                    action_cover=action_definition.get("action_cover"),
-                )
-                if output and action:
-                    _f = getattr(output, action)
-                    asyncio.create_task(_f())
-                else:
-                    if not action:
-                        _LOGGER.warn(
-                            "Action doesn't exists %s. Check spelling", action
-                        )
-                    if not output:
-                        _LOGGER.warn("Device %s for action not found", device)
-            elif action_definition[ACTION] == MQTT:
+            device_id = action_definition.get("pin")
+            action = action_definition.get("action")
+            action_output = action_definition.get("action_output")
+            action_cover = action_definition.get("action_cover")
+            output, action = self.get_output_and_action(
+                device_id=device_id,
+                action=action,
+                action_output=action_output,
+                action_cover=action_cover,
+            )
+            if output and action:
+                _f = getattr(output, action)
+                await _f()
+            elif action == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
                 if action_topic and action_payload:
                     self.send_message(
                         topic=action_topic, payload=action_payload, retain=False
                     )
-        self._loop.run_in_executor(
-            self.executor,
-            lambda: self.send_message(
-                topic=topic, payload=generate_payload(), retain=False
-            ),
+            else:
+                if not action:
+                    _LOGGER.warning(
+                        "Action doesn't exists %s, %s, %s. Check spelling", action_definition, actions
+                    )
+                if not output:
+                    _LOGGER.warning("Device %s for action not found", device_id)
+        payload = generate_payload()
+        _LOGGER.debug(
+            "Sending message %s for input %s", payload, topic
+        )
+        self.send_message(
+            topic=topic, payload=payload, retain=False
         )
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
@@ -798,7 +796,7 @@ class Manager:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
                     _f = getattr(target_device, action_from_msg)
-                    asyncio.create_task(_f())
+                    await _f()
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
