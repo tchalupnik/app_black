@@ -365,25 +365,25 @@ def configure_event_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | None = None,
+    input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
-        GpioEventButtonClass = (
+        gpioEventButtonClass = (
             GpioEventButtonNew
             if gpio.get("detection_type", "new") == "new"
             else GpioEventButtonOld
         )
         name = gpio.pop(ID, pin)
         if input:
-            if not isinstance(input, GpioEventButtonClass):
+            if not isinstance(input, gpioEventButtonClass):
                 _LOGGER.warning(
                     "You reconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
             input.set_actions(actions=gpio.get(ACTIONS, {}))
         else:
-            input = GpioEventButtonClass(
+            input = gpioEventButtonClass(
                 pin=pin,
                 name=name,
                 input_type=INPUT,
@@ -411,7 +411,7 @@ def configure_binary_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
 ) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
     """Configure input sensor or button."""
     try:
@@ -423,7 +423,7 @@ def configure_binary_sensor(
         name = gpio.pop(ID, pin)
         if input:
             if not isinstance(input, GpioInputBinarySensorClass):
-                _LOGGER.warn(
+                _LOGGER.warning(
                     "You preconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
