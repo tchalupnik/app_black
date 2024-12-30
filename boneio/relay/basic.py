@@ -60,12 +60,12 @@ class BasicRelay(BasicMqtt):
     def id(self) -> str:
         """Id of the relay.
         Has to be trimmed out of spaces because of MQTT handling in HA."""
-        return self._id or self._pin
+        return self._id or self._pin_id
 
     @property
     def name(self) -> str:
         """Not trimmed id."""
-        return self._name or self._pin
+        return self._name or self._pin_id
 
     @property
     def state(self) -> str:
@@ -74,21 +74,6 @@ class BasicRelay(BasicMqtt):
 
     def payload(self) -> dict:
         return {STATE: self.state}
-
-    def send_state(self, optimized_value: str | None = None) -> None:
-        """Send state to Mqtt on action."""
-        if optimized_value:
-            state = optimized_value
-        else:
-            state = ON if self.is_active else OFF
-        if self.output_type not in (COVER, NONE):
-            self._send_message(
-                topic=self._send_topic,
-                payload={STATE: state},
-                retain=True,
-            )
-        self._event_bus.trigger_output_event(self.id)
-        self._loop.call_soon_threadsafe(self._callback)
 
     async def async_send_state(self, optimized_value: str | None = None) -> None:
         """Send state to Mqtt on action asynchronously."""
@@ -103,17 +88,15 @@ class BasicRelay(BasicMqtt):
                 retain=True,
             )
         await self._event_bus.async_trigger_output_event(self.id)
-        await self._callback
+        await self._callback()
 
     async def async_turn_on(self) -> None:
         self.turn_on()
-        # Send state update in background
         asyncio.create_task(self.async_send_state())
 
     async def async_turn_off(self) -> None:
         """Turn off the relay asynchronously."""
         self.turn_off()
-        # Send state update in background
         asyncio.create_task(self.async_send_state())
 
     async def async_toggle(self) -> None:

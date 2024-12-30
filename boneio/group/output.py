@@ -58,7 +58,7 @@ class OutputGroup(BasicRelay):
             )
         if state != self._state or not relay_id:
             self._state = state
-            self._loop.create_task(self.send_state())
+            self._loop.create_task(self.async_send_state())
 
     async def async_turn_on(self) -> None:
         """Call turn on action."""
@@ -75,7 +75,7 @@ class OutputGroup(BasicRelay):
         """Is relay active."""
         return self._state == ON
 
-    def send_state(self) -> None:
+    async def async_send_state(self) -> None:
         """Send state to Mqtt on action."""
         self._send_message(
             topic=self._send_topic, payload=self.payload(), retain=True
