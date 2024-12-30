@@ -2,47 +2,62 @@
 
 from __future__ import annotations
 
+import logging
 import os
+from logging.handlers import RotatingFileHandler
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
 import argparse
 import asyncio
-import logging
 import sys
+
 from colorlog import ColoredFormatter
 from yaml import MarkedYAMLError
 
-from boneio.modbus.modbuscli import (
-    async_run_modbus_set,
-    async_run_modbus_get,
-    async_run_modbus_search,
-)
-from boneio.modbus.client import VALUE_TYPES
-
-
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
+from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import (
     ConfigurationException,
     RestartRequestException,
 )
-from boneio.helper.events import GracefulExit
 from boneio.helper.logger import configure_logger
+from boneio.modbus.client import VALUE_TYPES
+from boneio.modbus.modbuscli import (
+    async_run_modbus_get,
+    async_run_modbus_search,
+    async_run_modbus_set,
+)
 from boneio.runner import async_run
 from boneio.version import __version__
 
 TASK_CANCELATION_TIMEOUT = 1
 
 _LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-fmt = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
-datefmt = "%Y-%m-%d %H:%M:%S"
-colorfmt = f"%(log_color)s{fmt}%(reset)s"
-logging.getLogger().handlers[0].setFormatter(
-    ColoredFormatter(
-        colorfmt,
-        datefmt=datefmt,
+
+
+def setup_logging(debug_level: int = 0) -> None:
+    """Setup logging configuration."""
+    log_format = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
+    color_format = "%(log_color)s" + log_format + "%(reset)s"
+    
+    # Set up basic configuration for console output
+    logging.basicConfig(
+        level=logging.INFO if debug_level == 0 else logging.DEBUG,
+        format=log_format,
+        datefmt=date_format
+    )
+    
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO if debug_level == 0 else logging.DEBUG)
+    
+    # Create formatter for console handler
+    console_formatter = ColoredFormatter(
+        color_format,
+        datefmt=date_format,
         reset=True,
         log_colors={
             "DEBUG": "cyan",
@@ -52,7 +67,38 @@ logging.getLogger().handlers[0].setFormatter(
             "CRITICAL": "red",
         },
     )
-)
+    console_handler.setFormatter(console_formatter)
+    
+    # Add console handler to root logger
+    logging.getLogger().handlers[0].setFormatter(console_formatter)
+    
+    # If debug level > 1, also log to file with rotation
+    if debug_level > 1:
+        # Get the config directory path
+        config_dir = os.path.dirname(os.path.abspath(os.environ.get("BONEIO_CONFIG", "/tmp")))
+        new_config_dir = "/tmp"
+        log_file = os.path.join(new_config_dir, "boneio.log")
+        print(log_file, config_dir, new_config_dir)
+        
+        # Create rotating file handler (10MB max size, keep 3 backup files)
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=3,
+            encoding='utf-8'
+        )
+        
+        # Set formatter for file handler
+        formatter = logging.Formatter(log_format, date_format)
+        file_handler.setFormatter(formatter)
+        
+        # Set level for file handler
+        file_handler.setLevel(logging.DEBUG)
+        
+        # Add handler to root logger
+        logging.getLogger().addHandler(file_handler)
+        
+        logging.info("File logging enabled at: %s", log_file)
 
 
 def get_arguments() -> argparse.Namespace:
@@ -110,7 +156,7 @@ def get_arguments() -> argparse.Namespace:
     modbus_parser.add_argument(
         "--baudrate",
         type=int,
-        choices=[2400, 4800, 9600, 14400, 19200],
+        choices=[1200, 2400, 4800, 9600, 14400, 19200],
         required=True,
         help="Current baudrate",
     )
@@ -157,7 +203,7 @@ def get_arguments() -> argparse.Namespace:
     set_modbus_parser.add_argument(
         "--device",
         type=str,
-        choices=["cwt", "r4dcb08", "liquid-sensor", "sht20", "custom"],
+        choices=["cwt", "r4dcb08", "liquid-sensor", "sht20", "sht30", "custom"],
         help="Choose device to set modbus address/baudrate. For custom you must provide --custom-value and --custom-register-address",
         required=True,
     )
@@ -176,11 +222,16 @@ def get_arguments() -> argparse.Namespace:
     )
 
     get_modbus_parser = modbus_sub_parser.add_parser("get")
-    get_modbus_parser.add_argument(
+    register_group = get_modbus_parser.add_mutually_exclusive_group(required=True)
+    register_group.add_argument(
         "--register-address",
         type=int,
-        help="Register address",
-        required=True,
+        help="Single register address to read",
+    )
+    register_group.add_argument(
+        "--register-range",
+        type=str,
+        help="Register address range in format 'start-stop' (e.g., '1-230')",
     )
     get_modbus_parser.add_argument(
         "--register-type",
@@ -196,7 +247,6 @@ def get_arguments() -> argparse.Namespace:
         help="Value types",
         required=True,
     )
-    parser.add_argument("--version", action="version", version=__version__)
     search_modbus_parser = modbus_sub_parser.add_parser(
         name="search",
         help="Search for device. Iterate over every address 1-253 with provided register address",
@@ -214,6 +264,7 @@ def get_arguments() -> argparse.Namespace:
         help="Register type",
         required=True,
     )
+    parser.add_argument("--version", action="version", version=__version__)
     arguments = parser.parse_args()
 
     return arguments
@@ -223,6 +274,7 @@ def run(
     config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""
 ) -> int:
     """Run BoneIO."""
+    setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         _config = load_config_from_file(config_file=config)
@@ -252,6 +304,7 @@ def run_modbus_command(
     args: argparse.Namespace,
 ) -> int:
     """Run BoneIO."""
+    setup_logging(debug_level=args.debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         configure_logger(log_config={}, debug=args.debug)
@@ -284,6 +337,7 @@ def run_modbus_command(
                     bytesize=args.bytesize,
                     stopbits=args.stopbits,
                     value_type=args.value_type,
+                    register_range=args.register_range,
                 ),
             )
         else:
@@ -293,9 +347,9 @@ def run_modbus_command(
                     baudrate=args.baudrate,
                     register_address=args.register_address,
                     register_type=args.register_type,
-                    parity=args.parity,
-                    bytesize=args.bytesize,
                     stopbits=args.stopbits,
+                    bytesize=args.bytesize,
+                    parity=args.parity,
                 ),
             )
         return ret
