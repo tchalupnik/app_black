@@ -134,7 +134,7 @@ class SingleSensor(Filter):
     @property
     def state(self) -> float:
         """Give rounded value of temperature."""
-        return self._value or -1
+        return self._value or 0.0
 
     @property
     def decoded_name(self) -> str:
