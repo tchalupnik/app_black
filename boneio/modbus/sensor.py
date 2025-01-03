@@ -1,31 +1,33 @@
 from __future__ import annotations
+
 import asyncio
 import logging
 import os
 from datetime import datetime
 from typing import Optional
 
-from boneio.helper.filter import Filter
-from .utils import CONVERT_METHODS, REGISTERS_BASE
 from boneio.const import (
     ADDRESS,
     BASE,
+    ID,
     LENGTH,
     MODEL,
+    NAME,
     OFFLINE,
     ONLINE,
     REGISTERS,
     SENSOR,
     STATE,
-    ID,
-    NAME,
 )
-from boneio.helper import BasicMqtt, AsyncUpdater
+from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
-from .client import Modbus, VALUE_TYPES
-from .single_sensor import SingleSensor
+from boneio.helper.filter import Filter
 from boneio.helper.util import open_json
+
+from .client import VALUE_TYPES, Modbus
+from .single_sensor import SingleSensor
+from .utils import CONVERT_METHODS, REGISTERS_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -184,15 +186,15 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self._send_message(
-                        topic=f"{self._config_helper.topic_prefix}/{self._id}aa",
+                        topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
                         payload=self._payload_online,
                     )
+                    self._discovery_sent = False
                 _LOGGER.warning(
                     "Can't fetch data from modbus device %s. Will sleep for %s seconds",
                     self.id,
                     update_interval,
                 )
-                self._discovery_sent = False
                 return update_interval
             elif update_interval != self._update_interval.total_in_seconds:
                 update_interval = self._update_interval.total_in_seconds
