@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import logging
-from typing import Callable, Union, Optional
-from boneio.const import SENSOR, ID, MODEL, NAME
+from typing import Callable, Optional, Union
+
+from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.config import ConfigHelper
 from boneio.helper.filter import Filter
-from .utils import allowed_operations
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 
 _LOGGER = logging.getLogger(__name__)
