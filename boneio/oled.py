@@ -52,25 +52,25 @@ class Oled:
     def __init__(
         self,
         host_data: HostData,
-        output_groups: List[str],
+        grouped_outputs: List[str],
         sleep_timeout: TimePeriod,
         screen_order: List[str],
     ) -> None:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
-        self._output_groups = None
+        self._grouped_outputs = None
         self._input_groups = []
         self._host_data = host_data
 
         def configure_outputs() -> None:
             try:
                 _ind_screen = screen_order.index("outputs")
-                if not output_groups:
+                if not grouped_outputs:
                     _LOGGER.debug("No outputs configured. Omitting in screen.")
                     return
                 screen_order.pop(_ind_screen)
-                screen_order[_ind_screen:_ind_screen] = output_groups
-                self._output_groups = output_groups
+                screen_order[_ind_screen:_ind_screen] = grouped_outputs
+                self._grouped_outputs = grouped_outputs
             except ValueError:
                 pass
 
@@ -98,6 +98,10 @@ class Oled:
 
         configure_outputs()
         configure_inputs()
+        if not screen_order:
+            _LOGGER.warning("No available screens configured. OLED won't be working.")
+            self._current_screen = None
+            return
         self._screen_order = cycle(screen_order)
         self._current_screen = next(self._screen_order)
         self._host_data = host_data
@@ -228,6 +232,8 @@ class Oled:
 
     def handle_data_update(self, type: str):
         """Callback to handle new data present into screen."""
+        if not self._current_screen:
+            return
         if (
             type == "inputs"
             and self._current_screen in self._input_groups
