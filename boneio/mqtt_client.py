@@ -4,16 +4,17 @@ Code based on cgarwood/python-openzwave-mqtt.
 """
 
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import Any, Callable, Optional, Set, Union, Awaitable
+from typing import Any, Awaitable, Callable, Optional, Set, Union
 
-from boneio.helper.message_bus import MessageBus
 import paho.mqtt.client as mqtt
-from aiomqtt import Client as AsyncioClient, MqttError, Will
+from aiomqtt import Client as AsyncioClient
+from aiomqtt import MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
@@ -21,8 +22,9 @@ from boneio.const import OFFLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
-from boneio.manager import Manager
 from boneio.helper.exceptions import RestartRequestException
+from boneio.helper.message_bus import MessageBus
+from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +40,7 @@ class MQTTClient(MessageBus):
         **client_options: Any,
     ) -> None:
         """Set up client."""
+        self._manager: Manager = None
         self.host = host
         self.port = port
         self._config_helper = config_helper
@@ -62,6 +65,7 @@ class MQTTClient(MessageBus):
             self._config_helper.subscribe_topic,
             "homeassistant/status",
         ]
+        self._running = True
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -163,13 +167,13 @@ class MQTTClient(MessageBus):
             await self.publish(*to_publish)
             self.publish_queue.task_done()
 
-    async def start_client(self, manager: Manager) -> None:
-        """Start the client with the manager."""
+    async def _keep_alive(self) -> None:
+        """Keep the event loop alive and process any periodic tasks."""
         # Reconnect automatically until the client is stopped.
         try:
-            while True:
+            while self._running:
                 try:
-                    await self._subscribe_manager(manager)
+                    await self._subscribe_manager(self._manager)
                 except MqttError as err:
                     self.reconnect_interval = min(
                         self.reconnect_interval * 2, 600
@@ -186,9 +190,14 @@ class MQTTClient(MessageBus):
             _LOGGER.info("MQTT client task canceled.")
             pass
 
+    async def start_client(self, manager: Manager) -> asyncio.Task:
+        self._manager = manager
+        return asyncio.create_task(self._keep_alive())
+
     async def stop(self) -> None:
         await self.unsubscribe(topics=self._topics)
         await self.asyncio_client.disconnect()
+        self._running = False
 
     async def stop_client(self) -> None:
         await self.unsubscribe(topics=self._topics)
