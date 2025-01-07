@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import logging
 import os
+
+from boneio.const import REGISTERS, UARTS
+
 from ..helper.util import open_json
-from boneio.const import UARTS, REGISTERS
 from .client import Modbus
 from .utils import REGISTERS_BASE, allowed_operations
 
@@ -100,6 +103,7 @@ class ModbusHelper:
 
     def set_new_address(self, new_address: int):
         if 0 < new_address < 253:
+            _LOGGER.debug("New address register is %s", self._model[SET_ADDRESS])
             result = self._modbus.client.write_register(
                 address=self._model[SET_ADDRESS],
                 value=new_address,
@@ -202,7 +206,7 @@ async def async_run_modbus_search(
     bytesize: int = 8,
     parity: str = "N",
 ):
-    """Run Modbus Seach Function."""
+    """Run Modbus Search Function."""
     _modbus = Modbus(
         uart=UARTS[uart],
         baudrate=baudrate,
@@ -241,6 +245,7 @@ async def async_run_modbus_get(
     register_type: str,
     baudrate: int,
     value_type: str,
+    register_range: str | None = None,
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
@@ -256,17 +261,48 @@ async def async_run_modbus_get(
         bytesize=bytesize,
         parity=parity,
     )
-    count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
-    value = await _modbus.read_registers(
-        unit=device_address,
-        address=register_address,
-        count=count,
-        method=register_type,
-    )
-    if value:
-        payload = value.registers[0:count]
-        decoded_value = _modbus.decode_value(payload, value_type)
-        _LOGGER.info("Value: %s", decoded_value)
-        return 0
-    _LOGGER.error("No returned value.")
-    return 1
+
+    value_size = 1 if value_type in ["S_WORD", "U_WORD"] else 2
+
+    if register_range:
+        try:
+            start, stop = map(int, register_range.split('-'))
+            if not (0 <= start <= stop <= 65535):
+                raise ValueError("Invalid register range")
+            
+            success = False
+            for addr in range(start, stop + 1):
+                try:
+                    value = await _modbus.read_registers(
+                        unit=device_address,
+                        address=addr,
+                        count=value_size,
+                        method=register_type,
+                    )
+                    if value:
+                        payload = value.registers[0:value_size]
+                        decoded_value = _modbus.decode_value(payload, value_type)
+                        _LOGGER.info(f"Register {addr}: {decoded_value}")
+                        success = True
+                except Exception as e:
+                    _LOGGER.error(f"Error reading register {addr}: {str(e)}")
+            
+            return 0 if success else 1
+
+        except ValueError:
+            _LOGGER.error(f"Invalid register range format: {register_range}. Use format 'start-stop' (e.g., '1-230')")
+            return 1
+    else:
+        value = await _modbus.read_registers(
+            unit=device_address,
+            address=register_address,
+            count=value_size,
+            method=register_type,
+        )
+        if value:
+            payload = value.registers[0:value_size]
+            decoded_value = _modbus.decode_value(payload, value_type)
+            _LOGGER.info("Value: %s", decoded_value)
+            return 0
+        _LOGGER.error("No returned value.")
+        return 1
