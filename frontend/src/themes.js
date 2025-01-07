@@ -39,6 +39,7 @@ module.exports = {
           "--border-btn": "1px",
           "--tab-border": "1px",
           "--tab-radius": "0.5rem",
+          
         },
         dark: {
           "primary": "#399ed9",
