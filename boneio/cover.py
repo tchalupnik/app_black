@@ -1,6 +1,7 @@
 """Cover module."""
 
 from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Callable
@@ -109,7 +110,7 @@ class Cover(BasicMqtt):
         async with self._lock:
             if inverted_relay.is_active:
                 inverted_relay.turn_off()
-            self._timer_handle = self._event_bus.add_listener(
+            self._timer_handle = self._event_bus.add_every_second_listener(
                 f"{COVER}{self.id}", self.listen_cover
             )
             relay.turn_on()
@@ -143,7 +144,7 @@ class Cover(BasicMqtt):
         self._open.relay.turn_off()
         self._close.relay.turn_off()
         if self._timer_handle is not None:
-            self._event_bus.remove_listener(f"{COVER}{self.id}")
+            self._event_bus.remove_every_second_listener(f"{COVER}{self.id}")
             self._timer_handle = None
             self._set_position = None
             if not on_exit:
