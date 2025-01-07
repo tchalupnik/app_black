@@ -55,6 +55,7 @@ from boneio.helper import (
     ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
+from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.onewire import (
     DS2482,
@@ -66,6 +67,7 @@ from boneio.helper.onewire import (
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input import GpioEventButtonNew, GpioEventButtonOld
+from boneio.models import OutputState
 from boneio.sensor import (
     DallasSensorDS2482,
     GpioInputBinarySensorNew,
@@ -149,13 +151,14 @@ def create_temp_sensor(
             topic_prefix=topic_prefix,
             update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
             filters=config.get(FILTERS, []),
+            unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
         manager.send_ha_autodiscovery(
             id=id,
             name=name,
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
-            unit_of_measurement=config.get("unit_of_measurement", "°C"),
+            unit_of_measurement=temp_sensor.unit_of_measurement,
         )
         return temp_sensor
     except I2CError as err:
@@ -291,41 +294,43 @@ def configure_relay(
         restored_state = False
 
     output = output_chooser(output_kind=config.pop(KIND), config=config)
+    output_kind = getattr(output, "output_kind")
+    expander_id = getattr(output, "expander_id")
 
-    if getattr(output, "output_kind") == MCP:
-        mcp = manager.mcp.get(getattr(output, "expander_id"))
+    if output_kind == MCP:
+        mcp = manager.mcp.get(expander_id)
         if not mcp:
             _LOGGER.error("No such MCP configured!")
             return None
         extra_args = {
             "pin": int(config.pop(PIN)),
             "mcp": mcp,
-            "mcp_id": getattr(output, "expander_id"),
+            "mcp_id": expander_id,
             "output_type": output_type,
         }
-    elif getattr(output, "output_kind") == PCA:
-        pca = manager.pca.get(getattr(output, "expander_id"))
+    elif output_kind == PCA:
+        pca = manager.pca.get(expander_id)
         if not pca:
             _LOGGER.error("No such PCA configured!")
             return None
         extra_args = {
             "pin": int(config.pop(PIN)),
             "pca": pca,
-            "pca_id": getattr(output, "expander_id"),
+            "pca_id": expander_id,
             "output_type": output_type,
         }
-    elif getattr(output, "output_kind") == PCF:
-        expander = manager.pcf.get(getattr(output, "expander_id"))
+    elif output_kind == PCF:
+        expander = manager.pcf.get(expander_id)
         if not expander:
             _LOGGER.error("No such PCF configured!")
             return None
         extra_args = {
             "pin": int(config.pop(PIN)),
             "expander": expander,
-            "expander_id": getattr(output, "expander_id"),
+            "expander_id": expander_id,
             "output_type": output_type,
         }
-    elif getattr(output, "output_kind") == GPIO:
+    elif output_kind == GPIO:
         if GPIO not in manager.grouped_outputs:
             manager.grouped_outputs[GPIO] = {}
         extra_args = {
@@ -338,10 +343,10 @@ def configure_relay(
         return
 
     # Create async callback wrapper
-    async def relay_callback_wrapper():
+    async def relay_callback_wrapper(event: OutputState):
         await relay_callback(
             expander_id=getattr(output, "expander_id"),
-            relay_id=relay_id,
+            event=event,
             restore_state=False if output_type == NONE else restore_state,
         )
 
@@ -356,7 +361,7 @@ def configure_relay(
         **extra_args,
         callback=relay_callback_wrapper,
     )
-    manager.grouped_outputs[getattr(output, "expander_id")][relay_id] = relay
+    manager.grouped_outputs[expander_id][relay_id] = relay
     return relay
 
 
@@ -364,6 +369,7 @@ def configure_event_sensor(
     gpio: dict,
     pin: str,
     press_callback: Callable,
+    event_bus: EventBus,
     send_ha_autodiscovery: Callable,
     input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
@@ -390,6 +396,7 @@ def configure_event_sensor(
                 empty_message_after=gpio.pop("clear_message", False),
                 actions=gpio.pop(ACTIONS, {}),
                 press_callback=press_callback,
+                event_bus=event_bus,
                 **gpio,
             )
         if gpio.get(SHOW_HA, True):
@@ -410,6 +417,7 @@ def configure_binary_sensor(
     gpio: dict,
     pin: str,
     press_callback: Callable,
+    event_bus: EventBus,
     send_ha_autodiscovery: Callable,
     input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
 ) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
@@ -436,6 +444,7 @@ def configure_binary_sensor(
                 input_type=INPUT_SENSOR,
                 empty_message_after=gpio.pop("clear_message", False),
                 press_callback=press_callback,
+                event_bus=event_bus,
                 **gpio,
             )
         if gpio.get(SHOW_HA, True):

@@ -1,10 +1,12 @@
 """GpioEventButtonNew to receive signals."""
 
 from __future__ import annotations
-import time
+
 import logging
-from boneio.const import DOUBLE, LONG, SINGLE, BOTH
-from boneio.helper import GpioBaseClass, ClickTimer
+import time
+
+from boneio.const import BOTH, DOUBLE, LONG, SINGLE
+from boneio.helper import ClickTimer, GpioBaseClass
 from boneio.helper.gpio import edge_detect
 from boneio.helper.timeperiod import TimePeriod
 
