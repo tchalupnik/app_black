@@ -39,6 +39,7 @@ from boneio.helper import StateManager
 from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
+from boneio.webui.web_server import WebServer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ async def async_run(
     config_file: str,
     mqttusername: str = "",
     mqttpassword: str = "",
+    debug: int = 0
 ) -> list[Any]:
     """Run BoneIO."""
     _config_helper = ConfigHelper(
@@ -110,10 +112,18 @@ async def async_run(
         **manager_kwargs,
     )
     tasks = set()
+    # Convert coroutines to Tasks
     tasks.update(manager.get_tasks())
+
     
-    if isinstance(message_bus, MQTTClient):
-        _LOGGER.info("Connecting to MQTT.")
-        tasks.add(message_bus.start_client(manager))
-    
-    return await asyncio.gather(*tasks)
+    message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
+    _LOGGER.info("Starting message bus %s.", message_bus_type)
+    tasks.add(asyncio.create_task(message_bus.start_client(manager)))
+    if "web" in config:
+        web_config = config.get("web") or {}  # Convert None to empty dict
+        port = web_config.get("port", 8090)
+        auth = web_config.get("auth", {})
+        web_server = WebServer(config_file=config_file, manager=manager, port=port, auth=auth, logger=config.get("logger", {}), debug_level=debug)
+        tasks.add(asyncio.create_task(web_server.start_webserver()))
+    result = await asyncio.gather(*tasks)
+    return result

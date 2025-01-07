@@ -48,6 +48,39 @@ mqtt:
           meta:
             label: Prefix topic of HA discovery.
 
+web:
+  type: dict
+  required: False
+  nullable: True
+  default: {}
+  meta:
+    label: Web section
+  schema:
+    port:
+      required: False
+      type: integer
+      default: 8090
+      meta:
+        label: Port to run web server
+    auth:
+      required: False
+      type: dict
+      nullable: True
+      default: {}
+      meta:
+        label: Auth if defined
+      schema:
+        username:
+          type: string
+          required: False
+          meta:
+            label: Username to connect to web interface
+        password:
+          type: string
+          required: False
+          meta:
+            label: Password to web interface
+
 logger:
   type: dict
   required: False
@@ -454,7 +487,6 @@ output:
       percentage_default_brightness:
         type: integer
         required: False
-        default: 1
         meta:
           label: When the brightness is not set in ha, and we switch led to turn this value will be used
       output_type:
