@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Awaitable, Callable
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.helper.util import callback
+from boneio.models import OutputState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +20,7 @@ class BasicRelay(BasicMqtt):
 
     def __init__(
         self,
-        callback: Callable[[], Awaitable[None]],
+        callback: Callable[[OutputState], Awaitable[None]],
         id: str,
         event_bus: EventBus,
         name: str | None = None,
@@ -39,6 +41,7 @@ class BasicRelay(BasicMqtt):
         self._state = ON if restored_state else OFF
         self._callback = callback
         self._momentary_action = None
+        self._last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
 
     @property
@@ -72,6 +75,10 @@ class BasicRelay(BasicMqtt):
         """Is relay active."""
         return self._state
 
+    @property
+    def last_timestamp(self) -> float:
+        return self._last_timestamp
+
     def payload(self) -> dict:
         return {STATE: self.state}
 
@@ -81,14 +88,24 @@ class BasicRelay(BasicMqtt):
             state = optimized_value
         else:
             state = ON if self.is_active else OFF
+        self._state = state
         if self.output_type not in (COVER, NONE):
             self._send_message(
                 topic=self._send_topic,
                 payload={STATE: state},
                 retain=True,
             )
-        await self._event_bus.async_trigger_output_event(self.id)
-        await self._callback()
+        self._last_timestamp = time.time()
+        event = OutputState(
+            id=self.id,
+            name=self.name,
+            state=state,
+            type=self.output_type,
+            pin=self.pin_id,
+            timestamp=self.last_timestamp
+        )
+        await self._event_bus.async_trigger_output_event(output_id=self.id, event=event)
+        await self._callback(event)
 
     async def async_turn_on(self) -> None:
         self.turn_on()

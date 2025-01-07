@@ -6,6 +6,7 @@ import asyncio
 from typing import List
 
 from boneio.const import COVER, OFF, ON, SWITCH
+from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 
 
@@ -36,7 +37,7 @@ class OutputGroup(BasicRelay):
         for member in self._group_members:
             self._event_bus.add_output_listener(
                 output_id=member.id,
-                group_id=self.id,
+                listener_id=self.id,
                 target=self.event_listener,
             )
 
@@ -46,7 +47,7 @@ class OutputGroup(BasicRelay):
                 self._state = ON
                 return
 
-    async def event_listener(self, relay_id=None) -> None:
+    async def event_listener(self, event: OutputState = None) -> None:
         """Listen for events called by children relays."""
         if self._all_on_behaviour:
             state = (
@@ -56,7 +57,7 @@ class OutputGroup(BasicRelay):
             state = (
                 ON if any(x.state == ON for x in self._group_members) else OFF
             )
-        if state != self._state or not relay_id:
+        if state != self._state or not event:
             self._state = state
             self._loop.create_task(self.async_send_state())
 

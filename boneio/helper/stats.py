@@ -4,7 +4,6 @@ import asyncio
 import logging
 import socket
 import time
-from datetime import datetime
 from functools import partial
 from math import floor
 
@@ -141,7 +140,7 @@ class HostSensor(AsyncUpdater):
         self.id = id
         super().__init__(**kwargs)
 
-    async def async_update(self, time: datetime) -> None:
+    async def async_update(self, timestamp: float) -> None:
         self._state = self._update_function()
         self._loop.call_soon_threadsafe(
             partial(self._manager_callback, self._type)

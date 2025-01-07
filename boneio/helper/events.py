@@ -4,10 +4,10 @@ import logging
 import signal
 import time
 from datetime import datetime
-from typing import Any, Coroutine, List, Optional, Callable
-
+from typing import Any, Callable, Coroutine, List, Optional
 
 from boneio.helper.util import callback
+from boneio.models import OutputState
 
 _LOGGER = logging.getLogger(__name__)
 UTC = dt.timezone.utc
@@ -69,6 +69,10 @@ class ListenerJob:
         """Add handle to listener."""
         self._handle = handle
 
+    def set_target(self, target) -> None:
+        """Set target."""
+        self.target = target
+
     @property
     def handle(self):
         """Return handle."""
@@ -81,13 +85,15 @@ class EventBus:
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         """Initialize handler"""
         self._loop = loop or asyncio.get_event_loop()
-        self._listeners = {}
+        self._every_second_listeners = {}
         self._output_listeners = {}
+        self._event_listeners = {}
         self._sigterm_listeners = []
         self._haonline_listeners = []
         self._timer_handle = _async_create_timer(
             self._loop, self._run_second_event
         )
+        self._shutting_down = False
         for signame in {"SIGINT", "SIGTERM"}:
             self._loop.add_signal_handler(
                 getattr(signal, signame),
@@ -96,49 +102,125 @@ class EventBus:
 
     def _run_second_event(self, time):
         """Run event every second."""
-        for key, listener in self._listeners.items():
+        for key, listener in self._every_second_listeners.items():
             if listener.target:
-                self._listeners[key].add_handle(
+                self._every_second_listeners[key].add_handle(
                     self._loop.call_soon(listener.target, time)
                 )
+
+    def _timer_handle(self):
+        """Handle timer event."""
+        time = datetime.now()
+        for listener in self._every_second_listeners.values():
+            self._loop.call_soon(listener.target, time)
+
+    async def _handle_sigterm_listeners(self):
+        """Handle all sigterm listeners, supporting both async and sync listeners."""
+        for target in self._sigterm_listeners:
+            try:
+                _LOGGER.debug("Invoking sigterm listener %s", target)
+                if asyncio.iscoroutinefunction(target):
+                    await target()
+                else:
+                    target()
+            except Exception as e:
+                _LOGGER.error("Error in sigterm listener %s: %s", target, e)
 
     def ask_exit(self):
         """Function to call on exit. Should invoke all sigterm listeners."""
         _LOGGER.debug("Exiting process started.")
-        self._listeners = {}
+        self._every_second_listeners = {}
         self._output_listeners = {}
-        for target in self._sigterm_listeners:
-            target()
-        self._timer_handle()
+        
+        _LOGGER.debug("Running sigterm listeners")
+        try:
+            # Create task and add done callback to raise GracefulExit
+            task = self._loop.create_task(self._handle_sigterm_listeners())
+            def _on_done(future):
+                try:
+                    future.result()  # This will raise any exceptions from the task
+                    self._timer_handle()
+                    _LOGGER.info("Shutdown gracefully.")
+                    raise GracefulExit(code=0)
+                except Exception as e:
+                    _LOGGER.error("Error during sigterm listeners execution: %s", e)
+                    raise GracefulExit(code=1)
+            
+            task.add_done_callback(_on_done)
+            
+        except Exception as e:
+            _LOGGER.error("Error creating shutdown task: %s", e)
+            raise GracefulExit(code=1)
 
-        _LOGGER.info("Shutdown gracefully.")
-        raise GracefulExit(code=0)
 
-    def add_listener(self, name, target):
+    def add_every_second_listener(self, name, target):
         """Add listener on every second job."""
-        self._listeners[name] = ListenerJob(target=target)
-        return self._listeners[name]
+        self._every_second_listeners[name] = ListenerJob(target=target)
+        return self._every_second_listeners[name]
 
     def add_sigterm_listener(self, target):
         """Add sigterm listener."""
         self._sigterm_listeners.append(target)
 
-    def add_output_listener(self, output_id, group_id, target):
-        """Add output listener."""
+    def add_output_listener(self, output_id, listener_id, target):
+        """Add output listener.
+
+        listener_id is typically group_id for group outputs or ws (websocket)
+        """
         if output_id not in self._output_listeners:
             self._output_listeners[output_id] = {}
-        self._output_listeners[output_id][group_id] = ListenerJob(target=target)
+        if listener_id in self._output_listeners[output_id]:
+            listener = self._output_listeners[output_id][listener_id]
+            listener.set_target(target)
+            return listener
+        self._output_listeners[output_id][listener_id] = ListenerJob(target=target)
         return self._output_listeners[output_id]
 
-    def trigger_output_event(self, event):
-        asyncio.create_task(self.async_trigger_output_event(event=event))
+    def remove_output_listener(self, output_id, listener_id):
+        """Add output listener.
 
-    async def async_trigger_output_event(self, event):
-        listeners = self._output_listeners.get(event, {})
+        listener_id is typically group_id for group outputs or ws (websocket)
+        """
+        if output_id in self._output_listeners and listener_id in self._output_listeners[output_id]:
+            del self._output_listeners[output_id][listener_id]
+
+    async def async_trigger_output_event(self, output_id: str, event: OutputState):
+        listeners = self._output_listeners.get(output_id, {})
         for listener in listeners.values():
             await listener.target(event)
 
-    def add_haonline_listener(self, target):
+    def add_event_listener(self, event_type: str, entity_id: str, listener_id: str, target: Callable) -> ListenerJob:
+        """Add output listener.
+
+        listener_id is typically group_id for group outputs or ws (websocket)
+        """
+        if event_type not in self._event_listeners:
+            self._event_listeners[event_type] = {}
+        if entity_id not in self._event_listeners[event_type]:
+            self._event_listeners[event_type][entity_id] = {}
+        if listener_id in self._event_listeners[event_type][entity_id]:
+            listener = self._event_listeners[event_type][entity_id][listener_id]
+            listener.set_target(target)
+            return listener
+        self._event_listeners[event_type][entity_id][listener_id] = ListenerJob(target=target)
+        return self._event_listeners[event_type][entity_id][listener_id]
+
+    def remove_event_listener(self, event_type: str, entity_id: str, listener_id: str) -> None:
+        """Remove event listener."""
+        if event_type in self._event_listeners and entity_id in self._event_listeners[event_type] and listener_id in self._event_listeners[event_type][entity_id]:
+            del self._event_listeners[event_type][entity_id][listener_id]
+
+    def remove_event_listener_by_type(self, event_type: str) -> None:
+        """Remove event listener."""
+        if event_type in self._event_listeners:
+            del self._event_listeners[event_type]
+
+    async def async_trigger_event(self, event_type: str, entity_id: str, event: Any):
+        listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
+        for listener in listeners.values():
+            await listener.target(event)
+
+    def add_haonline_listener(self, target: Callable) -> None:
         """Add HA Online listener."""
         self._haonline_listeners.append(target)
 
@@ -147,10 +229,10 @@ class EventBus:
         for target in self._haonline_listeners:
             target()
 
-    def remove_listener(self, name):
+    def remove_every_second_listener(self, name: str) -> None:
         """Remove regular listener."""
-        if name in self._listeners:
-            del self._listeners[name]
+        if name in self._every_second_listeners:
+            del self._every_second_listeners[name]
 
 
 def as_utc(dattim: dt.datetime) -> dt.datetime:

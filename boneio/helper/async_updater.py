@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import asyncio
 import time
+
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
 
@@ -14,16 +16,22 @@ class AsyncUpdater:
         self.manager = manager
         self._update_interval = update_interval or TimePeriod(seconds=60)
         self.manager.append_task(coro=self._refresh, name=self.id)
+        self._timestamp = time.time()
+
 
     async def _refresh(self) -> None:
         while True:
             if hasattr(self, "async_update"):
                 update_interval = (
-                    await self.async_update(time=time.time())
+                    await self.async_update(timestamp=time.time())
                     or self._update_interval.total_in_seconds
                 )
             else:
                 update_interval = (
-                    self.update(time=time.time()) or self._update_interval.total_in_seconds
+                    self.update(timestamp=time.time()) or self._update_interval.total_in_seconds
                 )
             await asyncio.sleep(update_interval)
+
+    @property
+    def last_timestamp(self) -> float:
+        return self._timestamp
