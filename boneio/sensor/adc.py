@@ -1,9 +1,8 @@
 """ADC GPIO BBB sensor."""
-from datetime import datetime
 import logging
 
 from boneio.const import SENSOR
-from boneio.helper import BasicMqtt, AsyncUpdater
+from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
 
 try:
@@ -40,12 +39,13 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
         """Give rounded value of temperature."""
         return self._state
 
-    def update(self, time: datetime) -> None:
+    def update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         _state = self._apply_filters(value=ADC.read(self._pin))
         if not _state:
             return
         self._state = _state
+        self._timestamp = timestamp
         self._send_message(
             topic=self._send_topic,
             payload=self.state,

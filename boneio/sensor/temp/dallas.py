@@ -2,12 +2,11 @@
 
 import asyncio
 import logging
-from datetime import datetime
 
 from adafruit_ds18x20 import DS18X20
 from w1thermsensor import (
-    SensorNotReadyError,
     NoSensorFoundError,
+    SensorNotReadyError,
     W1ThermSensorError,
 )
 
@@ -69,7 +68,7 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
             raise OneWireError(err)
         AsyncUpdater.__init__(self, **kwargs)
 
-    async def async_update(self, time: datetime) -> None:
+    async def async_update(self, timestamp: float) -> None:
         try:
             _temp = await self._pct.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
@@ -77,6 +76,7 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
             if _temp is None:
                 return
             self._state = _temp
+            self._timestamp = timestamp
             self._send_message(
                 topic=self._send_topic,
                 payload={STATE: self._state},

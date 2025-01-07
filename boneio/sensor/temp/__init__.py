@@ -1,14 +1,15 @@
 """Manage BoneIO onboard temp sensors."""
 
 from __future__ import annotations
+
 import asyncio
 import logging
-from datetime import datetime
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
-from boneio.helper import BasicMqtt, AsyncUpdater
+from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import I2CError
 from boneio.helper.filter import Filter
+from boneio.models import SensorState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,26 +26,48 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         address: str,
         id: str = DefaultName,
         filters: list = ["round(x, 2)"],
+        unit_of_measurement: str = "°C",
         **kwargs,
     ):
         """Initialize Temp class."""
-        super().__init__(id=id, topic_type=SENSOR, **kwargs)
         self._loop = asyncio.get_event_loop()
+        
+        # Debug log the kwargs
+        _LOGGER.debug("TempSensor initialization kwargs: %s", kwargs)
+        
+        # Initialize BasicMqtt first
+        BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
+        
+        # Get required parameters for AsyncUpdater
+        manager = kwargs.get('manager')
+        update_interval = kwargs.get('update_interval')
+        _LOGGER.debug("Initializing AsyncUpdater with manager: %s, update_interval: %s", manager, update_interval)
+        
+        # Initialize AsyncUpdater next
+        AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
+        
+        # Initialize Filter
+        Filter.__init__(self)
+        
         self._filters = filters
+        self._unit_of_measurement = unit_of_measurement
+        self._state: float | None = None
         try:
             if self.SensorClass:
                 self._pct = self.SensorClass(i2c_bus=i2c, address=address)
-            self._state: float | None = None
         except ValueError as err:
             raise I2CError(err)
-        AsyncUpdater.__init__(self, **kwargs)
 
     @property
     def state(self) -> float:
         """Give rounded value of temperature."""
-        return self._state or -1
+        return self._state if self._state is not None else -1
 
-    def update(self, time: datetime) -> None:
+    @property
+    def unit_of_measurement(self) -> str:
+        return self._unit_of_measurement
+
+    async def async_update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         try:
             _temp = self._pct.temperature
@@ -56,6 +79,18 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         if _temp is None:
             return
         self._state = _temp
+        self._timestamp = timestamp
+        await self.manager.event_bus.async_trigger_event(
+            event_type="sensor",
+            entity_id=self.id,
+            event=SensorState(
+                id=self.id,
+                name=self.name,
+                state=self.state,
+                unit=self.unit_of_measurement,
+                timestamp=self.last_timestamp,
+            ),
+        )
         self._send_message(
             topic=self._send_topic,
             payload={STATE: self._state},
