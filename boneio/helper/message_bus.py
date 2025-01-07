@@ -1,8 +1,8 @@
 """Message bus abstraction for BoneIO."""
-from abc import ABC, abstractmethod
-from typing import Callable, Optional, Union, Dict, Set, Any
 import asyncio
 import logging
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, Set, Union
 
 from boneio.manager import Manager
 
