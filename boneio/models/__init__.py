@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from typing import List, Union
+
+from pydantic import BaseModel
+
+
+class InputState(BaseModel):
+    """Input state model."""
+    name: str
+    state: str
+    type: str
+    pin: str
+    timestamp: float
+
+class InputsResponse(BaseModel):
+    """Inputs response model."""
+    inputs: List[InputState]
+
+class OutputState(BaseModel):
+    """Output state model."""
+    id: str
+    name: str
+    state: str
+    type: str
+    pin: int
+    timestamp: Union[float, None] = None
+
+class SensorState(BaseModel):
+    """Sensor state model."""
+    id: str
+    name: str
+    state: Union[float, None]
+    unit: Union[str, None]
+    timestamp: Union[float, None]
+
+class OutputsResponse(BaseModel):
+    """Outputs response model."""
+    outputs: List[OutputState]
+
+class StateUpdate(BaseModel):
+    """State update model for WebSocket messages."""
+    type: str  # 'input' or 'output'
+    data: Union[InputState, OutputState, SensorState]
