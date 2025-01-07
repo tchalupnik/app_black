@@ -1,11 +1,11 @@
 """State files manager."""
 
 from __future__ import annotations
+
 import asyncio
-import logging
 import json
+import logging
 from typing import Any
-from concurrent.futures import ThreadPoolExecutor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +22,6 @@ class StateManager:
         _LOGGER.info("Loaded state file from %s", self._file)
         self._file_uptodate = False
         self._save_attributes_callback = None
-        self.executor = ThreadPoolExecutor()
 
     def load_states(self) -> dict:
         """Load state file."""
