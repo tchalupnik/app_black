@@ -1,4 +1,10 @@
 import logging
+import os
+from logging import Formatter
+from logging.handlers import RotatingFileHandler
+from typing import Dict, Optional
+
+from colorlog import ColoredFormatter
 
 from boneio.const import PAHO, PYMODBUS
 from boneio.version import __version__
@@ -50,3 +56,174 @@ def configure_logger(log_config: dict, debug: int) -> None:
             _LOGGER.info("Setting %s log level to %s", k, val)
             logger.setLevel(_nameToLevel[val])
     debug_logger()
+
+
+"""Shared logging configuration for BoneIO."""
+
+
+_nameToLevel = {
+    "CRITICAL": logging.CRITICAL,
+    "FATAL": logging.FATAL,
+    "ERROR": logging.ERROR,
+    "WARN": logging.WARNING,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+    "NOTSET": logging.NOTSET,
+}
+
+def get_log_level(level_name: str) -> int:
+    """Convert string log level to logging constant."""
+    return _nameToLevel.get(level_name.upper(), logging.INFO)
+
+def get_uvicorn_log_formatter(color: bool = True) -> Formatter:
+    """Get log formatter with optional color support."""
+    log_format = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
+    
+    if color:
+        return ColoredFormatter(
+            fmt="%(log_color)s" + log_format + "%(reset)s",
+            datefmt=date_format,
+            reset=True,
+            log_colors={
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red",
+            },
+        )
+    return Formatter(log_format, datefmt=date_format)
+
+def get_log_formatter(color: bool = True) -> Formatter:
+    """Get log formatter with optional color support."""
+    log_format = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
+    
+    if color:
+        return ColoredFormatter(
+            fmt="%(log_color)s" + log_format + "%(reset)s",
+            datefmt=date_format,
+            reset=True,
+            log_colors={
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red",
+            },
+        )
+    return Formatter(log_format, datefmt=date_format)
+
+def configure_uvicorn_logging(debug_level: int = 0, log_config: Optional[Dict] = None) -> Dict:
+    """Configure uvicorn logging to match BoneIO style."""
+    formatters = {
+        "default": {
+            "()": "boneio.helper.logger.get_log_formatter",
+            "color": True,
+        },
+        "access": {
+            "()": "boneio.helper.logger.get_log_formatter",
+            "color": True,
+        },
+    }
+    
+    handlers = {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    }
+    
+    loggers = {
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": True},
+        "uvicorn.error": {"handlers": ["default"], "level": "DEBUG", 'propagate': False},
+        "uvicorn.access": {"handlers": ["access"], "level": "DEBUG", "propagate": False},
+    }
+    
+    # Apply debug level
+    if debug_level > 0:
+        loggers["uvicorn"]["level"] = "DEBUG"
+        loggers["uvicorn.error"]["level"] = "DEBUG"
+        loggers["uvicorn.access"]["level"] = "DEBUG"
+    
+    # Apply custom log config if provided
+    if log_config:
+        default_level = log_config.get("default", "").upper()
+        if default_level in _nameToLevel:
+            level = _nameToLevel[default_level]
+            loggers["uvicorn"]["level"] = level
+            loggers["uvicorn.error"]["level"] = level
+            loggers["uvicorn.access"]["level"] = level
+            
+        for logger_name, level_name in log_config.get("logs", {}).items():
+            if logger_name.startswith("uvicorn"):
+                level = get_log_level(level_name)
+                if logger_name in loggers:
+                    loggers[logger_name]["level"] = level
+    
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": formatters,
+        "handlers": handlers,
+        "loggers": loggers,
+    }
+
+
+def setup_logging(debug_level: int = 0) -> None:
+    """Setup logging configuration."""
+    log_format = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
+    
+    # Set up basic configuration for console output
+    logging.basicConfig(
+        level=logging.INFO if debug_level == 0 else logging.DEBUG,
+        format=log_format,
+        datefmt=date_format
+    )
+    
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO if debug_level == 0 else logging.DEBUG)
+    
+    # Create formatter for console handler
+    console_formatter = get_log_formatter(color=True)
+    console_handler.setFormatter(console_formatter)
+    
+    # Add console handler to root logger
+    logging.getLogger().handlers[0].setFormatter(console_formatter)
+    
+    # If debug level > 1, also log to file with rotation
+    if debug_level > 1:
+        # Get the config directory path
+        config_dir = os.path.dirname(os.path.abspath(os.environ.get("BONEIO_CONFIG", "/tmp")))
+        new_config_dir = "/tmp"
+        log_file = os.path.join(new_config_dir, "boneio.log")
+        
+        # Create rotating file handler (10MB max size, keep 3 backup files)
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=3,
+            encoding='utf-8'
+        )
+        
+        # Set formatter for file handler
+        formatter = logging.Formatter(log_format, date_format)
+        file_handler.setFormatter(formatter)
+        
+        # Set level for file handler
+        file_handler.setLevel(logging.DEBUG)
+        
+        # Add handler to root logger
+        logging.getLogger().addHandler(file_handler)
+        
+        logging.info("File logging enabled at: %s", log_file)

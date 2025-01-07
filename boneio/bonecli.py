@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-from logging.handlers import RotatingFileHandler
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
@@ -12,7 +11,6 @@ import argparse
 import asyncio
 import sys
 
-from colorlog import ColoredFormatter
 from yaml import MarkedYAMLError
 
 from boneio.const import ACTION
@@ -22,7 +20,7 @@ from boneio.helper.exceptions import (
     ConfigurationException,
     RestartRequestException,
 )
-from boneio.helper.logger import configure_logger
+from boneio.helper.logger import configure_logger, setup_logging
 from boneio.modbus.client import VALUE_TYPES
 from boneio.modbus.modbuscli import (
     async_run_modbus_get,
@@ -37,68 +35,7 @@ TASK_CANCELATION_TIMEOUT = 1
 _LOGGER = logging.getLogger(__name__)
 
 
-def setup_logging(debug_level: int = 0) -> None:
-    """Setup logging configuration."""
-    log_format = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
-    date_format = "%Y-%m-%d %H:%M:%S"
-    color_format = "%(log_color)s" + log_format + "%(reset)s"
-    
-    # Set up basic configuration for console output
-    logging.basicConfig(
-        level=logging.INFO if debug_level == 0 else logging.DEBUG,
-        format=log_format,
-        datefmt=date_format
-    )
-    
-    # Create console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO if debug_level == 0 else logging.DEBUG)
-    
-    # Create formatter for console handler
-    console_formatter = ColoredFormatter(
-        color_format,
-        datefmt=date_format,
-        reset=True,
-        log_colors={
-            "DEBUG": "cyan",
-            "INFO": "green",
-            "WARNING": "yellow",
-            "ERROR": "red",
-            "CRITICAL": "red",
-        },
-    )
-    console_handler.setFormatter(console_formatter)
-    
-    # Add console handler to root logger
-    logging.getLogger().handlers[0].setFormatter(console_formatter)
-    
-    # If debug level > 1, also log to file with rotation
-    if debug_level > 1:
-        # Get the config directory path
-        config_dir = os.path.dirname(os.path.abspath(os.environ.get("BONEIO_CONFIG", "/tmp")))
-        new_config_dir = "/tmp"
-        log_file = os.path.join(new_config_dir, "boneio.log")
-        print(log_file, config_dir, new_config_dir)
-        
-        # Create rotating file handler (10MB max size, keep 3 backup files)
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=3,
-            encoding='utf-8'
-        )
-        
-        # Set formatter for file handler
-        formatter = logging.Formatter(log_format, date_format)
-        file_handler.setFormatter(formatter)
-        
-        # Set level for file handler
-        file_handler.setLevel(logging.DEBUG)
-        
-        # Add handler to root logger
-        logging.getLogger().addHandler(file_handler)
-        
-        logging.info("File logging enabled at: %s", log_file)
+
 
 
 def get_arguments() -> argparse.Namespace:
@@ -288,6 +225,7 @@ def run(
                 config_file=config,
                 mqttusername=mqttusername,
                 mqttpassword=mqttpassword,
+                debug=debug,
             ),
         )
         return 0
