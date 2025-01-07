@@ -20,7 +20,6 @@ from boneio.const import (
     EVENT_ENTITY,
     ID,
     INA219,
-    INPUT,
     LED,
     LIGHT,
     LM75,
@@ -44,7 +43,6 @@ from boneio.const import (
     UART,
     UARTS,
     ClickTypes,
-    InputTypes,
     cover_actions,
     relay_actions,
 )
@@ -61,6 +59,7 @@ from boneio.helper import (
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
+from boneio.helper.gpio import GpioBaseClass
 from boneio.helper.loader import (
     configure_binary_sensor,
     configure_cover,
@@ -75,6 +74,8 @@ from boneio.helper.logger import configure_logger
 from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus.client import Modbus
+from boneio.models import OutputState
+from boneio.sensor.temp import TempSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -131,12 +132,12 @@ class Manager:
         self._mcp = {}
         self._pcf = {}
         self._pca = {}
-        self._output = {}
+        self._outputs = {}
         self._configured_output_groups = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
         self._covers = {}
-        self._temp_sensors = []
+        self._temp_sensors: List[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_sensors = {}
         self._modbus = None
@@ -192,7 +193,7 @@ class Manager:
             )
             if not out:
                 continue
-            self._output[_id] = out
+            self._outputs[_id] = out
             if out.output_type not in (NONE, COVER):
                 self.send_ha_autodiscovery(
                     id=out.id,
@@ -204,16 +205,12 @@ class Manager:
                         out.output_type, ha_switch_availabilty_message
                     ),
                 )
-            self._loop.call_soon_threadsafe(
-                self._loop.call_later,
-                0.5,
-                out.send_state,
-            )
+            self._loop.create_task(self._delayed_send_state(out))
 
         for _config in cover:
             _id = strip_accents(_config[ID])
-            open_relay = self._output.get(_config.get("open_relay"))
-            close_relay = self._output.get(_config.get("close_relay"))
+            open_relay = self._outputs.get(_config.get("open_relay"))
+            close_relay = self._outputs.get(_config.get("close_relay"))
             if not open_relay:
                 _LOGGER.error(
                     "Can't configure cover %s. This relay doesn't exist.",
@@ -250,7 +247,7 @@ class Manager:
                 topic_prefix=self._config_helper.topic_prefix,
             )
 
-        self._output_group = output_group
+        self._outputs_group = output_group
         self._configure_output_group()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
@@ -280,13 +277,12 @@ class Manager:
                 self._oled = Oled(
                     host_data=self._host_data,
                     screen_order=self._screens,
-                    output_groups=list(self.grouped_outputs),
+                    grouped_outputs=list(self.grouped_outputs),
                     sleep_timeout=oled.get("screensaver_timeout", 60),
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_ha_buttons()
-
         _LOGGER.info("BoneIO manager is ready.")
 
     @property
@@ -294,27 +290,35 @@ class Manager:
         return self._mqtt_state()
 
     @property
+    def ina219_sensors(self) -> list:
+        return self._ina219_sensors
+
+    @property
     def modbus_sensors(self) -> dict:
         return self._modbus_sensors
 
     @property
-    def temp_sensors(self) -> list:
+    def temp_sensors(self) -> list[TempSensor]:
         return self._temp_sensors
+
+    @property
+    def output_groups(self) -> dict:
+        return self._configured_output_groups
 
     def _configure_output_group(self):
         def get_outputs(output_list):
             outputs = []
             for x in output_list:
                 x = strip_accents(x)
-                if x in self._output:
-                    output = self._output[x]
+                if x in self._outputs:
+                    output = self._outputs[x]
                     if output.output_type == COVER:
                         _LOGGER.warning("You can't add cover output to group.")
                     else:
                         outputs.append(output)
             return outputs
 
-        for group in self._output_group:
+        for group in self._outputs_group:
             members = get_outputs(group.pop("outputs"))
             if not members:
                 _LOGGER.warn(
@@ -385,6 +389,7 @@ class Manager:
                 gpio=gpio,
                 pin=pin,
                 press_callback=self.press_callback,
+                event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self._inputs.get(pin, None),  # for reload actions.
             )
@@ -412,13 +417,17 @@ class Manager:
             )
 
     def append_task(
-        self, coro: Coroutine, name: str = "Unknown"
-    ) -> asyncio.Future:
+        self, coro: Coroutine, name: str = "Unknown", **kwargs
+    ) -> asyncio.Task:
         """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
-        task: asyncio.Future = asyncio.create_task(coro())
+        task: asyncio.Task = asyncio.create_task(coro(**kwargs))
         self._tasks.append(task)
         return task
+
+    @property
+    def inputs(self) -> List[GpioBaseClass]:
+        return list(self._inputs.values())
 
     def _configure_sensors(
         self,
@@ -576,9 +585,13 @@ class Manager:
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
         self.send_message(topic=topic, payload=ONLINE, retain=True)
 
+    @property
+    def event_bus(self) -> EventBus:
+        return self._event_bus
+
     async def _relay_callback(
         self,
-        relay_id: str,
+        event: OutputState,
         restore_state: bool,
         save_host_data: bool = True,
         expander_id: str | None = None,
@@ -587,8 +600,8 @@ class Manager:
         if restore_state:
             self._state_manager.save_attribute(
                 attr_type=RELAY,
-                attribute=relay_id,
-                value=self._output[relay_id].is_active,
+                attribute=event.id,
+                value=self._outputs[event.id].is_active,
             )
         if save_host_data and expander_id:
             self._host_data_callback(type=expander_id)
@@ -655,7 +668,7 @@ class Manager:
         """Get output device and its action based on configuration."""
         if action == OUTPUT:
             return (
-                self._output.get(
+                self._outputs.get(
                     strip_accents(device_id),
                     self._configured_output_groups.get(device_id),
                 ),
@@ -670,19 +683,18 @@ class Manager:
     async def press_callback(
         self,
         x: ClickTypes,
-        inpin: str,
-        actions: List,
-        input_type: InputTypes = INPUT,
+        gpio: GpioBaseClass,
         empty_message_after: bool = False,
         duration: float | None = None,
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt.
         """
-        topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
+        actions = gpio.get_actions_of_click(click_type=x)
+        topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
         def generate_payload():
-            if input_type == EVENT_ENTITY:
+            if gpio.input_type == EVENT_ENTITY:
                 if duration:
                     return {"action": x, "duration": duration}
                 return {"action": x}
@@ -700,6 +712,9 @@ class Manager:
                 action_cover=action_cover,
             )
             if output and action:
+                _LOGGER.debug(
+                    "Executing action %s for output %s", action, output.name
+                )
                 _f = getattr(output, action)
                 await _f()
             elif action == MQTT:
@@ -734,38 +749,17 @@ class Manager:
         ):
             self._host_data_callback(type="inputs")
 
-    def send_ha_autodiscovery(
-        self,
-        id: str,
-        name: str,
-        ha_type: str,
-        availability_msg_func: Callable,
-        topic_prefix: str = None,
-        **kwargs,
-    ) -> None:
-        """Send HA autodiscovery information for each relay."""
-        if not self._config_helper.ha_discovery:
-            return
-        topic_prefix = topic_prefix or self._config_helper.topic_prefix
-        payload = availability_msg_func(
-            topic=topic_prefix, id=id, name=name, **kwargs
-        )
-        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
-        _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
-        self._config_helper.add_autodiscovery_msg(
-            topic=topic, ha_type=ha_type, payload=payload
-        )
-        self.send_message(topic=topic, payload=payload, retain=True)
-
-    def resend_autodiscovery(self) -> None:
-        for msg in self._config_helper.autodiscovery_msgs:
-            self.send_message(**msg, retain=True)
+    async def toggle_output(self, output_id: str) -> None:
+        """Toggle output state."""
+        output = self._outputs.get(output_id)
+        if output:
+            await output.async_toggle()
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
         if topic.startswith(
-            f"{self._config_helper.ha_discovery_prefix}/status"
+            f"{self._config_helper.topic_prefix}/status"
         ):
             if message == ONLINE:
                 self.resend_autodiscovery()
@@ -790,7 +784,7 @@ class Manager:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
         if msg_type == RELAY and command == "set":
-            target_device = self._output.get(device_id)
+            target_device = self._outputs.get(device_id)
 
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
@@ -802,7 +796,7 @@ class Manager:
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
-            target_device = self._output.get(device_id)
+            target_device = self._outputs.get(device_id)
             if (
                 target_device
                 and target_device.output_type != NONE
@@ -851,13 +845,71 @@ class Manager:
                 _LOGGER.info("Reloading logger configuration.")
                 self._logger_reload()
             elif device_id == "restart" and message == "restart":
-                _LOGGER.info("Exiting process. Systemd should restart it soon.")
-                await self.stop_client()
+                await self.restart_request()
             elif device_id == "inputs_reload" and message == "inputs_reload":
                 _LOGGER.info("Reloading events and binary sensors actions")
                 self.configure_inputs(reload_config=True)
 
+    async def restart_request(self) -> None:
+        _LOGGER.info("Exiting process. Systemd should restart it soon.")
+        await self.stop_client()
+
     @property
-    def output(self) -> dict:
+    def outputs(self) -> dict:
         """Get list of output."""
-        return self._output
+        return self._outputs
+
+    async def _delayed_send_state(self, output):
+        """Send state after a delay."""
+        await asyncio.sleep(0.5)
+        await output.async_send_state()
+
+    async def handle_actions(self, actions: dict) -> None:
+        """Handle actions."""
+        for action in actions:
+            if action == MQTT:
+                topic = actions[action].get(TOPIC)
+                payload = actions[action].get("payload")
+                if topic and payload:
+                    self.send_message(topic=topic, payload=payload, retain=False)
+            elif action == OUTPUT:
+                output_id = actions[action].get(ID)
+                output_action = actions[action].get("action")
+                output = self._outputs.get(output_id)
+                if output and output_action:
+                    _f = getattr(output, output_action)
+                    await _f()
+            elif action == COVER:
+                cover_id = actions[action].get(ID)
+                cover_action = actions[action].get("action")
+                cover = self._covers.get(cover_id)
+                if cover and cover_action:
+                    _f = getattr(cover, cover_action)
+                    await _f()
+
+    def send_ha_autodiscovery(
+        self,
+        id: str,
+        name: str,
+        ha_type: str,
+        availability_msg_func: Callable,
+        topic_prefix: str = None,
+        **kwargs,
+    ) -> None:
+        """Send HA autodiscovery information for each relay."""
+        if not self._config_helper.ha_discovery:
+            return
+        topic_prefix = topic_prefix or self._config_helper.topic_prefix
+        payload = availability_msg_func(
+            topic=topic_prefix, id=id, name=name, **kwargs
+        )
+        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
+        _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
+        self._config_helper.add_autodiscovery_msg(
+            topic=topic, ha_type=ha_type, payload=payload
+        )
+        self.send_message(topic=topic, payload=payload, retain=True)
+
+    def resend_autodiscovery(self) -> None:
+        for msg in self._config_helper.autodiscovery_msgs:
+            self.send_message(**msg, retain=True)
