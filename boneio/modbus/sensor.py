@@ -4,13 +4,14 @@ import asyncio
 import logging
 import os
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Optional
 
 from boneio.const import (
     ADDRESS,
     BASE,
     ID,
     LENGTH,
+    MODBUS_SENSOR,
     MODEL,
     NAME,
     OFFLINE,
@@ -24,6 +25,7 @@ from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
 from boneio.helper.util import open_json
+from boneio.models import SensorState
 
 from .client import VALUE_TYPES, Modbus
 from .single_sensor import SingleSensor
@@ -66,7 +68,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         self._sensors_filters = {
             k.lower(): v for k, v in sensors_filters.items()
         }
-        self._modbus_sensors = []
+        self._modbus_sensors: List[Dict[str, SingleSensor]] = []
         for index, data in enumerate(self._db[REGISTERS_BASE]):
             base = data[BASE]
             self._modbus_sensors.append({})
@@ -107,7 +109,8 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 ]
             ),
         )
-        event_bus.add_haonline_listener(target=self.set_payload_offline)
+        self._event_bus = event_bus
+        self._event_bus.add_haonline_listener(target=self.set_payload_offline)
         AsyncUpdater.__init__(self, **kwargs)
 
     def get_sensor_by_name(self, name: str) -> Optional[SingleSensor]:
@@ -116,6 +119,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
             if name in sensors:
                 return sensors.get(name)
         return None
+
+    def get_all_sensors(self) -> List[Dict[str, SingleSensor]]:
+        return self._modbus_sensors
 
     def set_payload_offline(self):
         self._payload_online = OFFLINE
@@ -158,7 +164,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     self._id,
                 )
 
-    async def async_update(self, time: datetime) -> Optional[float]:
+    async def async_update(self, timestamp: float) -> Optional[float]:
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
@@ -228,8 +234,20 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                             e,
                         )
                         decoded_value = None
-                sensor.set_value(value=decoded_value)
+                sensor.set_value(value=decoded_value, timestamp=timestamp)
                 output[sensor.decoded_name] = sensor.state
+                await self._event_bus.async_trigger_event(
+                    event_type=MODBUS_SENSOR,
+                    entity_id=self._id,
+                    event=SensorState(
+                        id=sensor.id,
+                        name=sensor.name,
+                        state=sensor.state,
+                        unit_of_measurement=sensor.unit_of_measurement,
+                        timestamp=sensor.last_timestamp,
+                    ),
+                )
+            self._timestamp = timestamp
             self._send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
                 payload=output,

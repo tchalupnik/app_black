@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Callable, Optional, Union
 
 from boneio.const import ID, MODEL, NAME, SENSOR
@@ -62,6 +63,7 @@ class SingleSensor(Filter):
         self._return_type = return_type
         self._send_message = send_message
         self._config_helper = config_helper
+        self._timestamp = time.time()
         self._parent = parent
         self._topic = (
             f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{self._parent[ID]}"
@@ -71,13 +73,14 @@ class SingleSensor(Filter):
     def set_user_filters(self, user_filters: list) -> None:
         self._user_filters = user_filters
 
-    def set_value(self, value):
+    def set_value(self, value, timestamp: float) -> None:
         value = self._apply_filters(value=value)
         value = self._apply_filters(
             value=value,
             filters=self._user_filters,
         )
         self._value = value
+        self._timestamp = timestamp
 
     def send_ha_discovery(self):
         payload = self.discovery_message()
@@ -111,6 +114,10 @@ class SingleSensor(Filter):
             model=self._parent[MODEL],
             **kwargs,
         )
+
+    @property
+    def id(self) -> str:
+        return f"{self._parent[ID]}{self._decoded_name_low}"
 
     def get_value(self):
         return self._value
@@ -148,3 +155,7 @@ class SingleSensor(Filter):
     @property
     def unit_of_measurement(self) -> str:
         return self._unit_of_measurement
+
+    @property
+    def last_timestamp(self) -> float:
+        return self._timestamp
