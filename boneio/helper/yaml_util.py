@@ -190,9 +190,11 @@ def merge_board_config(config: dict) -> dict:
     
     try:
         board_file = get_board_config_path(board_name, version)
+        input_file = get_board_config_path("input", version)
         board_config = load_yaml_file(board_file)
+        input_config = load_yaml_file(input_file)
         if not board_config:
-            raise ConfigurationException(f"Board configuration file {board_file} is empty")
+            raise ConfigurationException(f"Bottom board configuration file {board_file} is empty")
     except FileNotFoundError:
         raise ConfigurationException(
             f"Board configuration for {board_name} version {version} not found"
@@ -207,7 +209,8 @@ def merge_board_config(config: dict) -> dict:
         output_mapping = board_config.get("output_mapping", {})
         for output in config["output"]:
             if "boneio_output" in output:
-                mapped_output = output_mapping.get(output["boneio_output"])
+                boneio_output = output["boneio_output"].lower()
+                mapped_output = output_mapping.get(boneio_output)
                 if not mapped_output:
                     raise ConfigurationException(
                         f"Output mapping '{output['boneio_output']}' not found in board configuration"
@@ -215,6 +218,30 @@ def merge_board_config(config: dict) -> dict:
                 # Merge mapped output with user config, preserving user-specified values
                 output.update({k: v for k, v in mapped_output.items() if k not in output})
                 del output["boneio_output"]
+    if "event" or "binary_sensor" in config:
+        input_mapping = input_config.get("input_mapping", {})
+        for input in config.get("event", []):
+            if "boneio_input" in input:
+                boneio_input = input["boneio_input"].lower()
+                mapped_input = input_mapping.get(boneio_input)
+                if not mapped_input:
+                    raise ConfigurationException(
+                        f"Input mapping '{input['boneio_input']}' not found in board configuration"
+                    )
+                # Merge mapped output with user config, preserving user-specified values
+                input.update({k: v for k, v in mapped_input.items() if k not in input})
+
+        for input in config.get("binary_sensor", []):
+            if "boneio_input" in input:
+                boneio_input = input["boneio_input"].lower()
+                mapped_input = input_mapping.get(boneio_input)
+                if not mapped_input:
+                    raise ConfigurationException(
+                        f"Input mapping '{input['boneio_input']}' not found in board configuration"
+                    )
+                # Merge mapped output with user config, preserving user-specified values
+                input.update({k: v for k, v in mapped_input.items() if k not in input})
+
 
     return config
 

@@ -130,6 +130,7 @@ class GpioBaseClass:
         input_type,
         empty_message_after: bool,
         event_bus: EventBus,
+        boneio_input: str = "",
         **kwargs,
     ) -> None:
         """Setup GPIO Input Button"""
@@ -146,11 +147,16 @@ class GpioBaseClass:
         self._actions = actions
         self._input_type = input_type
         self._empty_message_after = empty_message_after
+        self._boneio_input = boneio_input
         self._click_type = (PRESSED, RELEASED)
         self._state = self.is_pressed
         self._last_state = "Unknown"
         self._last_timestamp = 0.0
         self._event_bus = event_bus
+
+    @property
+    def boneio_input(self) -> str:
+        return self._boneio_input or ""
 
     def press_callback(
         self, click_type: ClickTypes, duration: float | None = None
@@ -182,10 +188,11 @@ class GpioBaseClass:
         )
         event = InputState(
             name=self.name,
-            id=self._pin,
+            pin=self._pin,
             state=self.last_state,
             type=self.input_type,
-            timestamp=self.last_press_timestamp
+            timestamp=self.last_press_timestamp,
+            boneio_input=self.boneio_input,
         )
         await self._event_bus.async_trigger_event(event_type="input", entity_id=self._pin, event=event)
 

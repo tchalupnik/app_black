@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from typing import Awaitable, Callable, Coroutine, List, Optional, Set, Union
+from typing import Callable, Coroutine, List, Optional, Set, Union
 
 from board import SCL, SDA
 from busio import I2C
@@ -58,7 +58,7 @@ from boneio.helper import (
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
-from boneio.helper.exceptions import ModbusUartException
+from boneio.helper.exceptions import ModbusUartException, RestartRequestException
 from boneio.helper.gpio import GpioBaseClass
 from boneio.helper.loader import (
     configure_binary_sensor,
@@ -91,7 +91,6 @@ class Manager:
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
-        stop_client: Callable[[], Awaitable[None]],
         mqtt_state: Callable[[], bool],
         state_manager: StateManager,
         config_helper: ConfigHelper,
@@ -123,7 +122,6 @@ class Manager:
         self._event_bus = EventBus(loop=self._loop)
 
         self.send_message = send_message
-        self.stop_client = stop_client
         self._mqtt_state = mqtt_state
         self._event_pins = event_pins
         self._inputs = {}
@@ -850,9 +848,11 @@ class Manager:
                 _LOGGER.info("Reloading events and binary sensors actions")
                 self.configure_inputs(reload_config=True)
 
+
     async def restart_request(self) -> None:
-        _LOGGER.info("Exiting process. Systemd should restart it soon.")
-        await self.stop_client()
+        _LOGGER.info("Restarting process. Systemd should restart it soon.")
+        await self.event_bus.ask_stop()
+        raise RestartRequestException
 
     @property
     def outputs(self) -> dict:

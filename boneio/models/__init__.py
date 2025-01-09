@@ -12,6 +12,7 @@ class InputState(BaseModel):
     type: str
     pin: str
     timestamp: float
+    boneio_input: str
 
 class InputsResponse(BaseModel):
     """Inputs response model."""

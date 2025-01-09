@@ -30,7 +30,7 @@ mqtt:
       default: boneIO
       required: True
       meta:
-        label: Prefix topic for boneIO to use
+        label: Prefix topic for boneIO to use. First overriden by 
     ha_discovery:
       type: dict
       meta:
@@ -52,7 +52,6 @@ web:
   type: dict
   required: False
   nullable: True
-  default: {}
   meta:
     label: Web section
   schema:
@@ -579,6 +578,11 @@ binary_sensor:
         default: '120ms'
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
+      boneio_input:
+        type: string
+        required: False
+        meta:
+          label: Reference to predefined input configuration
       show_in_ha:
         type: boolean
         required: True
@@ -686,6 +690,11 @@ event:
         default: '30ms'
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
+      boneio_input:
+        type: string
+        required: False
+        meta:
+          label: Reference to predefined input configuration
       show_in_ha:
         type: boolean
         required: True
@@ -885,11 +894,16 @@ boneio:
   meta:
     label: BoneIO configuration section
   schema:
+    name:
+      type: string
+      required: True
+      meta:
+        label: Name of boneio. Default is Black.
     version:
       type: string
       required: True
       meta:
-        label: BoneIO version
+        label: BoneIO Black Hardware version
     relay_board:
       type: string
       required: True
