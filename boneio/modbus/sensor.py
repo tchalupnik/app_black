@@ -238,7 +238,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 output[sensor.decoded_name] = sensor.state
                 await self._event_bus.async_trigger_event(
                     event_type=MODBUS_SENSOR,
-                    entity_id=self._id,
+                    entity_id=sensor.id,
                     event=SensorState(
                         id=sensor.id,
                         name=sensor.name,

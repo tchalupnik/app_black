@@ -4,6 +4,7 @@ import asyncio
 import logging
 import struct
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
@@ -77,6 +78,11 @@ VALUE_TYPES = {
     },
 }
 
+# Maximum number of worker threads for Modbus operations
+MAX_WORKERS = 4
+# Timeout for Modbus operations in seconds
+OPERATION_TIMEOUT = 5
+
 
 class Modbus:
     """Represent modbus connection over chosen UART."""
@@ -105,6 +111,7 @@ class Modbus:
         # generic configuration
         self._client: BaseModbusClient | None = None
         self._lock = asyncio.Lock()
+        self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
 
         try:
             self._client = ModbusSerialClient(
@@ -133,12 +140,16 @@ class Modbus:
         async with self._lock:
             if self._client:
                 try:
-                    self._client.close()
+                    # Run close in the executor
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(self._executor, self._client.close)
                 except ModbusException as exception_error:
                     _LOGGER.error(exception_error)
-                del self._client
-                self._client = None
-                _LOGGER.warning("modbus communication closed")
+                finally:
+                    del self._client
+                    self._client = None
+                    self._executor.shutdown(wait=False)
+                    _LOGGER.warning("modbus communication closed")
 
     def _pymodbus_connect(self) -> bool:
         """Connect client."""
@@ -177,11 +188,17 @@ class Modbus:
         """Call async pymodbus."""
         async with self._lock:
             start_time = time.perf_counter()
-            if not self._pymodbus_connect():
-                _LOGGER.error("Can't connect to Modbus.")
-                return None
-            kwargs = {"unit": unit, "count": count} if unit else {}
+            loop = asyncio.get_running_loop()
+            result = None
+            
             try:
+                # Run connection in the executor
+                connected = await loop.run_in_executor(self._executor, self._pymodbus_connect)
+                if not connected:
+                    _LOGGER.error("Can't connect to Modbus.")
+                    return None
+
+                kwargs = {"unit": unit, "count": count} if unit else {}
                 read_method = self._read_methods[method]
                 _LOGGER.debug(
                     "Reading %s registers from %s with method %s from device %s.",
@@ -190,21 +207,37 @@ class Modbus:
                     method,
                     unit,
                 )
-                result: ReadInputRegistersResponse = read_method(
-                    address, **kwargs
+
+                # Run the read operation in the executor
+                result: ReadInputRegistersResponse = await loop.run_in_executor(
+                    self._executor,
+                    lambda: read_method(address, **kwargs)
                 )
+
+                if not hasattr(result, REGISTERS):
+                    _LOGGER.error("No result from read: %s", str(result))
+                    result = None
+
             except (ModbusException, struct.error) as exception_error:
-                _LOGGER.error(exception_error)
-                return None
-            if not hasattr(result, REGISTERS):
-                _LOGGER.error(str(result))
-                return None
-            end_time = time.perf_counter()
-            _LOGGER.debug(
-                "Time of execution of read_registers: %s ms.",
-                round((end_time - start_time) * 1000, 3),
-            )
-            return result
+                _LOGGER.error("Error reading registers: %s", exception_error)
+                pass
+            except asyncio.TimeoutError:
+                _LOGGER.error("Timeout reading registers from device %s", unit)
+                pass
+            except asyncio.CancelledError:
+                _LOGGER.error("Operation cancelled reading registers from device %s", unit)
+                pass
+            except Exception as e:
+                _LOGGER.error(f"Unexpected error reading registers: {type(e).__name__} - {e}")
+                pass
+            finally:
+                end_time = time.perf_counter()
+                _LOGGER.debug(
+                    "Read completed in %.3f seconds: %s",
+                    end_time - start_time,
+                    result.registers if hasattr(result, REGISTERS) else None,
+                )
+                return result
 
     def decode_value(self, payload, value_type):
         _payload_type = VALUE_TYPES[value_type]
