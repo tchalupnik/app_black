@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import List
 
 from fastapi import (
+    BackgroundTasks,
     Body,
     Depends,
     FastAPI,
@@ -86,12 +87,13 @@ class BoneIOApp(FastAPI):
                                 {"type": "lifespan.shutdown.failed", "message": str(e)}
                             )
                         return
-            except GracefulExit:
+            except (asyncio.CancelledError, GracefulExit):
                 # Handle graceful exit during lifespan
                 _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
                 await self.shutdown_handler()
-                await send({"type": "lifespan.shutdown.complete"})
+                # await send({"type": "lifespan.shutdown.complete"})
                 _LOGGER.debug("Lifespan cleanup complete.")
+                return
         await super().__call__(scope, receive, send)
 
 
@@ -151,8 +153,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         if not _auth_config:
             return await call_next(request)
-
-        print("AAA", request.headers)
 
         auth_header = request.headers.get("Authorization")
         if not auth_header:
@@ -345,7 +345,7 @@ def get_standalone_logs(since: str, limit: int) -> List[LogEntry]:
                 except (IndexError, ValueError):
                     continue
     except Exception as e:
-        print(f"Error reading log file: {e}")
+        _LOGGER.warning(f"Error reading log file: {e}")
         return []
 
     return log_entries
@@ -354,18 +354,18 @@ def get_standalone_logs(since: str, limit: int) -> List[LogEntry]:
 @app.get("/api/logs")
 async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
     """Get logs from either systemd journal or standalone log file."""
-    print("Fetching logs...")
+    _LOGGER.debug("Fetching logs...")
 
     try:
         # Try systemd logs first if running as service
         if is_running_as_service():
-            print("Fetching from systemd journal...")
+            _LOGGER.debug("Fetching from systemd journal...")
             log_entries = await get_systemd_logs(since, limit)
             if log_entries:
                 return LogsResponse(logs=log_entries)
 
         # Fall back to standalone logs
-        print("Fetching from standalone log file...")
+        _LOGGER.debug("Fetching from standalone log file...")
         log_entries = get_standalone_logs(since, limit)
         if log_entries:
             return LogsResponse(logs=log_entries)
@@ -382,7 +382,7 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
         )
 
     except Exception as e:
-        print(f"Error fetching logs: {str(e)}")
+        _LOGGER.warning(f"Error fetching logs: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -396,15 +396,19 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
 
 
 @app.post("/api/restart")
-async def restart_service(manager: Manager = Depends(get_manager)):
+async def restart_service(background_tasks: BackgroundTasks, manager: Manager = Depends(get_manager)):
     """Restart the BoneIO service."""
-    try:
-        if is_running_as_service():
-            return {"status": "not available"}
-        await manager.restart_request()
-        return {"status": "success"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if not is_running_as_service():
+        return {"status": "not available"}
+
+    async def shutdown_and_restart():
+        # First stop the web server
+        if app.state.web_server:
+            await asyncio.sleep(0.1)  # Allow time for the response to be sent
+            os._exit(0)  # Terminate the process
+
+    background_tasks.add_task(shutdown_and_restart)
+    return {"status": "success"}
 
 
 @app.get("/api/version")
@@ -531,6 +535,7 @@ def init_app(
     yaml_config_file: str,
     auth_config: dict = {},
     jwt_secret: str = None,
+    web_server = None,
 ) -> BoneIOApp:
     """Initialize the FastAPI application with manager."""
     global _auth_config, JWT_SECRET
@@ -544,6 +549,7 @@ def init_app(
     app.state.manager = manager
     app.state.auth_config = auth_config
     app.state.yaml_config_file = yaml_config_file
+    app.state.web_server = web_server
     app.state.websocket_manager = WebSocketManager(
         jwt_secret=jwt_secret,
         auth_required=bool(auth_config)
@@ -607,7 +613,7 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
                     event_type="modbus_sensor",
                     entity_id=single_sensor.id,
                     listener_id=f"ws${single_sensor.id}",
-                    target=sensor_state_changed,
+                    target=modbus_sensor_state_changed,
                 )
     for single_ina_device in boneio_manager.ina219_sensors:
         for ina in single_ina_device.sensors.values():
@@ -665,6 +671,7 @@ async def websocket_endpoint(
                             type=input_.input_type,
                             pin=input_.pin,
                             timestamp=input_.last_press_timestamp,
+                            boneio_input=input_.boneio_input
                         )
                         update = StateUpdate(type="input", data=input_state)
                         if not await send_state_update(update):
