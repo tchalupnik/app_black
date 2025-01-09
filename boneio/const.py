@@ -10,7 +10,7 @@ except ModuleNotFoundError:
     pass
 from typing_extensions import Literal
 
-BONEIO = "boneIO"
+BONEIO = "boneio"
 NONE = "none"
 
 # MISCELLANEOUS CONSTS
