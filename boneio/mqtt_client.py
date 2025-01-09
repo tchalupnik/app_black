@@ -22,12 +22,10 @@ from boneio.const import OFFLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import RestartRequestException
 from boneio.helper.message_bus import MessageBus
 from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
-
 
 class MQTTClient(MessageBus):
     """Represent an MQTT client."""
@@ -66,6 +64,7 @@ class MQTTClient(MessageBus):
             "homeassistant/status",
         ]
         self._running = True
+        self._cancel_future: Optional[asyncio.Future] = None
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -167,11 +166,10 @@ class MQTTClient(MessageBus):
             await self.publish(*to_publish)
             self.publish_queue.task_done()
 
-    async def _keep_alive(self) -> None:
+    async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
-        # Reconnect automatically until the client is stopped.
         try:
-            while self._running:
+            while True:
                 try:
                     await self._subscribe_manager(self._manager)
                 except MqttError as err:
@@ -187,28 +185,23 @@ class MQTTClient(MessageBus):
                     await asyncio.sleep(self.reconnect_interval)
                     self.create_client()  # reset connect/reconnect futures
         except (asyncio.CancelledError, GracefulExit):
-            _LOGGER.info("MQTT client task canceled.")
-            pass
+            await self.asyncio_client.disconnect(timeout=1.0)
+            # raise
 
-    async def start_client(self, manager: Manager) -> asyncio.Task:
+    def set_manager(self, manager: Manager) -> None:
+        """Set manager."""
         self._manager = manager
-        return asyncio.create_task(self._keep_alive())
-
-    async def stop(self) -> None:
-        await self.unsubscribe(topics=self._topics)
-        await self.asyncio_client.disconnect()
-        self._running = False
-
-    async def stop_client(self) -> None:
-        await self.unsubscribe(topics=self._topics)
-        raise RestartRequestException("Restart requested.")
-
-    def state(self) -> bool:
-        """State of MQTT Client."""
-        return self._connection_established
 
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
+        # Create a new future for this run
+        self._cancel_future = asyncio.Future()
+        
+        async def wait_for_cancel():
+            await self._cancel_future
+            # When future completes, raise CancelledError to stop other tasks
+            raise asyncio.CancelledError("Stop requested")
+        
         async with AsyncExitStack() as stack:
             tasks: Set[asyncio.Task] = set()
 
@@ -236,11 +229,19 @@ class MQTTClient(MessageBus):
                 tasks.add(reconnect_task)
             tasks.add(messages_task)
 
+            # Add cancel_future to tasks
+            cancel_task = asyncio.create_task(wait_for_cancel())
+            tasks.add(cancel_task)
+
             await self.subscribe(topics=self._topics)
             await self.subscribe(topics=self._discovery_topics)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
+
+    def state(self) -> bool:
+        """State of MQTT Client."""
+        return self._connection_established
 
     async def handle_messages(
         self, messages: Any, callback: Callable[[str, str], Awaitable[None]]
