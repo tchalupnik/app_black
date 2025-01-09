@@ -208,8 +208,8 @@ class Oled:
         if data:
             with canvas(self._device) as draw:
                 if (
-                    self._output_groups
-                    and self._current_screen in self._output_groups
+                    self._grouped_outputs
+                    and self._current_screen in self._grouped_outputs
                 ):
                     self._draw_output(data, draw)
                 elif self._current_screen == UPTIME:
