@@ -7,6 +7,7 @@ interface IOState {
   type: string;
   pin: string | number;
   timestamp?: number;
+  boneio_input?: string;
 }
 
 interface SensorState {

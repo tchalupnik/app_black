@@ -3,6 +3,7 @@ import { WebSocketContext } from '../App';
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isIOState } from '../hooks/useWebSocket';
+import clsx from 'clsx';
 
 // Separate component for individual input
 const InputItem = memo(({ input, isGrid }: {
@@ -20,13 +21,13 @@ const InputItem = memo(({ input, isGrid }: {
       </div>
       <div className={`${isGrid ? 'text-right' : ''}`}>
         <span
-          className={`px-4 py-2 rounded-lg font-semibold ${
+          className={clsx('px-4 py-2 rounded-lg font-semibold',
             input.state === 'ON' ? 'bg-primary text-white' :
             input.state === 'single' ? 'bg-success text-black' :
             input.state === 'double' ? 'bg-warning text-black' :
             input.state === 'long' ? 'bg-info text-white' :
-            'bg-base-300 text-base-content'
-          }`}
+            'bg-base-200 text-base-content'
+          )}
         >
           {input.state}
         </span>

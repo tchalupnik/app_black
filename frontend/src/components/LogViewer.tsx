@@ -135,7 +135,7 @@ export default function LogViewer() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-300">
+    <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100">
       <div className="bg-base-200 p-4 border-b border-base-content/10 flex items-center gap-4">
         <select 
           value={timeRange}
