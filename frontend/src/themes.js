@@ -26,7 +26,7 @@ module.exports = {
           "base-content": "#1f2937",
           
           "info": "#399ed9",
-          "success": "#34d399",
+          "success": "#09ba7a",
           "warning": "#fbbf24",
           "error": "#ef4444",
           
@@ -39,7 +39,7 @@ module.exports = {
           "--border-btn": "1px",
           "--tab-border": "1px",
           "--tab-radius": "0.5rem",
-          
+
         },
         dark: {
           "primary": "#399ed9",
