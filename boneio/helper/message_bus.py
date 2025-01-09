@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Set, Union
+from typing import Callable, Dict, Set, Union
 
 from boneio.manager import Manager
 
@@ -16,11 +16,6 @@ class MessageBus(ABC):
         """Send a message."""
         pass
 
-    @abstractmethod
-    async def stop(self) -> None:
-        """Stop the message bus."""
-        pass
-
     @property
     @abstractmethod
     def state(self) -> bool:
@@ -28,8 +23,13 @@ class MessageBus(ABC):
         pass
         
     @abstractmethod
-    async def start_client(self, manager: Any) -> asyncio.Task:
+    async def start_client(self) -> None:
         """Start the message bus client."""
+        pass
+
+    @abstractmethod
+    def set_manager(self, manager: Manager) -> None:
+        """Set manager."""
         pass
 
 class LocalMessageBus(MessageBus):
@@ -65,27 +65,19 @@ class LocalMessageBus(MessageBus):
         if topic in self._retain_values:
             asyncio.create_task(callback(topic, self._retain_values[topic]))
     
-    async def stop(self) -> None:
-        """Stop the message bus."""
-        self._running = False
-        self._state = False
-        self._subscribers.clear()
-        self._retain_values.clear()
-    
     @property
     def state(self) -> bool:
         """Get bus state."""
         return self._state
         
-    async def _keep_alive(self) -> None:
+    async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
         while self._running:
             if self._manager and hasattr(self._manager, 'reconnect_callback'):
                 await self._manager.reconnect_callback()
             await asyncio.sleep(60)  # Run reconnect callback every minute like MQTT
             
-    async def start_client(self, manager: Any) -> asyncio.Task:
-        """Start the local message bus."""
+
+    def set_manager(self, manager: Manager) -> None:
+        """Set manager."""
         self._manager = manager
-        _LOGGER.info("Starting local message bus")
-        return asyncio.create_task(self._keep_alive())

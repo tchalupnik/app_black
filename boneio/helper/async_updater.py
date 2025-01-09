@@ -20,18 +20,20 @@ class AsyncUpdater:
 
 
     async def _refresh(self) -> None:
-        while True:
-            if hasattr(self, "async_update"):
-                update_interval = (
-                    await self.async_update(timestamp=time.time())
-                    or self._update_interval.total_in_seconds
-                )
-            else:
-                update_interval = (
+        try:
+            while True:
+                if hasattr(self, "async_update"):
+                    update_interval = (
+                        await self.async_update(timestamp=time.time())
+                        or self._update_interval.total_in_seconds
+                    )
+                else:
+                    update_interval = (
                     self.update(timestamp=time.time()) or self._update_interval.total_in_seconds
                 )
-            await asyncio.sleep(update_interval)
-
+                await asyncio.sleep(update_interval)
+        except asyncio.CancelledError:
+            raise
     @property
     def last_timestamp(self) -> float:
         return self._timestamp

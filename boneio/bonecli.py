@@ -219,7 +219,7 @@ def run(
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
         configure_logger(log_config=_config.get("logger"), debug=debug)
-        asyncio.run(
+        ret = asyncio.run(
             async_run(
                 config=_config,
                 config_file=config,
@@ -228,10 +228,13 @@ def run(
                 debug=debug,
             ),
         )
+        _LOGGER.info("BoneIO %s exiting.", __version__)
+        return ret
+    except KeyboardInterrupt:
         return 0
-    except (RestartRequestException, GracefulExit) as err:
+    except GracefulExit as err:
         if err is not None:
-            _LOGGER.info(err)
+            _LOGGER.info("Message: %s", err)
         return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)

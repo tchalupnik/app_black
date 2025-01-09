@@ -2,9 +2,21 @@
 Module to provide basic config options.
 """
 from __future__ import annotations
+
 from _collections_abc import dict_values
 from typing import Union
-from boneio.const import BONEIO, HOMEASSISTANT, LIGHT, SENSOR, COVER, BUTTON, SWITCH, BINARY_SENSOR, EVENT_ENTITY
+
+from boneio.const import (
+    BINARY_SENSOR,
+    BONEIO,
+    BUTTON,
+    COVER,
+    EVENT_ENTITY,
+    HOMEASSISTANT,
+    LIGHT,
+    SENSOR,
+    SWITCH,
+)
 
 
 class ConfigHelper:

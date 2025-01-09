@@ -126,31 +126,23 @@ class EventBus:
             except Exception as e:
                 _LOGGER.error("Error in sigterm listener %s: %s", target, e)
 
-    def ask_exit(self):
-        """Function to call on exit. Should invoke all sigterm listeners."""
-        _LOGGER.debug("Exiting process started.")
+    async def ask_stop(self):
+        """Function to call on restart. Should invoke all sigterm listeners."""
         self._every_second_listeners = {}
         self._output_listeners = {}
         
         _LOGGER.debug("Running sigterm listeners")
-        try:
-            # Create task and add done callback to raise GracefulExit
-            task = self._loop.create_task(self._handle_sigterm_listeners())
-            def _on_done(future):
-                try:
-                    future.result()  # This will raise any exceptions from the task
-                    self._timer_handle()
-                    _LOGGER.info("Shutdown gracefully.")
-                    raise GracefulExit(code=0)
-                except Exception as e:
-                    _LOGGER.error("Error during sigterm listeners execution: %s", e)
-                    raise GracefulExit(code=1)
-            
-            task.add_done_callback(_on_done)
-            
-        except Exception as e:
-            _LOGGER.error("Error creating shutdown task: %s", e)
-            raise GracefulExit(code=1)
+        await self._handle_sigterm_listeners()
+        for listener in self._every_second_listeners.values():
+            listener.target()
+        _LOGGER.info("Shutdown Eventbus gracefully.")
+
+    def ask_exit(self):
+        """Function to call on exit. Should invoke all sigterm listeners."""
+        _LOGGER.debug("EventBus Exiting process started.")
+        asyncio.create_task(self.ask_stop())
+        raise GracefulExit(code=0) from None
+        
 
 
     def add_every_second_listener(self, name, target):

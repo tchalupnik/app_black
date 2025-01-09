@@ -8,7 +8,6 @@ from pathlib import Path
 
 import uvicorn
 
-from boneio.helper.events import GracefulExit
 from boneio.helper.logger import configure_uvicorn_logging
 from boneio.manager import Manager
 from boneio.webui.app import BoneIOApp, init_app
@@ -20,6 +19,7 @@ class WebServer:
         """Initialize the web server."""
         self.config_file = config_file
         self.manager = manager
+        self._shutdown_event = asyncio.Event()
         
         # Get yaml config file path
         self._yaml_config_file = os.path.abspath(os.path.join(os.path.split(self.config_file)[0], "config.yaml"))
@@ -33,7 +33,8 @@ class WebServer:
             manager=self.manager, 
             yaml_config_file=self._yaml_config_file, 
             auth_config=auth, 
-            jwt_secret=self.jwt_secret
+            jwt_secret=self.jwt_secret,
+            web_server=self
         )
         
         # Configure uvicorn with shared logging config
@@ -51,9 +52,7 @@ class WebServer:
         # Override the server's install_signal_handlers to prevent it from handling signals
         self._server.install_signal_handlers = lambda: None
         self._server_running = False
-        print("Starting web server...", self.app)
-        self.manager.event_bus.add_sigterm_listener(self.app.shutdown_handler)
-        self.manager.event_bus.add_sigterm_listener(self.stop_webserver)
+        # self.manager.event_bus.add_sigterm_listener(self.stop_webserver)
 
     def _get_jwt_secret_or_generate(self):
         config_dir = Path(self._yaml_config_file).parent
@@ -83,17 +82,45 @@ class WebServer:
             jwt_secret = secrets.token_hex(32)
         return jwt_secret
 
+    async def start_webserver2(self) -> None:
+        """Start the web server."""
+        _LOGGER.info("Starting UVICORN web server...")
+        self._server_running = True
+        await self._server.serve()
+
     async def start_webserver(self) -> None:
         """Start the web server."""
-        try:
-            self._server_running = True
-            await self._server.serve()
-        except (asyncio.CancelledError, GracefulExit):
-            if self._server_running:
-                await self.stop_webserver()
+        _LOGGER.info("Starting UVICORN web server...")
+        self._server_running = True
+        
+        shutdown_task = asyncio.create_task(self._wait_shutdown())
+        server_task = asyncio.create_task(self._server.serve())
+        
+        await asyncio.wait(
+            [shutdown_task, server_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        if not server_task.done():
+            server_task.cancel()
+            await server_task
+
+    async def _wait_shutdown(self):
+        self._server.should_exit = True
+        await self._shutdown_event.wait()
+        _LOGGER.info("Shutdown signal received")
 
     async def stop_webserver(self) -> None:
         """Stop the web server."""
+        if not self._server_running:
+            return
         _LOGGER.info("Shutting down UVICORN web server...")
-        await self._server.shutdown()
         self._server_running = False
+        self._shutdown_event.set()
+
+    async def stop_webserver2(self) -> None:
+        """Stop the web server."""
+        _LOGGER.info("Shutting down UVICORN web server...")
+        self._server_running = False
+        # await self.app.shutdown_handler()
+        self._server.should_exit = True

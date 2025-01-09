@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any
+from typing import Any, Set
 
 from boneio.const import (
     ADC,
     BINARY_SENSOR,
+    BONEIO,
     COVER,
     DALLAS,
     DS2482,
@@ -23,6 +24,7 @@ from boneio.const import (
     MCP_TEMP_9808,
     MODBUS,
     MQTT,
+    NAME,
     OLED,
     ONEWIRE,
     OUTPUT,
@@ -37,6 +39,8 @@ from boneio.const import (
 )
 from boneio.helper import StateManager
 from boneio.helper.config import ConfigHelper
+from boneio.helper.events import GracefulExit
+from boneio.helper.exceptions import RestartRequestException
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
 from boneio.webui.web_server import WebServer
@@ -65,8 +69,13 @@ async def async_run(
     debug: int = 0
 ) -> list[Any]:
     """Run BoneIO."""
+    web_server = None
+    tasks: Set[asyncio.Task] = set()
+    loop = asyncio.get_event_loop()
+
+    main_config = config.get(BONEIO, {})
     _config_helper = ConfigHelper(
-        topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, "boneio"),
+        topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, main_config.get(NAME, BONEIO)),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
     )
@@ -92,7 +101,6 @@ async def async_run(
 
     manager = Manager(
         send_message=message_bus.send_message,
-        stop_client=message_bus.stop,
         mqtt_state=message_bus.state,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
@@ -111,19 +119,43 @@ async def async_run(
         },
         **manager_kwargs,
     )
-    tasks = set()
     # Convert coroutines to Tasks
+    message_bus.set_manager(manager=manager)
+
     tasks.update(manager.get_tasks())
 
     
     message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
     _LOGGER.info("Starting message bus %s.", message_bus_type)
-    tasks.add(asyncio.create_task(message_bus.start_client(manager)))
-    if "web" in config:
-        web_config = config.get("web") or {}  # Convert None to empty dict
-        port = web_config.get("port", 8090)
-        auth = web_config.get("auth", {})
-        web_server = WebServer(config_file=config_file, manager=manager, port=port, auth=auth, logger=config.get("logger", {}), debug_level=debug)
-        tasks.add(asyncio.create_task(web_server.start_webserver()))
-    result = await asyncio.gather(*tasks)
-    return result
+    message_bus_task = asyncio.create_task(message_bus.start_client())
+    tasks.add(message_bus_task)
+    message_bus_task.add_done_callback(tasks.discard)
+    
+    web_server = None
+    web_config = config.get("web")
+    if web_config is not None:
+        _LOGGER.info("Starting Web server %s.", message_bus_type)
+        web_server = WebServer(
+            config_file=config_file,
+            manager=manager,
+            port=web_config["port"],  
+            auth=web_config["auth"],  
+            logger=config.get("logger", {}),
+            debug_level=debug
+        )
+        web_server_task = asyncio.create_task(web_server.start_webserver())
+        tasks.add(web_server_task)
+        web_server_task.add_done_callback(tasks.discard)
+    else:
+        _LOGGER.info("Web server not configured.")
+    try:
+        await asyncio.gather(*tasks)
+        return 0
+    except asyncio.CancelledError:
+        pass
+    except (RestartRequestException, GracefulExit):
+        pass
+    except Exception as e:
+        _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
+    finally:
+        return 0
