@@ -6,9 +6,9 @@ import os
 import secrets
 from pathlib import Path
 
-import uvicorn
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
-from boneio.helper.logger import configure_uvicorn_logging
 from boneio.manager import Manager
 from boneio.webui.app import BoneIOApp, init_app
 
@@ -37,20 +37,18 @@ class WebServer:
             web_server=self
         )
         
-        # Configure uvicorn with shared logging config
-        self._uvicorn_config = uvicorn.Config(
-            app=self.app,
-            host="0.0.0.0",
-            port=port,
-            log_config=configure_uvicorn_logging(
-                debug_level=debug_level,
-                log_config=logger,
-            ),
-            lifespan="on",
-        )
-        self._server = uvicorn.Server(self._uvicorn_config)
+        # Configure hypercorn with shared logging config
+        self._hypercorn_config = Config()
+        self._hypercorn_config.bind = [f"0.0.0.0:{port}"]
+        self._hypercorn_config.use_reloader = False
+        self._hypercorn_config.worker_class = "asyncio"
+        # if debug_level:
+            # self._hypercorn_config.debug = debug_level == 1
+            # self._hypercorn_config.loglevel = debug_level
+        self._hypercorn_config.graceful_timeout = 5.0
+        # self._server = hypercorn.asyncio.serve(self.app, self._hypercorn_config)
         # Override the server's install_signal_handlers to prevent it from handling signals
-        self._server.install_signal_handlers = lambda: None
+        # self._server.install_signal_handlers = lambda: None
         self._server_running = False
         # self.manager.event_bus.add_sigterm_listener(self.stop_webserver)
 
@@ -82,31 +80,23 @@ class WebServer:
             jwt_secret = secrets.token_hex(32)
         return jwt_secret
 
-    async def start_webserver2(self) -> None:
-        """Start the web server."""
-        _LOGGER.info("Starting UVICORN web server...")
-        self._server_running = True
-        await self._server.serve()
 
     async def start_webserver(self) -> None:
         """Start the web server."""
-        _LOGGER.info("Starting UVICORN web server...")
+        _LOGGER.info("Starting HYPERCORN web server...")
         self._server_running = True
+
+        async def shutdown_trigger() -> None:
+            """Shutdown trigger for hypercorn"""
+            await self._shutdown_event.wait()
         
-        shutdown_task = asyncio.create_task(self._wait_shutdown())
-        server_task = asyncio.create_task(self._server.serve())
-        
-        await asyncio.wait(
-            [shutdown_task, server_task],
-            return_when=asyncio.FIRST_COMPLETED
-        )
-        
-        if not server_task.done():
-            server_task.cancel()
+        server_task = asyncio.create_task(serve(self.app, self._hypercorn_config, shutdown_trigger=shutdown_trigger))
+        try:
             await server_task
+        except asyncio.CancelledError:
+            pass  # Expected due to cancellation
 
     async def _wait_shutdown(self):
-        self._server.should_exit = True
         await self._shutdown_event.wait()
         _LOGGER.info("Shutdown signal received")
 
@@ -114,13 +104,12 @@ class WebServer:
         """Stop the web server."""
         if not self._server_running:
             return
-        _LOGGER.info("Shutting down UVICORN web server...")
+        _LOGGER.info("Shutting down HYPERCORN web server...")
         self._server_running = False
         self._shutdown_event.set()
 
     async def stop_webserver2(self) -> None:
         """Stop the web server."""
-        _LOGGER.info("Shutting down UVICORN web server...")
+        _LOGGER.info("Shutting down HYPERCORN web server...")
         self._server_running = False
         # await self.app.shutdown_handler()
-        self._server.should_exit = True
