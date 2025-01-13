@@ -18,7 +18,7 @@ export default function ThemeChanger() {
   };
 
   return (
-<div className='hidden flex-none items-center lg:block '>
+<div className='flex-none items-center lg:block '>
     <button className="btn btn-ghost font-normal" onClick={() => handleThemeChange()}>
       {theme === 'dark' ? (
       <FaSun className="w-5 h-5" />

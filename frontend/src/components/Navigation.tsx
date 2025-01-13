@@ -5,11 +5,13 @@ import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { useDeviceName } from '../hooks/useDeviceName';
 import Logo from "./Logo"
 
 export default function Navigation() {
   const { isAuthenticated, logout } = useAuth();
   const [version, setVersion] = useState<string>('');
+  const { deviceName } = useDeviceName();
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -23,6 +25,12 @@ export default function Navigation() {
 
     fetchVersion();
   }, []);
+
+  useEffect(() => {
+    if (deviceName) {
+      document.title = `boneIO Black - ${deviceName}`;
+    }
+  }, [deviceName]);
 
   return (
     <div className="navbar bg-base-200 border-b border-base-content/10 px-4 sticky top-0 z-30">
@@ -44,13 +52,26 @@ export default function Navigation() {
         </label>
       </div>
       <div className="flex-1">
-        <a className="normal-case text-xl lg:ml-2">
+        <a className="normal-case text-xl lg:mx-2">
           <Logo />
         </a>
-        {version && <span className="text-xs opacity-50 ml-2">v{version}</span>}
+        <div className="grid grid-cols-2 lg:ml-4 gap-2">
+          {deviceName && (
+            <>
+              <div className='hidden lg:block text-sm opacity-80'>boneIO name:</div>
+              <div className='text-sm justify-self-end border-r-2 px-2 lg:border-r-0 lg:px-0'>{deviceName}</div>
+            </>
+          )}
+          {version && (
+            <>
+              <div className='hidden lg:block text-sm opacity-80'>App version:</div>
+              <div className='text-sm justify-self-end'>{version}</div>
+            </>
+          )}
+        </div>
       </div>
       <Menu />
-      <div className="flex-none gap-2">
+      <div className="flex-none lg:gap-2">
         <ThemeChanger />
         {isAuthenticated && (
           <button
@@ -66,7 +87,25 @@ export default function Navigation() {
   );
 }
 
-function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
+const SideMenuItems = ({deviceName, version}: {deviceName: string | null, version: string | null}) => {
+  return (
+    <div className="grid grid-cols-2 ml-2 lg:ml-4">
+          {deviceName && (
+            <>
+              <div className='text-sm opacity-80'>boneIO name:</div>
+              <div className='text-sm justify-self-end'>{deviceName}</div>
+            </>
+          )}
+          {version && (
+            <>
+              <div className='text-sm opacity-80'>App version:</div>
+              <div className='text-sm justify-self-end'>{version}</div>
+            </>
+          )}
+        </div>
+  )}
+
+function Menu({ children, sideMenu = false }: { children?: React.ReactNode, sideMenu?: boolean }) {
   const navigate = useNavigate();
 
   const location = useLocation();
@@ -81,7 +120,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   ];
 
   return (
-    <ul className={clsx('menu', { 'menu-horizontal': !sideMenu })}>
+    <ul className={clsx('menu', { 'menu-horizontal hidden lg:flex': !sideMenu })}>
       {menuItems.map((item) => (
         <li key={item.path}>
           <a

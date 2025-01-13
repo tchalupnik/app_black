@@ -31,6 +31,7 @@ from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
+from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
 from boneio.manager import Manager
 from boneio.models import (
@@ -120,6 +121,10 @@ _auth_config = {}
 def get_manager():
     """Get manager instance."""
     return app.state.manager
+
+def get_config_helper():
+    """Get config helper instance."""
+    return app.state.config_helper
 
 
 # Add auth required endpoint
@@ -457,7 +462,7 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
 
 
 @app.post("/api/restart")
-async def restart_service(background_tasks: BackgroundTasks, manager: Manager = Depends(get_manager)):
+async def restart_service(background_tasks: BackgroundTasks):
     """Restart the BoneIO service."""
     if not is_running_as_service():
         return {"status": "not available"}
@@ -476,6 +481,11 @@ async def restart_service(background_tasks: BackgroundTasks, manager: Manager = 
 async def get_version():
     """Get application version."""
     return {"version": __version__} 
+
+@app.get("/api/name")
+async def get_name(config_helper: ConfigHelper = Depends(get_config_helper)):
+    """Get application version."""
+    return {"name": config_helper.name} 
 
 
 @app.get("/api/files")
@@ -594,6 +604,7 @@ async def modbus_sensor_state_changed(event: SensorState):
 def init_app(
     manager: Manager,
     yaml_config_file: str,
+    config_helper: ConfigHelper,
     auth_config: dict = {},
     jwt_secret: str = None,
     web_server = None,
@@ -611,6 +622,7 @@ def init_app(
     app.state.auth_config = auth_config
     app.state.yaml_config_file = yaml_config_file
     app.state.web_server = web_server
+    app.state.config_helper = config_helper
     app.state.websocket_manager = WebSocketManager(
         jwt_secret=jwt_secret,
         auth_required=bool(auth_config)

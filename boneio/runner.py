@@ -83,7 +83,8 @@ async def async_run(
 
     main_config = config.get(BONEIO, {})
     _config_helper = ConfigHelper(
-        topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, main_config.get(NAME, BONEIO)),
+        name=main_config.get(NAME, BONEIO),
+        topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
     )
@@ -146,6 +147,7 @@ async def async_run(
         _LOGGER.info("Starting Web server.")
         web_server = WebServer(
             config_file=config_file,
+            config_helper=_config_helper,
             manager=manager,
             port=web_config.get("port", 8090),  
             auth=web_config.get("auth", {}),  

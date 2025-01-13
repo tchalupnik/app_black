@@ -243,7 +243,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                         id=sensor.id,
                         name=sensor.name,
                         state=sensor.state,
-                        unit_of_measurement=sensor.unit_of_measurement,
+                        unit=sensor.unit_of_measurement,
                         timestamp=sensor.last_timestamp,
                     ),
                 )

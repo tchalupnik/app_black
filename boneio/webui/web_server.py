@@ -9,15 +9,17 @@ from pathlib import Path
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
+from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
 from boneio.webui.app import BoneIOApp, init_app
 
 _LOGGER = logging.getLogger(__name__)
 
 class WebServer:
-    def __init__(self, config_file: str, manager: Manager, port: int = 8080, auth: dict = {}, logger: dict = {}, debug_level: int = 0) -> None:
+    def __init__(self, config_file: str, config_helper: ConfigHelper, manager: Manager, port: int = 8080, auth: dict = {}, logger: dict = {}, debug_level: int = 0) -> None:
         """Initialize the web server."""
         self.config_file = config_file
+        self.config_helper = config_helper
         self.manager = manager
         self._shutdown_event = asyncio.Event()
         
@@ -34,6 +36,7 @@ class WebServer:
             yaml_config_file=self._yaml_config_file, 
             auth_config=auth, 
             jwt_secret=self.jwt_secret,
+            config_helper=self.config_helper,
             web_server=self
         )
         

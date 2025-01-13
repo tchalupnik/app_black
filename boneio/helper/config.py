@@ -22,11 +22,13 @@ from boneio.const import (
 class ConfigHelper:
     def __init__(
         self,
-        topic_prefix: str = BONEIO,
+        topic_prefix: str,
+        name: str = BONEIO,
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
     ):
-        self._topic_prefix = topic_prefix
+        self._name = name
+        self._topic_prefix = topic_prefix if topic_prefix else name
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._fetch_old_discovery = None
@@ -44,6 +46,10 @@ class ConfigHelper:
     @property
     def topic_prefix(self) -> str:
         return self._topic_prefix
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     @property
     def ha_discovery(self) -> bool:
