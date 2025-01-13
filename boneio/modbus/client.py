@@ -110,6 +110,7 @@ class Modbus:
 
         # generic configuration
         self._client: BaseModbusClient | None = None
+        self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
 
@@ -141,8 +142,10 @@ class Modbus:
             if self._client:
                 try:
                     # Run close in the executor
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(self._executor, self._client.close)
+                    await self._loop.run_in_executor(self._executor, self._client.close)
+                except asyncio.CancelledError:
+                    _LOGGER.warning("modbus communication closed")
+                    pass
                 except ModbusException as exception_error:
                     _LOGGER.error(exception_error)
                 finally:
@@ -188,12 +191,11 @@ class Modbus:
         """Call async pymodbus."""
         async with self._lock:
             start_time = time.perf_counter()
-            loop = asyncio.get_running_loop()
             result = None
             
             try:
                 # Run connection in the executor
-                connected = await loop.run_in_executor(self._executor, self._pymodbus_connect)
+                connected = self._pymodbus_connect()
                 if not connected:
                     _LOGGER.error("Can't connect to Modbus.")
                     return None
@@ -209,7 +211,7 @@ class Modbus:
                 )
 
                 # Run the read operation in the executor
-                result: ReadInputRegistersResponse = await loop.run_in_executor(
+                result: ReadInputRegistersResponse = await self._loop.run_in_executor(
                     self._executor,
                     lambda: read_method(address, **kwargs)
                 )
@@ -224,8 +226,8 @@ class Modbus:
             except asyncio.TimeoutError:
                 _LOGGER.error("Timeout reading registers from device %s", unit)
                 pass
-            except asyncio.CancelledError:
-                _LOGGER.error("Operation cancelled reading registers from device %s", unit)
+            except asyncio.CancelledError as err:
+                _LOGGER.error("Operation cancelled reading registers from device %s with error %s", unit, err)
                 pass
             except Exception as e:
                 _LOGGER.error(f"Unexpected error reading registers: {type(e).__name__} - {e}")
