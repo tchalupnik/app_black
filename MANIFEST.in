@@ -4,3 +4,4 @@ include LICENSE
 recursive-include boneio *.yaml
 recursive-include boneio *.json
 recursive-include boneio *.ttf
+recursive-include boneio/webui/frontend-dist *

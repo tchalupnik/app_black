@@ -869,7 +869,7 @@ async def websocket_endpoint(
         #         _LOGGER.error(f"Error during WebSocket cleanup: {type(e).__name__} - {e}")
 
 # Static files setup
-FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend" / "dist"
+FRONTEND_DIR = Path(__file__).parent / "frontend-dist"
 
 
 if FRONTEND_DIR.exists():

@@ -128,4 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Frontend build output
+boneio/webui/frontend-dist/
+
 .vscode
