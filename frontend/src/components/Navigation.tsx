@@ -87,25 +87,7 @@ export default function Navigation() {
   );
 }
 
-const SideMenuItems = ({deviceName, version}: {deviceName: string | null, version: string | null}) => {
-  return (
-    <div className="grid grid-cols-2 ml-2 lg:ml-4">
-          {deviceName && (
-            <>
-              <div className='text-sm opacity-80'>boneIO name:</div>
-              <div className='text-sm justify-self-end'>{deviceName}</div>
-            </>
-          )}
-          {version && (
-            <>
-              <div className='text-sm opacity-80'>App version:</div>
-              <div className='text-sm justify-self-end'>{version}</div>
-            </>
-          )}
-        </div>
-  )}
-
-function Menu({ children, sideMenu = false }: { children?: React.ReactNode, sideMenu?: boolean }) {
+function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const navigate = useNavigate();
 
   const location = useLocation();
