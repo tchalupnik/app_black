@@ -901,11 +901,13 @@ boneio:
         label: Name of boneio. Default is Black.
     version:
       type: string
-      required: True
+      coerce:
+        - str
+      required: False
       meta:
         label: BoneIO Black Hardware version
     relay_board:
       type: string
-      required: True
+      required: False
       meta:
         label: Predefined relay board configuration
