@@ -20,14 +20,14 @@ on:
 jobs:
   build-n-publish:
     name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # Using Ubuntu 20.04 which supports Python 3.7
     steps:
       - uses: actions/checkout@master
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: '20'  # Using LTS version of Node.js
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
