@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { createContext, useEffect, useState } from 'react';
 import ConfigEditor from './components/ConfigEditor';
 import LogViewer from './components/LogViewer';
