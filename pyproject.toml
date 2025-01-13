@@ -1,5 +1,5 @@
 [project]
-name = "boneIO"
+name = "boneio"
 description = "Python App for BoneIO"
 readme = "README.md"
 dynamic = ["version"]
