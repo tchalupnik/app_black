@@ -906,8 +906,11 @@ boneio:
       required: False
       meta:
         label: BoneIO Black Hardware version
-    relay_board:
+    device_type:
       type: string
       required: False
+      coerce:
+        - str
+        - lower
       meta:
-        label: Predefined relay board configuration
+        label: Predefined device type configuration

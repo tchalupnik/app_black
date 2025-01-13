@@ -180,16 +180,49 @@ def get_board_config_path(board_name: str, version: str) -> str:
     )
 
 
+def normalize_board_name(name: str) -> str:
+    """Normalize board name to a standard format.
+    
+    Examples:
+        32x10a, 32x10A, 32 -> 32_10
+        cover -> cover
+        cover mix, cm -> cover_mix
+        24x16A, 24x16, 24 -> 24_16
+    """
+    if not name:
+        return name
+
+    name = name.lower().strip()
+    
+    # Handle cover mix variations
+    if name in ('cm', 'cover mix', 'covermix', "cover_mix"):
+        return 'cover_mix'
+    
+    # Handle simple cover case
+    if name == 'cover':
+        return 'cover'
+    
+    # Handle 32x10A variations
+    if name.startswith('32'):
+        return '32_10'
+    
+    # Handle 24x16A variations
+    if name.startswith('24'):
+        return '24_16'
+    
+    return name
+
+
 def merge_board_config(config: dict) -> dict:
     """Merge predefined board configuration with user config."""
-    if not config.get("boneio", {}).get("relay_board"):
+    if not config.get("boneio", {}).get("device_type"):
         return config
 
-    board_name = config["boneio"]["relay_board"]
+    board_name = normalize_board_name(config["boneio"]["device_type"])
     version = config["boneio"]["version"]
     
     try:
-        board_file = get_board_config_path(board_name, version)
+        board_file = get_board_config_path(f"output_{board_name}", version)
         input_file = get_board_config_path("input", version)
         board_config = load_yaml_file(board_file)
         input_config = load_yaml_file(input_file)
