@@ -1,23 +1,25 @@
 import { useState, useContext, memo } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
-import { FaLightbulb } from 'react-icons/fa';
+import { FaLightbulb, } from 'react-icons/fa';
+import { RiOutletLine } from "react-icons/ri";
+
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isIOState } from '../hooks/useWebSocket';
 
 // Separate component for individual output
 const OutputItem = memo(({ output, onToggle, isGrid, error }: {
-  output: { name: string; state: string; timestamp?: number };
+  output: { name: string; state: string; type: string; timestamp?: number };
   onToggle: (name: string) => void;
   isGrid: boolean;
   error: string | null;
 }) => {
-  console.log(error);
+  const Icon = output.type === 'switch' ? RiOutletLine : FaLightbulb;
   return (
   <div className={`bg-base-100 shadow rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
     <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
-      <FaLightbulb className={`text-xl ${output.state === 'ON' ? 'text-yellow-400' : 'text-gray-400'}`} />
+      <Icon className={`text-xl ${output.state === 'ON' ? 'text-yellow-400' : 'text-gray-400'}`} />
       <span className="text-lg">{output.name}</span>
     </div>
     <div className={`${isGrid ? '' : 'flex flex-col items-end gap-2'}`}>
