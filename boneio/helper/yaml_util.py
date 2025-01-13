@@ -498,7 +498,7 @@ def load_config_from_string(config_str: str) -> dict:
             error_lines = []
             if "line" in v.errors[field][0]:
                 error_lines = [
-                    f"{v.errors[field][0]['line']}: {line}"
+                    f"{v.errors[field][0]['line']+1}: {line}"
                     for line in config_str.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"

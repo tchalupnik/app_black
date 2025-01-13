@@ -33,6 +33,8 @@ from starlette.websockets import WebSocketState
 
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
+from boneio.helper.exceptions import ConfigurationException
+from boneio.helper.yaml_util import load_config_from_file
 from boneio.manager import Manager
 from boneio.models import (
     InputState,
@@ -487,6 +489,18 @@ async def get_name(config_helper: ConfigHelper = Depends(get_config_helper)):
     """Get application version."""
     return {"name": config_helper.name} 
 
+@app.get("/api/check_configuration")
+async def check_configuration():
+    """Check if the configuration is valid."""
+    print("Checking configuration...")
+    try:
+        print(app.state.yaml_config_file)
+        load_config_from_file(config_file=app.state.yaml_config_file)
+        return {"status": "success"}
+    except ConfigurationException as e:
+        return {"status": "error", "message": str(e)}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/files")
 async def list_files(path: str = None):
@@ -529,7 +543,6 @@ async def list_files(path: str = None):
         return {"items": items}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/api/files/{file_path:path}")
 async def get_file_content(file_path: str):

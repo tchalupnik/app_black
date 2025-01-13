@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useTheme } from '../hooks/useTheme';
 import { FaChevronRight, FaChevronDown, FaRegFolder, FaRegFolderOpen, FaRegFile } from 'react-icons/fa';
 import { GoSidebarExpand } from 'react-icons/go';
+import ConfigCheckModal from './ConfigCheckModal';
 
 interface FileItem {
   name: string;
@@ -20,6 +21,7 @@ export default function ConfigEditor() {
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartStatus, setRestartStatus] = useState<'waiting' | 'checking' | 'ready'>('waiting');
   const [showFileTree, setShowFileTree] = useState(true);
+  const [showConfigCheck, setShowConfigCheck] = useState(false);
   const theme = useTheme();
 
   const loadDirectoryTree = async () => {
@@ -230,6 +232,12 @@ export default function ConfigEditor() {
             Save
           </button>
           <button 
+            onClick={() => setShowConfigCheck(true)}
+            className="btn btn-primary btn-sm"
+          >
+            Check Config
+          </button>
+          <button 
             onClick={async () => {
               await handleSave();
               try {
@@ -262,6 +270,10 @@ export default function ConfigEditor() {
           <span>Restart not possible. Application is not running as systemd service. Restart manually.</span>
         </div>
       </div>
+      <ConfigCheckModal 
+        isOpen={showConfigCheck}
+        onClose={() => setShowConfigCheck(false)}
+      />
     </div>
   );
 }
