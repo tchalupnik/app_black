@@ -96,25 +96,13 @@ class WebSocketManager:
                 self.active_connections.remove(websocket)
                 if websocket.application_state == WebSocketState.CONNECTED:
                     try:
-                        await asyncio.wait_for(websocket.close(code=1000), timeout=2.0)
-                    except asyncio.TimeoutError:
-                        _LOGGER.warning("WebSocket close timed out")
+                        await websocket.close(code=1000)
                     except Exception as e:
                         _LOGGER.error(f"Error closing WebSocket: {e}")
         except ValueError:
             pass
         except Exception as e:
             _LOGGER.error(f"Error during WebSocket disconnect: {e}")
-
-    async def _close_connection(self, connection: WebSocket):
-        """Close a single connection with timeout."""
-        try:
-            if connection.application_state == WebSocketState.CONNECTED:
-                await asyncio.wait_for(connection.close(code=1000), timeout=2.0)
-        except asyncio.TimeoutError:
-            _LOGGER.warning("WebSocket close timed out")
-        except Exception as e:
-            _LOGGER.error(f"Error closing WebSocket: {e}")
 
     async def close_all(self):
         """Close all active connections."""
@@ -124,31 +112,12 @@ class WebSocketManager:
         self._closing = True
         _LOGGER.info("Closing all WebSocket connections...")
 
-        async with self._lock:
-            # Cancel any existing cleanup tasks
-            for task in self._cleanup_tasks:
-                if not task.done():
-                    task.cancel()
-            self._cleanup_tasks.clear()
-
-            # Close all connections with timeout
-            close_tasks = []
-            connections = self.active_connections[:]
-            self.active_connections.clear()  # Clear list first to prevent new messages
-
-            for connection in connections:
-                task = asyncio.create_task(self._close_connection(connection))
-                close_tasks.append(task)
-                self._cleanup_tasks.append(task)
-
-            if close_tasks:
-                # Wait for all connections to close or timeout
-                try:
-                    await asyncio.wait(close_tasks, timeout=2.0)
-                except asyncio.CancelledError:
-                    _LOGGER.info("WebSocket cleanup cancelled")
-                except Exception as e:
-                    _LOGGER.error(f"Error during WebSocket cleanup: {e}")
+        for websocket in list(self.active_connections):
+            try:
+                await self.disconnect(websocket)
+            except Exception:
+                pass
+        
 
     async def broadcast_state(self, state_type: str, data: Any):
         if self._closing:
