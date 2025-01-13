@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from './useAuth'; // Assuming useAuth hook is in a separate file
+import { useAuth } from './useAuth';
+import { useApiAvailability } from './useApiAvailability';
 
 interface IOState {
   name: string;
@@ -46,8 +47,8 @@ let globalMessageListeners = new Set<(message: StateUpdate) => void>();
 let globalConnecting = false;
 let globalPingInterval: number | null = null;
 let globalReconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 5;
-const RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_ATTEMPTS = 30;
+const RECONNECT_DELAY = 5000;
 let activeConnections = 0;
 
 export const closeWebSocket = () => {
@@ -65,7 +66,17 @@ export const closeWebSocket = () => {
   activeConnections = 0;
 };
 
-const setupWebSocket = async (setError: (error: string | null) => void, isAuthRequired: boolean) => {
+const setupWebSocket = async (
+  setError: (error: string | null) => void,
+  isAuthRequired: boolean,
+  isApiAvailable: boolean
+) => {
+  if (!isApiAvailable) {
+    console.log('API not available, delaying WebSocket connection');
+    return;
+  }
+
+  // Don't attempt to reconnect if we already have a connection
   if (globalWs?.readyState === WebSocket.OPEN || globalConnecting) {
     return;
   }
@@ -129,7 +140,7 @@ const setupWebSocket = async (setError: (error: string | null) => void, isAuthRe
       if (activeConnections > 0 && globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         console.log(`WebSocket closed. Attempting to reconnect (${globalReconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
         globalReconnectAttempts++;
-        setTimeout(() => setupWebSocket(setError, isAuthRequired), RECONNECT_DELAY);
+        setTimeout(() => setupWebSocket(setError, isAuthRequired, isApiAvailable), RECONNECT_DELAY);
       } else if (globalReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         setError('WebSocket connection failed after multiple attempts');
       }
@@ -137,7 +148,6 @@ const setupWebSocket = async (setError: (error: string | null) => void, isAuthRe
 
     globalWs.onerror = (event) => {
       console.error('WebSocket error:', event);
-      setError('WebSocket connection error');
     };
   } catch (e) {
     console.error('Error creating WebSocket:', e);
@@ -148,35 +158,33 @@ const setupWebSocket = async (setError: (error: string | null) => void, isAuthRe
 
 export function useWebSocket(): WebSocketHookResult {
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, isAuthRequired } = useAuth();
+  const { isAuthRequired } = useAuth();
+  const { isApiAvailable } = useApiAvailability();
 
   useEffect(() => {
-    // Only establish connection if authenticated or auth not required
-    if (isAuthenticated || !isAuthRequired) {
-      activeConnections++;
-      console.log('Setting up WebSocket, auth:', { isAuthenticated, isAuthRequired });
-      
-      // Use an async IIFE
-      (async () => {
-        try {
-          await setupWebSocket(setError, isAuthRequired);
-        } catch (err) {
-          console.error('Error setting up WebSocket:', err);
-          setError(err instanceof Error ? err.message : 'Failed to setup WebSocket');
-        }
-      })();
-
-      return () => {
-        activeConnections--;
-        if (activeConnections === 0) {
-          closeWebSocket();
-        }
-      };
-    } else {
-      // Close connection if not authenticated and auth is required
-      closeWebSocket();
+    // Don't attempt to connect if API is not available
+    if (!isApiAvailable) {
+      return;
     }
-  }, [isAuthenticated, isAuthRequired]);
+
+    activeConnections++;
+    console.log('Setting up WebSocket connection, API available:', isApiAvailable);
+
+    const connect = () => {
+      setupWebSocket(setError, isAuthRequired, isApiAvailable);
+    };
+
+    // Add a small delay before the initial connection attempt
+    const initialConnectTimeout = setTimeout(connect, 500);
+
+    return () => {
+      clearTimeout(initialConnectTimeout);
+      activeConnections--;
+      if (activeConnections === 0) {
+        closeWebSocket();
+      }
+    };
+  }, [isAuthRequired, isApiAvailable]);
 
   const addMessageListener = useCallback((callback: (message: StateUpdate) => void) => {
     globalMessageListeners.add(callback);

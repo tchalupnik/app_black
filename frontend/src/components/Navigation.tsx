@@ -72,7 +72,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const location = useLocation();
 
   const menuItems = [
-    { path: '/outputs', default: true, icon: FaLightbulb, label: 'Outputs' },
+    { path: '/', default: true, icon: FaLightbulb, label: 'Outputs' },
     { path: '/inputs', icon: FaInbox, label: 'Inputs' },
     { path: '/sensors', icon: FaThermometerHalf, label: 'Sensors' },
     { path: '/config', icon: FaCode, label: 'Config' },

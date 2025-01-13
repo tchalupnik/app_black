@@ -8,10 +8,10 @@ import SensorView from './components/SensorView';
 import HelpView from './components/HelpView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
-import LoadingSpinner from './components/LoadingSpinner';
 import { useWebSocket, StateUpdate } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import { useLocation } from 'react-router-dom';
+import { useApiAvailability } from './hooks/useApiAvailability';
+import NotAvailable from './components/NotAvailable';
 
 export const WebSocketContext = createContext<{
   outputs: StateUpdate['data'][];
@@ -26,12 +26,14 @@ export const WebSocketContext = createContext<{
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, isAuthRequired } = useAuth();
-  if (isLoading) {
-    return <LoadingSpinner />;
+  const { isApiAvailable } = useApiAvailability();
+
+  if (!isApiAvailable || isLoading) {
+    return <NotAvailable />
   }
   
   if (!isAuthenticated && isAuthRequired) {
-    return <Navigate to="/login" />;
+    return <LoginView />
   }
   
   return <>{children}</>;
@@ -42,15 +44,14 @@ function AppContent() {
   const [inputs, setInputs] = useState<StateUpdate['data'][]>([]);
   const [sensors, setSensors] = useState<StateUpdate['data'][]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
+  const { isApiAvailable } = useApiAvailability();
   const { error, addMessageListener } = useWebSocket();
-  const location = useLocation();
-  const isLoginPage = location.pathname === '/login';
 
   useEffect(() => {
     console.log("WebSocket state:", { isAuthenticated, isAuthRequired });
     
     // Clear states when not authenticated and auth is required
-    if (!isAuthenticated && isAuthRequired) {
+    if ((!isAuthenticated && isAuthRequired) || !isApiAvailable) {
       setOutputs([]);
       setInputs([]);
       setSensors([]);
@@ -97,7 +98,7 @@ function AppContent() {
                 return prev; // No change needed
               }
               const newSensors = [...prev];
-              newSensors[index] = message.data;
+              newSensors[index] = message.data; 
               return newSensors;
             }
             return [...prev, message.data];
@@ -109,10 +110,10 @@ function AppContent() {
         unsubscribe();
       };
     }
-  }, [addMessageListener, isAuthenticated, isAuthRequired]);
+  }, [addMessageListener, isAuthenticated, isAuthRequired, isApiAvailable]);
 
-  if (isLoginPage) {
-    return <LoginView />;
+  if (!isApiAvailable){
+    return <NotAvailable />
   }
 
   if (error && (isAuthenticated || !isAuthRequired)) {
@@ -122,10 +123,10 @@ function AppContent() {
   return (
     <WebSocketContext.Provider value={{ outputs, inputs, sensors }}>
       <Routes>
-        <Route path="/outputs" element={
+        <Route path="/" element={
           <ProtectedRoute>
             <Layout>
-              <OutputsView />
+              <OutputsView error={error} />
             </Layout>
           </ProtectedRoute>
         } />
@@ -164,7 +165,6 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/" element={<Navigate to="/outputs" replace />} />
       </Routes>
     </WebSocketContext.Provider>
   );

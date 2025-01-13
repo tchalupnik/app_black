@@ -7,11 +7,13 @@ import ViewToggle from './ViewToggle';
 import { isIOState } from '../hooks/useWebSocket';
 
 // Separate component for individual output
-const OutputItem = memo(({ output, onToggle, isGrid }: {
+const OutputItem = memo(({ output, onToggle, isGrid, error }: {
   output: { name: string; state: string; timestamp?: number };
   onToggle: (name: string) => void;
   isGrid: boolean;
+  error: string | null;
 }) => {
+  console.log(error);
   return (
   <div className={`bg-base-100 shadow rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
     <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
@@ -24,6 +26,7 @@ const OutputItem = memo(({ output, onToggle, isGrid }: {
           type="checkbox"
           className="sr-only peer"
           checked={output.state === 'ON'}
+          disabled={error !== null}
           onChange={() => onToggle(output.name)}
         />
         <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 
@@ -40,8 +43,8 @@ const OutputItem = memo(({ output, onToggle, isGrid }: {
   </div>
 )});
 
-export default function OutputsView() {
-  const [error, setError] = useState<string | null>(null);
+export default function OutputsView({error}: {error: string | null}) {
+  const [outputError, setError] = useState<string | null>(null);
   const { outputs } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('outputViewMode');
@@ -65,8 +68,8 @@ export default function OutputsView() {
     }
   };
 
-  if (error) {
-    return <div className="alert alert-error">{error}</div>;
+  if (outputError) {
+    return <div className="alert alert-error">{outputError}</div>;
   }
 
   return (
@@ -87,6 +90,7 @@ export default function OutputsView() {
                 output={output}
                 onToggle={toggleOutput}
                 isGrid={isGrid}
+                error={error}
               />
             ))}
           </div>

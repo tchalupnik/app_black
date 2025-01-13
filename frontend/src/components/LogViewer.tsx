@@ -2,6 +2,28 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { FaSync, FaArrowUp, FaArrowDown, FaCopy } from 'react-icons/fa';
 
+// Create formatter once, not on every function call
+const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+});
+
+const formatTimestamp = (timestamp: string): string => {
+  // Check if timestamp is in microseconds (numeric)
+  if (/^\d+$/.test(timestamp)) {
+    // Convert microseconds to milliseconds
+    const timestampMs = Math.floor(parseInt(timestamp) / 1000);
+    return dateFormatter.format(timestampMs);
+  }
+  // Return as is if it's already formatted
+  return timestamp;
+};
+
 interface LogEntry {
   timestamp: string;
   message: string;
@@ -10,7 +32,7 @@ interface LogEntry {
 
 export default function LogViewer() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [timeRange, setTimeRange] = useState('1h');
+  const [timeRange, setTimeRange] = useState('-15m');
   const [isLoading, setIsLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -23,7 +45,7 @@ export default function LogViewer() {
   const fetchLogs = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`/api/logs?since=${timeRange}&limit=100`);
+      const response = await axios.get(`/api/logs?since=${timeRange}`);
       setLogs(response.data.logs);
     } catch (error) {
       console.error('Error fetching logs:', error);
@@ -118,7 +140,7 @@ export default function LogViewer() {
       .sort((a, b) => a - b)
       .map(index => {
         const log = logs[index];
-        return `${log.timestamp} ${log.message}`;
+        return `${formatTimestamp(log.timestamp)} ${log.message}`;
       })
       .join('\n');
 
@@ -142,11 +164,12 @@ export default function LogViewer() {
           onChange={(e) => setTimeRange(e.target.value)}
           className="select select-sm"
         >
-          <option value="1h">Last hour</option>
-          <option value="6h">Last 6 hours</option>
-          <option value="12h">Last 12 hours</option>
-          <option value="1d">Last day</option>
-          <option value="7d">Last week</option>
+          <option value="-15m">Last 15 minutes</option>
+          <option value="-1h">Last hour</option>
+          <option value="-6h">Last 6 hours</option>
+          <option value="-12h">Last 12 hours</option>
+          <option value="-1d">Last day</option>
+          <option value="-7d">Last week</option>
         </select>
         
         <label className="flex items-center gap-2 cursor-pointer">
@@ -205,7 +228,7 @@ export default function LogViewer() {
               <span className={`text-base-content/70 whitespace-nowrap ${
                 selectedLogIndices.has(index) ? 'text-primary-content' : ''
               }`}>
-                {log.timestamp}
+                {formatTimestamp(log.timestamp)}
               </span>
               <span className={`${getLogLevelClass(log.level)} flex-1 whitespace-pre-wrap ${
                 selectedLogIndices.has(index) ? 'text-primary-content' : ''
