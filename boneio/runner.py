@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import warnings
 from typing import Any, Set
 
 from boneio.const import (
@@ -39,11 +40,14 @@ from boneio.const import (
 )
 from boneio.helper import StateManager
 from boneio.helper.config import ConfigHelper
-from boneio.helper.events import GracefulExit
+from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
 from boneio.webui.web_server import WebServer
+
+# Filter out cryptography deprecation warning
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptography')
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +75,11 @@ async def async_run(
     """Run BoneIO."""
     web_server = None
     tasks: Set[asyncio.Task] = set()
-    loop = asyncio.get_event_loop()
+    event_bus = EventBus(loop=asyncio.get_event_loop())
+
+    event_bus_task = asyncio.create_task(event_bus.start())
+    tasks.add(event_bus_task)
+    event_bus_task.add_done_callback(tasks.discard)
 
     main_config = config.get(BONEIO, {})
     _config_helper = ConfigHelper(
@@ -101,6 +109,7 @@ async def async_run(
 
     manager = Manager(
         send_message=message_bus.send_message,
+        event_bus=event_bus,
         mqtt_state=message_bus.state,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
@@ -131,15 +140,15 @@ async def async_run(
     tasks.add(message_bus_task)
     message_bus_task.add_done_callback(tasks.discard)
     
-    web_server = None
-    web_config = config.get("web")
-    if web_config is not None:
-        _LOGGER.info("Starting Web server %s.", message_bus_type)
+        # Start web server if configured
+    if "web" in config:
+        web_config = config.get("web") or {}
+        _LOGGER.info("Starting Web server.")
         web_server = WebServer(
             config_file=config_file,
             manager=manager,
-            port=web_config["port"],  
-            auth=web_config["auth"],  
+            port=web_config.get("port", 8090),  
+            auth=web_config.get("auth", {}),  
             logger=config.get("logger", {}),
             debug_level=debug
         )
@@ -158,4 +167,5 @@ async def async_run(
     except Exception as e:
         _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
     finally:
+        event_bus.request_stop()
         return 0

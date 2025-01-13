@@ -91,6 +91,7 @@ class Manager:
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
+        event_bus: EventBus,
         mqtt_state: Callable[[], bool],
         state_manager: StateManager,
         config_helper: ConfigHelper,
@@ -119,7 +120,7 @@ class Manager:
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
-        self._event_bus = EventBus(loop=self._loop)
+        self._event_bus = event_bus
 
         self.send_message = send_message
         self._mqtt_state = mqtt_state
