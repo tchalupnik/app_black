@@ -1,7 +1,6 @@
 import asyncio
 import datetime as dt
 import logging
-import signal
 import time
 from datetime import datetime
 from typing import Any, Callable, Coroutine, List, Optional
@@ -94,11 +93,40 @@ class EventBus:
             self._loop, self._run_second_event
         )
         self._shutting_down = False
-        for signame in {"SIGINT", "SIGTERM"}:
-            self._loop.add_signal_handler(
-                getattr(signal, signame),
-                self.ask_exit,
-            )
+        self._monitor_task = None
+
+    async def start(self):
+        """Start the event bus monitor."""
+        self._monitor_task = asyncio.create_task(self._monitor_loop())
+
+    async def _monitor_loop(self):
+        """Monitor loop that can be cancelled for cleanup."""
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            _LOGGER.info("Monitor loop cancelled, cleaning up...")
+            await self.ask_stop()
+            raise
+
+    def request_stop(self):
+        """Request the event bus to stop."""
+        if self._monitor_task and not self._shutting_down:
+            self._shutting_down = True
+            self._monitor_task.cancel()
+
+    async def ask_stop(self):
+        """Function to call on restart. Should invoke all sigterm listeners."""
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        self._every_second_listeners = {}
+        self._output_listeners = {}
+        
+        await self._handle_sigterm_listeners()
+        for listener in self._every_second_listeners.values():
+            listener.target()
+        _LOGGER.info("Shutdown Eventbus gracefully.")
 
     def _run_second_event(self, time):
         """Run event every second."""
@@ -126,22 +154,28 @@ class EventBus:
             except Exception as e:
                 _LOGGER.error("Error in sigterm listener %s: %s", target, e)
 
-    async def ask_stop(self):
-        """Function to call on restart. Should invoke all sigterm listeners."""
-        self._every_second_listeners = {}
-        self._output_listeners = {}
-        
-        _LOGGER.debug("Running sigterm listeners")
-        await self._handle_sigterm_listeners()
-        for listener in self._every_second_listeners.values():
-            listener.target()
-        _LOGGER.info("Shutdown Eventbus gracefully.")
-
     def ask_exit(self):
         """Function to call on exit. Should invoke all sigterm listeners."""
+        if self._shutting_down:
+            return
+        self._shutting_down = True
         _LOGGER.debug("EventBus Exiting process started.")
-        asyncio.create_task(self.ask_stop())
-        raise GracefulExit(code=0) from None
+
+        def task_done_callback(task):
+            task.result()  # Retrieve the result to handle any raised exception
+            raise asyncio.CancelledError
+        
+        async def cleanup_and_exit():
+            try:
+                await asyncio.sleep(2)
+                await self.ask_stop()
+            except Exception as e:
+                _LOGGER.error(f"Error during cleanup: {e}")
+        
+        # Create and run the cleanup task
+        exit_task = self._loop.create_task(cleanup_and_exit())
+        exit_task.add_done_callback(task_done_callback)
+        
         
 
 
