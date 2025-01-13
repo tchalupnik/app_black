@@ -20,6 +20,7 @@ from boneio.const import (
     EVENT_ENTITY,
     ID,
     INA219,
+    INPUT,
     LED,
     LIGHT,
     LM75,
@@ -693,10 +694,10 @@ class Manager:
         topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
         def generate_payload():
-            if gpio.input_type == EVENT_ENTITY:
+            if gpio.input_type == INPUT:
                 if duration:
-                    return {"action": x, "duration": duration}
-                return {"action": x}
+                    return {"event_type": x, "duration": duration}
+                return {"event_type": x}
             return x
 
         for action_definition in actions:
