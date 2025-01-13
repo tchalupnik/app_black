@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -53,12 +54,14 @@ class BoneIOApp(FastAPI):
 
     async def shutdown_handler(self):
         """Handle application shutdown."""
-        _LOGGER.debug("Shutting down WebSocket connections...")
+        _LOGGER.debug("Shutting down All WebSocket connections...")
         if hasattr(self.state, 'websocket_manager'):
+            await asyncio.sleep(1)
             await self.state.websocket_manager.close_all()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Handle ASGI calls with proper lifespan support."""
+        message = None
         if scope["type"] == "lifespan":
             try:
                 while True:
@@ -94,7 +97,10 @@ class BoneIOApp(FastAPI):
                 # await send({"type": "lifespan.shutdown.complete"})
                 _LOGGER.debug("Lifespan cleanup complete.")
                 return
-        await super().__call__(scope, receive, send)
+        try:
+            await super().__call__(scope, receive, send)
+        except Exception:
+            pass
 
 
 # Create FastAPI application
@@ -148,6 +154,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             not request.url.path.startswith("/api")
             or request.url.path == "/api/login"
             or request.url.path == "/api/auth/required"
+            or request.url.path == "/api/version"
         ):
             return await call_next(request)
 
@@ -228,53 +235,109 @@ def is_running_as_service():
         return False
 
 
-async def get_systemd_logs(since: str, limit: int) -> List[LogEntry]:
+def _clean_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
+def _decode_ascii_list(ascii_list: list) -> str:
+    """Decode a list of ASCII codes into a string and clean ANSI codes."""
+    try:
+        # Convert ASCII codes to string
+        text = ''.join(chr(code) for code in ascii_list)
+        # Remove ANSI escape sequences
+        return _clean_ansi(text)
+    except Exception as e:
+        _LOGGER.error(f"Error decoding ASCII list: {e}")
+        return str(ascii_list)
+
+def _parse_systemd_log_entry(entry: dict) -> dict:
+    """Parse a systemd journal log entry."""
+    # Handle MESSAGE field if it's a list of ASCII codes
+    if isinstance(entry.get('MESSAGE'), list):
+        try:
+            # First try to decode the outer message
+            decoded_msg = _decode_ascii_list(entry['MESSAGE'])
+            
+            # Check if the decoded message is a JSON string
+            try:
+                json_msg = json.loads(decoded_msg)
+                # If it has a nested MESSAGE field that's also ASCII codes
+                if isinstance(json_msg.get('MESSAGE'), list):
+                    json_msg['MESSAGE'] = _decode_ascii_list(json_msg['MESSAGE'])
+                entry['MESSAGE'] = json_msg.get('MESSAGE', decoded_msg)
+            except json.JSONDecodeError:
+                # Not a JSON string, use the decoded message as is
+                entry['MESSAGE'] = decoded_msg
+            except Exception as e:
+                _LOGGER.debug(f"Error parsing nested message: {e}")
+                entry['MESSAGE'] = decoded_msg
+                
+        except Exception as e:
+            _LOGGER.error(f"Error parsing message: {e}")
+            entry['MESSAGE'] = "Can't decode message"
+    
+    # Convert timestamps if present
+    for ts_field in ('__REALTIME_TIMESTAMP', '__MONOTONIC_TIMESTAMP'):
+        if ts_field in entry:
+            try:
+                entry[ts_field] = int(entry[ts_field])
+            except (TypeError, ValueError):
+                pass
+    
+    return entry
+
+
+def strip_ansi_codes(text: str) -> str:
+    """Remove ANSI color codes from text."""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
+async def get_systemd_logs(since: str = "-15m") -> List[LogEntry]:
     """Get logs from journalctl."""
     cmd = [
         "journalctl",
+        "-u", "boneio",
         "--no-pager",
-        "-u",
-        "boneio",
-        "-o",
-        "json",
-        "-n",
-        str(limit),
         "--no-hostname",
+        "--output=json",
+        "--output-fields=MESSAGE,__REALTIME_TIMESTAMP,PRIORITY",
+        "--no-tail",
+        "--since", since
     ]
-
-    if since:
-        if since[-1] in ["h", "d"]:
-            amount = int(since[:-1])
-            unit = since[-1]
-            delta = timedelta(hours=amount) if unit == "h" else timedelta(days=amount)
-            since_time = datetime.now() - delta
-            cmd.extend(["--since", since_time.strftime("%Y-%m-%d %H:%M:%S")])
-        else:
-            cmd.extend(["--since", since])
-
     process = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
     )
 
     stdout, stderr = await process.communicate()
-    if process.returncode != 0:
+    if stderr:
+        _LOGGER.error(f"Error getting systemd logs: {stderr.decode()}")
+    if not stdout.strip():
+        _LOGGER.warning("No logs found")
         return []
+    raw_log = json.loads(b'[' + stdout.replace(b'\n', b',')[:-1] + b']')
 
     log_entries = []
-    for line in stdout.decode().splitlines():
-        try:
-            if not line.strip():
-                continue
-            entry = json.loads(line)
-            log_entries.append(
-                LogEntry(
-                    timestamp=entry.get("__REALTIME_TIMESTAMP", ""),
-                    message=entry.get("MESSAGE", ""),
-                    level=entry.get("PRIORITY", "6"),
-                )
+    for log in raw_log:
+        if isinstance(log.get('MESSAGE'), list):
+            # Handle ASCII-encoded messages
+            try:
+                message_bytes = bytes(log['MESSAGE'])
+                message = message_bytes.decode('utf-8', errors='ignore')
+                message = strip_ansi_codes(message)
+            except Exception as e:
+                message = "Error decoding message: {}".format(e)
+        else:
+            message = log.get('MESSAGE', '')
+        log_entries.append(
+            LogEntry(
+                timestamp=log.get("__REALTIME_TIMESTAMP", ""),
+                message=message,
+                level=log.get("PRIORITY", ""),
             )
-        except json.JSONDecodeError:
-            continue
+        )
 
     return log_entries
 
@@ -354,13 +417,11 @@ def get_standalone_logs(since: str, limit: int) -> List[LogEntry]:
 @app.get("/api/logs")
 async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
     """Get logs from either systemd journal or standalone log file."""
-    _LOGGER.debug("Fetching logs...")
-
     try:
         # Try systemd logs first if running as service
         if is_running_as_service():
             _LOGGER.debug("Fetching from systemd journal...")
-            log_entries = await get_systemd_logs(since, limit)
+            log_entries = await get_systemd_logs(since)
             if log_entries:
                 return LogsResponse(logs=log_entries)
 
@@ -643,11 +704,9 @@ async def websocket_endpoint(
     websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)
 ):
     """WebSocket endpoint for all state updates."""
-    connection_active = False
     try:
         # Connect to WebSocket manager
         if await app.state.websocket_manager.connect(websocket):
-            connection_active = True
             _LOGGER.info("New WebSocket connection established")
 
             async def send_state_update(update: StateUpdate) -> bool:
@@ -768,39 +827,34 @@ async def websocket_endpoint(
                 sensor_listener_for_all_sensors(boneio_manager=boneio_manager)
 
                 while True:
-                    try:
-                        if websocket.application_state != WebSocketState.CONNECTED:
-                            break
-                            
-                        data = await websocket.receive_text()
-                        if data == "ping":
-                            await websocket.send_text("pong")
-                    except WebSocketDisconnect:
-                        _LOGGER.info("WebSocket disconnected normally")
-                        break
-                    except asyncio.CancelledError:
-                        _LOGGER.info("WebSocket task cancelled")
-                        break
-                    except Exception as e:
-                        _LOGGER.error(f"Error in WebSocket message loop: {type(e).__name__} - {e}")
-                        break
-
+                    data = await websocket.receive_text()
+                    if data == "ping":
+                        await websocket.send_text("pong")
     except asyncio.CancelledError:
         _LOGGER.info("WebSocket connection cancelled during setup")
-    except GracefulExit:
-        _LOGGER.info("WebSocket connection exiting gracefully")
+        await app.state.websocket_manager.disconnect(websocket)
+        raise
+    except WebSocketDisconnect as err:
+        _LOGGER.info("WebSocket connection exiting gracefully %s", err)
+        await app.state.websocket_manager.disconnect(websocket)
+    except KeyboardInterrupt:
+        _LOGGER.info("WebSocket connection interrupted by user.")
     except Exception as e:
         _LOGGER.error(f"Unexpected error in WebSocket handler: {type(e).__name__} - {e}")
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
-        remove_listener_for_all_outputs(boneio_manager=boneio_manager)
-        remove_listener_for_all_inputs(boneio_manager=boneio_manager)
-        remove_listener_for_all_sensors(boneio_manager=boneio_manager)
-        if connection_active:
-            try:
-                await app.state.websocket_manager.disconnect(websocket)
-            except Exception as e:
-                _LOGGER.error(f"Error during WebSocket cleanup: {type(e).__name__} - {e}")
+        if not app.state.websocket_manager.active_connections:
+            remove_listener_for_all_outputs(boneio_manager=boneio_manager)
+            remove_listener_for_all_inputs(boneio_manager=boneio_manager)
+            remove_listener_for_all_sensors(boneio_manager=boneio_manager)
+        # if connection_active:
+        #     try:
+        #         await asyncio.wait_for(
+        #             app.state.websocket_manager.disconnect(websocket),
+        #             timeout=2.0
+        #         )
+        #     except (asyncio.TimeoutError, Exception) as e:
+        #         _LOGGER.error(f"Error during WebSocket cleanup: {type(e).__name__} - {e}")
 
 # Static files setup
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend" / "dist"
