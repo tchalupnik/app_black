@@ -3,11 +3,12 @@ import logging
 from itertools import cycle
 from typing import List
 
+import qrcode
 from luma.core.error import DeviceNotFoundError
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import sh1106
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 
 from boneio.const import OLED_PIN, UPTIME, WHITE
 from boneio.helper import (
@@ -18,7 +19,8 @@ from boneio.helper import (
     make_font,
     setup_input,
 )
-from boneio.helper.events import async_track_point_in_time, utcnow
+from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
+from boneio.models import InputState, SensorState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,9 +57,11 @@ class Oled:
         grouped_outputs: List[str],
         sleep_timeout: TimePeriod,
         screen_order: List[str],
+        event_bus: EventBus
     ) -> None:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
+        self._event_bus = event_bus
         self._grouped_outputs = None
         self._input_groups = []
         self._host_data = host_data
@@ -106,7 +110,7 @@ class Oled:
         self._current_screen = next(self._screen_order)
         self._host_data = host_data
         self._sleep = False
-        self._sleep_handle = None
+        self._cancel_sleep_handle = None
         self._sleep_timeout = sleep_timeout
         setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
         edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=240)
@@ -141,6 +145,7 @@ class Oled:
                 self._device.bounding_box, outline="black", fill="black"
             )
         self._sleep = True
+        _LOGGER.debug("OLED is going to sleep.")
 
     def _draw_uptime(self, data: dict, draw: ImageDraw) -> None:
         """Draw uptime screen with boneIO logo."""
@@ -167,13 +172,13 @@ class Oled:
         )
         i = 0
         j = next(cols)
-        for k in data:
+        for k in data.values():
             if len(OUTPUT_ROWS) == i:
                 j = next(cols)
                 i = 0
             draw.text(
                 (j, OUTPUT_ROWS[i]),
-                f"{shorten_name(k)} {data[k]}",
+                f"{shorten_name(k['name'])} {k['state']}",
                 font=fonts["extraSmall"],
                 fill=WHITE,
             )
@@ -190,13 +195,13 @@ class Oled:
         )
         i = 0
         j = next(cols)
-        for k in data:
+        for k in data.values():
             if len(INPUT_ROWS) == i:
                 j = next(cols)
                 i = 0
             draw.text(
                 (j, INPUT_ROWS[i]),
-                f"{shorten_name(k)} {data[k]}",
+                f"{shorten_name(k['name'])} {k['state']}",
                 font=fonts["extraSmall"],
                 fill=WHITE,
             )
@@ -206,29 +211,45 @@ class Oled:
         """Render display."""
         data = self._host_data.get(self._current_screen)
         if data:
-            with canvas(self._device) as draw:
-                if (
-                    self._grouped_outputs
-                    and self._current_screen in self._grouped_outputs
-                ):
-                    self._draw_output(data, draw)
-                elif self._current_screen == UPTIME:
-                    self._draw_uptime(data, draw)
-                elif (
-                    self._input_groups
-                    and self._current_screen in self._input_groups
-                ):
-                    self._draw_input(data, draw)
-                else:
-                    self._draw_standard(data, draw)
+            if self._current_screen == "web":
+                self.draw_qr_code(url=data)
+            else:
+                with canvas(self._device) as draw:
+                    if (
+                        self._grouped_outputs
+                        and self._current_screen in self._grouped_outputs
+                    ):
+                        self._draw_output(data, draw)
+                    elif self._current_screen == UPTIME:
+                        self._draw_uptime(data, draw)
+                        self._event_bus.add_event_listener(event_type="host", entity_id=f"{self._current_screen}_hoststats", listener_id=f"oled_{self._current_screen}", target=self._standard_callback)
+                    elif (
+                        self._input_groups
+                        and self._current_screen in self._input_groups
+                    ):
+                        for id in data.keys():
+                            self._event_bus.add_event_listener(event_type="input", entity_id=id, listener_id=f"oled_{self._current_screen}", target=self._input_callback)
+                        self._draw_input(data, draw)
+                    else:
+                        self._draw_standard(data, draw)
+                        self._event_bus.add_event_listener(event_type="host", entity_id=f"{self._current_screen}_hoststats", listener_id=f"oled_{self._current_screen}", target=self._standard_callback)
         else:
             self._handle_press(pin=None)
-        if not self._sleep_handle and self._sleep_timeout.total_seconds > 0:
-            self._sleep_handle = async_track_point_in_time(
+        if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds > 0:
+            self._cancel_sleep_handle = async_track_point_in_time(
                 loop=self._loop,
                 action=lambda x: self._sleeptime(),
                 point_in_time=utcnow() + self._sleep_timeout.as_timedelta,
             )
+
+    async def _standard_callback(self, event: SensorState):
+        self.handle_data_update(type=UPTIME)
+
+    async def _input_callback(self, event: InputState):
+        self.handle_data_update(type="inputs")
+
+    async def _output_callback(self, data):
+        self.handle_data_update(type="outputs")
 
     def handle_data_update(self, type: str):
         """Callback to handle new data present into screen."""
@@ -243,11 +264,45 @@ class Oled:
 
     def _handle_press(self, pin: any) -> None:
         """Handle press of PIN for OLED display."""
-        if self._sleep_handle:
-            self._sleep_handle()
-            self._sleep_handle = None
+        if self._cancel_sleep_handle:
+            self._cancel_sleep_handle()
+            self._cancel_sleep_handle = None
         if not self._sleep:
+            self._event_bus.remove_event_listener(listener_id=f"oled_{self._current_screen}")
             self._current_screen = next(self._screen_order)
         else:
             self._sleep = False
         self.render_display()
+
+    def draw_qr_code(self, url: str):
+        """Draw QR code on the OLED display."""
+        if not url:
+            return
+            
+        # Create QR code with box_size 2 and scale down later
+        qr = qrcode.QRCode(version=1, box_size=2, border=1)
+        qr.add_data(url)
+        qr.make(fit=True)
+        
+        # Create QR code image
+        qr_image = qr.make_image(fill_color=WHITE, back_color="black")
+        qr_image = qr_image.convert("1")  # Convert to binary mode
+        
+        # Scale the QR code down to 0.8 of its size
+        # Create a blank image with OLED dimensions
+        display_image = Image.new("1", (128, 64), 0)  # Mode 1, size 128x64, black background
+        draw = ImageDraw.Draw(display_image)
+        
+        # Add title text
+        title = "WebUI"
+        draw.text((2, 2), title, font=fonts["small"], fill=WHITE)
+        
+        # Calculate position to center the QR code, accounting for title
+        x = (128 - qr_image.size[0]) // 2
+        y = ((64 - qr_image.size[1]) // 2) + 5  # Add 5 pixels to move QR code down a bit
+        
+        # Paste QR code onto center of display image
+        display_image.paste(qr_image, (x, y))
+        
+        # Display the centered QR code
+        self._device.display(display_image)

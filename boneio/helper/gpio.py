@@ -194,7 +194,7 @@ class GpioBaseClass:
             timestamp=self.last_press_timestamp,
             boneio_input=self.boneio_input,
         )
-        await self._event_bus.async_trigger_event(event_type="input", entity_id=self._pin, event=event)
+        await self._event_bus.async_trigger_event(event_type="input", entity_id=self.id, event=event)
 
     def set_actions(self, actions: dict) -> None:
         self._actions = actions
@@ -220,6 +220,10 @@ class GpioBaseClass:
     @property
     def pin(self) -> str:
         """Return configured pin."""
+        return self._pin
+
+    @property
+    def id(self) -> str:
         return self._pin
 
     @property

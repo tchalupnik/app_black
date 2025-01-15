@@ -22,6 +22,7 @@ class WebServer:
         self.config_helper = config_helper
         self.manager = manager
         self._shutdown_event = asyncio.Event()
+        self._port = port
         
         # Get yaml config file path
         self._yaml_config_file = os.path.abspath(os.path.join(os.path.split(self.config_file)[0], "config.yaml"))
@@ -94,6 +95,7 @@ class WebServer:
             await self._shutdown_event.wait()
         
         server_task = asyncio.create_task(serve(self.app, self._hypercorn_config, shutdown_trigger=shutdown_trigger))
+        self.manager.set_web_server_status(status=True, bind=self._port)
         try:
             await server_task
         except asyncio.CancelledError:

@@ -111,7 +111,10 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         )
         self._event_bus = event_bus
         self._event_bus.add_haonline_listener(target=self.set_payload_offline)
-        AsyncUpdater.__init__(self, **kwargs)
+        try:
+            AsyncUpdater.__init__(self, **kwargs)
+        except Exception as e:
+            _LOGGER.error("Error in AsyncUpdater: %s", e)
 
     def get_sensor_by_name(self, name: str) -> Optional[SingleSensor]:
         """Return sensor by name."""

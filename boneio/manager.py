@@ -29,6 +29,7 @@ from boneio.const import (
     MODBUS,
     MQTT,
     NONE,
+    ON,
     ONEWIRE,
     ONLINE,
     OPEN,
@@ -37,6 +38,7 @@ from boneio.const import (
     PCF,
     PIN,
     RELAY,
+    RESTORE_STATE,
     SET_BRIGHTNESS,
     STATE,
     STOP,
@@ -69,6 +71,7 @@ from boneio.helper.loader import (
     configure_relay,
     create_dallas_sensor,
     create_expander,
+    create_serial_number_sensor,
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
@@ -122,6 +125,8 @@ class Manager:
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = event_bus
+        self._is_web_on = False
+        self._web_bind_port = None
 
         self.send_message = send_message
         self._mqtt_state = mqtt_state
@@ -147,7 +152,7 @@ class Manager:
 
         self._configure_temp_sensors(sensors=sensors)
 
-        self._modbus_sensors = self._configure_modbus_sensors(sensors=sensors)
+        self._modbus_sensors = {}
         self._configure_ina219_sensors(sensors=sensors)
         self._configure_sensors(
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
@@ -180,19 +185,26 @@ class Manager:
 
         for _config in relay_pins:
             _name = _config.pop(ID)
+            restore_state = _config.pop(RESTORE_STATE, False)
             _id = strip_accents(_name)
             out = configure_relay(
                 manager=self,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
                 name=_name,
+                restore_state=restore_state,
                 relay_id=_id,
-                relay_callback=self._relay_callback,
                 config=_config,
                 event_bus=self._event_bus,
             )
             if not out:
                 continue
+            if restore_state:
+                self._event_bus.add_output_listener(
+                    output_id=out.id,
+                    listener_id="manager",
+                    target=self._relay_callback,
+                )
             self._outputs[_id] = out
             if out.output_type not in (NONE, COVER):
                 self.send_ha_autodiscovery(
@@ -253,6 +265,11 @@ class Manager:
         _LOGGER.info("Initializing inputs. This will take a while.")
         self.configure_inputs(reload_config=False)
 
+        self._serial_number_sensor = create_serial_number_sensor(
+            manager=self,
+            topic_prefix=self._config_helper.topic_prefix)
+        self._modbus_sensors = self._configure_modbus_sensors(sensors=sensors)
+
         if oled.get("enabled", False):
             from boneio.oled import Oled
 
@@ -261,6 +278,7 @@ class Manager:
 
             self._host_data = HostData(
                 manager=self,
+                event_bus=self._event_bus,
                 enabled_screens=self._screens,
                 output=self.grouped_outputs,
                 inputs=self._inputs,
@@ -271,7 +289,6 @@ class Manager:
                     self._ina219_sensors[0] if self._ina219_sensors else None
                 ),
                 extra_sensors=extra_sensors,
-                callback=self._host_data_callback,
             )
             try:
                 self._oled = Oled(
@@ -279,11 +296,27 @@ class Manager:
                     screen_order=self._screens,
                     grouped_outputs=list(self.grouped_outputs),
                     sleep_timeout=oled.get("screensaver_timeout", 60),
+                    event_bus=self._event_bus,
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
+            finally:
+                if self._oled:
+                    self._oled.render_display()
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
+
+    def set_web_server_status(self, status: bool, bind: int):
+        self._is_web_on = status
+        self._web_bind_port = bind
+
+    @property
+    def is_web_on(self) -> bool:
+        return self._is_web_on
+
+    @property
+    def web_bind_port(self) -> int | None:
+        return self._web_bind_port
 
     @property
     def mqtt_state(self) -> bool:
@@ -321,7 +354,7 @@ class Manager:
         for group in self._outputs_group:
             members = get_outputs(group.pop("outputs"))
             if not members:
-                _LOGGER.warn(
+                _LOGGER.warning(
                     "This group %s doesn't have any valid members. Not adding it.",
                     group[ID],
                 )
@@ -592,19 +625,13 @@ class Manager:
     async def _relay_callback(
         self,
         event: OutputState,
-        restore_state: bool,
-        save_host_data: bool = True,
-        expander_id: str | None = None,
     ) -> None:
         """Relay callback function."""
-        if restore_state:
-            self._state_manager.save_attribute(
-                attr_type=RELAY,
-                attribute=event.id,
-                value=self._outputs[event.id].is_active,
-            )
-        if save_host_data and expander_id:
-            self._host_data_callback(type=expander_id)
+        self._state_manager.save_attribute(
+            attr_type=RELAY,
+            attribute=event.id,
+            value=event.state == ON,
+        )
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
@@ -612,10 +639,6 @@ class Manager:
         if not _config:
             return
         configure_logger(log_config=_config.get("logger"), debug=-1)
-
-    def _host_data_callback(self, type: str) -> None:
-        if self._oled:
-            self._oled.handle_data_update(type)
 
     def get_tasks(self) -> Set[asyncio.Task]:
         """Retrieve asyncio tasks to run."""
@@ -743,11 +766,6 @@ class Manager:
             self._loop.call_soon_threadsafe(
                 self._loop.call_later, 0.2, self.send_message, topic, ""
             )
-        if (
-            "Inputs screen 1" in self._screens
-            or "Inputs screen 2" in self._screens
-        ):
-            self._host_data_callback(type="inputs")
 
     async def toggle_output(self, output_id: str) -> None:
         """Toggle output state."""

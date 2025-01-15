@@ -4,7 +4,6 @@ import asyncio
 import logging
 import socket
 import time
-from functools import partial
 from math import floor
 
 # Typing imports that create a circular dependency
@@ -28,7 +27,9 @@ from boneio.const import (
     SWAP,
     UPTIME,
 )
+from boneio.helper.events import EventBus
 from boneio.helper.gpio import GpioBaseClass
+from boneio.models import HostSensorState
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
@@ -124,8 +125,8 @@ class HostSensor(AsyncUpdater):
 
     def __init__(
         self,
+        event_bus: EventBus,
         update_function: Callable,
-        manager_callback: Callable,
         static_data: dict | None,
         id: str,
         type: str,
@@ -135,16 +136,21 @@ class HostSensor(AsyncUpdater):
         self._static_data = static_data
         self._state = {}
         self._type = type
-        self._manager_callback = manager_callback
+        self._event_bus = event_bus
         self._loop = asyncio.get_event_loop()
         self.id = id
         super().__init__(**kwargs)
+        self._loop.create_task(self.async_update(time.time()))
 
     async def async_update(self, timestamp: float) -> None:
         self._state = self._update_function()
-        self._loop.call_soon_threadsafe(
-            partial(self._manager_callback, self._type)
+        sensor_state = HostSensorState(
+            id=self.id,
+            name=self._type,
+            state="new_state", #doesn't matter here, as we fetch everything in Oled.
+            timestamp=timestamp,
         )
+        await self._event_bus.async_trigger_event(event_type="host", entity_id=self.id, event=sensor_state)
 
     @property
     def state(self) -> dict:
@@ -160,14 +166,15 @@ class HostData:
         self,
         output: dict,
         inputs: dict[str, GpioBaseClass],
-        callback: Callable,
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
         ina219: INA219Class | None,
         manager: Manager,
+        event_bus: EventBus,
         enabled_screens: List[str],
         extra_sensors: List[dict],
     ) -> None:
         """Initialize HostData."""
+        self._manager = manager
         self._hostname = socket.gethostname()
         self._temp_sensor = temp_sensor
         host_stats = {
@@ -293,8 +300,8 @@ class HostData:
             self._data[k] = HostSensor(
                 update_function=_v["f"],
                 static_data=_v.get("static"),
+                event_bus=event_bus,
                 manager=manager,
-                manager_callback=callback,
                 id=f"{k}_hoststats",
                 type=k,
                 update_interval=_v["update_interval"],
@@ -306,8 +313,15 @@ class HostData:
             ]
             for i in range((len(inputs) + 24) // 25)
         }
-        self._callback = callback
         self._loop = asyncio.get_running_loop()
+
+    def web_url(self) -> str | None:
+        if not self._manager.is_web_on:
+            return None
+        network_state = self._data[NETWORK].state
+        if IP in network_state:
+            return f"http://{network_state[IP]}:{self._manager.web_bind_port}"
+        return None
 
     def get(self, type: str) -> dict:
         """Get saved stats."""
@@ -315,22 +329,28 @@ class HostData:
             return self._get_output(type)
         if type in self._inputs:
             return self._get_input(type)
+        if type == "web":
+            return self.web_url()
         return self._data[type].state
 
     def _get_output(self, type: str) -> dict:
         """Get stats for output."""
         out = {}
         for output in self._output[type].values():
-            out[output.id] = output.state
+            out[output.id] = {
+                "name": output.name, "state": output.state
+            }
+
         return out
 
     def _get_input(self, type: str) -> dict:
         """Get stats for input."""
         inputs = {}
         for input in self._inputs[type]:
-            inputs[input.name] = (
-                input.pressed_state[0].upper() if input.pressed_state else ""
-            )
+            inputs[input.id] = {
+                "name": input.name,
+                "state": input.last_state[0].upper() if input.last_state and input.last_state != "Unknown" else ""
+            }
         return inputs
 
     @property

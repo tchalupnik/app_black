@@ -47,11 +47,6 @@ class MCPRelay(BasicRelay):
         return self._pin_id
 
     @property
-    def expander_id(self) -> str:
-        """Retrieve parent MCP ID."""
-        return self._expander_id
-
-    @property
     def is_active(self) -> bool:
         """Is relay active."""
         return self.pin.value

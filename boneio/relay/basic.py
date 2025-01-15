@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Awaitable, Callable
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
@@ -20,7 +19,7 @@ class BasicRelay(BasicMqtt):
 
     def __init__(
         self,
-        callback: Callable[[OutputState], Awaitable[None]],
+        # callback: Callable[[OutputState], Awaitable[None]],
         id: str,
         event_bus: EventBus,
         name: str | None = None,
@@ -39,7 +38,7 @@ class BasicRelay(BasicMqtt):
             self._momentary_turn_on = None
             self._momentary_turn_off = None
         self._state = ON if restored_state else OFF
-        self._callback = callback
+        # self._callback = callback
         self._momentary_action = None
         self._last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
@@ -102,10 +101,11 @@ class BasicRelay(BasicMqtt):
             state=state,
             type=self.output_type,
             pin=self.pin_id,
-            timestamp=self.last_timestamp
+            timestamp=self.last_timestamp,
+            expander_id=self.expander_id,
         )
         await self._event_bus.async_trigger_output_event(output_id=self.id, event=event)
-        await self._callback(event)
+        await self._event_bus.async_trigger_event(event_type="output", entity_id=self.id, event=event)
 
     async def async_turn_on(self) -> None:
         self.turn_on()
@@ -159,3 +159,8 @@ class BasicRelay(BasicMqtt):
     def is_active(self) -> bool:
         """Is active check."""
         raise NotImplementedError
+
+    @property
+    def expander_id(self) -> str:
+        """Retrieve parent Expander ID."""
+        return self._expander_id

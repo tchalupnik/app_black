@@ -4,8 +4,7 @@ import logging
 
 from adafruit_pcf8575 import DigitalInOut
 
-from boneio.const import NONE, SWITCH, PCF, ON, OFF
-from boneio.helper.events import async_track_point_in_time, utcnow
+from boneio.const import NONE, OFF, ON, PCF, SWITCH
 from boneio.helper.pcf8575 import PCF8575
 from boneio.relay.basic import BasicRelay
 
@@ -47,11 +46,6 @@ class PCFRelay(BasicRelay):
     def pin_id(self) -> int:
         """Return PIN id."""
         return self._pin_id
-
-    @property
-    def expander_id(self) -> str:
-        """Retrieve parent MCP ID."""
-        return self._expander_id
 
     @property
     def is_active(self) -> bool:

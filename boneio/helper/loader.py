@@ -56,7 +56,10 @@ from boneio.helper import (
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.events import EventBus
-from boneio.helper.ha_discovery import ha_cover_availabilty_message
+from boneio.helper.ha_discovery import (
+    ha_cover_availabilty_message,
+    ha_sensor_availabilty_message,
+)
 from boneio.helper.onewire import (
     DS2482,
     DS2482_ADDRESS,
@@ -67,12 +70,12 @@ from boneio.helper.onewire import (
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input import GpioEventButtonNew, GpioEventButtonOld
-from boneio.models import OutputState
 from boneio.sensor import (
     DallasSensorDS2482,
     GpioInputBinarySensorNew,
     GpioInputBinarySensorOld,
 )
+from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 # Typing imports that create a circular dependency
@@ -165,6 +168,27 @@ def create_temp_sensor(
         _LOGGER.error("Can't configure Temp sensor. %s", err)
         pass
 
+
+def create_serial_number_sensor(
+    manager: Manager,
+    topic_prefix: str,
+):
+    """Create Serial number sensor in manager."""
+    sensor = SerialNumberSensor(
+        id="serial_number",
+        name="Serial number",
+        manager=manager,
+        send_message=manager.send_message,
+        topic_prefix=topic_prefix,
+    )
+    manager.send_ha_autodiscovery(
+        id="serial_number",
+        name="Serial number",
+        ha_type=SENSOR,
+        entity_category="diagnostic",
+        availability_msg_func=ha_sensor_availabilty_message,
+    )
+    return sensor
 
 expander_class = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
 
@@ -275,12 +299,11 @@ def configure_relay(
     topic_prefix: str,
     relay_id: str,
     name: str,
-    relay_callback: Callable,
     config: dict,
+    restore_state: bool = False,
     **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
-    restore_state = config.pop(RESTORE_STATE, False)
     output_type = config.pop(OUTPUT_TYPE)
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
@@ -342,13 +365,13 @@ def configure_relay(
         )
         return
 
-    # Create async callback wrapper
-    async def relay_callback_wrapper(event: OutputState):
-        await relay_callback(
-            expander_id=getattr(output, "expander_id"),
-            event=event,
-            restore_state=False if output_type == NONE else restore_state,
-        )
+    # # Create async callback wrapper
+    # async def relay_callback_wrapper(event: OutputState):
+    #     await relay_callback(
+    #         expander_id=expander_id,
+    #         event=event,
+    #         restore_state=False if output_type == NONE else restore_state,
+    #     )
 
     relay = getattr(output, "OutputClass")(
         send_message=manager.send_message,
@@ -359,7 +382,7 @@ def configure_relay(
         **config,
         **kwargs,
         **extra_args,
-        callback=relay_callback_wrapper,
+        # callback=relay_callback_wrapper,
     )
     manager.grouped_outputs[expander_id][relay_id] = relay
     return relay

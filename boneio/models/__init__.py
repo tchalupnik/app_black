@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -24,6 +24,7 @@ class OutputState(BaseModel):
     name: str
     state: str
     type: str
+    expander_id: Union[str, None]
     pin: int
     timestamp: Union[float, None] = None
 
@@ -34,6 +35,13 @@ class SensorState(BaseModel):
     state: Union[float, None]
     unit: Union[str, None]
     timestamp: Union[float, None]
+
+class HostSensorState(BaseModel):
+    """Host Sensor state model."""
+    id: str
+    name: str
+    state: str
+    timestamp: Optional[float] = None
 
 class OutputsResponse(BaseModel):
     """Outputs response model."""

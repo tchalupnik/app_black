@@ -492,9 +492,7 @@ async def get_name(config_helper: ConfigHelper = Depends(get_config_helper)):
 @app.get("/api/check_configuration")
 async def check_configuration():
     """Check if the configuration is valid."""
-    print("Checking configuration...")
     try:
-        print(app.state.yaml_config_file)
         load_config_from_file(config_file=app.state.yaml_config_file)
         return {"status": "success"}
     except ConfigurationException as e:
@@ -664,7 +662,7 @@ def add_listener_for_all_outputs(boneio_manager: Manager):
     for output in boneio_manager.outputs.values():
         boneio_manager.event_bus.add_output_listener(
             output_id=output.id,
-            listener_id=f"ws${output.id}",
+            listener_id="ws",
             target=output_state_changed,
         )
 
@@ -680,7 +678,7 @@ def add_listener_for_all_inputs(boneio_manager: Manager):
         boneio_manager.event_bus.add_event_listener(
             event_type="input",
             entity_id=input.pin,
-            listener_id=f"ws${input.pin}",
+            listener_id="ws",
             target=input_state_changed,
         )
 
@@ -698,7 +696,7 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
                 boneio_manager.event_bus.add_event_listener(
                     event_type="modbus_sensor",
                     entity_id=single_sensor.id,
-                    listener_id=f"ws${single_sensor.id}",
+                    listener_id="ws",
                     target=modbus_sensor_state_changed,
                 )
     for single_ina_device in boneio_manager.ina219_sensors:
@@ -706,21 +704,21 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
             boneio_manager.event_bus.add_event_listener(
                 event_type="sensor",
                 entity_id=ina.id,
-                listener_id=f"ws${ina.id}",
+                listener_id="ws",
                 target=sensor_state_changed,
             )
     for sensor in boneio_manager.temp_sensors:
         boneio_manager.event_bus.add_event_listener(
             event_type="sensor",
             entity_id=sensor.id,
-            listener_id=f"ws${sensor.id}",
+            listener_id="ws",
             target=sensor_state_changed,
         )
 
 
 def remove_listener_for_all_sensors(boneio_manager: Manager):
-    boneio_manager.event_bus.remove_event_listener_by_type(event_type="modbus_sensor")
-    boneio_manager.event_bus.remove_event_listener_by_type(event_type="sensor")
+    boneio_manager.event_bus.remove_event_listener_by_type(listener_id="ws")
+    boneio_manager.event_bus.remove_event_listener_by_type(listener_id="ws")
 
 
 

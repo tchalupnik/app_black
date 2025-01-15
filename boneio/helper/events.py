@@ -86,7 +86,15 @@ class EventBus:
         self._loop = loop or asyncio.get_event_loop()
         self._every_second_listeners = {}
         self._output_listeners = {}
-        self._event_listeners = {}
+        self._event_listeners = {
+            "input": {},
+            "output": {},
+            "modbus_sensor": {},
+            "sensor": {},
+            "host": {}
+        }
+        # Index to track listener_ids across all event types
+        self._listener_id_index = {}
         self._sigterm_listeners = []
         self._haonline_listeners = []
         self._timer_handle = _async_create_timer(
@@ -188,7 +196,7 @@ class EventBus:
         """Add sigterm listener."""
         self._sigterm_listeners.append(target)
 
-    def add_output_listener(self, output_id, listener_id, target):
+    def add_output_listener(self, output_id, listener_id, target) -> ListenerJob:
         """Add output listener.
 
         listener_id is typically group_id for group outputs or ws (websocket)
@@ -200,7 +208,7 @@ class EventBus:
             listener.set_target(target)
             return listener
         self._output_listeners[output_id][listener_id] = ListenerJob(target=target)
-        return self._output_listeners[output_id]
+        return self._output_listeners[output_id][listener_id]
 
     def remove_output_listener(self, output_id, listener_id):
         """Add output listener.
@@ -215,36 +223,80 @@ class EventBus:
         for listener in listeners.values():
             await listener.target(event)
 
-    def add_event_listener(self, event_type: str, entity_id: str, listener_id: str, target: Callable) -> ListenerJob:
-        """Add output listener.
+    async def async_trigger_event(self, event_type: str, entity_id: str, event: Any):
+        """Trigger event for all listeners of given type and entity."""
+        listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
+        for listener in listeners.values():
+            await listener.target(event)
+
+    def add_event_listener(
+        self, event_type: str, entity_id: str, listener_id: str, target
+    ) -> ListenerJob:
+        """Add event listener.
 
         listener_id is typically group_id for group outputs or ws (websocket)
         """
-        if event_type not in self._event_listeners:
-            self._event_listeners[event_type] = {}
+        if not target:
+            return
         if entity_id not in self._event_listeners[event_type]:
             self._event_listeners[event_type][entity_id] = {}
         if listener_id in self._event_listeners[event_type][entity_id]:
             listener = self._event_listeners[event_type][entity_id][listener_id]
             listener.set_target(target)
             return listener
-        self._event_listeners[event_type][entity_id][listener_id] = ListenerJob(target=target)
-        return self._event_listeners[event_type][entity_id][listener_id]
 
-    def remove_event_listener(self, event_type: str, entity_id: str, listener_id: str) -> None:
-        """Remove event listener."""
-        if event_type in self._event_listeners and entity_id in self._event_listeners[event_type] and listener_id in self._event_listeners[event_type][entity_id]:
-            del self._event_listeners[event_type][entity_id][listener_id]
+        # Add to main listeners
+        listener_job = ListenerJob(target=target)
+        self._event_listeners[event_type][entity_id][listener_id] = listener_job
 
-    def remove_event_listener_by_type(self, event_type: str) -> None:
-        """Remove event listener."""
-        if event_type in self._event_listeners:
-            del self._event_listeners[event_type]
+        # Add to index
+        if listener_id not in self._listener_id_index:
+            self._listener_id_index[listener_id] = []
+        self._listener_id_index[listener_id].append((event_type, entity_id))
 
-    async def async_trigger_event(self, event_type: str, entity_id: str, event: Any):
-        listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
-        for listener in listeners.values():
-            await listener.target(event)
+        return listener_job
+
+    def remove_event_listener(self, event_type: str = None, entity_id: str = None, listener_id: str = None) -> None:
+        """Remove event listener. Can remove by event_type, listener_id, or both."""
+        if listener_id and listener_id in self._listener_id_index:
+            # Remove by listener_id
+            for evt_type, ent_id in self._listener_id_index[listener_id]:
+                if event_type and evt_type != event_type:
+                    continue
+                if entity_id and ent_id != entity_id:
+                    continue
+                if ent_id in self._event_listeners[evt_type]:
+                    if listener_id in self._event_listeners[evt_type][ent_id]:
+                        del self._event_listeners[evt_type][ent_id][listener_id]
+                    if not self._event_listeners[evt_type][ent_id]:
+                        del self._event_listeners[evt_type][ent_id]
+            
+            if event_type is None and entity_id is None:
+                # If removing all references to this listener_id
+                del self._listener_id_index[listener_id]
+            else:
+                # Update index to remove only specific references
+                self._listener_id_index[listener_id] = [
+                    (evt_type, ent_id) 
+                    for evt_type, ent_id in self._listener_id_index[listener_id]
+                    if (event_type and evt_type != event_type) or (entity_id and ent_id != entity_id)
+                ]
+                if not self._listener_id_index[listener_id]:
+                    del self._listener_id_index[listener_id]
+
+        elif event_type:
+            # Remove by event_type
+            if entity_id:
+                # Remove specific entity
+                if entity_id in self._event_listeners[event_type]:
+                    for lid in list(self._event_listeners[event_type][entity_id].keys()):
+                        self.remove_event_listener(event_type, entity_id, lid)
+                    del self._event_listeners[event_type][entity_id]
+            else:
+                # Remove entire event_type
+                for ent_id in list(self._event_listeners[event_type].keys()):
+                    for lid in list(self._event_listeners[event_type][ent_id].keys()):
+                        self.remove_event_listener(event_type, ent_id, lid)
 
     def add_haonline_listener(self, target: Callable) -> None:
         """Add HA Online listener."""
