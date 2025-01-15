@@ -3,19 +3,19 @@ from boneio.const import (
     CLOSED,
     CLOSING,
     COVER,
+    DOUBLE,
     INPUT,
     INPUT_SENSOR,
+    LONG,
     OFF,
     ON,
     OPEN,
     OPENING,
     RELAY,
     SENSOR,
+    SINGLE,
     STATE,
     STOP,
-    SINGLE,
-    DOUBLE,
-    LONG
 )
 from boneio.version import __version__
 
