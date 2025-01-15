@@ -139,7 +139,7 @@ function AppContent() {
         } />
         <Route path="/config" element={
           <ProtectedRoute>
-            <Layout>
+            <Layout configEditor={true}>
               <ConfigEditor />
             </Layout>
           </ProtectedRoute>

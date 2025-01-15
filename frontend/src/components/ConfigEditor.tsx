@@ -190,11 +190,11 @@ export default function ConfigEditor() {
       {renderRestartOverlay()}
       <div className={`${showFileTree ? 'w-64' : 'w-0'} transition-all duration-300 bg-base-200 border-r border-base-content/10 overflow-hidden`}>
         <div className="p-2 text-sm font-semibold text-base-content/70 uppercase">Explorer</div>
-        <div>
+        <div className="overflow-y-auto">
           {renderFileTree(files)}
         </div>
       </div>
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-hidden flex flex-col h-full max-h-screen">
         <div className="flex items-center p-2 border-b border-base-content/10">
           <button 
             onClick={() => setShowFileTree(!showFileTree)} 
@@ -205,23 +205,23 @@ export default function ConfigEditor() {
           </button>
           {selectedFile && <span className="ml-2 text-sm opacity-70">{selectedFile}</span>}
         </div>
-        <div className='max-h-[90%] h-full'>
-        <Editor
-          height="100%"
-          width="100%"
-          defaultLanguage="yaml"
-          theme={theme === 'light' ? 'vs-light' : 'vs-dark'}
-          value={fileContent}
-          onChange={(value) => setFileContent(value || '')}
-          onMount={handleEditorMount}
-          options={{
-            minimap: { enabled: true },
-            scrollBeyondLastLine: false,
-            fontSize: 14,
-            wordWrap: 'on',
-            automaticLayout: true
-          }}
-        />
+        <div className="flex-1 overflow-hidden">
+          <Editor
+            height="100%"
+            width="100%"
+            defaultLanguage="yaml"
+            theme={theme === 'light' ? 'vs-light' : 'vs-dark'}
+            value={fileContent}
+            onChange={(value) => setFileContent(value || '')}
+            onMount={handleEditorMount}
+            options={{
+              minimap: { enabled: true },
+              scrollBeyondLastLine: false,
+              fontSize: 14,
+              wordWrap: 'on',
+              automaticLayout: true
+            }}
+          />
         </div>
         <div className="h-12 bg-base-200 border-t border-base-content/10 flex items-center justify-end px-4 gap-4">
           <button 
