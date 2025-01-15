@@ -771,6 +771,7 @@ async def websocket_endpoint(
                             state=output.state,
                             type=output.output_type,
                             pin=output.pin_id,
+                            expander_id=output.expander_id,
                             timestamp=output.last_timestamp,
                         )
                         update = StateUpdate(type="output", data=output_state)
