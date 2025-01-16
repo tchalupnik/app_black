@@ -46,9 +46,20 @@ class WebServer:
         self._hypercorn_config.bind = [f"0.0.0.0:{port}"]
         self._hypercorn_config.use_reloader = False
         self._hypercorn_config.worker_class = "asyncio"
-        # if debug_level:
-            # self._hypercorn_config.debug = debug_level == 1
-            # self._hypercorn_config.loglevel = debug_level
+        
+        # Configure Hypercorn's logging
+        hypercorn_logger = logging.getLogger('hypercorn.error')
+        hypercorn_logger.handlers = []  # Remove default handlers
+        hypercorn_logger.propagate = True  # Use root logger's handlers
+        
+        # Configure access log
+        hypercorn_access_logger = logging.getLogger('hypercorn.access')
+        hypercorn_access_logger.handlers = []  # Remove default handlers
+        hypercorn_access_logger.propagate = True  # Use root logger's handlers
+        
+        self._hypercorn_config.accesslog = hypercorn_access_logger
+        self._hypercorn_config.errorlog = hypercorn_logger
+        
         self._hypercorn_config.graceful_timeout = 5.0
         # self._server = hypercorn.asyncio.serve(self.app, self._hypercorn_config)
         # Override the server's install_signal_handlers to prevent it from handling signals
