@@ -1,9 +1,10 @@
 """GpioInputBinarySensorNew to receive signals."""
 
 import logging
-from boneio.const import PRESSED, RELEASED, BOTH
-from boneio.helper import GpioBaseClass
 import time
+
+from boneio.const import BOTH, PRESSED, RELEASED
+from boneio.helper import GpioBaseClass
 from boneio.helper.gpio import add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
