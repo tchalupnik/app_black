@@ -293,13 +293,15 @@ class Oled:
         display_image = Image.new("1", (128, 64), 0)  # Mode 1, size 128x64, black background
         draw = ImageDraw.Draw(display_image)
         
-        # Add title text
-        title = "WebUI"
-        draw.text((2, 2), title, font=fonts["small"], fill=WHITE)
+        # Add title text on the left side
+        # text_width = fonts["small"].getsize(title)[0]
+        draw.text((2, 2), "Scan to", font=fonts["small"], fill=WHITE)
+        draw.text((2, 12), "access", font=fonts["small"], fill=WHITE)
+        draw.text((2, 22), "webui", font=fonts["small"], fill=WHITE)
         
-        # Calculate position to center the QR code, accounting for title
-        x = (128 - qr_image.size[0]) // 2
-        y = ((64 - qr_image.size[1]) // 2) + 5  # Add 5 pixels to move QR code down a bit
+        # Calculate position to align QR code to right and center vertically
+        x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding
+        y = ((64 - qr_image.size[1]) // 2)  # Center vertically
         
         # Paste QR code onto center of display image
         display_image.paste(qr_image, (x, y))
