@@ -226,14 +226,19 @@ modbus_sensors:
           - lower
         allowed:
           [
-            'sdm630',
+            'cwt',
+            'dts1964_3f',
+            'liquid-sensor',
+            'orno-or-we-517',
+            'pt100',
+            'r4dcb08',
             'sdm120',
-            'sofar',
+            'sdm630',
+            'sht20',
+            'sht30',
             'socomec_e03',
             'socomec_e23',
-            'cwt',
-            'orno-or-we-517',
-            'r4cb08'
+            'sofar',
           ]
         meta:
           label: Model to load from database.
