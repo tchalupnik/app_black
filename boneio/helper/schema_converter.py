@@ -195,7 +195,6 @@ def main():
         with open(section_schema_file, "w") as f:
             json.dump(section_json_schema, f, indent=2)
         print(f"Section schema for {section_name} written to {section_schema_file}")
-    print("Finished.")
 
 if __name__ == "__main__":
     main()
