@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
+import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
 import axios from 'axios';
 import { useTheme } from '../hooks/useTheme';
 import { FaChevronRight, FaChevronDown, FaRegFolder, FaRegFolderOpen, FaRegFile } from 'react-icons/fa';
 import { GoSidebarExpand } from 'react-icons/go';
 import ConfigCheckModal from './ConfigCheckModal';
+import { configureMonacoYaml, MonacoYaml } from 'monaco-yaml';
+
 
 interface FileItem {
   name: string;
@@ -13,6 +15,8 @@ interface FileItem {
   children?: FileItem[];
   isOpen?: boolean;
 }
+
+let monacoYaml: MonacoYaml | undefined;
 
 export default function ConfigEditor() {
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -62,7 +66,34 @@ export default function ConfigEditor() {
     }
   };
 
-  const handleEditorMount: OnMount = (editor, monaco) => {
+  const handleBeforeMount: BeforeMount = async (monaco: any) => {
+    if (!monacoYaml) {
+      // Load all schemas
+      const mainSchema = await fetch("/config.schema.json").then(r => r.json());
+      
+      monacoYaml = await configureMonacoYaml(monaco, {
+        enableSchemaRequest: true,
+        schemas: [
+          // Main schema for config.yaml
+          {
+            uri: window.location.origin + "/config.schema.json",
+            fileMatch: ["config.yaml", "config.yml"],
+            schema: mainSchema
+          },
+          // Section schemas for included files
+          ...Object.keys(mainSchema.properties).map(section => ({
+            uri: window.location.origin + `/${section}.schema.json`,
+            fileMatch: [`${section}.yaml`, `${section}.yml`],
+            schema: mainSchema.properties[section]
+          }))
+        ],
+        validate: true,
+      });
+    }
+  };
+
+  const handleEditorMount: OnMount = async (editor: any, monaco: any) => {
+
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       handleSave();
     });
@@ -184,7 +215,6 @@ export default function ConfigEditor() {
     initializeEditor();
   }, []);
 
-
   return (
     <div className="flex h-full bg-base-300">
       {renderRestartOverlay()}
@@ -210,16 +240,25 @@ export default function ConfigEditor() {
             height="100%"
             width="100%"
             defaultLanguage="yaml"
+            path={selectedFile || "config.yaml"}
             theme={theme === 'light' ? 'vs-light' : 'vs-dark'}
             value={fileContent}
             onChange={(value) => setFileContent(value || '')}
             onMount={handleEditorMount}
+            beforeMount={handleBeforeMount}
             options={{
               minimap: { enabled: true },
               scrollBeyondLastLine: false,
               fontSize: 14,
-              wordWrap: 'on',
-              automaticLayout: true
+              automaticLayout: true,
+              readOnly: false,
+              formatOnType: true,
+              formatOnPaste: true,
+              quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: true,
+              },
             }}
           />
         </div>

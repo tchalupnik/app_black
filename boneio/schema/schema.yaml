@@ -2,7 +2,7 @@ mqtt:
   type: dict
   required: True
   meta:
-    label: Mqtt section
+    label: "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system."
   schema:
     host:
       required: True
@@ -30,7 +30,7 @@ mqtt:
       default: boneIO
       required: True
       meta:
-        label: Prefix topic for boneIO to use. First overriden by 
+        label: Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.
     ha_discovery:
       type: dict
       meta:
@@ -53,7 +53,7 @@ web:
   required: False
   nullable: True
   meta:
-    label: Web section
+    label: "https://boneio.eu/docs/black/0.9.x-dev/configuration/web \n Web section of boneIO Black. It enables web interface. Default on port 8090."
   schema:
     port:
       required: False
@@ -83,6 +83,8 @@ web:
 logger:
   type: dict
   required: False
+  meta:
+    label: "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log"
   schema:
     default:
       type: string
@@ -98,12 +100,14 @@ logger:
         coerce: lower  # Convert to lowercase for all values
         allowed: ['critical', 'error', 'warning', 'info', 'debug', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
       meta:
-        label: List of dict module\:level.
+        label: Each line suppose to have one python module name and logging level eg pymodbus.client: INFO.
 
 oled:
   type: dict
   default: {}
   required: True
+  meta:
+    label: "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled screen. You'd need enabled: true to make it work."
   schema:
     enabled:
       type: boolean
@@ -176,6 +180,8 @@ oled:
 modbus:
   type: dict
   required: False
+  meta:
+    label: "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1."
   schema:
     uart:
       type: string
@@ -202,7 +208,7 @@ modbus_sensors:
   type: list
   required: False
   meta:
-    label: Modbus sensors
+    label: "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use predefined modbus sensors. It would fetch data from them and publish to mqtt."
   schema:
     type: dict
     schema:
@@ -265,16 +271,14 @@ lm75:
   type: list
   required: False
   meta:
-    label: LM75 Sensor list.
+    label: "https://boneio.eu/docs/black/configuration/lm75 \n LM75 Sensor list. All boneIO Black has one LM75 on board."
   schema:
     type: dict
     required: False
     schema:
       id: !include id.yaml
       address:
-        type:
-          - string
-          - integer
+        type: integer
         required: True
         default: 0x48
         meta:
@@ -287,7 +291,7 @@ ina219:
   type: list
   required: False
   meta:
-    label: INA219 Sensor list.
+    label: "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board."
   schema:
     type: dict
     required: False
@@ -326,7 +330,7 @@ mcp9808:
   type: list
   required: False
   meta:
-    label: MCP9808 Sensor list.
+    label: "https://boneio.eu/docs/black/configuration/mcp9808 \n MCP9808 Sensor list. Older boneIO Black had one MCP9808 instead of LM75on board, which measures temperature."
   schema:
     type: dict
     required: False
@@ -348,7 +352,7 @@ mcp23017:
   type: list
   required: False
   meta:
-    label: mcp23017 Pin config
+    label: "https://boneio.eu/docs/black/configuration/mcp23017 \n MCP23017 Pin config. All boneIO Black 32X10/Cover/Cover Mix/24x16 has two MCP23017 on board. If you use new boneio: section, then you don't need to define this."
   schema:
     type: dict
     schema:
@@ -374,7 +378,7 @@ pcf8575:
   type: list
   required: False
   meta:
-    label: pcf8575 Pin config
+    label: "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE."
   schema:
     type: dict
     schema:
@@ -400,7 +404,7 @@ pca9685:
   type: list
   required: False
   meta:
-    label: pca9685 Pin config
+    label: "https://boneio.eu/docs/black/configuration/pca9685 \n PCA9685 Pin config."
   schema:
     type: dict
     schema:
@@ -425,7 +429,7 @@ pca9685:
 output:
   type: list
   meta:
-    label: List of output relays
+    label: "https://boneio.eu/docs/black/configuration/output \n List of outputs to define."
   check_with: output_id_uniqueness
   schema:
     type: dict
@@ -510,7 +514,7 @@ output:
 output_group:
   type: list
   meta:
-    label: List of groupes outputs
+    label: "https://boneio.eu/docs/black/configuration/output_group \n List of groupes outputs to define. Output has to be defined first in output section!"
   check_with: output_id_uniqueness
   schema:
     type: dict
@@ -544,7 +548,7 @@ output_group:
 binary_sensor:
   type: list
   meta:
-    label: GPIO inputs section
+    label: "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables binary sensors in HA. It detects press and release states. It can run action based on states. It always send message to MQTT broker of invoked state."
   schema:
     type: dict
     schema:
@@ -656,7 +660,7 @@ binary_sensor:
 event:
   type: list
   meta:
-    label: GPIO inputs section
+    label: "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state."
   schema:
     type: dict
     schema:
@@ -734,7 +738,7 @@ event:
 adc:
   type: list
   meta:
-    label: GPIO ADC section
+    label: "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC sensors in HA. Don't let them hang without use."
   schema:
     type: dict
     schema:
@@ -761,7 +765,7 @@ cover:
   type: list
   required: False
   meta:
-    label: Cover section
+    label: "https://boneio.eu/docs/black/configuration/cover \n Cover section of boneIO Black. It enables cover entities in HA. You'd need output config to use it first."
   schema:
     type: dict
     schema:
@@ -835,7 +839,7 @@ ds2482:
   type: list
   required: False
   meta:
-    label: DS2482 list
+    label: "https://boneio.eu/docs/black/configuration/ds2482 \n DS2482 section of boneIO Black. It enables DS2482 1 wire extenders, which you can use in sensor: config."
   schema:
     type: dict
     required: False
@@ -851,6 +855,8 @@ ds2482:
 dallas:
   type: dict
   required: False
+  meta:
+    label: "https://boneio.eu/docs/black/configuration/dallas \n Dallas section of boneIO Black. It enables Dallas bus in boneIO Black Kernel."
   schema:
     id:
       type: string
@@ -862,7 +868,7 @@ sensor:
   type: list
   required: False
   meta:
-    label: Sensor list. Currently only Dallas DS18B20 support.
+    label: Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.
   schema:
     type: dict
     schema:
@@ -902,7 +908,7 @@ boneio:
   type: dict
   required: False
   meta:
-    label: BoneIO configuration section
+    label: "https://boneio.eu/docs/black/0.9.x-dev/configuration/boneio \n BoneIO configuration section. It's new section for boneIO Black. It enables you to use predefined device types. For now only 0.7 and 0.8 devices are supported."
   schema:
     name:
       type: string
@@ -910,7 +916,9 @@ boneio:
       meta:
         label: Name of boneio. Default is Black.
     version:
-      type: string
+      type:
+        - float
+        - string
       coerce:
         - str
       required: False

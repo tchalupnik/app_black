@@ -7,4 +7,4 @@ coerce:
 required: True
 default: 60s
 meta:
-  label: Update interval.
+  label: Update interval. How often to fetch data from sensor. Default to 60s.

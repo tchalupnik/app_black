@@ -24,6 +24,18 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - uses: pdm-project/setup-pdm@v3
+        name: Setup Python and PDM
+        with:
+          python-version: 3.7
+          architecture: x64
+          version: 2.6.1
+          enable-pep582: true
+
+      - name: Generate JSON Schemas
+        run: |
+          python boneio/helper/schema_converter.py
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,14 +48,6 @@ jobs:
         run: |
           npm ci
           npm run build
-
-      - uses: pdm-project/setup-pdm@v3
-        name: Setup Python and PDM
-        with:
-          python-version: 3.7
-          architecture: x64
-          version: 2.6.1
-          enable-pep582: true
 
       - name: Install dependencies
         run: |

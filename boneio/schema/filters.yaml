@@ -1,5 +1,7 @@
 type: list
 required: False
+meta:
+  label: "https://boneio.eu/docs/black/configuration/filters \n List of filters to apply. Allowed filters visible in allowed section."
 schema:
   type: dict
   keysrules:
