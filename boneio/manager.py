@@ -61,7 +61,7 @@ from boneio.helper import (
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
-from boneio.helper.exceptions import ModbusUartException, RestartRequestException
+from boneio.helper.exceptions import ModbusUartException
 from boneio.helper.gpio import GpioBaseClass
 from boneio.helper.loader import (
     configure_binary_sensor,
@@ -871,8 +871,8 @@ class Manager:
 
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")
-        await self.event_bus.ask_stop()
-        raise RestartRequestException
+        import os
+        os._exit(0)  # Terminate the process
 
     @property
     def outputs(self) -> dict:
