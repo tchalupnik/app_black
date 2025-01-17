@@ -32,6 +32,10 @@ jobs:
           version: 2.6.1
           enable-pep582: true
 
+      - name: Install dependencies
+        run: |
+          python -m pip install -U twine
+          
       - name: Generate JSON Schemas
         run: |
           python boneio/helper/schema_converter.py
@@ -49,9 +53,6 @@ jobs:
           npm ci
           npm run build
 
-      - name: Install dependencies
-        run: |
-          python -m pip install -U twine
 
       - name: Build
         run: |
