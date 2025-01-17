@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "output": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Output ID",
+            "title": "Id"
+          },
+          "boneio_output": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Reference to predefined output configuration",
+            "title": "Boneio output"
+          },
+          "kind": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "enum": [
+              "gpio",
+              "mcp",
+              "pca",
+              "pcf"
+            ],
+            "examples": [
+              "gpio"
+            ],
+            "description": "Output kind (mcp, gpio, etc)",
+            "title": "Kind"
+          },
+          "mcp_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "MCP ID reference",
+            "title": "Mcp id"
+          },
+          "pca_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PCA ID to connect",
+            "title": "Pca id"
+          },
+          "pcf_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PCF ID to connect",
+            "title": "Pcf id"
+          },
+          "pin": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "Pin number",
+            "title": "Pin"
+          },
+          "momentary_turn_on": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
+            "title": "Momentary turn on"
+          },
+          "momentary_turn_off": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
+            "title": "Momentary turn off"
+          },
+          "restore_state": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
+            "title": "Restore state"
+          },
+          "percentage_default_brightness": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
+            "title": "Percentage default brightness"
+          },
+          "output_type": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "switch",
+            "enum": [
+              "switch",
+              "light",
+              "cover",
+              "none"
+            ],
+            "examples": [
+              "switch"
+            ],
+            "description": "If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
+            "title": "Output type"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
+      "title": "Output"
+    }
+  }
+}

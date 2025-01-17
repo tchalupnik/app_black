@@ -881,11 +881,13 @@ async def websocket_endpoint(
         #         _LOGGER.error(f"Error during WebSocket cleanup: {type(e).__name__} - {e}")
 
 # Static files setup
-FRONTEND_DIR = Path(__file__).parent / "frontend-dist"
+APP_DIR = Path(__file__).parent
+FRONTEND_DIR = APP_DIR / "frontend-dist"
 
 
 if FRONTEND_DIR.exists():
     app.mount("/assets", StaticFiles(directory=f"{FRONTEND_DIR}/assets"), name="assets")
+    app.mount("/schema", StaticFiles(directory=f"{APP_DIR}/schema"), name="schema")
     # Route to serve React index.html (for client-side routing)
     @app.get("/{catchall:path}")
     async def serve_react_app(catchall: str):

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "modbus": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "uart": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "enum": [
+            "uart1",
+            "uart2",
+            "uart3",
+            "uart4",
+            "uart5"
+          ],
+          "examples": [
+            "uart1"
+          ],
+          "description": "Uart ID to use",
+          "title": "Uart"
+        },
+        "baudrate": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 9600
+        },
+        "stopbits": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 1,
+          "enum": [
+            1,
+            2
+          ],
+          "examples": [
+            1
+          ]
+        },
+        "bytesize": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 8
+        },
+        "parity": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "default": "N",
+          "enum": [
+            "N",
+            "E",
+            "O"
+          ],
+          "examples": [
+            "N"
+          ]
+        }
+      },
+      "required": [
+        "uart"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
+      "title": "Modbus"
+    }
+  }
+}

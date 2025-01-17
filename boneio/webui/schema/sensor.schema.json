@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "sensor": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed. Default to address.",
+            "title": "Id"
+          },
+          "platform": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "dallas",
+            "enum": [
+              "dallas"
+            ],
+            "examples": [
+              "dallas"
+            ],
+            "description": "Platform of sensor to use. Currently only Dallas platform is supported.",
+            "title": "Platform"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "Address of Dallas device",
+            "title": "Address"
+          },
+          "bus_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.",
+            "title": "Bus id"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "filters": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "unit_of_measurement": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "\u00b0C",
+            "enum": [
+              "\u00b0C",
+              "\u00b0F"
+            ],
+            "examples": [
+              "\u00b0C"
+            ]
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.",
+      "title": "Sensor"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pcf8575": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          },
+          "init_sleep": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "0s",
+            "description": "How long to sleep for PCF to initialize.",
+            "title": "Init sleep"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE.",
+      "title": "Pcf8575"
+    }
+  }
+}

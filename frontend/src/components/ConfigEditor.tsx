@@ -69,20 +69,20 @@ export default function ConfigEditor() {
   const handleBeforeMount: BeforeMount = async (monaco: any) => {
     if (!monacoYaml) {
       // Load all schemas
-      const mainSchema = await fetch("/config.schema.json").then(r => r.json());
+      const mainSchema = await fetch("/schema/config.schema.json").then(r => r.json());
       
       monacoYaml = await configureMonacoYaml(monaco, {
         enableSchemaRequest: true,
         schemas: [
           // Main schema for config.yaml
           {
-            uri: window.location.origin + "/config.schema.json",
+            uri: window.location.origin + "/schema/config.schema.json",
             fileMatch: ["config.yaml", "config.yml"],
             schema: mainSchema
           },
           // Section schemas for included files
           ...Object.keys(mainSchema.properties).map(section => ({
-            uri: window.location.origin + `/${section}.schema.json`,
+            uri: window.location.origin + `/schema/${section}.schema.json`,
             fileMatch: [`${section}.yaml`, `${section}.yml`],
             schema: mainSchema.properties[section]
           }))

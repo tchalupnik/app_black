@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "boneio": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Name of boneio. Default is Black.",
+          "title": "Name"
+        },
+        "version": {
+          "type": [
+            "string",
+            "number",
+            "string"
+          ],
+          "description": "BoneIO Black Hardware version",
+          "title": "Version"
+        },
+        "device_type": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Predefined device type configuration",
+          "title": "Device type"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/boneio \n BoneIO configuration section. It's new section for boneIO Black. It enables you to use predefined device types. For now only 0.7 and 0.8 devices are supported.",
+      "title": "Boneio"
+    }
+  }
+}

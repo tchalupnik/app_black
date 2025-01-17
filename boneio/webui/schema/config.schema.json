@@ -1,0 +1,2423 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mqtt": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "host": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Mqtt broker hostname or IP address",
+          "title": "Host"
+        },
+        "username": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Username to connect ot mqtt broker",
+          "title": "Username"
+        },
+        "password": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Password to mqtt",
+          "title": "Password"
+        },
+        "port": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 1883,
+          "description": "Port to connect to mqtt broker",
+          "title": "Port"
+        },
+        "topic_prefix": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "default": "boneIO",
+          "description": "Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.",
+          "title": "Topic prefix"
+        },
+        "ha_discovery": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "default": {},
+          "properties": {
+            "enabled": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": true,
+              "description": "Enable HA discovery.",
+              "title": "Enabled"
+            },
+            "topic_prefix": {
+              "type": [
+                "string",
+                "string"
+              ],
+              "default": "homeassistant",
+              "description": "Prefix topic of HA discovery.",
+              "title": "Topic prefix"
+            }
+          },
+          "description": "Ha discovery sub section",
+          "title": "Ha discovery"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system.",
+      "title": "Mqtt"
+    },
+    "web": {
+      "type": [
+        "string",
+        "object",
+        "null"
+      ],
+      "properties": {
+        "port": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 8090,
+          "description": "Port to run web server",
+          "title": "Port"
+        },
+        "auth": {
+          "type": [
+            "string",
+            "object",
+            "null"
+          ],
+          "default": {},
+          "properties": {
+            "username": {
+              "type": [
+                "string",
+                "string"
+              ],
+              "description": "Username to connect to web interface",
+              "title": "Username"
+            },
+            "password": {
+              "type": [
+                "string",
+                "string"
+              ],
+              "description": "Password to web interface",
+              "title": "Password"
+            }
+          },
+          "description": "Auth if defined",
+          "title": "Auth"
+        }
+      },
+      "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/web \n Web section of boneIO Black. It enables web interface. Default on port 8090.",
+      "title": "Web"
+    },
+    "logger": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "default": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "enum": [
+            "critical",
+            "error",
+            "warning",
+            "info",
+            "debug",
+            "CRITICAL",
+            "ERROR",
+            "WARNING",
+            "INFO",
+            "DEBUG"
+          ],
+          "examples": [
+            "critical"
+          ],
+          "description": "Module which you want logger to set. Default for app logger.",
+          "title": "Default"
+        },
+        "logs": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "description": "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO.",
+          "title": "Logs"
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",
+      "title": "Logger"
+    },
+    "oled": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "default": {},
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Disable builtin screen.",
+          "title": "Enabled"
+        },
+        "screens": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "default": [
+            "uptime",
+            "network",
+            "ina219",
+            "cpu",
+            "disk",
+            "memory",
+            "swap",
+            "outputs"
+          ],
+          "items": {
+            "enum": [
+              "uptime",
+              "network",
+              "ina219",
+              "cpu",
+              "disk",
+              "memory",
+              "swap",
+              "outputs",
+              "inputs",
+              "extra_sensors",
+              "web"
+            ],
+            "examples": [
+              "uptime"
+            ]
+          }
+        },
+        "extra_screen_sensors": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "sensor_type": {
+                "type": [
+                  "string",
+                  "string"
+                ],
+                "enum": [
+                  "modbus",
+                  "dallas"
+                ],
+                "examples": [
+                  "modbus"
+                ]
+              },
+              "modbus_id": {
+                "type": [
+                  "string",
+                  "string"
+                ],
+                "description": "Only needed if sensor type is modbus.",
+                "title": "Modbus id"
+              },
+              "sensor_id": {
+                "type": [
+                  "string",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "sensor_type",
+              "sensor_id"
+            ]
+          },
+          "description": "Extra sensors",
+          "title": "Extra screen sensors"
+        },
+        "screensaver_timeout": {
+          "type": [
+            "string",
+            "string",
+            "string"
+          ],
+          "default": "60s",
+          "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
+          "title": "Screensaver timeout"
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled screen. You'd need enabled: true to make it work.",
+      "title": "Oled"
+    },
+    "modbus": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "uart": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "enum": [
+            "uart1",
+            "uart2",
+            "uart3",
+            "uart4",
+            "uart5"
+          ],
+          "examples": [
+            "uart1"
+          ],
+          "description": "Uart ID to use",
+          "title": "Uart"
+        },
+        "baudrate": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 9600
+        },
+        "stopbits": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 1,
+          "enum": [
+            1,
+            2
+          ],
+          "examples": [
+            1
+          ]
+        },
+        "bytesize": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 8
+        },
+        "parity": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "default": "N",
+          "enum": [
+            "N",
+            "E",
+            "O"
+          ],
+          "examples": [
+            "N"
+          ]
+        }
+      },
+      "required": [
+        "uart"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
+      "title": "Modbus"
+    },
+    "modbus_sensors": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of Modbus sensor",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "string",
+              "integer"
+            ],
+            "description": "Address of Modbus sensor to use.",
+            "title": "Address"
+          },
+          "model": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "enum": [
+              "cwt",
+              "dts1964_3f",
+              "liquid-sensor",
+              "orno-or-we-517",
+              "pt100",
+              "r4dcb08",
+              "sdm120",
+              "sdm630",
+              "sht20",
+              "sht30",
+              "socomec_e03",
+              "socomec_e23",
+              "sofar"
+            ],
+            "examples": [
+              "cwt"
+            ],
+            "description": "Model to load from database.",
+            "title": "Model"
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "30s",
+            "description": "Update interval.",
+            "title": "Update interval"
+          },
+          "sensors_filters": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "temperature": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "default": [
+                  {
+                    "round": 2
+                  }
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ]
+                },
+                "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                "title": "Temperature"
+              },
+              "humidity": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "default": [
+                  {
+                    "round": 2
+                  }
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ]
+                },
+                "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                "title": "Humidity"
+              }
+            },
+            "description": "List of sub sensors to use to filter. Available values are temperature or humidity.",
+            "title": "Sensors filters"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "model"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use predefined modbus sensors. It would fetch data from them and publish to mqtt.",
+      "title": "Modbus sensors"
+    },
+    "lm75": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "default": 72,
+            "description": "Address of I2C",
+            "title": "Address"
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "filters": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          },
+          "unit_of_measurement": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "\u00b0C",
+            "enum": [
+              "\u00b0C",
+              "\u00b0F"
+            ],
+            "examples": [
+              "\u00b0C"
+            ]
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/lm75 \n LM75 Sensor list. All boneIO Black has one LM75 on board.",
+      "title": "Lm75"
+    },
+    "ina219": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "string",
+              "integer"
+            ],
+            "default": 64,
+            "description": "Address of I2C",
+            "title": "Address"
+          },
+          "sensors": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "id": "INA219 Current",
+                "device_class": "current"
+              },
+              {
+                "id": "INA219 Power",
+                "device_class": "power"
+              },
+              {
+                "id": "INA219 Voltage",
+                "device_class": "voltage"
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "string"
+                  ],
+                  "description": "Id of I2C to use in pin config",
+                  "title": "Id"
+                },
+                "device_class": {
+                  "type": [
+                    "string",
+                    "string"
+                  ],
+                  "enum": [
+                    "current",
+                    "power",
+                    "voltage"
+                  ],
+                  "examples": [
+                    "current"
+                  ]
+                },
+                "filters": {
+                  "type": [
+                    "string",
+                    "array"
+                  ],
+                  "default": [
+                    {
+                      "round": 2
+                    }
+                  ],
+                  "items": {
+                    "type": [
+                      "string",
+                      "object"
+                    ]
+                  },
+                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                  "title": "Filters"
+                }
+              }
+            }
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
+      "title": "Ina219"
+    },
+    "mcp9808": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "string",
+              "integer"
+            ],
+            "default": 24,
+            "description": "Address of I2C device",
+            "title": "Address"
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "filters": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          },
+          "unit_of_measurement": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "\u00b0C",
+            "enum": [
+              "\u00b0C",
+              "\u00b0F"
+            ],
+            "examples": [
+              "\u00b0C"
+            ]
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/mcp9808 \n MCP9808 Sensor list. Older boneIO Black had one MCP9808 instead of LM75on board, which measures temperature.",
+      "title": "Mcp9808"
+    },
+    "mcp23017": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          },
+          "init_sleep": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "0s",
+            "description": "How long to sleep for MCP to initialize.",
+            "title": "Init sleep"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/mcp23017 \n MCP23017 Pin config. All boneIO Black 32X10/Cover/Cover Mix/24x16 has two MCP23017 on board. If you use new boneio: section, then you don't need to define this.",
+      "title": "Mcp23017"
+    },
+    "pcf8575": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          },
+          "init_sleep": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "0s",
+            "description": "How long to sleep for PCF to initialize.",
+            "title": "Init sleep"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE.",
+      "title": "Pcf8575"
+    },
+    "pca9685": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          },
+          "init_sleep": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "0s",
+            "description": "How long to sleep for PCA to initialize.",
+            "title": "Init sleep"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/pca9685 \n PCA9685 Pin config.",
+      "title": "Pca9685"
+    },
+    "output": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Output ID",
+            "title": "Id"
+          },
+          "boneio_output": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Reference to predefined output configuration",
+            "title": "Boneio output"
+          },
+          "kind": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "enum": [
+              "gpio",
+              "mcp",
+              "pca",
+              "pcf"
+            ],
+            "examples": [
+              "gpio"
+            ],
+            "description": "Output kind (mcp, gpio, etc)",
+            "title": "Kind"
+          },
+          "mcp_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "MCP ID reference",
+            "title": "Mcp id"
+          },
+          "pca_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PCA ID to connect",
+            "title": "Pca id"
+          },
+          "pcf_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PCF ID to connect",
+            "title": "Pcf id"
+          },
+          "pin": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "Pin number",
+            "title": "Pin"
+          },
+          "momentary_turn_on": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
+            "title": "Momentary turn on"
+          },
+          "momentary_turn_off": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
+            "title": "Momentary turn off"
+          },
+          "restore_state": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
+            "title": "Restore state"
+          },
+          "percentage_default_brightness": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
+            "title": "Percentage default brightness"
+          },
+          "output_type": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "switch",
+            "enum": [
+              "switch",
+              "light",
+              "cover",
+              "none"
+            ],
+            "examples": [
+              "switch"
+            ],
+            "description": "If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
+            "title": "Output type"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
+      "title": "Output"
+    },
+    "output_group": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to send to use in HA and in GPIO Input. Default to `kind_pin`",
+            "title": "Id"
+          },
+          "outputs": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "description": "List of outputs.",
+            "title": "Outputs"
+          },
+          "all_on_behaviour": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Behaviour if set true toggle when all outputs are on, otherwise if any is on then group is on.",
+            "title": "All on behaviour"
+          },
+          "output_type": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "switch",
+            "enum": [
+              "switch",
+              "light"
+            ],
+            "examples": [
+              "switch"
+            ],
+            "description": "If HA discovery is used device if relay is light or switch.",
+            "title": "Output type"
+          }
+        },
+        "required": [
+          "outputs"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of groupes outputs to define. Output has to be defined first in output section!",
+      "title": "Output group"
+    },
+    "binary_sensor": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed. Default to pin number.",
+            "title": "Id"
+          },
+          "pin": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PIN to use.",
+            "title": "Pin"
+          },
+          "gpio_mode": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "gpio",
+            "enum": [
+              "gpio",
+              "gpio_pu",
+              "gpio_pd",
+              "gpio_input"
+            ],
+            "examples": [
+              "gpio"
+            ],
+            "description": "What mode to use in config PIN.",
+            "title": "Gpio mode"
+          },
+          "detection_type": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "new",
+            "enum": [
+              "new",
+              "old"
+            ],
+            "examples": [
+              "new"
+            ],
+            "description": "There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.",
+            "title": "Detection type"
+          },
+          "clear_message": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.",
+            "title": "Clear message"
+          },
+          "bounce_time": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "120ms",
+            "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
+            "title": "Bounce time"
+          },
+          "boneio_input": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Reference to predefined input configuration",
+            "title": "Boneio input"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "inverted": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Check if sensor type is inverted. Only aplicable for sensor kind.",
+            "title": "Inverted"
+          },
+          "initial_send": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "If set to true, then on startup of application initial status of the binary sensor will be send to MQTT.",
+            "title": "Initial send"
+          },
+          "device_class": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "enum": [
+              "battery",
+              "battery_charging",
+              "carbon_monoxide",
+              "cold",
+              "connectivity",
+              "door",
+              "garage_door",
+              "gas",
+              "heat",
+              "light",
+              "lock",
+              "moisture",
+              "motion",
+              "moving",
+              "occupancy",
+              "opening",
+              "plug",
+              "power",
+              "presence",
+              "problem",
+              "running",
+              "safety",
+              "smoke",
+              "sound",
+              "tamper",
+              "vibration",
+              "window"
+            ],
+            "examples": [
+              "battery"
+            ],
+            "description": "Device class to use in HA",
+            "title": "Device class"
+          },
+          "actions": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "pressed": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              },
+              "released": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "pin"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables binary sensors in HA. It detects press and release states. It can run action based on states. It always send message to MQTT broker of invoked state.",
+      "title": "Binary sensor"
+    },
+    "event": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed. Default to pin number.",
+            "title": "Id"
+          },
+          "pin": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PIN to use.",
+            "title": "Pin"
+          },
+          "gpio_mode": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "gpio",
+            "enum": [
+              "gpio",
+              "gpio_pu",
+              "gpio_pd",
+              "gpio_input"
+            ],
+            "examples": [
+              "gpio"
+            ],
+            "description": "What mode to use in config PIN.",
+            "title": "Gpio mode"
+          },
+          "detection_type": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "new",
+            "enum": [
+              "new",
+              "old"
+            ],
+            "examples": [
+              "new"
+            ],
+            "description": "There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.",
+            "title": "Detection type"
+          },
+          "clear_message": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.",
+            "title": "Clear message"
+          },
+          "bounce_time": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "30ms",
+            "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
+            "title": "Bounce time"
+          },
+          "boneio_input": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Reference to predefined input configuration",
+            "title": "Boneio input"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "inverted": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Check if sensor type is inverted. Only aplicable for sensor kind.",
+            "title": "Inverted"
+          },
+          "device_class": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "button",
+            "enum": [
+              "button",
+              "doorbell",
+              "motion"
+            ],
+            "examples": [
+              "button"
+            ],
+            "description": "Device class to use in HA",
+            "title": "Device class"
+          },
+          "actions": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "single": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              },
+              "double": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              },
+              "long": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "pin"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state.",
+      "title": "Event"
+    },
+    "adc": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed. Default to pin number.",
+            "title": "Id"
+          },
+          "pin": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "enum": [
+              "P9_33",
+              "P9_35",
+              "P9_36",
+              "P9_37",
+              "P9_38",
+              "P9_39",
+              "P9_40"
+            ],
+            "examples": [
+              "P9_33"
+            ],
+            "description": "PIN to use.",
+            "title": "Pin"
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "filters": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "multiply": 1.8
+              },
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          }
+        },
+        "required": [
+          "pin"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC sensors in HA. Don't let them hang without use.",
+      "title": "Adc"
+    },
+    "cover": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed.",
+            "title": "Id"
+          },
+          "restore_state": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Restore saved state of boneio.",
+            "title": "Restore state"
+          },
+          "open_relay": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "ID of open relay of output.",
+            "title": "Open relay"
+          },
+          "close_relay": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "ID of close relay of output.",
+            "title": "Close relay"
+          },
+          "open_time": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Time to open cover. Example 30s. Minimum is 1s.",
+            "title": "Open time"
+          },
+          "close_time": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Time to close cover. Example 30s. Minimum is 1s.",
+            "title": "Close time"
+          },
+          "device_class": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "enum": [
+              "awning",
+              "blind",
+              "curtain",
+              "damper",
+              "door",
+              "garage",
+              "gate",
+              "shade",
+              "shutter",
+              "window"
+            ],
+            "examples": [
+              "awning"
+            ],
+            "description": "Device class to use in HA",
+            "title": "Device class"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          }
+        },
+        "required": [
+          "id",
+          "open_relay",
+          "close_relay",
+          "open_time",
+          "close_time"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/cover \n Cover section of boneIO Black. It enables cover entities in HA. You'd need output config to use it first.",
+      "title": "Cover"
+    },
+    "ds2482": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": 24,
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/ds2482 \n DS2482 section of boneIO Black. It enables DS2482 1 wire extenders, which you can use in sensor: config.",
+      "title": "Ds2482"
+    },
+    "dallas": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Id of bus to use in sensor config.",
+          "title": "Id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/dallas \n Dallas section of boneIO Black. It enables Dallas bus in boneIO Black Kernel.",
+      "title": "Dallas"
+    },
+    "sensor": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed. Default to address.",
+            "title": "Id"
+          },
+          "platform": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "dallas",
+            "enum": [
+              "dallas"
+            ],
+            "examples": [
+              "dallas"
+            ],
+            "description": "Platform of sensor to use. Currently only Dallas platform is supported.",
+            "title": "Platform"
+          },
+          "address": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "Address of Dallas device",
+            "title": "Address"
+          },
+          "bus_id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.",
+            "title": "Bus id"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "filters": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "unit_of_measurement": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "\u00b0C",
+            "enum": [
+              "\u00b0C",
+              "\u00b0F"
+            ],
+            "examples": [
+              "\u00b0C"
+            ]
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.",
+      "title": "Sensor"
+    },
+    "boneio": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Name of boneio. Default is Black.",
+          "title": "Name"
+        },
+        "version": {
+          "type": [
+            "string",
+            "number",
+            "string"
+          ],
+          "description": "BoneIO Black Hardware version",
+          "title": "Version"
+        },
+        "device_type": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "description": "Predefined device type configuration",
+          "title": "Device type"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/boneio \n BoneIO configuration section. It's new section for boneIO Black. It enables you to use predefined device types. For now only 0.7 and 0.8 devices are supported.",
+      "title": "Boneio"
+    }
+  },
+  "required": [
+    "mqtt"
+  ]
+}

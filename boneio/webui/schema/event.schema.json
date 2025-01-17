@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "event": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id to use in HA if needed. Default to pin number.",
+            "title": "Id"
+          },
+          "pin": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "PIN to use.",
+            "title": "Pin"
+          },
+          "gpio_mode": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "gpio",
+            "enum": [
+              "gpio",
+              "gpio_pu",
+              "gpio_pd",
+              "gpio_input"
+            ],
+            "examples": [
+              "gpio"
+            ],
+            "description": "What mode to use in config PIN.",
+            "title": "Gpio mode"
+          },
+          "detection_type": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "new",
+            "enum": [
+              "new",
+              "old"
+            ],
+            "examples": [
+              "new"
+            ],
+            "description": "There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.",
+            "title": "Detection type"
+          },
+          "clear_message": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.",
+            "title": "Clear message"
+          },
+          "bounce_time": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "30ms",
+            "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
+            "title": "Bounce time"
+          },
+          "boneio_input": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Reference to predefined input configuration",
+            "title": "Boneio input"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "inverted": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Check if sensor type is inverted. Only aplicable for sensor kind.",
+            "title": "Inverted"
+          },
+          "device_class": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "button",
+            "enum": [
+              "button",
+              "doorbell",
+              "motion"
+            ],
+            "examples": [
+              "button"
+            ],
+            "description": "Device class to use in HA",
+            "title": "Device class"
+          },
+          "actions": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "single": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              },
+              "double": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              },
+              "long": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "enum": [
+                        "mqtt",
+                        "output",
+                        "cover"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "pin": {
+                      "type": [
+                        "string",
+                        "string"
+                      ]
+                    },
+                    "topic": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "action_output": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "pin"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state.",
+      "title": "Event"
+    }
+  }
+}

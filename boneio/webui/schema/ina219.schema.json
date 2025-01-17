@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ina219": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "string",
+              "string",
+              "integer"
+            ],
+            "default": 64,
+            "description": "Address of I2C",
+            "title": "Address"
+          },
+          "sensors": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "default": [
+              {
+                "id": "INA219 Current",
+                "device_class": "current"
+              },
+              {
+                "id": "INA219 Power",
+                "device_class": "power"
+              },
+              {
+                "id": "INA219 Voltage",
+                "device_class": "voltage"
+              }
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "string"
+                  ],
+                  "description": "Id of I2C to use in pin config",
+                  "title": "Id"
+                },
+                "device_class": {
+                  "type": [
+                    "string",
+                    "string"
+                  ],
+                  "enum": [
+                    "current",
+                    "power",
+                    "voltage"
+                  ],
+                  "examples": [
+                    "current"
+                  ]
+                },
+                "filters": {
+                  "type": [
+                    "string",
+                    "array"
+                  ],
+                  "default": [
+                    {
+                      "round": 2
+                    }
+                  ],
+                  "items": {
+                    "type": [
+                      "string",
+                      "object"
+                    ]
+                  },
+                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                  "title": "Filters"
+                }
+              }
+            }
+          },
+          "update_interval": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
+      "title": "Ina219"
+    }
+  }
+}

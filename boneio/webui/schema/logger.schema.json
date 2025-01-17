@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "logger": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "default": {
+          "type": [
+            "string",
+            "string"
+          ],
+          "enum": [
+            "critical",
+            "error",
+            "warning",
+            "info",
+            "debug",
+            "CRITICAL",
+            "ERROR",
+            "WARNING",
+            "INFO",
+            "DEBUG"
+          ],
+          "examples": [
+            "critical"
+          ],
+          "description": "Module which you want logger to set. Default for app logger.",
+          "title": "Default"
+        },
+        "logs": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "description": "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO.",
+          "title": "Logs"
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",
+      "title": "Logger"
+    }
+  }
+}
