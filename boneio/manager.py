@@ -187,7 +187,7 @@ class Manager:
             _name = _config.pop(ID)
             restore_state = _config.pop(RESTORE_STATE, False)
             _id = strip_accents(_name)
-            out = configure_relay(
+            out = configure_relay( #grouped_output updated here.
                 manager=self,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,

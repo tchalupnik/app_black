@@ -20,7 +20,7 @@ from boneio.helper import (
     setup_input,
 )
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
-from boneio.models import InputState, SensorState
+from boneio.models import InputState, OutputState, SensorState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -220,6 +220,8 @@ class Oled:
                         and self._current_screen in self._grouped_outputs
                     ):
                         self._draw_output(data, draw)
+                        for id in data.keys():
+                            self._event_bus.add_event_listener(event_type="output", entity_id=id, listener_id=f"oled_{self._current_screen}", target=self._output_callback)
                     elif self._current_screen == UPTIME:
                         self._draw_uptime(data, draw)
                         self._event_bus.add_event_listener(event_type="host", entity_id=f"{self._current_screen}_hoststats", listener_id=f"oled_{self._current_screen}", target=self._standard_callback)
@@ -242,14 +244,15 @@ class Oled:
                 point_in_time=utcnow() + self._sleep_timeout.as_timedelta,
             )
 
+    async def _output_callback(self, event: OutputState):
+        if self._grouped_outputs and self._current_screen in self._grouped_outputs:
+            self.handle_data_update(type=self._current_screen)
+
     async def _standard_callback(self, event: SensorState):
         self.handle_data_update(type=UPTIME)
 
     async def _input_callback(self, event: InputState):
         self.handle_data_update(type="inputs")
-
-    async def _output_callback(self, data):
-        self.handle_data_update(type="outputs")
 
     def handle_data_update(self, type: str):
         """Callback to handle new data present into screen."""
