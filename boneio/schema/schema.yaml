@@ -100,7 +100,7 @@ logger:
         coerce: lower  # Convert to lowercase for all values
         allowed: ['critical', 'error', 'warning', 'info', 'debug', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
       meta:
-        label: Each line suppose to have one python module name and logging level eg pymodbus.client: INFO.
+        label: "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO."
 
 oled:
   type: dict
