@@ -12,15 +12,15 @@ lm75:
   - id: temp
     address: 0x48
 
-mcp23017:
-  - id: mcp1
-    address: 0x20
-  - id: mcp2
-    address: 0x21
-
 event: !include event.yaml
 binary_sensor: !include binary_sensor.yaml
 
 output: !include output32x5A.yaml
+
+boneio:
+  name: "boneIO Black 32x10A"
+  version: 0.8
+  device_type: "32x10A"
+  
 
 # adc: !include adc.yaml Uncomment only if needed.
