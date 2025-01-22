@@ -12,7 +12,7 @@
                     "unit_of_measurement": "V",
                     "state_class": "measurement",
                     "device_class": "voltage",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Current",
@@ -20,7 +20,7 @@
                     "unit_of_measurement": "A",
                     "state_class": "measurement",
                     "device_class": "current",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Power",
@@ -28,28 +28,28 @@
                     "unit_of_measurement": "W",
                     "state_class": "measurement",
                     "device_class": "power",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Power_VA",
                     "address": 18,
                     "unit_of_measurement": "VA",
                     "state_class": "measurement",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Power_VAr",
                     "address": 24,
                     "unit_of_measurement": "var",
                     "state_class": "measurement",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Power_Factor",
                     "address": 30,
                     "unit_of_measurement": "%",
                     "state_class": "measurement",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 }
             ]
 
@@ -64,7 +64,7 @@
                     "address": 70,
                     "unit_of_measurement": "Hz",
                     "state_class": "measurement",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Import_Energy_kWh_Total",
@@ -72,7 +72,7 @@
                     "unit_of_measurement": "kWh",
                     "state_class": "total_increasing",
                     "device_class": "energy",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Export_Energy_kWh_Total",
@@ -80,21 +80,21 @@
                     "unit_of_measurement": "kWh",
                     "state_class": "total_increasing",
                     "device_class": "energy",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Import_Energy_kVArh_Total",
                     "address": 76,
                     "unit_of_measurement": "kvArh",
                     "state_class": "total_increasing",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "Export_Energy_kVArh_Total",
                     "address": 78,
                     "unit_of_measurement": "kvArh",
                     "state_class": "total_increasing",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 }
             ]
         },
@@ -109,7 +109,7 @@
                     "unit_of_measurement": "kWh",
                     "state_class": "total_increasing",
                     "device_class": "energy",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 },
                 {
                     "name": "kvarh_Total",
@@ -117,7 +117,7 @@
                     "unit_of_measurement": "kWh",
                     "state_class": "total_increasing",
                     "device_class": "energy",
-                    "return_type": "FP32"
+                    "value_type": "FP32"
                 }
             ]
         }

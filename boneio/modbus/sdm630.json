@@ -12,7 +12,7 @@
           "unit_of_measurement": "V",
           "state_class": "measurement",
           "device_class": "voltage",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Voltage_Phase2",
@@ -20,7 +20,7 @@
           "unit_of_measurement": "V",
           "state_class": "measurement",
           "device_class": "voltage",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Voltage_Phase3",
@@ -28,7 +28,7 @@
           "unit_of_measurement": "V",
           "state_class": "measurement",
           "device_class": "voltage",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Current_Phase1",
@@ -36,7 +36,7 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Current_Phase2",
@@ -44,7 +44,7 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Current_Phase3",
@@ -52,7 +52,7 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_Phase1",
@@ -60,7 +60,7 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "device_class": "power",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_Phase2",
@@ -68,7 +68,7 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "device_class": "power",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_Phase3",
@@ -76,98 +76,98 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "device_class": "power",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_VA_Phase1",
           "address": 18,
           "unit_of_measurement": "VA",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_VA_Phase2",
           "address": 20,
           "unit_of_measurement": "VA",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_VA_Phase2",
           "address": 22,
           "unit_of_measurement": "VA",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_VAr_Phase1",
           "address": 24,
           "unit_of_measurement": "var",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_VAr_Phase2",
           "address": 26,
           "unit_of_measurement": "var",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_VAr_Phase3",
           "address": 28,
           "unit_of_measurement": "var",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_Factor_Phase1",
           "address": 30,
           "unit_of_measurement": "%",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_Factor_Phase2",
           "address": 32,
           "unit_of_measurement": "%",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Power_Factor_Phase3",
           "address": 34,
           "unit_of_measurement": "%",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Phase_Angle_Phase1",
           "address": 36,
           "unit_of_measurement": "°",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Phase_Angle_Phase2",
           "address": 38,
           "unit_of_measurement": "°",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Phase_Angle_Phase3",
           "address": 40,
           "unit_of_measurement": "°",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Line_to_Neutral_AVG_Volts",
           "address": 42,
           "unit_of_measurement": "V",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "AVG_Current",
@@ -175,7 +175,7 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Sum_Current",
@@ -183,7 +183,7 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Sum_Current",
@@ -191,7 +191,7 @@
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Total_Power_Watt",
@@ -199,14 +199,14 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "device_class": "power",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Total_Power_VA",
           "address": 56,
           "unit_of_measurement": "VA",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         }
       ]
     },
@@ -220,28 +220,28 @@
           "address": 60,
           "unit_of_measurement": "var",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "System_Power_Factor_Total",
           "address": 62,
           "unit_of_measurement": "%",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "System_PhaseAngle",
           "address": 66,
           "unit_of_measurement": "°",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Frequency",
           "address": 70,
           "unit_of_measurement": "Hz",
           "state_class": "measurement",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Import_Energy_kWh_Total",
@@ -249,7 +249,7 @@
           "unit_of_measurement": "kWh",
           "state_class": "total_increasing",
           "device_class": "energy",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Export_Energy_kWh_Total",
@@ -257,21 +257,21 @@
           "unit_of_measurement": "kWh",
           "state_class": "total_increasing",
           "device_class": "energy",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Import_Energy_kVArh_Total",
           "address": 76,
           "unit_of_measurement": "kvArh",
           "state_class": "total_increasing",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "Export_Energy_kVArh_Total",
           "address": 78,
           "unit_of_measurement": "kvArh",
           "state_class": "total_increasing",
-          "return_type": "FP32"
+          "value_type": "FP32"
         }
       ]
     },
@@ -285,7 +285,7 @@
           "unit_of_measurement": "kWh",
           "state_class": "total_increasing",
           "device_class": "energy",
-          "return_type": "FP32"
+          "value_type": "FP32"
         },
         {
           "name": "kvarh_Total",
@@ -293,7 +293,7 @@
           "unit_of_measurement": "kWh",
           "state_class": "total_increasing",
           "device_class": "energy",
-          "return_type": "FP32"
+          "value_type": "FP32"
         }
       ]
     }
