@@ -595,6 +595,9 @@ binary_sensor:
       boneio_input:
         type: string
         required: False
+        coerce:
+          - str
+          - lower
         meta:
           label: Reference to predefined input configuration
       show_in_ha:
@@ -707,6 +710,9 @@ event:
       boneio_input:
         type: string
         required: False
+        coerce:
+          - str
+          - lower
         meta:
           label: Reference to predefined input configuration
       show_in_ha:
@@ -927,7 +933,7 @@ boneio:
     device_type:
       type: string
       required: False
-      allowed: ['32x10A', '32x10', '32', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm']
+      allowed: ['32x10A', '32x10', '32', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '24x16a']
       coerce:
         - str
         - lower

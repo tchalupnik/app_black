@@ -262,7 +262,7 @@ def merge_board_config(config: dict) -> dict:
                         f"Input mapping '{input['boneio_input']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
-                input.update({k: v for k, v in mapped_input.items() if k not in input})
+                input.update({k: v for k, v in mapped_input.items()})
 
         for input in config.get("binary_sensor", []):
             if "boneio_input" in input:
@@ -273,7 +273,7 @@ def merge_board_config(config: dict) -> dict:
                         f"Input mapping '{input['boneio_input']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
-                input.update({k: v for k, v in mapped_input.items() if k not in input})
+                input.update({k: v for k, v in mapped_input.items()})
 
 
     return config
@@ -492,7 +492,13 @@ def load_config_from_string(config_str: str) -> dict:
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
 
-    if not v.validate(config_str):
+    # First normalize the document
+    doc = v.normalized(config_str, always_return_document=True)
+    # Then merge board config
+    merged_doc = merge_board_config(doc)
+    
+    # Finally validate
+    if not v.validate(merged_doc):
         error_msg = "Configuration validation failed:\n"
         for field, errors in v.errors.items():
             error_lines = []
@@ -503,8 +509,8 @@ def load_config_from_string(config_str: str) -> dict:
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
         raise ConfigurationException(error_msg)
-    doc = v.normalized(v.document, always_return_document=True)
-    return merge_board_config(doc)
+    
+    return merged_doc
 
 
 def load_config_from_file(config_file: str):
