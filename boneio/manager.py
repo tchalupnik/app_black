@@ -728,6 +728,14 @@ class Manager:
             action = action_definition.get("action")
             action_output = action_definition.get("action_output")
             action_cover = action_definition.get("action_cover")
+            if action == MQTT:
+                action_topic = action_definition.get(TOPIC)
+                action_payload = action_definition.get("action_mqtt_msg")
+                if action_topic and action_payload:
+                    self.send_message(
+                        topic=action_topic, payload=action_payload, retain=False
+                    )
+                continue
             output, action = self.get_output_and_action(
                 device_id=device_id,
                 action=action,
@@ -740,13 +748,6 @@ class Manager:
                 )
                 _f = getattr(output, action)
                 await _f()
-            elif action == MQTT:
-                action_topic = action_definition.get(TOPIC)
-                action_payload = action_definition.get("action_mqtt_msg")
-                if action_topic and action_payload:
-                    self.send_message(
-                        topic=action_topic, payload=action_payload, retain=False
-                    )
             else:
                 if not action:
                     _LOGGER.warning(
