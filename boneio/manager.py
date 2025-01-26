@@ -778,13 +778,17 @@ class Manager:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
         if topic.startswith(
-            f"{self._config_helper.topic_prefix}/status"
+            f"{self._config_helper.ha_discovery_prefix}/status"
         ):
             if message == ONLINE:
                 self.resend_autodiscovery()
                 self._event_bus.signal_ha_online()
             return
-        assert topic.startswith(self._config_helper.cmd_topic_prefix)
+        try:
+            assert topic.startswith(self._config_helper.cmd_topic_prefix)
+        except AssertionError as err:
+            _LOGGER.error("Wrong topic %s. Error %s", topic, err)
+            return
         topic_parts_raw = topic[
             len(self._config_helper.cmd_topic_prefix) :
         ].split("/")
