@@ -19,10 +19,10 @@ from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from boneio.const import OFFLINE, PAHO, STATE
-from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
 from boneio.helper.message_bus import MessageBus
+from boneio.helper.queue import UniqueQueue
 from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ class MQTTClient(MessageBus):
                     await self._subscribe_manager(self._manager)
                 except MqttError as err:
                     self.reconnect_interval = min(
-                        self.reconnect_interval * 2, 600
+                        self.reconnect_interval * 2, 60
                     )
                     _LOGGER.error(
                         "MQTT error: %s. Reconnecting in %s seconds",
@@ -182,6 +182,7 @@ class MQTTClient(MessageBus):
                         self.reconnect_interval,
                     )
                     self._connection_established = False
+                    self.publish_queue.set_connected(False)
                     await asyncio.sleep(self.reconnect_interval)
                     self.create_client()  # reset connect/reconnect futures
         except (asyncio.CancelledError, GracefulExit):
@@ -194,21 +195,19 @@ class MQTTClient(MessageBus):
 
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
-        # Create a new future for this run
-        self._cancel_future = asyncio.Future()
-        
-        async def wait_for_cancel():
-            await self._cancel_future
-            # When future completes, raise CancelledError to stop other tasks
-            raise asyncio.CancelledError("Stop requested")
-        
         async with AsyncExitStack() as stack:
-            tasks: Set[asyncio.Task] = set()
-
-            # Connect to the MQTT broker.
             await stack.enter_async_context(self.asyncio_client)
-            # Reset the reconnect interval after successful connection.
-            self.reconnect_interval = 1
+            self._connection_established = True
+            self.publish_queue.set_connected(True)
+            # Create a new future for this run
+            self._cancel_future = asyncio.Future()
+            
+            async def wait_for_cancel():
+                await self._cancel_future
+                # When future completes, raise CancelledError to stop other tasks
+                raise asyncio.CancelledError("Stop requested")
+            
+            tasks: Set[asyncio.Task] = set()
 
             publish_task = asyncio.create_task(self._handle_publish())
             tasks.add(publish_task)
