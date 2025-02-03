@@ -15,7 +15,7 @@ lm75:
 event: !include event.yaml
 binary_sensor: !include binary_sensor.yaml
 
-output: !include output32x5A.yaml
+output: !include output32x10A_new.yaml
 
 boneio:
   name: "boneIO Black 32x10A"
