@@ -275,7 +275,16 @@ def merge_board_config(config: dict) -> dict:
                 # Merge mapped output with user config, preserving user-specified values
                 input.update({k: v for k, v in mapped_input.items()})
 
-
+    elif "cover" in board_name:
+        _LOGGER.debug("Cover config detected without outputs config.")
+        output_mapping = board_config.get("output_mapping", {})
+        config["output"] = []
+        for key, value in output_mapping.items():
+            config["output"].append(
+                {
+                    "id": key,
+                    **value
+                })
     return config
 
 
@@ -336,7 +345,7 @@ class CustomValidator(Validator):
         """Validate that a field is required if a condition is met.
         
         The rule's arguments are validated against this schema:
-        {'type': 'dict'}
+        {'type' : 'dict'}
         """
         if not required_if:
             return

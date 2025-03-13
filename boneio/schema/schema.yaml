@@ -1,6 +1,6 @@
 mqtt:
   type: dict
-  required: True
+  required: False
   meta:
     label: "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system."
   schema:

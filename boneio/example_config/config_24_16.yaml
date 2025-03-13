@@ -1,0 +1,28 @@
+mqtt:
+  host: hostname
+  username: mqtt
+  password: password
+  topic_prefix: boneiohome
+  ha_discovery:
+    enabled: yes
+
+oled:
+  enabled: yes
+
+lm75:
+  - id: temp
+    address: 0x48
+
+mcp23017:
+  - id: mcp1
+    address: 0x20
+  - id: mcp2
+    address: 0x21
+
+event: !include event.yaml
+binary_sensor: !include binary_sensor.yaml
+
+output: !include output24x16A.yaml
+  
+
+# adc: !include adc.yaml Uncomment only if needed.
