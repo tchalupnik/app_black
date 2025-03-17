@@ -32,6 +32,11 @@ class MessageBus(ABC):
         """Set manager."""
         pass
 
+    @abstractmethod
+    async def announce_offline(self) -> None:
+        """Announce that the device is offline."""
+        pass
+
 class LocalMessageBus(MessageBus):
     """Local message bus that doesn't use MQTT."""
     
@@ -81,3 +86,7 @@ class LocalMessageBus(MessageBus):
     def set_manager(self, manager: Manager) -> None:
         """Set manager."""
         self._manager = manager
+
+    async def announce_offline(self) -> None:
+        """Announce that the device is offline."""
+        pass

@@ -184,6 +184,7 @@ async def async_run(
 
         if shutdown_event.is_set():
             _LOGGER.info("Starting graceful shutdown...")
+            await message_bus.announce_offline()
             main_gather.cancel()
             try:
                 await main_gather

@@ -166,6 +166,14 @@ class MQTTClient(MessageBus):
             await self.publish(*to_publish)
             self.publish_queue.task_done()
 
+    async def announce_offline(self) -> None:
+        """Announce that the device is offline."""
+        await self.publish(
+            topic=f"{self._config_helper.topic_prefix}/{STATE}",
+            payload=OFFLINE,
+            retain=True,
+        )
+
     async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
         try:
@@ -186,6 +194,7 @@ class MQTTClient(MessageBus):
                     await asyncio.sleep(self.reconnect_interval)
                     self.create_client()  # reset connect/reconnect futures
         except (asyncio.CancelledError, GracefulExit):
+            _LOGGER.info("MQTT client shutting down...")
             await self.asyncio_client.disconnect(timeout=1.0)
             # raise
 
@@ -197,7 +206,6 @@ class MQTTClient(MessageBus):
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(self.asyncio_client)
-            self._connection_established = True
             self.publish_queue.set_connected(True)
             # Create a new future for this run
             self._cancel_future = asyncio.Future()
