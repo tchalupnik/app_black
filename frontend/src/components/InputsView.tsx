@@ -11,7 +11,7 @@ const InputItem = memo(({ input, isGrid }: {
   isGrid: boolean;
 }) => (
   <div
-    className={`bg-secondary shadow rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
+    className={`bg-secondary shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
   >
     <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
       <div>

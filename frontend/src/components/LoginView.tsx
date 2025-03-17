@@ -38,7 +38,7 @@ export default function LoginView() {
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-xs -space-y-px">
             <div className='my-4'>
               <label htmlFor="username" className="sr-only">
                 Username

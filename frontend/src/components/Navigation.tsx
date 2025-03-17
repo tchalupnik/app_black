@@ -51,7 +51,7 @@ export default function Navigation() {
           </svg>
         </label>
       </div>
-      <div className="flex-1">
+      <div className="flex-1 flex items-center">
         <a className="normal-case text-xl lg:mx-2">
           <Logo />
         </a>
@@ -71,7 +71,7 @@ export default function Navigation() {
         </div>
       </div>
       <Menu />
-      <div className="flex-none lg:gap-2">
+      <div className="flex lg:gap-2">
         <ThemeChanger />
         {isAuthenticated && (
           <button

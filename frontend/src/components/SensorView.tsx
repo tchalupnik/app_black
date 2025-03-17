@@ -10,7 +10,7 @@ const SensorItem = memo(({ sensor, isGrid }: {
   isGrid: boolean;
 }) => (
   <div
-    className={`bg-secondary shadow rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-emerald-500`}
+    className={`bg-secondary shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-emerald-500`}
   >
     <div className={`flex ${isGrid ? 'justify-between items-start' : 'justify-between items-start'}`}>
       <div>
