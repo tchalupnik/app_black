@@ -154,6 +154,10 @@ def load_yaml_file(filename: str) -> Any:
         except YAMLError as exception:
             msg = ""
             if hasattr(exception, "problem_mark"):
+                if exception.context is not None:
+                    msg+= ('  parser says\n' + str(exception.problem_mark) + '\n  ' +
+                        str(exception.problem) + ' ' + str(exception.context) +
+                        '\nPlease correct data and retry.')
                 mark = exception.problem_mark
                 msg = f" at line {mark.line + 1} column {mark.column + 1}"
             raise ConfigurationException(f"Error loading yaml{msg}") from exception
@@ -213,13 +217,31 @@ def normalize_board_name(name: str) -> str:
     return name
 
 
+def normalize_version(version: str) -> str:
+    """Normalize version to major.minor format.
+    
+    Examples:
+        0.7.1 -> 0.7
+        0.8.2 -> 0.8
+        0.9   -> 0.9
+    """
+    if not version:
+        return version
+    
+    # Split by dot and take only the first two parts (major.minor)
+    parts = version.split('.')
+    if len(parts) >= 2:
+        return f"{parts[0]}.{parts[1]}"
+    return version
+
+
 def merge_board_config(config: dict) -> dict:
     """Merge predefined board configuration with user config."""
     if not config.get("boneio", {}).get("device_type"):
         return config
 
     board_name = normalize_board_name(config["boneio"]["device_type"])
-    version = config["boneio"]["version"]
+    version = normalize_version(config["boneio"]["version"])
     
     try:
         board_file = get_board_config_path(f"output_{board_name}", version)
@@ -232,14 +254,22 @@ def merge_board_config(config: dict) -> dict:
         raise ConfigurationException(
             f"Board configuration for {board_name} version {version} not found"
         )
+    _LOGGER.debug(f"Loaded board configuration: {board_name}")
 
     # Copy MCP configuration if not already defined
     if "mcp23017" not in config and "mcp23017" in board_config:
         config["mcp23017"] = board_config["mcp23017"]
 
     # Process outputs
+    if board_name == "cover" and "output" not in config:
+        output_mapping = board_config.get("output_mapping", {})
+        config["output"] = []
+        for boneio_output, mapped_output in output_mapping.items():
+            output = {"id": boneio_output, **mapped_output}
+            config["output"].append(output)
     if "output" in config:
         output_mapping = board_config.get("output_mapping", {})
+        print(output_mapping)
         for output in config["output"]:
             if "boneio_output" in output:
                 boneio_output = output["boneio_output"].lower()
@@ -274,17 +304,6 @@ def merge_board_config(config: dict) -> dict:
                     )
                 # Merge mapped output with user config, preserving user-specified values
                 input.update({k: v for k, v in mapped_input.items()})
-
-    elif "cover" in board_name:
-        _LOGGER.debug("Cover config detected without outputs config.")
-        output_mapping = board_config.get("output_mapping", {})
-        config["output"] = []
-        for key, value in output_mapping.items():
-            config["output"].append(
-                {
-                    "id": key,
-                    **value
-                })
     return config
 
 

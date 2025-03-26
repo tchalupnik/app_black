@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Callable
 
 from boneio.const import (
@@ -19,6 +20,7 @@ from boneio.const import (
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.timeperiod import TimePeriod
+from boneio.models import CoverState
 from boneio.relay import MCPRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,6 +82,7 @@ class Cover(BasicMqtt):
         self._requested_closing = True
         self._event_bus = event_bus
         self._timer_handle = None
+        self._last_timestamp = 0.0
         if self._position is None:
             self._closed = True
         else:
@@ -120,7 +123,7 @@ class Cover(BasicMqtt):
         self._stop_cover(on_exit=True)
 
     @property
-    def cover_state(self) -> str:
+    def state(self) -> str:
         """Current state of cover."""
         return CLOSED if self._closed else OPEN
 
@@ -130,10 +133,30 @@ class Cover(BasicMqtt):
         if self._current_operation != IDLE:
             self._stop_cover(on_exit=False)
 
+    async def async_stop(self) -> None:
+        """Public Stop cover graceful."""
+        _LOGGER.info("Stopping cover %s.", self._id)
+        if self._current_operation != IDLE:
+            self._stop_cover(on_exit=False)
+        await self.async_send_state()
+
+    async def async_send_state(self) -> None:
+        """Send state to Websocket on action asynchronously."""
+        self._last_timestamp = time.time()
+        event = CoverState(
+            id=self.id,
+            name=self.name,
+            state=self.state,
+            position=round(self._position, 0),
+            timestamp=self.last_timestamp,
+            current_operation=self._current_operation,
+        )
+        await self._event_bus.async_trigger_event(event_type="cover", entity_id=self.id, event=event)
+
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
         self._send_message(
-            topic=f"{self._send_topic}/state", payload=self.cover_state
+            topic=f"{self._send_topic}/state", payload=self.state
         )
         pos = round(self._position, 0)
         self._send_message(topic=f"{self._send_topic}/pos", payload=str(pos))
@@ -184,6 +207,7 @@ class Cover(BasicMqtt):
             elif rounded_pos < 0:
                 rounded_pos = 0
         self._send_message(topic=f"{self._send_topic}/pos", payload=rounded_pos)
+        asyncio.create_task(self.async_send_state())
         if rounded_pos == self._set_position or (
             self._set_position is None
             and (rounded_pos >= 100 or rounded_pos <= 0)
@@ -249,31 +273,43 @@ class Cover(BasicMqtt):
             current_operation=current_operation,
         )
 
-    def open(self) -> None:
+    async def open(self) -> None:
         _LOGGER.debug("Opening cover %s.", self._id)
-        asyncio.create_task(self.open_cover())
+        await self.open_cover()
 
-    def close(self) -> None:
+    async def close(self) -> None:
         _LOGGER.debug("Closing cover %s.", self._id)
-        asyncio.create_task(self.close_cover())
+        await self.close_cover()
 
-    def toggle(self) -> None:
+    async def toggle(self) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self._id)
-        if self.cover_state == CLOSED:
-            self.close()
+        if self.state == CLOSED:
+            await self.close()
         else:
-            self.open()
+            await self.open()
 
-    def toggle_open(self) -> None:
+    async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
         if self._current_operation != IDLE:
-            self.stop()
+            await self.async_stop()
         else:
-            self.open()
+            await self.open()
 
-    def toggle_close(self) -> None:
+    async def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
         if self._current_operation != IDLE:
-            self.stop()
+            await self.async_stop()
         else:
-            self.close()
+            await self.close()
+
+    @property
+    def last_timestamp(self) -> float:
+        return self._last_timestamp
+
+    @property
+    def position(self) -> int:
+        return round(self._position, 0)
+
+    @property
+    def current_operation(self) -> str:
+        return self._current_operation

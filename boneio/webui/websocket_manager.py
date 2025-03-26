@@ -6,7 +6,7 @@ from typing import Any, List
 from jose import jwt
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
-from boneio.models import InputState, OutputState, SensorState, StateUpdate
+from boneio.models import CoverState, InputState, OutputState, SensorState, StateUpdate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class WebSocketManager:
         async with self._lock:
             for connection in self.active_connections[:]:
                 try:
-                    if isinstance(data, (InputState, OutputState, SensorState)):
+                    if isinstance(data, (InputState, OutputState, SensorState, CoverState)):
                         update = StateUpdate(type=state_type, data=data)
                         await connection.send_json(update.dict())
                 except WebSocketDisconnect:

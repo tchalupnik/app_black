@@ -89,6 +89,7 @@ class EventBus:
         self._event_listeners = {
             "input": {},
             "output": {},
+            "cover": {},
             "modbus_sensor": {},
             "sensor": {},
             "host": {}

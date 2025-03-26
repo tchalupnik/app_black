@@ -8,7 +8,7 @@ import SensorView from './components/SensorView';
 import HelpView from './components/HelpView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
-import { useWebSocket, StateUpdate } from './hooks/useWebSocket';
+import { useWebSocket, StateUpdate, isCoverState } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
@@ -17,10 +17,12 @@ export const WebSocketContext = createContext<{
   outputs: StateUpdate['data'][];
   inputs: StateUpdate['data'][];
   sensors: StateUpdate['data'][];
+  covers: StateUpdate['data'][];
 }>({
   outputs: [],
   inputs: [],
   sensors: [],
+  covers: [],
 });
 
 // Protected route component
@@ -43,6 +45,7 @@ function AppContent() {
   const [outputs, setOutputs] = useState<StateUpdate['data'][]>([]);
   const [inputs, setInputs] = useState<StateUpdate['data'][]>([]);
   const [sensors, setSensors] = useState<StateUpdate['data'][]>([]);
+  const [covers, setCovers] = useState<StateUpdate['data'][]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
   const { isApiAvailable } = useApiAvailability();
   const { error, addMessageListener } = useWebSocket();
@@ -55,6 +58,7 @@ function AppContent() {
       setOutputs([]);
       setInputs([]);
       setSensors([]);
+      setCovers([]);
       return;
     }
 
@@ -103,6 +107,23 @@ function AppContent() {
             }
             return [...prev, message.data];
           });
+        } else if (message.type === 'cover') {
+          setCovers(prev => {
+            const index = prev.findIndex(c => c.name === message.data.name);
+            if (index >= 0) {
+              const prevCover = prev[index];
+              if (isCoverState(prevCover) && isCoverState(message.data) && 
+                  prevCover.state === message.data.state && 
+                  prevCover.position === message.data.position && 
+                  prevCover.current_operation === message.data.current_operation) {
+                return prev; // No change needed
+              }
+              const newCovers = [...prev];
+              newCovers[index] = message.data;
+              return newCovers;
+            }
+            return [...prev, message.data];
+          });
         }
       });
 
@@ -121,7 +142,7 @@ function AppContent() {
   }
 
   return (
-    <WebSocketContext.Provider value={{ outputs, inputs, sensors }}>
+    <WebSocketContext.Provider value={{ outputs, inputs, sensors, covers }}>
       <Routes>
         <Route path="/" element={
           <ProtectedRoute>

@@ -1,12 +1,13 @@
-import { useState, useContext, memo } from 'react';
+import { useState, useContext, memo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
-import { FaLightbulb, } from 'react-icons/fa';
+import { FaLightbulb, FaArrowUp, FaArrowDown, FaStop } from 'react-icons/fa';
 import { RiOutletLine } from "react-icons/ri";
+import { MdBlindsClosed, MdBlinds } from "react-icons/md";
 
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
-import { isIOState } from '../hooks/useWebSocket';
+import { isIOState, isCoverState } from '../hooks/useWebSocket';
 
 // Separate component for individual output
 const OutputItem = memo(({ output, onToggle, isGrid, error }: {
@@ -15,6 +16,9 @@ const OutputItem = memo(({ output, onToggle, isGrid, error }: {
   isGrid: boolean;
   error: string | null;
 }) => {
+  if (output.type == "cover" || output.type == "none") {
+    return <></>;
+  }
   const Icon = output.type === 'switch' ? RiOutletLine : FaLightbulb;
   return (
   <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
@@ -45,9 +49,115 @@ const OutputItem = memo(({ output, onToggle, isGrid, error }: {
   </div>
 )});
 
+const CoverItem = memo(({ cover, action, isGrid, error }: {
+  cover: { name: string; state: string; position: number; current_operation: string; timestamp?: number };
+  action: (name: string, action: string) => void;
+  isGrid: boolean;
+  error: string | null;
+}) => {
+  const Icon = cover.state === 'open' ? MdBlinds : MdBlindsClosed;
+  const [sliderPosition, setSliderPosition] = useState<number>(cover.position);
+  const [isSliderActive, setIsSliderActive] = useState<boolean>(false);
+  
+  // Update slider position when cover position changes (if not actively sliding)
+  useEffect(() => {
+    if (!isSliderActive) {
+      setSliderPosition(cover.position);
+    }
+  }, [cover.position, isSliderActive]);
+  
+  // Debounce function for setting position
+  const debouncedSetPosition = useCallback(() => {
+    const timer = setTimeout(() => {
+      if (sliderPosition !== cover.position) {
+        axios.post(`/api/covers/${cover.name}/set_position`, { position: sliderPosition })
+          .catch(error => console.error('Error setting cover position:', error));
+      }
+      setIsSliderActive(false);
+    }, 300); // 0.3 second debounce
+    
+    return () => clearTimeout(timer);
+  }, [sliderPosition, cover.name, cover.position]);
+  
+  // Set up debounce effect
+  useEffect(() => {
+    if (isSliderActive) {
+      return debouncedSetPosition();
+    }
+  }, [isSliderActive, sliderPosition, debouncedSetPosition]);
+  
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPosition = parseInt(e.target.value, 10);
+    setSliderPosition(newPosition);
+    setIsSliderActive(true);
+  };
+  
+  return (
+  <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
+    <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
+      <Icon className={`text-xl ${cover.state === 'open' ? 'text-yellow-400' : 'text-gray-400'}`} />
+      <span className="text-lg">{cover.name}</span>
+      <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">
+        {cover.current_operation || 'idle'} {cover.position !== undefined ? `(${cover.position}%)` : ''}
+      </span>
+    </div>
+    <div className={`${isGrid ? 'mt-3' : 'flex flex-col items-end gap-2'}`}>
+      <div className="flex gap-2">
+        <button 
+          className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => action(cover.name, 'open')}
+          disabled={error !== null || cover.current_operation === 'opening' || (cover.state === 'open' && cover.position === 100)}
+        >
+          <FaArrowUp />
+        </button>
+        <button 
+          className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => action(cover.name, 'stop')}
+          disabled={error !== null || cover.current_operation === 'idle'}
+        >
+          <FaStop />
+        </button>
+        <button 
+          className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => action(cover.name, 'close')}
+          disabled={error !== null || cover.current_operation === 'closing' || (cover.state === 'closed' && cover.position === 0)}
+        >
+          <FaArrowDown />
+        </button>
+      </div>
+      
+      <div className="w-full mt-3 bg-secondary p-2 rounded-lg">
+        <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <span>0%</span>
+          <span>100%</span>
+        </div>
+        <div className="relative pt-1">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={sliderPosition}
+            onChange={handleSliderChange}
+            disabled={error !== null || cover.current_operation !== 'idle'}
+            className="range range-sm range-primary [--range-bg:orange] [--range-thumb:blue]"
+          />
+        </div>
+        <div className="flex justify-between text-xs text-gray-500 my-1">
+          <span>Close</span>
+          <span>Open</span>
+        </div>
+      </div>
+      
+      <p className="text-gray-500 text-xs mt-2">
+        {formatTimestamp(cover.timestamp)}
+      </p>
+    </div>
+  </div>
+)});
+
 export default function OutputsView({error}: {error: string | null}) {
   const [outputError, setError] = useState<string | null>(null);
-  const { outputs } = useContext(WebSocketContext);
+  const { outputs, covers } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
@@ -67,6 +177,16 @@ export default function OutputsView({error}: {error: string | null}) {
     } catch (error) {
       console.error('Error toggling output:', error);
       setError('Failed to toggle output');
+    }
+  };
+
+  const actionCover = async (name: string, action: string) => {
+    try {
+      await axios.post(`/api/covers/${name}/action`, { action });
+      setError(null);
+    } catch (error) {
+      console.error('Error controlling cover:', error);
+      setError('Failed to control cover');
     }
   };
 
@@ -91,6 +211,20 @@ export default function OutputsView({error}: {error: string | null}) {
                 key={output.name}
                 output={output}
                 onToggle={toggleOutput}
+                isGrid={isGrid}
+                error={error}
+              />
+            ))}
+          </div>
+          <div className={isGrid 
+            ? "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            : "flex flex-col gap-4"
+          }>
+            {covers.filter(cover => isCoverState(cover)).map((cover) => (
+              <CoverItem 
+                key={cover.name}
+                cover={cover as { name: string; state: string; position: number; current_operation: string; timestamp?: number }}
+                action={actionCover}
                 isGrid={isGrid}
                 error={error}
               />

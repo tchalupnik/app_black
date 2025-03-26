@@ -25,18 +25,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
+from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
+from boneio.const import COVER, NONE
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.manager import Manager
 from boneio.models import (
+    CoverState,
     InputState,
     OutputState,
     SensorState,
@@ -48,6 +51,14 @@ from boneio.version import __version__
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class CoverAction(BaseModel):
+    action: str
+
+
+class CoverPosition(BaseModel):
+    position: int
 
 
 class BoneIOApp(FastAPI):
@@ -322,7 +333,7 @@ async def get_systemd_logs(since: str = "-15m") -> List[LogEntry]:
     if stderr:
         _LOGGER.error(f"Error getting systemd logs: {stderr.decode()}")
     if not stdout.strip():
-        _LOGGER.warning("No logs found")
+        # _LOGGER.warning("No logs found")
         return []
     raw_log = json.loads(b'[' + stdout.replace(b'\n', b',')[:-1] + b']')
 
@@ -427,13 +438,13 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
     try:
         # Try systemd logs first if running as service
         if is_running_as_service():
-            _LOGGER.debug("Fetching from systemd journal...")
+            # _LOGGER.debug("Fetching from systemd journal...")
             log_entries = await get_systemd_logs(since)
             if log_entries:
                 return LogsResponse(logs=log_entries)
 
         # Fall back to standalone logs
-        _LOGGER.debug("Fetching from standalone log file...")
+        # _LOGGER.debug("Fetching from standalone log file...")
         log_entries = get_standalone_logs(since, limit)
         if log_entries:
             return LogsResponse(logs=log_entries)
@@ -459,9 +470,46 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
     """Toggle output state."""
     if output_id not in manager.outputs:
         raise HTTPException(status_code=404, detail="Output not found")
-    await manager.toggle_output(output_id=output_id)
+    status = await manager.toggle_output(output_id=output_id)
+    if status:
+        return {"status": "success"}
+    else:
+        return {"status": "error"}
+
+@app.post("/api/covers/{cover_id}/action")
+async def cover_action(cover_id: str, action_data: CoverAction, manager: Manager = Depends(get_manager)):
+    """Control cover with specific action (open, close, stop)."""
+    cover = manager.covers.get(cover_id)
+    if not cover:
+        raise HTTPException(status_code=404, detail="Cover not found")
+    
+    action = action_data.action
+    if action not in ["open", "close", "stop", "toggle"]:
+        raise HTTPException(status_code=400, detail="Invalid action")
+    
+    if action == "open":
+        await cover.open()
+    elif action == "close":
+        await cover.close()
+    elif action == "stop":
+        await cover.async_stop()
+    
     return {"status": "success"}
 
+@app.post("/api/covers/{cover_id}/set_position")
+async def set_cover_position(cover_id: str, position_data: CoverPosition, manager: Manager = Depends(get_manager)):
+    """Control cover with specific action (open, close, stop)."""
+    cover = manager.covers.get(cover_id)
+    if not cover:
+        raise HTTPException(status_code=404, detail="Cover not found")
+    
+    position = position_data.position
+    if position < 0 or position > 100:
+        raise HTTPException(status_code=400, detail="Invalid position")
+    
+    await cover.set_cover_position(position)
+    
+    return {"status": "success"}
 
 @app.post("/api/restart")
 async def restart_service(background_tasks: BackgroundTasks):
@@ -477,6 +525,127 @@ async def restart_service(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(shutdown_and_restart)
     return {"status": "success"}
+
+
+@app.get("/api/check_update")
+async def check_update():
+    """Check if there is a newer version of BoneIO available from GitHub releases."""
+    import requests
+    from packaging import version
+
+    from boneio.version import __version__ as current_version
+    
+    try:
+        # GitHub repository information
+        repo = "boneIO-eu/app_bbb"
+        
+        # Get releases from GitHub API
+        api_url = f'https://api.github.com/repos/{repo}/releases'
+        response = requests.get(api_url)
+        
+        if response.status_code != 200:
+            return {
+                "status": "error",
+                "message": f"Failed to fetch releases: {response.text}",
+                "current_version": current_version
+            }
+        
+        releases = response.json()
+        
+        if not releases:
+            return {
+                "status": "error",
+                "message": "No releases found on GitHub",
+                "current_version": current_version
+            }
+        
+        # Function to filter out prereleases if needed
+        def not_prerelease(release):
+            return not release.get('prerelease', False)
+        
+        # Get the latest release (you can choose to include or exclude prereleases)
+        include_prerelease = True  # Set to False if you want to exclude prereleases
+        
+        if include_prerelease:
+            latest_release = releases[0]  # First release is the latest
+        else:
+            # Find the first non-prerelease
+            latest_release = next(filter(not_prerelease, releases), None)
+            if not latest_release:
+                return {
+                    "status": "error",
+                    "message": "No stable releases found on GitHub",
+                    "current_version": current_version
+                }
+        
+        # Extract version from tag name (usually in format 'v1.2.3')
+        latest_version_str = latest_release['tag_name']
+        if latest_version_str.startswith('v'):
+            latest_version_str = latest_version_str[1:]  # Remove 'v' prefix if present
+        
+        # Compare versions
+        is_update_available = version.parse(latest_version_str) > version.parse(current_version)
+        
+        return {
+            "status": "success",
+            "current_version": current_version,
+            "latest_version": latest_version_str,
+            "update_available": is_update_available,
+            "release_url": latest_release['html_url'],
+            "published_at": latest_release['published_at'],
+            "is_prerelease": latest_release.get('prerelease', False)
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error checking for updates: {str(e)}",
+            "current_version": current_version
+        }
+
+
+@app.post("/api/update")
+async def update_boneio(background_tasks: BackgroundTasks):
+    """Update the BoneIO package and restart the service."""
+    if not is_running_as_service():
+        return {"status": "not available", "message": "Update is only available when running as a service"}
+
+    async def update_and_restart():
+        try:
+            # Allow time for the response to be sent
+            await asyncio.sleep(0.5)
+            
+            # Get the virtual environment path
+            venv_path = os.path.expanduser("~/boneio/venv")
+            pip_path = os.path.join(venv_path, "bin", "pip")
+            
+            # Check if the virtual environment exists
+            if not os.path.exists(pip_path):
+                _LOGGER.error(f"Virtual environment not found at {venv_path}")
+                return
+            
+            # Run pip install --upgrade boneio
+            _LOGGER.info("Starting BoneIO update process...")
+            import subprocess
+            result = subprocess.run(
+                [pip_path, "install", "--upgrade", "boneio"],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                _LOGGER.error(f"Update failed: {result.stderr}")
+                return
+            
+            _LOGGER.info(f"Update successful: {result.stdout}")
+            
+            # Terminate the process to trigger systemd restart
+            _LOGGER.info("Restarting BoneIO service...")
+            os._exit(0)
+        except Exception as e:
+            _LOGGER.error(f"Error during update process: {e}")
+    
+    background_tasks.add_task(update_and_restart)
+    return {"status": "success", "message": "Update process started"}
 
 
 @app.get("/api/version")
@@ -499,6 +668,7 @@ async def check_configuration():
         return {"status": "error", "message": str(e)}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+        
 
 @app.get("/api/files")
 async def list_files(path: str = None):
@@ -602,6 +772,11 @@ async def output_state_changed(event: OutputState):
     await app.state.websocket_manager.broadcast_state("output", event)
 
 
+async def cover_state_changed(event: CoverState):
+    """Callback when cover state changes."""
+    await app.state.websocket_manager.broadcast_state("cover", event)
+
+
 async def sensor_state_changed(event: SensorState):
     """Callback when output state changes."""
     await app.state.websocket_manager.broadcast_state("sensor", event)
@@ -660,6 +835,8 @@ def init_app(
 
 def add_listener_for_all_outputs(boneio_manager: Manager):
     for output in boneio_manager.outputs.values():
+        if output.output_type == COVER or output.output_type == NONE:
+            continue
         boneio_manager.event_bus.add_output_listener(
             output_id=output.id,
             listener_id="ws",
@@ -673,6 +850,21 @@ def remove_listener_for_all_outputs(boneio_manager: Manager):
             output_id=output.id, listener_id=f"ws${output.id}"
         )
 
+def add_listener_for_all_covers(boneio_manager: Manager):
+    for cover in boneio_manager.covers.values():
+        boneio_manager.event_bus.add_event_listener(
+            event_type="cover",
+            entity_id=cover.id,
+            listener_id="ws",
+            target=cover_state_changed,
+        )
+
+
+def remove_listener_for_all_covers(boneio_manager: Manager):
+    boneio_manager.event_bus.remove_event_listener(
+        event_type="cover"
+    )
+
 def add_listener_for_all_inputs(boneio_manager: Manager):
     for input in boneio_manager.inputs:
         boneio_manager.event_bus.add_event_listener(
@@ -684,7 +876,7 @@ def add_listener_for_all_inputs(boneio_manager: Manager):
 
 
 def remove_listener_for_all_inputs(boneio_manager: Manager):
-    boneio_manager.event_bus.remove_event_listener_by_type("input")
+    boneio_manager.event_bus.remove_event_listener("input")
 
 
 def sensor_listener_for_all_sensors(boneio_manager: Manager):
@@ -717,9 +909,8 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
 
 
 def remove_listener_for_all_sensors(boneio_manager: Manager):
-    boneio_manager.event_bus.remove_event_listener_by_type(listener_id="ws")
-    boneio_manager.event_bus.remove_event_listener_by_type(listener_id="ws")
-
+    boneio_manager.event_bus.remove_event_listener(listener_id="ws")
+    boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws")
 
 
 @app.websocket("/ws/state")
@@ -780,6 +971,24 @@ async def websocket_endpoint(
 
                     except Exception as e:
                         _LOGGER.error(f"Error preparing output state: {type(e).__name__} - {e}")
+
+                # Send covers
+                for cover in boneio_manager.covers.values():
+                    try:
+                        cover_state = CoverState(
+                            id=cover.id,
+                            name=cover.name,
+                            state=cover.state,
+                            position=cover.position,
+                            timestamp=cover.last_timestamp,
+                            current_operation=cover.current_operation,
+                        )
+                        update = StateUpdate(type="cover", data=cover_state)
+                        if not await send_state_update(update):
+                            return
+
+                    except Exception as e:
+                        _LOGGER.error(f"Error preparing cover state: {type(e).__name__} - {e}")
 
                 # Send modbus sensor states
                 for modbus_sensors in boneio_manager.modbus_sensors.values():
@@ -847,6 +1056,7 @@ async def websocket_endpoint(
             if websocket.application_state == WebSocketState.CONNECTED:
                 _LOGGER.debug("Initial states sent, setting up event listeners")
                 add_listener_for_all_outputs(boneio_manager=boneio_manager)
+                add_listener_for_all_covers(boneio_manager=boneio_manager)
                 add_listener_for_all_inputs(boneio_manager=boneio_manager)
                 sensor_listener_for_all_sensors(boneio_manager=boneio_manager)
 
@@ -869,6 +1079,7 @@ async def websocket_endpoint(
         _LOGGER.debug("Cleaning up WebSocket connection")
         if not app.state.websocket_manager.active_connections:
             remove_listener_for_all_outputs(boneio_manager=boneio_manager)
+            remove_listener_for_all_covers(boneio_manager=boneio_manager)
             remove_listener_for_all_inputs(boneio_manager=boneio_manager)
             remove_listener_for_all_sensors(boneio_manager=boneio_manager)
         # if connection_active:

@@ -19,10 +19,18 @@ interface SensorState {
   timestamp?: number;
 }
 
-type StateUpdateData = IOState | SensorState;
+interface CoverState {
+  name: string;
+  state: string;
+  position: number;
+  current_operation: string;
+  timestamp?: number;
+}
+
+type StateUpdateData = IOState | SensorState | CoverState;
 
 export interface StateUpdate {
-  type: 'input' | 'output' | 'modbus_sensor' | 'sensor';
+  type: 'input' | 'output' | 'modbus_sensor' | 'sensor' | 'cover';
   data: StateUpdateData;
 }
 
@@ -34,6 +42,11 @@ export function isIOState(data: StateUpdateData): data is IOState {
 // Type guard to check if data is SensorState
 export function isSensorState(data: StateUpdateData): data is SensorState {
   return 'unit' in data;
+}
+
+// Type guard to check if data is CoverState
+export function isCoverState(data: StateUpdateData): data is CoverState {
+  return 'position' in data && 'current_operation' in data;
 }
 
 interface WebSocketHookResult {

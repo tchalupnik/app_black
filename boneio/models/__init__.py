@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -28,6 +28,16 @@ class OutputState(BaseModel):
     pin: int
     timestamp: Union[float, None] = None
 
+class CoverState(BaseModel):
+    """Output state model."""
+    id: str
+    name: str
+    state: str
+    position: int
+    current_operation: str
+    timestamp: Union[float, None] = None
+    
+
 class SensorState(BaseModel):
     """Sensor state model."""
     id: str
@@ -47,7 +57,11 @@ class OutputsResponse(BaseModel):
     """Outputs response model."""
     outputs: List[OutputState]
 
+class CoverResponse(BaseModel):
+    """Cover response model."""
+    covers: List[CoverState]
+
 class StateUpdate(BaseModel):
     """State update model for WebSocket messages."""
-    type: str  # 'input' or 'output'
-    data: Union[InputState, OutputState, SensorState]
+    type: str  # 'input' or 'output' or 'cover'
+    data: Union[InputState, OutputState, SensorState, CoverState]

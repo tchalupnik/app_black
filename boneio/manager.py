@@ -240,9 +240,11 @@ class Manager:
                 or close_relay.output_type != COVER
             ):
                 _LOGGER.error(
-                    "Can't configure cover %s. %s",
+                    "Can't configure cover %s. %s. Current types are: %s, %s",
                     _id,
-                    "You have to explicity set types of relays to None so you can't turn it on directly.",
+                    "You have to explicitly set types of relays to Cover so you can't turn it on directly.",
+                    open_relay.output_type,
+                    close_relay.output_type,
                 )
                 continue
             self._covers[_id] = configure_cover(
@@ -768,11 +770,15 @@ class Manager:
                 self._loop.call_later, 0.2, self.send_message, topic, ""
             )
 
-    async def toggle_output(self, output_id: str) -> None:
+    async def toggle_output(self, output_id: str) -> bool:
         """Toggle output state."""
         output = self._outputs.get(output_id)
         if output:
+            if output.output_type == NONE or output.output_type == COVER:
+                return False
             await output.async_toggle()
+            return True
+
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
@@ -841,13 +847,14 @@ class Manager:
                     "toggle_open",
                     "toggle_close",
                 ):
-                    getattr(cover, message.lower())()
+                    _f = getattr(cover, message.lower())
+                    await _f()
             elif command == "pos":
                 position = int(message)
                 if 0 <= position <= 100:
                     await cover.set_cover_position(position=position)
                 else:
-                    _LOGGER.warn(
+                    _LOGGER.warning(
                         "Positon cannot be set. Not number between 0-100. %s",
                         message,
                     )
@@ -883,6 +890,11 @@ class Manager:
     def outputs(self) -> dict:
         """Get list of output."""
         return self._outputs
+
+    @property
+    def covers(self) -> dict:
+        """Get list of covers."""
+        return self._covers
 
     async def _delayed_send_state(self, output):
         """Send state after a delay."""
