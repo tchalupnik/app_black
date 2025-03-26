@@ -131,7 +131,6 @@
               "string",
               "string"
             ],
-            "default": "switch",
             "enum": [
               "switch",
               "light",
@@ -146,7 +145,8 @@
           }
         },
         "required": [
-          "id"
+          "id",
+          "output_type"
         ]
       },
       "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",

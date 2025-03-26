@@ -391,10 +391,7 @@
               }
             }
           }
-        },
-        "required": [
-          "pin"
-        ]
+        }
       },
       "description": "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables binary sensors in HA. It detects press and release states. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Binary sensor"

@@ -433,10 +433,7 @@
               }
             }
           }
-        },
-        "required": [
-          "pin"
-        ]
+        }
       },
       "description": "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Event"

@@ -30,6 +30,22 @@
             "string",
             "string"
           ],
+          "enum": [
+            "32x10A",
+            "32x10",
+            "32",
+            "24x16A",
+            "24x16",
+            "24",
+            "cover",
+            "cover mix",
+            "cm",
+            "32x10a",
+            "24x16a"
+          ],
+          "examples": [
+            "32x10A"
+          ],
           "description": "Predefined device type configuration",
           "title": "Device type"
         }

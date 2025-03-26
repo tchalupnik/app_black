@@ -1038,7 +1038,6 @@
               "string",
               "string"
             ],
-            "default": "switch",
             "enum": [
               "switch",
               "light",
@@ -1053,7 +1052,8 @@
           }
         },
         "required": [
-          "id"
+          "id",
+          "output_type"
         ]
       },
       "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
@@ -1521,10 +1521,7 @@
               }
             }
           }
-        },
-        "required": [
-          "pin"
-        ]
+        }
       },
       "description": "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables binary sensors in HA. It detects press and release states. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Binary sensor"
@@ -1960,10 +1957,7 @@
               }
             }
           }
-        },
-        "required": [
-          "pin"
-        ]
+        }
       },
       "description": "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Event"
@@ -2406,6 +2400,22 @@
             "string",
             "string"
           ],
+          "enum": [
+            "32x10A",
+            "32x10",
+            "32",
+            "24x16A",
+            "24x16",
+            "24",
+            "cover",
+            "cover mix",
+            "cm",
+            "32x10a",
+            "24x16a"
+          ],
+          "examples": [
+            "32x10A"
+          ],
           "description": "Predefined device type configuration",
           "title": "Device type"
         }
@@ -2416,8 +2426,5 @@
       "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/boneio \n BoneIO configuration section. It's new section for boneIO Black. It enables you to use predefined device types. For now only 0.7 and 0.8 devices are supported.",
       "title": "Boneio"
     }
-  },
-  "required": [
-    "mqtt"
-  ]
+  }
 }

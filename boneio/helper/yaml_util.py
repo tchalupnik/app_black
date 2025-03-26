@@ -269,7 +269,6 @@ def merge_board_config(config: dict) -> dict:
             config["output"].append(output)
     if "output" in config:
         output_mapping = board_config.get("output_mapping", {})
-        print(output_mapping)
         for output in config["output"]:
             if "boneio_output" in output:
                 boneio_output = output["boneio_output"].lower()
