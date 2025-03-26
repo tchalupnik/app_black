@@ -1,0 +1,31 @@
+mqtt: !include mqtt.yaml
+
+oled:
+  enabled: yes
+  screens:
+    - uptime
+    - network
+    - cpu
+    - disk
+    - memory
+    - swap
+    - outputs
+    - inputs
+    - web
+
+lm75:
+  - id: temp
+    address: 0x48
+
+event: !include event.yaml
+binary_sensor: !include binary_sensor.yaml
+
+output: !include output24x16A.yaml
+
+boneio:
+  name: "boneIO Black 24x16A"
+  version: 0.8
+  device_type: "24x16A"
+  
+web:
+# adc: !include adc.yaml Uncomment only if needed.

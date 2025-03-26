@@ -1,0 +1,32 @@
+mqtt: !include mqtt.yaml
+
+oled:
+  enabled: yes
+  screens:
+    - uptime
+    - network
+    - cpu
+    - disk
+    - memory
+    - swap
+    - outputs
+    - inputs
+    - web
+
+lm75:
+  - id: temp
+    address: 0x48
+
+event: !include event.yaml
+binary_sensor: !include binary_sensor.yaml
+
+output: !include outputCoverMix.yaml
+cover: !include cover.yaml
+
+boneio:
+  name: "boneIO Black Cover Mix"
+  version: 0.8
+  device_type: "Cover Mix"
+  
+web:
+# adc: !include adc.yaml Uncomment only if needed.

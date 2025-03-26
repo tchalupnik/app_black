@@ -1,12 +1,17 @@
-mqtt:
-  host: hostname
-  username: mqtt
-  password: password
-  topic_prefix: boneiohome
-  ha_discovery:
-    enabled: yes
+mqtt: !include mqtt.yaml
 
 oled:
+  enabled: yes
+  screens:
+    - uptime
+    - network
+    - cpu
+    - disk
+    - memory
+    - swap
+    - outputs
+    - inputs
+    - web
 
 lm75:
   - id: temp
@@ -15,12 +20,12 @@ lm75:
 event: !include event.yaml
 binary_sensor: !include binary_sensor.yaml
 
-output: !include output32x10A_new.yaml
+output: !include output32x10A.yaml
 
 boneio:
   name: "boneIO Black 32x10A"
   version: 0.8
   device_type: "32x10A"
   
-
+web:
 # adc: !include adc.yaml Uncomment only if needed.
