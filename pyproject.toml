@@ -29,6 +29,7 @@ dependencies = [
     "adafruit-circuitpython-typing==1.9.5",
     "Adafruit-BBIO>=1.2.0",
     "fastapi==0.103.2",
+    "pydantic==2.5.3",
     "hypercorn>=0.14.3",
     "websockets==11.0.3",
     "python-jose[cryptography]==3.3.0",
