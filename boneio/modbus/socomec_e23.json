@@ -38,7 +38,7 @@
           "address": 50526,
           "unit_of_measurement": "Hz",
           "state_class": "measurement",
-          "device_class": "voltage",
+          "device_class": "frequency",
           "value_type": "U_DWORD",
           "filters": [{ "multiply": 0.001 }]
         },

@@ -64,6 +64,7 @@
                     "address": 70,
                     "unit_of_measurement": "Hz",
                     "state_class": "measurement",
+                    "device_class": "frequency",
                     "value_type": "FP32"
                 },
                 {

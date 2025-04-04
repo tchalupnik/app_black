@@ -240,6 +240,7 @@
           "name": "Frequency",
           "address": 70,
           "unit_of_measurement": "Hz",
+          "device_class": "frequency",
           "state_class": "measurement",
           "value_type": "FP32"
         },
