@@ -14,8 +14,10 @@ oled:
     - web
 
 lm75:
-  - id: temp
+  - id: Board temperature
     address: 0x48
+ina219:
+  - address: 0x40
 
 event: !include event.yaml
 binary_sensor: !include binary_sensor.yaml

@@ -7,16 +7,14 @@
   boneio_input: IN_01
   actions:
     pressed:
-      - action: cover
-        action_cover: toggle_open
-        pin: Cover01
+      - action: output
+        pin: OUT_01
 - id: IN_02
   boneio_input: IN_02
   actions:
     pressed:
-      - action: cover
-        action_cover: toggle_close
-        pin: Cover01
+      - action: output
+        pin: OUT_02
 # - id: IN_03
 #   boneio_input: IN_03
 # - id: IN_04
