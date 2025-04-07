@@ -49,6 +49,7 @@ from boneio.const import (
     cover_actions,
     relay_actions,
 )
+from boneio.cover import Cover
 from boneio.helper import (
     GPIOInputException,
     HostData,
@@ -120,7 +121,7 @@ class Manager:
 
         self._loop = asyncio.get_event_loop()
 
-        self._config_helper = config_helper
+        self._config_helper: ConfigHelper = config_helper
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
@@ -141,7 +142,7 @@ class Manager:
         self._configured_output_groups = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
-        self._covers = {}
+        self._covers: dict[str, Cover] = {}
         self._temp_sensors: List[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_sensors = {}
@@ -938,7 +939,7 @@ class Manager:
             return
         topic_prefix = topic_prefix or self._config_helper.topic_prefix
         payload = availability_msg_func(
-            topic=topic_prefix, id=id, name=name, **kwargs
+            topic=topic_prefix, id=id, name=name, model=self._config_helper.device_type.title(), **kwargs
         )
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)

@@ -24,6 +24,7 @@ class ConfigHelper:
         self,
         topic_prefix: str,
         name: str = BONEIO,
+        device_type: str = "boneIO Black",
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
     ):
@@ -31,6 +32,7 @@ class ConfigHelper:
         self._topic_prefix = topic_prefix if topic_prefix else name
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
+        self._device_type = device_type
         self._fetch_old_discovery = None
         self._autodiscovery_messages = {
             SWITCH: {},
@@ -58,6 +60,10 @@ class ConfigHelper:
     @property
     def ha_discovery_prefix(self) -> str:
         return self._ha_discovery_prefix
+
+    @property
+    def device_type(self) -> str:
+        return self._device_type
 
     @property
     def cmd_topic_prefix(self) -> str:

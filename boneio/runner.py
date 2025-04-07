@@ -96,6 +96,7 @@ async def async_run(
     main_config = config.get(BONEIO, {})
     _config_helper = ConfigHelper(
         name=main_config.get(NAME, BONEIO),
+        device_type=main_config.get("device_type", "boneIO Black"),
         topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),

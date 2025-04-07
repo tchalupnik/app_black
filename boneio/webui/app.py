@@ -492,7 +492,7 @@ async def cover_action(cover_id: str, action_data: CoverAction, manager: Manager
     elif action == "close":
         await cover.close()
     elif action == "stop":
-        await cover.async_stop()
+        await cover.stop()
     
     return {"status": "success"}
 

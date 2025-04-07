@@ -127,13 +127,7 @@ class Cover(BasicMqtt):
         """Current state of cover."""
         return CLOSED if self._closed else OPEN
 
-    def stop(self) -> None:
-        """Public Stop cover graceful."""
-        _LOGGER.info("Stopping cover %s.", self._id)
-        if self._current_operation != IDLE:
-            self._stop_cover(on_exit=False)
-
-    async def async_stop(self) -> None:
+    async def stop(self) -> None:
         """Public Stop cover graceful."""
         _LOGGER.info("Stopping cover %s.", self._id)
         if self._current_operation != IDLE:
@@ -291,14 +285,14 @@ class Cover(BasicMqtt):
     async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
         if self._current_operation != IDLE:
-            await self.async_stop()
+            await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
         if self._current_operation != IDLE:
-            await self.async_stop()
+            await self.stop()
         else:
             await self.close()
 
