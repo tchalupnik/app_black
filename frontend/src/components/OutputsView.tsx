@@ -4,26 +4,43 @@ import { WebSocketContext } from '../App';
 import { FaLightbulb, FaArrowUp, FaArrowDown, FaStop } from 'react-icons/fa';
 import { RiOutletLine } from "react-icons/ri";
 import { MdBlindsClosed, MdBlinds } from "react-icons/md";
+import { GiValve } from "react-icons/gi";
 
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isIOState, isCoverState } from '../hooks/useWebSocket';
 
+// Returns icon component and ON color for given type
+function getIconAndOnColor(type: string): { Icon: React.ElementType, onColor: string } {
+  switch (type) {
+    case 'valve':
+      return { Icon: GiValve, onColor: 'text-blue-500' };
+    case 'switch':
+      return { Icon: RiOutletLine, onColor: 'text-yellow-400' };
+    case 'light':
+      return { Icon: FaLightbulb, onColor: 'text-yellow-400' };
+    case 'cover':
+      return { Icon: MdBlinds, onColor: 'text-gray-400' };
+    default:
+      return { Icon: FaLightbulb, onColor: 'text-yellow-400' };
+  }
+}
+
 // Separate component for individual output
 const OutputItem = memo(({ output, onToggle, isGrid, error }: {
   output: { name: string; state: string; type: string; timestamp?: number };
-  onToggle: (name: string) => void;
+  onToggle: (name: string, type: string) => void;
   isGrid: boolean;
   error: string | null;
 }) => {
   if (output.type == "cover" || output.type == "none") {
     return <></>;
   }
-  const Icon = output.type === 'switch' ? RiOutletLine : FaLightbulb;
+  const { Icon, onColor } = getIconAndOnColor(output.type);
   return (
   <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
     <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
-      <Icon className={`text-xl ${output.state === 'ON' ? 'text-yellow-400' : 'text-gray-400'}`} />
+      <Icon className={`text-xl ${output.state === 'ON' ? onColor: 'text-gray-400'}`} />
       <span className="text-lg">{output.name}</span>
     </div>
     <div className={`${isGrid ? '' : 'flex flex-col items-end gap-2'}`}>
@@ -33,7 +50,7 @@ const OutputItem = memo(({ output, onToggle, isGrid, error }: {
           className="sr-only peer"
           checked={output.state === 'ON'}
           disabled={error !== null}
-          onChange={() => onToggle(output.name)}
+          onChange={() => onToggle(output.name, output.type)}
         />
         <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 
           peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer 
@@ -170,9 +187,14 @@ export default function OutputsView({error}: {error: string | null}) {
     localStorage.setItem('outputViewMode', gridView ? 'grid' : 'list');
   };
 
-  const toggleOutput = async (name: string) => {
+  const toggleOutput = async (name: string, type: string) => {
     try {
-      await axios.post(`/api/outputs/${name}/toggle`);
+      const response = await axios.post(`/api/outputs/${name}/toggle`);
+      console.log("re", response, type)
+      if (response.data.status === 'interlock') {
+        setError(`${type} ${name} is locked by interlock`);
+        return;
+      }
       setError(null);
     } catch (error) {
       console.error('Error toggling output:', error);
@@ -189,10 +211,6 @@ export default function OutputsView({error}: {error: string | null}) {
       setError('Failed to control cover');
     }
   };
-
-  if (outputError) {
-    return <div className="alert alert-error">{outputError}</div>;
-  }
 
   return (
     <div className="container mx-auto p-4">
@@ -232,6 +250,7 @@ export default function OutputsView({error}: {error: string | null}) {
           </div>
         </div>
       </div>
+      {outputError && <div className='toast'><div className="alert alert-error">{outputError}</div></div>}
     </div>
   );
 }

@@ -27,14 +27,27 @@ class MCPRelay(BasicRelay):
         if output_type == COVER:
             """Just in case to not restore state of covers etc."""
             restored_state = False
-        self._pin.switch_to_output(value=restored_state)
         super().__init__(
             **kwargs, output_type=output_type, restored_state=restored_state
         )
+        self.init_with_check_if_can_restore_state(restored_state=restored_state)
         self._pin_id = pin
         self._expander_id = mcp_id
 
         _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
+
+    def init_with_check_if_can_restore_state(self, restored_state: bool) -> None:
+        if restored_state:
+            interlock_manager = getattr(self, "_interlock_manager", None)
+            interlock_groups = getattr(self, "_interlock_groups", None)
+            if self._interlock_manager and self._interlock_groups:
+                if not interlock_manager.can_turn_on(self, interlock_groups):
+                    _LOGGER.warning(
+                        f"Interlock active: cannot restore ON state for {self._pin_id} at startup"
+                    )
+                    restored_state = False
+        self._pin.switch_to_output(value=restored_state)
+
 
     @property
     def expander_type(self) -> str:

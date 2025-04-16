@@ -315,6 +315,7 @@ class HostData:
         }
         self._loop = asyncio.get_running_loop()
 
+    @property
     def web_url(self) -> str | None:
         if not self._manager.is_web_on:
             return None
@@ -330,7 +331,7 @@ class HostData:
         if type in self._inputs:
             return self._get_input(type)
         if type == "web":
-            return self.web_url()
+            return self.web_url
         return self._data[type].state
 
     def _get_output(self, type: str) -> dict:

@@ -21,6 +21,7 @@ from boneio.const import (
     ID,
     INA219,
     INPUT,
+    IP,
     LED,
     LIGHT,
     LM75,
@@ -42,9 +43,11 @@ from boneio.const import (
     SET_BRIGHTNESS,
     STATE,
     STOP,
+    SWITCH,
     TOPIC,
     UART,
     UARTS,
+    VALVE,
     ClickTypes,
     cover_actions,
     relay_actions,
@@ -64,6 +67,8 @@ from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
 from boneio.helper.gpio import GpioBaseClass
+from boneio.helper.ha_discovery import ha_valve_availabilty_message
+from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
     configure_binary_sensor,
     configure_cover,
@@ -87,6 +92,9 @@ _LOGGER = logging.getLogger(__name__)
 AVAILABILITY_FUNCTION_CHOOSER = {
     LIGHT: ha_light_availabilty_message,
     LED: ha_led_availabilty_message,
+    SWITCH: ha_switch_availabilty_message,
+    VALVE: ha_valve_availabilty_message,
+
 }
 
 
@@ -115,6 +123,9 @@ class Manager:
         oled: dict = {},
         adc: Optional[List] = None,
         cover: list = [],
+        web_active: bool = False,
+        web_port: int = 8090,
+        network_state: Optional[dict] = None,
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
@@ -126,8 +137,9 @@ class Manager:
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = event_bus
-        self._is_web_on = False
-        self._web_bind_port = None
+        self._is_web_on = web_active
+        self._web_bind_port = web_port
+        self._network_info = network_state
 
         self.send_message = send_message
         self._mqtt_state = mqtt_state
@@ -140,6 +152,8 @@ class Manager:
         self._pca = {}
         self._outputs = {}
         self._configured_output_groups = {}
+        self._interlock_manager = SoftwareInterlockManager()
+
         self._oled = None
         self._tasks: List[asyncio.Task] = []
         self._covers: dict[str, Cover] = {}
@@ -771,14 +785,17 @@ class Manager:
                 self._loop.call_later, 0.2, self.send_message, topic, ""
             )
 
-    async def toggle_output(self, output_id: str) -> bool:
+    async def toggle_output(self, output_id: str) -> str:
         """Toggle output state."""
         output = self._outputs.get(output_id)
         if output:
             if output.output_type == NONE or output.output_type == COVER:
-                return False
+                return "not_allowed"
+            if not output.check_interlock():
+                return "interlock"
             await output.async_toggle()
-            return True
+            return "success"
+        return "not_found"
 
 
     async def receive_message(self, topic: str, message: str) -> None:
@@ -938,8 +955,15 @@ class Manager:
         if not self._config_helper.ha_discovery:
             return
         topic_prefix = topic_prefix or self._config_helper.topic_prefix
+        if self._host_data:
+            web_url = self._host_data.web_url
+        else:
+            if self._network_info and IP in self._network_info:
+                web_url = f"http://{self._network_info[IP]}:{self._web_bind_port}"
+            else:
+                web_url = None
         payload = availability_msg_func(
-            topic=topic_prefix, id=id, name=name, model=self._config_helper.device_type.title(), **kwargs
+            topic=topic_prefix, id=id, name=name, model=self._config_helper.device_type.title(), web_url=web_url, **kwargs
         )
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)

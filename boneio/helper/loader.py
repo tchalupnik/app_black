@@ -372,18 +372,24 @@ def configure_relay(
     #         event=event,
     #         restore_state=False if output_type == NONE else restore_state,
     #     )
+    interlock_groups = config.get("interlock_group", [])
+    if isinstance(interlock_groups, str):
+        interlock_groups = [interlock_groups]
 
     relay = getattr(output, "OutputClass")(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
         id=relay_id,
         restored_state=restored_state,
+        interlock_manager=manager._interlock_manager,
+        interlock_groups=interlock_groups,
         name=name,
         **config,
         **kwargs,
         **extra_args,
         # callback=relay_callback_wrapper,
     )
+    manager._interlock_manager.register(relay, interlock_groups)
     manager.grouped_outputs[expander_id][relay_id] = relay
     return relay
 

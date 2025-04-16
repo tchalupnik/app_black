@@ -43,6 +43,7 @@ from boneio.helper import StateManager
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
+from boneio.helper.stats import get_network_info
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
 from boneio.webui.web_server import WebServer
@@ -121,6 +122,15 @@ async def async_run(
         for item in config_modules
     }
 
+    if "web" in config:
+        web_active = True
+        web_config = config.get("web") or {}
+        network_state = get_network_info()
+    else:
+        web_active = False
+        network_state = None
+        web_config = {}
+
     manager = Manager(
         send_message=message_bus.send_message,
         event_bus=event_bus,
@@ -140,6 +150,9 @@ async def async_run(
             MODBUS: config.get("modbus_sensors"),
             ONEWIRE: config.get(SENSOR, []),
         },
+        web_active=web_active,
+        web_port=web_config.get("port", 8090),
+        network_state=network_state,
         **manager_kwargs,
     )
     # Convert coroutines to Tasks
@@ -154,8 +167,7 @@ async def async_run(
     message_bus_task.add_done_callback(tasks.discard)
     
     # Start web server if configured
-    if "web" in config:
-        web_config = config.get("web") or {}
+    if web_active:
         _LOGGER.info("Starting Web server.")
         web_server = WebServer(
             config_file=config_file,

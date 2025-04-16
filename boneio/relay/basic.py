@@ -8,6 +8,7 @@ import time
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
+from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.util import callback
 from boneio.models import OutputState
 
@@ -26,6 +27,8 @@ class BasicRelay(BasicMqtt):
         output_type=SWITCH,
         restored_state: bool = False,
         topic_type: str = RELAY,
+        interlock_manager: SoftwareInterlockManager | None = None,
+        interlock_groups: list[str] = [],
         **kwargs,
     ) -> None:
         """Initialize Basic relay."""
@@ -34,6 +37,8 @@ class BasicRelay(BasicMqtt):
         super().__init__(id=id, name=name or id, topic_type=topic_type, **kwargs)
         self._output_type = output_type
         self._event_bus = event_bus
+        self._interlock_manager = interlock_manager
+        self._interlock_groups = interlock_groups
         if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
@@ -42,6 +47,11 @@ class BasicRelay(BasicMqtt):
         self._momentary_action = None
         self._last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
+
+    def set_interlock(self, interlock_manager: SoftwareInterlockManager, interlock_groups: list[str]):
+        self._interlock_manager = interlock_manager
+        self._interlock_groups = interlock_groups
+
 
     @property
     def is_mcp_type(self) -> bool:
@@ -107,8 +117,20 @@ class BasicRelay(BasicMqtt):
         await self._event_bus.async_trigger_output_event(output_id=self.id, event=event)
         await self._event_bus.async_trigger_event(event_type="output", entity_id=self.id, event=event)
 
+    def check_interlock(self) -> bool:
+        if getattr(self, "_interlock_manager", None) and getattr(self, "_interlock_groups", None):
+            return self._interlock_manager.can_turn_on(self, self._interlock_groups)
+        return True
+
     async def async_turn_on(self) -> None:
-        self.turn_on()
+        """Turn on the relay asynchronously."""
+        can_turn_on = self.check_interlock()
+        if can_turn_on:
+            self.turn_on()
+        else:
+            _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
+            #Workaround for HA is sendind state ON/OFF without physically changing the relay.
+            asyncio.create_task(self.async_send_state(optimized_value=ON))    
         asyncio.create_task(self.async_send_state())
 
     async def async_turn_off(self) -> None:

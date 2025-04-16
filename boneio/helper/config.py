@@ -16,6 +16,7 @@ from boneio.const import (
     LIGHT,
     SENSOR,
     SWITCH,
+    VALVE,
 )
 
 
@@ -41,7 +42,8 @@ class ConfigHelper:
             SENSOR: {},
             COVER: {},
             BUTTON: {},
-            EVENT_ENTITY: {}
+            EVENT_ENTITY: {},
+            VALVE: {},
         }
         self.manager_ready: bool = False
 

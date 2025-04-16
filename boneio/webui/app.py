@@ -472,7 +472,7 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
         raise HTTPException(status_code=404, detail="Output not found")
     status = await manager.toggle_output(output_id=output_id)
     if status:
-        return {"status": "success"}
+        return {"status": status}
     else:
         return {"status": "error"}
 
