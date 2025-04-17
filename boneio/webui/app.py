@@ -468,6 +468,7 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
 @app.post("/api/outputs/{output_id}/toggle")
 async def toggle_output(output_id: str, manager: Manager = Depends(get_manager)):
     """Toggle output state."""
+    print("maa", manager.outputs)
     if output_id not in manager.outputs:
         raise HTTPException(status_code=404, detail="Output not found")
     status = await manager.toggle_output(output_id=output_id)

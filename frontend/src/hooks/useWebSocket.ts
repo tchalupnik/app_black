@@ -4,6 +4,7 @@ import { useApiAvailability } from './useApiAvailability';
 
 interface IOState {
   name: string;
+  id: string;
   state: string;
   type: string;
   pin: string | number;
@@ -21,6 +22,7 @@ interface SensorState {
 
 interface CoverState {
   name: string;
+  id: string;
   state: string;
   position: number;
   current_operation: string;

@@ -28,8 +28,8 @@ function getIconAndOnColor(type: string): { Icon: React.ElementType, onColor: st
 
 // Separate component for individual output
 const OutputItem = memo(({ output, onToggle, isGrid, error }: {
-  output: { name: string; state: string; type: string; timestamp?: number };
-  onToggle: (name: string, type: string) => void;
+  output: { id: string; name: string; state: string; type: string; timestamp?: number };
+  onToggle: (id: string, name: string, type: string) => void;
   isGrid: boolean;
   error: string | null;
 }) => {
@@ -50,7 +50,7 @@ const OutputItem = memo(({ output, onToggle, isGrid, error }: {
           className="sr-only peer"
           checked={output.state === 'ON'}
           disabled={error !== null}
-          onChange={() => onToggle(output.name, output.type)}
+          onChange={() => onToggle(output.id, output.name, output.type)}
         />
         <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 
           peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer 
@@ -67,8 +67,8 @@ const OutputItem = memo(({ output, onToggle, isGrid, error }: {
 )});
 
 const CoverItem = memo(({ cover, action, isGrid, error }: {
-  cover: { name: string; state: string; position: number; current_operation: string; timestamp?: number };
-  action: (name: string, action: string) => void;
+  cover: { id: string; name: string; state: string; position: number; current_operation: string; timestamp?: number };
+  action: (id: string, name: string, action: string) => void;
   isGrid: boolean;
   error: string | null;
 }) => {
@@ -87,14 +87,14 @@ const CoverItem = memo(({ cover, action, isGrid, error }: {
   const debouncedSetPosition = useCallback(() => {
     const timer = setTimeout(() => {
       if (sliderPosition !== cover.position) {
-        axios.post(`/api/covers/${cover.name}/set_position`, { position: sliderPosition })
+        axios.post(`/api/covers/${cover.id}/set_position`, { position: sliderPosition })
           .catch(error => console.error('Error setting cover position:', error));
       }
       setIsSliderActive(false);
     }, 300); // 0.3 second debounce
     
     return () => clearTimeout(timer);
-  }, [sliderPosition, cover.name, cover.position]);
+  }, [sliderPosition, cover.id, cover.position]);
   
   // Set up debounce effect
   useEffect(() => {
@@ -122,21 +122,21 @@ const CoverItem = memo(({ cover, action, isGrid, error }: {
       <div className="flex gap-2">
         <button 
           className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => action(cover.name, 'open')}
+          onClick={() => action(cover.id, cover.name, 'open')}
           disabled={error !== null || cover.current_operation === 'opening' || (cover.state === 'open' && cover.position === 100)}
         >
           <FaArrowUp />
         </button>
         <button 
           className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => action(cover.name, 'stop')}
+          onClick={() => action(cover.id, cover.name, 'stop')}
           disabled={error !== null || cover.current_operation === 'idle'}
         >
           <FaStop />
         </button>
         <button 
           className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => action(cover.name, 'close')}
+          onClick={() => action(cover.id, cover.name, 'close')}
           disabled={error !== null || cover.current_operation === 'closing' || (cover.state === 'closed' && cover.position === 0)}
         >
           <FaArrowDown />
@@ -187,9 +187,9 @@ export default function OutputsView({error}: {error: string | null}) {
     localStorage.setItem('outputViewMode', gridView ? 'grid' : 'list');
   };
 
-  const toggleOutput = async (name: string, type: string) => {
+  const toggleOutput = async (id: string, name: string, type: string) => {
     try {
-      const response = await axios.post(`/api/outputs/${name}/toggle`);
+      const response = await axios.post(`/api/outputs/${id}/toggle`);
       console.log("re", response, type)
       if (response.data.status === 'interlock') {
         setError(`${type} ${name} is locked by interlock`);
@@ -202,13 +202,13 @@ export default function OutputsView({error}: {error: string | null}) {
     }
   };
 
-  const actionCover = async (name: string, action: string) => {
+  const actionCover = async (id: string, name: string, action: string) => {
     try {
-      await axios.post(`/api/covers/${name}/action`, { action });
+      await axios.post(`/api/covers/${id}/action`, { action });
       setError(null);
     } catch (error) {
-      console.error('Error controlling cover:', error);
-      setError('Failed to control cover');
+      console.error(`Error controlling cover ${name}:`, error);
+      setError(`Failed to control cover ${name}`);
     }
   };
 
@@ -226,7 +226,7 @@ export default function OutputsView({error}: {error: string | null}) {
           }>
             {validOutputs.map((output) => (
               <OutputItem 
-                key={output.name}
+                key={output.id}
                 output={output}
                 onToggle={toggleOutput}
                 isGrid={isGrid}
@@ -240,8 +240,8 @@ export default function OutputsView({error}: {error: string | null}) {
           }>
             {covers.filter(cover => isCoverState(cover)).map((cover) => (
               <CoverItem 
-                key={cover.name}
-                cover={cover as { name: string; state: string; position: number; current_operation: string; timestamp?: number }}
+                key={cover.id}
+                cover={cover as { id: string; name: string; state: string; position: number; current_operation: string; timestamp?: number }}
                 action={actionCover}
                 isGrid={isGrid}
                 error={error}
