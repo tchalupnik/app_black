@@ -805,6 +805,13 @@ cover:
         required: True
         meta:
           label: ID of close relay of output.
+      platform:
+        type: string
+        required: True
+        default: previous
+        allowed: ['time_based', 'venetian', 'previous']
+        meta:
+          label: Platform to use for cover.
       open_time:
         type:
           - string
@@ -825,6 +832,26 @@ cover:
         required: True
         meta:
           label: Time to close cover. Example 30s. Minimum is 1s.
+      tilt_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Time to tilt cover. Example 2s. Minimum is 10ms.
+      actuator_activation_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Time to activate actuator cover. Example 30s. Minimum is 0ms.
       device_class:
         type: string
         required: False

@@ -61,6 +61,10 @@ class CoverPosition(BaseModel):
     position: int
 
 
+class CoverTilt(BaseModel):
+    tilt: int
+
+
 class BoneIOApp(FastAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -509,6 +513,22 @@ async def set_cover_position(cover_id: str, position_data: CoverPosition, manage
         raise HTTPException(status_code=400, detail="Invalid position")
     
     await cover.set_cover_position(position)
+    
+    return {"status": "success"}
+
+@app.post("/api/covers/{cover_id}/set_tilt")
+async def set_cover_tilt(cover_id: str, tilt_data: CoverTilt, manager: Manager = Depends(get_manager)):
+    """Control cover with specific action (open, close, stop)."""
+    cover = manager.covers.get(cover_id)
+    if not cover:
+        raise HTTPException(status_code=404, detail="Cover not found")
+    if cover.kind != "venetian":
+        raise HTTPException(status_code=400, detail="Invalid cover type")
+    tilt = tilt_data.tilt
+    if tilt < 0 or tilt > 100:
+        raise HTTPException(status_code=400, detail="Invalid tilt")
+    
+    await cover.set_tilt(tilt)
     
     return {"status": "success"}
 
@@ -976,14 +996,18 @@ async def websocket_endpoint(
                 # Send covers
                 for cover in boneio_manager.covers.values():
                     try:
-                        cover_state = CoverState(
+                        cover_state_kwargs = dict(
                             id=cover.id,
                             name=cover.name,
                             state=cover.state,
                             position=cover.position,
+                            kind=cover.kind,
                             timestamp=cover.last_timestamp,
                             current_operation=cover.current_operation,
                         )
+                        if getattr(cover, 'kind', None) == 'venetian':
+                            cover_state_kwargs['tilt'] = getattr(cover, 'tilt', 0)
+                        cover_state = CoverState(**cover_state_kwargs)
                         update = StateUpdate(type="cover", data=cover_state)
                         if not await send_state_update(update):
                             return

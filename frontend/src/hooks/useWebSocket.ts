@@ -25,7 +25,9 @@ interface CoverState {
   id: string;
   state: string;
   position: number;
+  tilt: number;
   current_operation: string;
+  kind: string;
   timestamp?: number;
 }
 

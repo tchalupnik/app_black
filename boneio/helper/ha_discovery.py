@@ -244,5 +244,36 @@ def ha_cover_availabilty_message(
         "state_closed": CLOSED,
         "state_closing": CLOSING,
         "state_topic": f"{topic}/{COVER}/{id}/state",
+        "position_template": '{{ value_json.position }}',
         "position_topic": f"{topic}/{COVER}/{id}/pos",
+    }
+
+
+def ha_cover_with_tilt_availabilty_message(
+    id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+):
+    """Create Cover with tilt availability topic for HA."""
+    kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
+    msg = ha_availabilty_message(
+        device_type=COVER, topic=topic, id=id, name=name, model=model, **kwargs
+    )
+
+    return {
+        **msg,
+        "command_topic": f"{topic}/cmd/cover/{id}/set",
+        "set_position_topic": f"{topic}/cmd/cover/{id}/pos",
+        "tilt_command_topic": f"{topic}/cmd/cover/{id}/tilt",
+        "payload_open": OPEN,
+        "payload_close": CLOSE,
+        "payload_stop": STOP,
+        "payload_stop_tilt": STOP,
+        "state_open": OPEN,
+        "state_opening": OPENING,
+        "state_closed": CLOSED,
+        "state_closing": CLOSING,
+        "state_topic": f"{topic}/{COVER}/{id}/state",
+        "position_topic": f"{topic}/{COVER}/{id}/pos",
+        "tilt_status_topic": f"{topic}/{COVER}/{id}/pos",
+        "position_template": '{{ value_json.position }}',
+        "tilt_status_template": '{{ value_json.tilt }}',
     }

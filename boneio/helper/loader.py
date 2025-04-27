@@ -42,9 +42,10 @@ from boneio.const import (
     DallasBusTypes,
     ExpanderTypes,
 )
-from boneio.cover import Cover
+from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
 from boneio.group import OutputGroup
 from boneio.helper import (
+    CoverConfigurationException,
     GPIOInputException,
     GPIOOutputException,
     I2CError,
@@ -58,6 +59,7 @@ from boneio.helper import (
 from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,
+    ha_cover_with_tilt_availabilty_message,
     ha_sensor_availabilty_message,
 )
 from boneio.helper.onewire import (
@@ -496,34 +498,74 @@ def configure_cover(
     state_manager: StateManager,
     send_ha_autodiscovery: Callable,
     config: dict,
+    tilt_duration: TimePeriod | None,
     **kwargs,
-) -> Cover:
-    restored_state = state_manager.get(
-        attr_type=COVER, attr=cover_id, default_value=100
-    )
-
-    def state_save(position: int):
+) -> PreviousCover | TimeBasedCover:
+    
+    platform = config.get("platform", "previous")
+    def state_save(value: dict[str, int]):
         if config[RESTORE_STATE]:
             state_manager.save_attribute(
                 attr_type=COVER,
                 attribute=cover_id,
-                value=position,
+                value=value,
             )
-
-    cover = Cover(
-        id=cover_id,
-        state_save=state_save,
-        send_message=manager.send_message,
-        restored_state=restored_state,
-        **kwargs,
-    )
+    if platform == "venetian":
+        if not tilt_duration:
+            raise CoverConfigurationException("Tilt duration must be configured for tilt cover.")
+        _LOGGER.debug("Configuring tilt cover %s", cover_id)
+        restored_state: dict = state_manager.get(
+            attr_type=COVER, attr=cover_id, default_value={"position": 100, "tilt_position": 100}
+        )
+        if isinstance(restored_state, (float, int)):
+            restored_state = {"position": restored_state, "tilt_position": 100}
+        cover = VenetianCover(
+            id=cover_id,
+            state_save=state_save,
+            send_message=manager.send_message,
+            restored_state=restored_state,
+            tilt_duration=tilt_duration,
+            actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
+            **kwargs,
+        )
+        availability_msg_func = ha_cover_with_tilt_availabilty_message
+    elif platform == "time_based":
+        _LOGGER.debug("Configuring time-based cover %s", cover_id)
+        restored_state: dict = state_manager.get(
+            attr_type=COVER, attr=cover_id, default_value={"position": 100}
+        )
+        if isinstance(restored_state, (float, int)):
+            restored_state = {"position": restored_state}
+        cover = TimeBasedCover(
+            id=cover_id,
+            state_save=state_save,
+            send_message=manager.send_message,
+            restored_state=restored_state,
+            **kwargs,
+        )
+        availability_msg_func = ha_cover_availabilty_message
+    else:
+        _LOGGER.debug("Configuring previous cover %s", cover_id)
+        restored_state: dict = state_manager.get(
+            attr_type=COVER, attr=cover_id, default_value={"position": 100}
+        )
+        if isinstance(restored_state, (float, int)):
+            restored_state = {"position": restored_state}
+        cover = PreviousCover(
+            id=cover_id,
+            state_save=state_save,
+            send_message=manager.send_message,
+            restored_state=restored_state,
+            **kwargs,
+        )
+        availability_msg_func = ha_cover_availabilty_message
     if config.get(SHOW_HA, True):
         send_ha_autodiscovery(
             id=cover.id,
             name=cover.name,
             ha_type=COVER,
             device_class=config.get(DEVICE_CLASS),
-            availability_msg_func=ha_cover_availabilty_message,
+            availability_msg_func=availability_msg_func,
         )
     _LOGGER.debug("Configured cover %s", cover_id)
     return cover

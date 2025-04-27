@@ -52,7 +52,7 @@ from boneio.const import (
     cover_actions,
     relay_actions,
 )
-from boneio.cover import Cover
+from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.helper import (
     GPIOInputException,
     HostData,
@@ -65,7 +65,7 @@ from boneio.helper import (
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
-from boneio.helper.exceptions import ModbusUartException
+from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
 from boneio.helper.gpio import GpioBaseClass
 from boneio.helper.ha_discovery import ha_valve_availabilty_message
 from boneio.helper.interlock import SoftwareInterlockManager
@@ -156,7 +156,7 @@ class Manager:
 
         self._oled = None
         self._tasks: List[asyncio.Task] = []
-        self._covers: dict[str, Cover] = {}
+        self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
         self._temp_sensors: List[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_sensors = {}
@@ -262,19 +262,24 @@ class Manager:
                     close_relay.output_type,
                 )
                 continue
-            self._covers[_id] = configure_cover(
-                manager=self,
-                cover_id=_id,
-                state_manager=self._state_manager,
-                config=_config,
-                open_relay=open_relay,
-                close_relay=close_relay,
-                open_time=_config.get("open_time"),
-                close_time=_config.get("close_time"),
-                event_bus=self._event_bus,
-                send_ha_autodiscovery=self.send_ha_autodiscovery,
-                topic_prefix=self._config_helper.topic_prefix,
-            )
+            try:
+                self._covers[_id] = configure_cover(
+                    manager=self,
+                    cover_id=_id,
+                    state_manager=self._state_manager,
+                    config=_config,
+                    open_relay=open_relay,
+                    close_relay=close_relay,
+                    open_time=_config.get("open_time"),
+                    close_time=_config.get("close_time"),
+                    tilt_duration=_config.get("tilt_duration"),
+                    event_bus=self._event_bus,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                    topic_prefix=self._config_helper.topic_prefix,
+                )
+            except CoverConfigurationException as err:
+                _LOGGER.error("Can't configure cover %s. %s", _id, err)
+                continue
 
         self._outputs_group = output_group
         self._configure_output_group()
@@ -873,9 +878,22 @@ class Manager:
                     await cover.set_cover_position(position=position)
                 else:
                     _LOGGER.warning(
-                        "Positon cannot be set. Not number between 0-100. %s",
+                        "Position cannot be set. Not number between 0-100. %s",
                         message,
                     )
+            elif command == "tilt":
+                if message == STOP:
+                    await cover.stop()
+                else:
+                    tilt_position = int(message)
+                    print("titl", tilt_position)
+                    if 0 <= tilt_position <= 100:
+                        await cover.set_tilt(tilt=tilt_position)
+                    else:
+                        _LOGGER.warning(
+                            "Tilt cannot be set. Not number between 0-100. %s",
+                            message,
+                        )
         elif msg_type == "group" and command == "set":
             target_device = self._configured_output_groups.get(device_id)
             if target_device and target_device.output_type != NONE:

@@ -29,13 +29,15 @@ class OutputState(BaseModel):
     timestamp: Union[float, None] = None
 
 class CoverState(BaseModel):
-    """Output state model."""
+    """Cover state model."""
     id: str
     name: str
     state: str
     position: int
     current_operation: str
     timestamp: Union[float, None] = None
+    tilt: int = 0  # Tilt position (0-100)
+    kind: str
     
 
 class SensorState(BaseModel):

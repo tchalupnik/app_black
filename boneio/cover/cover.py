@@ -24,7 +24,7 @@ from boneio.models import CoverState
 from boneio.relay import MCPRelay
 
 _LOGGER = logging.getLogger(__name__)
-
+DEFAULT_RESTORED_STATE = {"position": 100}
 COVER_COMMANDS = {
     OPEN: "open_cover",
     CLOSE: "close_cover",
@@ -65,7 +65,7 @@ class Cover(BasicMqtt):
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
-        restored_state: int = 100,
+        restored_state: dict = DEFAULT_RESTORED_STATE,
         **kwargs,
     ) -> None:
         """Initialize cover class."""
@@ -78,7 +78,7 @@ class Cover(BasicMqtt):
         self._close = RelayHelper(relay=close_relay, time=close_time)
         self._set_position = None
         self._current_operation = IDLE
-        self._position = restored_state
+        self._position = float(restored_state.get("position", DEFAULT_RESTORED_STATE["position"]))
         self._requested_closing = True
         self._event_bus = event_bus
         self._timer_handle = None
@@ -142,6 +142,7 @@ class Cover(BasicMqtt):
             name=self.name,
             state=self.state,
             position=round(self._position, 0),
+            kind=self.kind,
             timestamp=self.last_timestamp,
             current_operation=self._current_operation,
         )
@@ -153,8 +154,8 @@ class Cover(BasicMqtt):
             topic=f"{self._send_topic}/state", payload=self.state
         )
         pos = round(self._position, 0)
-        self._send_message(topic=f"{self._send_topic}/pos", payload=str(pos))
-        self._state_save(position=pos)
+        self._send_message(topic=f"{self._send_topic}/pos", payload={ "position": str(pos) })
+        self._state_save(value={"position": pos})
 
     def _stop_cover(self, on_exit=False) -> None:
         """Stop cover."""
@@ -200,7 +201,7 @@ class Cover(BasicMqtt):
                 rounded_pos = 100
             elif rounded_pos < 0:
                 rounded_pos = 0
-        self._send_message(topic=f"{self._send_topic}/pos", payload=rounded_pos)
+        self._send_message(topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)})
         asyncio.create_task(self.async_send_state())
         if rounded_pos == self._set_position or (
             self._set_position is None
@@ -307,3 +308,8 @@ class Cover(BasicMqtt):
     @property
     def current_operation(self) -> str:
         return self._current_operation
+
+    @property
+    def kind(self) -> str:
+        return "previous"
+    
