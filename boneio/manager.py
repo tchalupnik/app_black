@@ -424,7 +424,7 @@ class Manager:
         def check_if_pin_configured(pin: str) -> bool:
             if pin in self._inputs:
                 if not reload_config:
-                    _LOGGER.warn(
+                    _LOGGER.warning(
                         "This PIN %s is already configured. Omitting it.", pin
                     )
                     return True
