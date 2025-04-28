@@ -1,5 +1,5 @@
 """Cover classes."""
-from .cover import Cover as PreviousCover
+from .previous import PreviousCover
 from .time_based import TimeBasedCover
 from .venetian import VenetianCover
 

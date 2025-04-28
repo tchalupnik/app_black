@@ -156,6 +156,7 @@ class Manager:
 
         self._oled = None
         self._tasks: List[asyncio.Task] = []
+        self._config_covers = cover
         self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
         self._temp_sensors: List[TempSensor] = []
         self._ina219_sensors = []
@@ -234,52 +235,7 @@ class Manager:
                 )
             self._loop.create_task(self._delayed_send_state(out))
 
-        for _config in cover:
-            _id = strip_accents(_config[ID])
-            open_relay = self._outputs.get(_config.get("open_relay"))
-            close_relay = self._outputs.get(_config.get("close_relay"))
-            if not open_relay:
-                _LOGGER.error(
-                    "Can't configure cover %s. This relay doesn't exist.",
-                    _config.get("open_relay"),
-                )
-                continue
-            if not close_relay:
-                _LOGGER.error(
-                    "Can't configure cover %s. This relay doesn't exist.",
-                    _config.get("close_relay"),
-                )
-                continue
-            if (
-                open_relay.output_type != COVER
-                or close_relay.output_type != COVER
-            ):
-                _LOGGER.error(
-                    "Can't configure cover %s. %s. Current types are: %s, %s",
-                    _id,
-                    "You have to explicitly set types of relays to Cover so you can't turn it on directly.",
-                    open_relay.output_type,
-                    close_relay.output_type,
-                )
-                continue
-            try:
-                self._covers[_id] = configure_cover(
-                    manager=self,
-                    cover_id=_id,
-                    state_manager=self._state_manager,
-                    config=_config,
-                    open_relay=open_relay,
-                    close_relay=close_relay,
-                    open_time=_config.get("open_time"),
-                    close_time=_config.get("close_time"),
-                    tilt_duration=_config.get("tilt_duration"),
-                    event_bus=self._event_bus,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
-                    topic_prefix=self._config_helper.topic_prefix,
-                )
-            except CoverConfigurationException as err:
-                _LOGGER.error("Can't configure cover %s. %s", _id, err)
-                continue
+        self._configure_covers()
 
         self._outputs_group = output_group
         self._configure_output_group()
@@ -417,6 +373,67 @@ class Manager:
             self.append_task(
                 coro=configured_group.event_listener, name=configured_group.id
             )
+
+
+    def _configure_covers(self, reload_config: bool = False):
+        """Configure covers."""
+        if reload_config:
+            config = load_config_from_file(self._config_file_path)
+            self._config_covers = config.get(COVER, [])
+            self._config_helper.clear_autodiscovery_type(
+                ha_type=COVER
+            )
+        for _config in self._config_covers:
+            _id = strip_accents(_config[ID])
+            open_relay = self._outputs.get(_config.get("open_relay"))
+            close_relay = self._outputs.get(_config.get("close_relay"))
+            if not open_relay:
+                _LOGGER.error(
+                    "Can't configure cover %s. This relay doesn't exist.",
+                    _config.get("open_relay"),
+                )
+                continue
+            if not close_relay:
+                _LOGGER.error(
+                    "Can't configure cover %s. This relay doesn't exist.",
+                    _config.get("close_relay"),
+                )
+                continue
+            if (
+                open_relay.output_type != COVER
+                or close_relay.output_type != COVER
+            ):
+                _LOGGER.error(
+                    "Can't configure cover %s. %s. Current types are: %s, %s",
+                    _id,
+                    "You have to explicitly set types of relays to Cover so you can't turn it on directly.",
+                    open_relay.output_type,
+                    close_relay.output_type,
+                )
+                continue
+            try:
+                if _id in self._covers:
+                    _cover = self._covers[_id]
+                    _cover.update_config_times(_config)
+                    continue
+                self._covers[_id] = configure_cover(
+                    manager=self,
+                    cover_id=_id,
+                    state_manager=self._state_manager,
+                    config=_config,
+                    open_relay=open_relay,
+                    close_relay=close_relay,
+                    open_time=_config.get("open_time"),
+                    close_time=_config.get("close_time"),
+                    tilt_duration=_config.get("tilt_duration"),
+                    event_bus=self._event_bus,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                    topic_prefix=self._config_helper.topic_prefix,
+                )
+                
+            except CoverConfigurationException as err:
+                _LOGGER.error("Can't configure cover %s. %s", _id, err)
+                continue
 
     def configure_inputs(self, reload_config: bool = False):
         """Configure inputs. Either events or binary sensors."""
@@ -691,6 +708,15 @@ class Manager:
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
         )
+        if self._covers:
+            self.send_ha_autodiscovery(
+                id="cover_reload",
+                name="Reload times of covers",
+                ha_type=BUTTON,
+                payload_press="cover_reload",
+                availability_msg_func=ha_button_availabilty_message,
+                entity_category="config",
+            )
 
     @property
     def mcp(self):
@@ -915,6 +941,9 @@ class Manager:
             elif device_id == "inputs_reload" and message == "inputs_reload":
                 _LOGGER.info("Reloading events and binary sensors actions")
                 self.configure_inputs(reload_config=True)
+            elif device_id == "cover_reload" and message == "cover_reload":
+                _LOGGER.info("Reloading covers actions")
+                self._configure_covers(reload_config=True)
 
 
     async def restart_request(self) -> None:
