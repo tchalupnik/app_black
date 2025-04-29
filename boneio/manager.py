@@ -784,6 +784,7 @@ class Manager:
                         topic=action_topic, payload=action_payload, retain=False
                     )
                 continue
+            extra_data = action_definition.get("data", {})
             output, action = self.get_output_and_action(
                 device_id=device_id,
                 action=action,
@@ -795,7 +796,8 @@ class Manager:
                     "Executing action %s for output %s", action, output.name
                 )
                 _f = getattr(output, action)
-                await _f()
+                if _f:
+                    await _f(**extra_data)
             else:
                 if not action:
                     _LOGGER.warning(
@@ -912,9 +914,8 @@ class Manager:
                     await cover.stop()
                 else:
                     tilt_position = int(message)
-                    print("titl", tilt_position)
                     if 0 <= tilt_position <= 100:
-                        await cover.set_tilt(tilt=tilt_position)
+                        await cover.set_tilt(tilt_position=tilt_position)
                     else:
                         _LOGGER.warning(
                             "Tilt cannot be set. Not number between 0-100. %s",

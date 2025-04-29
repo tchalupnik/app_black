@@ -87,6 +87,28 @@ class BaseCover(BasicMqtt):
         self._send_message(topic=f"{self._send_topic}/state", payload=direction)
         await self.run_cover(direction, target_position=set_position)
 
+    async def toggle(self) -> None:
+        _LOGGER.debug("Toggle cover %s from input.", self._id)
+        if self.state == CLOSED:
+            await self.close()
+        else:
+            await self.open()
+
+    async def toggle_open(self) -> None:
+        _LOGGER.debug("Toggle open cover %s from input.", self._id)
+        if self._current_operation != IDLE:
+            await self.stop()
+        else:
+            await self.open()
+
+    async def toggle_close(self) -> None:
+        _LOGGER.debug("Toggle close cover %s from input.", self._id)
+        if self._current_operation != IDLE:
+            await self.stop()
+        else:
+            await self.close()
+
+
     @property
     def state(self) -> str:
         return CLOSED if self._closed else OPEN

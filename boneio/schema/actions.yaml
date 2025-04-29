@@ -23,12 +23,28 @@ schema:
       action: ['cover']
     forbidden_if:
       action: ['output', 'mqtt']
-    allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE']
+    allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE', 'TILT_STOP']
     coerce: action_field
     default: TOGGLE
     case_insensitive: true
     meta:
       label: If cover action chosen then what action to perform.
+  data:
+    type: dict
+    meta:
+      label: Extra data to send to function. Currently used only for cover tilt.
+    schema:
+      type: dict
+      required: False
+      schema:
+        position:
+          type: int
+          meta:
+            label: Position to set cover to
+        tilt_position:
+          type: int
+          meta:
+            label: Tilt position to set cover to. 0 means closed, 100 means opened.
   action_output:
     type: string
     required_if:

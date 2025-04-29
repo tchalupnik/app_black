@@ -117,7 +117,6 @@ class VenetianCover(BaseCover):
             await self.async_send_state(rounded_pos, rounded_tilt)
             self._last_position_update = now
         if is_target:
-            print("is target?", is_target_position, is_target_tilt, is_position_overload)
             await self.stop()
         self._closed = self._position <= 0
 
@@ -177,8 +176,8 @@ class VenetianCover(BaseCover):
                 self.send_state()
         self._current_operation = IDLE
 
-    async def set_tilt(self, tilt: int) -> None:
-        set_tilt = round(tilt, 0)
+    async def set_tilt(self, tilt_position: int, **kwargs) -> None:
+        set_tilt = round(tilt_position, 0)
         if self._tilt_position == set_tilt:
             return
         if self._target_tilt is not None:
@@ -234,6 +233,17 @@ class VenetianCover(BaseCover):
         self._close_duration = config.get("close_duration", self._close_duration)
         self._actuator_activation_duration = config.get("actuator_activation_duration", self._actuator_activation_duration)
         self._tilt_duration = config.get("tilt_duration", self._tilt_duration)
+
+    async def tilt_open(self) -> None:
+        if self._current_operation != IDLE:
+            await self.stop()
+        await self.set_tilt(100)
+
+    async def tilt_close(self) -> None:
+        if self._current_operation != IDLE:
+            await self.stop()
+        await self.set_tilt(0)
+        
         
         
     
