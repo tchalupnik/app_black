@@ -171,8 +171,16 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._stop_event = threading.Event()
 
         self._event_bus.add_sigterm_listener(self.on_exit)
+
+        def _schedule_send_state_task(state_to_send, json_pos_to_send):
+            asyncio.ensure_future(self.send_state(state_to_send, json_pos_to_send), loop=self._loop)
+
         self._loop.call_soon_threadsafe(
-            self._loop.call_later, 0.5, self.send_state, self.state, self.json_position
+            self._loop.call_later,
+            0.5,
+            _schedule_send_state_task,
+            self.state,
+            self.json_position
         )
 
     async def on_exit(self) -> None:
