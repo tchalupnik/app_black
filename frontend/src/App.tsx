@@ -115,6 +115,7 @@ function AppContent() {
               if (isCoverState(prevCover) && isCoverState(message.data) && 
                   prevCover.state === message.data.state && 
                   prevCover.position === message.data.position && 
+                  prevCover.tilt === message.data.tilt &&
                   prevCover.current_operation === message.data.current_operation) {
                 return prev; // No change needed
               }

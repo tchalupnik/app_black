@@ -23,7 +23,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
   const [tilt, setTilt] = useState<number>(cover.tilt ?? 0);
   const isVenetian = cover.kind === 'venetian';
   if (cover.kind == "venetian"){
-    console.log("c", cover.tilt)
+    console.log("c", cover, cover.tilt)
   }
   const [isTiltActive, setIsTiltActive] = useState<boolean>(false);
 
@@ -141,7 +141,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => handleTilt(0)}
           disabled={error !== null || cover.current_operation !== 'idle'}
-          title="Tilt Down (Left)"
+          title="Tilt Down"
         >
           <LuArrowDownLeft />
         </button>
@@ -149,7 +149,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => handleTilt(100)}
           disabled={error !== null || cover.current_operation !== 'idle'}
-          title="Tilt Up (Right)"
+          title="Tilt Up"
         >
           <LuArrowUpRight />
         </button>

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Optional, Union
 
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 
 class InputState(BaseModel):
@@ -67,3 +68,7 @@ class StateUpdate(BaseModel):
     """State update model for WebSocket messages."""
     type: str  # 'input' or 'output' or 'cover'
     data: Union[InputState, OutputState, SensorState, CoverState]
+
+class PositionDict(TypedDict, total=False):
+    position: int
+    tilt: int

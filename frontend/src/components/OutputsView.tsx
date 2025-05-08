@@ -45,6 +45,7 @@ export default function OutputsView({error}: {error: string | null}) {
       setError(`Failed to control cover ${name}`);
     }
   };
+  console.log("covers", covers)
 
   return (
     <div className="container mx-auto p-4">
@@ -75,7 +76,7 @@ export default function OutputsView({error}: {error: string | null}) {
             {covers.filter(cover => isCoverState(cover)).map((cover) => (
               <CoverItem 
                 key={cover.id}
-                cover={cover as { id: string; name: string; state: string; position: number; current_operation: string; timestamp?: number }}
+                cover={cover as { id: string; name: string; state: string; position: number; tilt?: number; current_operation: string; timestamp?: number }}
                 action={actionCover}
                 isGrid={isGrid}
                 error={error}

@@ -164,7 +164,8 @@ cover_actions = {
     "TOGGLE_OPEN": "toggle_open",
     "TOGGLE_CLOSE": "toggle_close",
     "TILT": "set_tilt",
-    "TILT_STOP": "tilt_stop",
+    'TILT_OPEN': 'tilt_open',
+    'TILT_CLOSE': 'tilt_close',
 }
 
 INA219 = "ina219"
