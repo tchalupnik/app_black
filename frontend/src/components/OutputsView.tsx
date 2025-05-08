@@ -45,7 +45,6 @@ export default function OutputsView({error}: {error: string | null}) {
       setError(`Failed to control cover ${name}`);
     }
   };
-  console.log("covers", covers)
 
   return (
     <div className="container mx-auto p-4">
