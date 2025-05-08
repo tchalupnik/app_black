@@ -901,26 +901,18 @@ class Manager:
                     _f = getattr(cover, message.lower())
                     await _f()
             elif command == "pos":
-                position = int(message)
-                if 0 <= position <= 100:
-                    await cover.set_cover_position(position=position)
-                else:
-                    _LOGGER.warning(
-                        "Position cannot be set. Not number between 0-100. %s",
-                        message,
-                    )
+                try:
+                    await cover.set_cover_position(position=int(message))
+                except ValueError as err:
+                    _LOGGER.warning(err)
             elif command == "tilt":
                 if message == STOP:
                     await cover.stop()
                 else:
-                    tilt_position = int(message)
-                    if 0 <= tilt_position <= 100:
-                        await cover.set_tilt(tilt_position=tilt_position)
-                    else:
-                        _LOGGER.warning(
-                            "Tilt cannot be set. Not number between 0-100. %s",
-                            message,
-                        )
+                    try:
+                        await cover.set_tilt(tilt_position=int(message))
+                    except ValueError as err:
+                        _LOGGER.warning(err)
         elif msg_type == "group" and command == "set":
             target_device = self._configured_output_groups.get(device_id)
             if target_device and target_device.output_type != NONE:
