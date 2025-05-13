@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set, Union
+from typing import Callable, Coroutine, List, Optional, Set
 
 from board import SCL, SDA
 from busio import I2C
@@ -83,6 +83,7 @@ from boneio.helper.loader import (
 from boneio.helper.logger import configure_logger
 from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
+from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.models import OutputState
 from boneio.sensor.temp import TempSensor
@@ -103,9 +104,8 @@ class Manager:
 
     def __init__(
         self,
-        send_message: Callable[[str, Union[str, dict], bool], None],
+        message_bus: MessageBus,
         event_bus: EventBus,
-        mqtt_state: Callable[[], bool],
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
@@ -141,8 +141,10 @@ class Manager:
         self._web_bind_port = web_port
         self._network_info = network_state
 
-        self.send_message = send_message
-        self._mqtt_state = mqtt_state
+        self._message_bus: MessageBus = message_bus
+
+        self.send_message = message_bus.send_message
+        self._mqtt_state = message_bus.state
         self._event_pins = event_pins
         self._inputs = {}
         self._binary_pins = binary_pins
@@ -205,6 +207,7 @@ class Manager:
             _id = strip_accents(_name)
             out = configure_relay( #grouped_output updated here.
                 manager=self,
+                message_bus=message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
                 name=_name,
@@ -245,6 +248,7 @@ class Manager:
 
         self._serial_number_sensor = create_serial_number_sensor(
             manager=self,
+            message_bus=self._message_bus,
             topic_prefix=self._config_helper.topic_prefix)
         self._modbus_sensors = self._configure_modbus_sensors(sensors=sensors)
 
@@ -344,7 +348,7 @@ class Manager:
             )
             configured_group = configure_output_group(
                 config=group,
-                manager=self,
+                message_bus=self._message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
                 relay_id=group[ID].replace(" ", ""),
@@ -417,7 +421,7 @@ class Manager:
                     _cover.update_config_times(_config)
                     continue
                 self._covers[_id] = configure_cover(
-                    manager=self,
+                    message_bus=self._message_bus,
                     cover_id=_id,
                     state_manager=self._state_manager,
                     config=_config,
@@ -575,6 +579,7 @@ class Manager:
             self._temp_sensors.append(
                 create_dallas_sensor(
                     manager=self,
+                    message_bus=self._message_bus,
                     address=address,
                     topic_prefix=self._config_helper.topic_prefix,
                     config=sensor,
@@ -588,6 +593,7 @@ class Manager:
 
             create_adc(
                 manager=self,
+                message_bus=self._message_bus,
                 topic_prefix=self._config_helper.topic_prefix,
                 adc_list=adc_list,
             )
@@ -617,6 +623,7 @@ class Manager:
                 for temp_def in sensor:
                     temp_sensor = create_temp_sensor(
                         manager=self,
+                        message_bus=self._message_bus,
                         topic_prefix=self._config_helper.topic_prefix,
                         sensor_type=sensor_type,
                         config=temp_def,
@@ -633,6 +640,7 @@ class Manager:
                 ina219 = create_ina219_sensor(
                     topic_prefix=self._config_helper.topic_prefix,
                     manager=self,
+                    message_bus=self._message_bus,
                     config=sensor_config,
                 )
                 if ina219:
@@ -644,6 +652,7 @@ class Manager:
 
             return create_modbus_sensors(
                 manager=self,
+                message_bus=self._message_bus,
                 event_bus=self._event_bus,
                 sensors=sensors.get(MODBUS),
                 modbus=self._modbus,

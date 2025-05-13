@@ -142,6 +142,11 @@
             ],
             "description": "If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "title": "Output type"
+          },
+          "virtual_power_usage": {
+            "type": ["string", "number"],
+            "description": "Virtual power usage in Watts (e.g. 9 or '9W'). Used for virtual energy meter.",
+            "title": "Virtual Power Usage"
           }
         },
         "required": [

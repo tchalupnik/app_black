@@ -52,6 +52,25 @@ def ha_availabilty_message(
         **kwargs,
     }
 
+def ha_virtual_energy_sensor_discovery_message(
+    topic: str,
+    relay_id: str,
+    **kwargs
+) -> dict[str, str]:
+    """
+    Generate MQTT autodiscovery messages for Home Assistant for virtual power and energy sensors.
+    Returns two dicts:
+     - sensor.<id>_power: current power in W
+     - sensor.<id>_energy: total energy in Wh
+    """
+    # Power sensor discovery
+    msg = ha_availabilty_message(
+        state_topic=f"{topic}/energy/{relay_id}",
+        topic=topic,
+        **kwargs,
+    )
+    return msg
+
 
 def ha_light_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
     """Create LIGHT availability topic for HA."""
@@ -124,10 +143,9 @@ def ha_adc_sensor_availabilty_message(**kwargs):
     return msg
 
 
-def ha_sensor_availabilty_message(unit_of_measurement: str = None, **kwargs):
-    msg = ha_availabilty_message(device_type=SENSOR, **kwargs)
-    if not unit_of_measurement:
-        return msg
+def ha_sensor_availabilty_message(device_type: str = SENSOR, **kwargs):
+    msg = ha_availabilty_message(device_type=device_type, **kwargs)
+    return msg
 
 
 def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs):

@@ -45,7 +45,7 @@ from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
 from boneio.helper.stats import get_network_info
 from boneio.manager import Manager
-from boneio.mqtt_client import MQTTClient
+from boneio.message_bus import MQTTClient
 from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
@@ -114,7 +114,7 @@ async def async_run(
         )
         message_bus = client
     else:
-        from boneio.helper.message_bus import LocalMessageBus
+        from boneio.message_bus import LocalMessageBus
         message_bus = LocalMessageBus()
 
     manager_kwargs = {
@@ -132,9 +132,8 @@ async def async_run(
         web_config = {}
 
     manager = Manager(
-        send_message=message_bus.send_message,
+        message_bus=message_bus,
         event_bus=event_bus,
-        mqtt_state=message_bus.state,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),

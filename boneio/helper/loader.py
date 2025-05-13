@@ -61,6 +61,7 @@ from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
     ha_sensor_availabilty_message,
+    ha_virtual_energy_sensor_discovery_message,
 )
 from boneio.helper.onewire import (
     DS2482,
@@ -72,6 +73,7 @@ from boneio.helper.onewire import (
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input import GpioEventButtonNew, GpioEventButtonOld
+from boneio.message_bus.basic import MessageBus
 from boneio.sensor import (
     DallasSensorDS2482,
     GpioInputBinarySensorNew,
@@ -92,7 +94,7 @@ from boneio.sensor import GpioADCSensor, initialize_adc
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
+def create_adc(manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = []):
     """Create ADC sensor."""
 
     initialize_adc()
@@ -108,7 +110,7 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
                 pin=pin,
                 name=name,
                 manager=manager,
-                send_message=manager.send_message,
+                message_bus=message_bus,
                 topic_prefix=topic_prefix,
                 update_interval=gpio.get(
                     UPDATE_INTERVAL, TimePeriod(seconds=60)
@@ -129,6 +131,7 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
 
 def create_temp_sensor(
     manager: Manager,
+    message_bus: MessageBus,
     topic_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
@@ -152,7 +155,7 @@ def create_temp_sensor(
             i2c=i2cbusio,
             address=config[ADDRESS],
             manager=manager,
-            send_message=manager.send_message,
+            message_bus=message_bus,
             topic_prefix=topic_prefix,
             update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
             filters=config.get(FILTERS, []),
@@ -173,6 +176,7 @@ def create_temp_sensor(
 
 def create_serial_number_sensor(
     manager: Manager,
+    message_bus: MessageBus,
     topic_prefix: str,
 ):
     """Create Serial number sensor in manager."""
@@ -180,7 +184,7 @@ def create_serial_number_sensor(
         id="serial_number",
         name="Serial number",
         manager=manager,
-        send_message=manager.send_message,
+        message_bus=message_bus,
         topic_prefix=topic_prefix,
     )
     manager.send_ha_autodiscovery(
@@ -223,7 +227,7 @@ def create_expander(
     return grouped_outputs
 
 
-def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> dict:
+def create_modbus_sensors(manager: Manager, message_bus: MessageBus, sensors, **kwargs) -> dict:
     """Create Modbus sensor for each device."""
     from boneio.modbus.sensor import ModbusSensor
 
@@ -238,7 +242,7 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> dict:
                 name=name,
                 manager=manager,
                 model=sensor[MODEL],
-                send_message=manager.send_message,
+                message_bus=message_bus,
                 update_interval=sensor.get(
                     UPDATE_INTERVAL, TimePeriod(seconds=60)
                 ),
@@ -276,7 +280,7 @@ def output_chooser(output_kind: str, config):
 
 
 def configure_output_group(
-    manager: Manager,
+    message_bus: MessageBus,
     topic_prefix: str,
     config: dict,
     **kwargs,
@@ -285,7 +289,7 @@ def configure_output_group(
     _id = config.pop(ID)
 
     output = OutputGroup(
-        send_message=manager.send_message,
+        message_bus=message_bus,
         topic_prefix=topic_prefix,
         id=_id,
         callback=lambda: None,
@@ -297,6 +301,7 @@ def configure_output_group(
 
 def configure_relay(
     manager: Manager,
+    message_bus: MessageBus,
     state_manager: StateManager,
     topic_prefix: str,
     relay_id: str,
@@ -367,19 +372,12 @@ def configure_relay(
         )
         return
 
-    # # Create async callback wrapper
-    # async def relay_callback_wrapper(event: OutputState):
-    #     await relay_callback(
-    #         expander_id=expander_id,
-    #         event=event,
-    #         restore_state=False if output_type == NONE else restore_state,
-    #     )
     interlock_groups = config.get("interlock_group", [])
     if isinstance(interlock_groups, str):
         interlock_groups = [interlock_groups]
 
     relay = getattr(output, "OutputClass")(
-        send_message=manager.send_message,
+        message_bus=message_bus,
         topic_prefix=topic_prefix,
         id=relay_id,
         restored_state=restored_state,
@@ -389,10 +387,34 @@ def configure_relay(
         **config,
         **kwargs,
         **extra_args,
-        # callback=relay_callback_wrapper,
     )
     manager._interlock_manager.register(relay, interlock_groups)
     manager.grouped_outputs[expander_id][relay_id] = relay
+    if relay.virtual_power_usage is not None:
+        manager.send_ha_autodiscovery(
+            id=f"{relay_id}_virtual_power",
+            relay_id=relay_id,
+            name=f"{name} Virtual Power",
+            ha_type="sensor",
+            device_type="energy",
+            availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+            unit_of_measurement="W",
+            device_class="power",
+            state_class="measurement",
+            value_template="{{ value_json.power }}"
+        )
+        manager.send_ha_autodiscovery(
+            id=f"{relay_id}_virtual_energy",
+            relay_id=relay_id,
+            name=f"{name} Virtual Energy",
+            ha_type="sensor",
+            device_type="energy",
+            availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+            unit_of_measurement="Wh",
+            device_class="energy",
+            state_class="total_increasing",
+            value_template="{{ value_json.energy }}"
+        )
     return relay
 
 
@@ -493,7 +515,7 @@ def configure_binary_sensor(
 
 
 def configure_cover(
-    manager: Manager,
+    message_bus: MessageBus,
     cover_id: str,
     state_manager: StateManager,
     send_ha_autodiscovery: Callable,
@@ -522,7 +544,7 @@ def configure_cover(
         cover = VenetianCover(
             id=cover_id,
             state_save=state_save,
-            send_message=manager.send_message,
+            message_bus=message_bus,
             restored_state=restored_state,
             tilt_duration=tilt_duration,
             actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
@@ -539,7 +561,7 @@ def configure_cover(
         cover = TimeBasedCover(
             id=cover_id,
             state_save=state_save,
-            send_message=manager.send_message,
+            message_bus=message_bus,
             restored_state=restored_state,
             **kwargs,
         )
@@ -554,7 +576,7 @@ def configure_cover(
         cover = PreviousCover(
             id=cover_id,
             state_save=state_save,
-            send_message=manager.send_message,
+            message_bus=message_bus,
             restored_state=restored_state,
             **kwargs,
         )
@@ -604,6 +626,7 @@ def find_onewire_devices(
 
 def create_dallas_sensor(
     manager: Manager,
+    message_bus: MessageBus,
     address: OneWireAddress,
     config: dict,
     **kwargs,
@@ -614,11 +637,11 @@ def create_dallas_sensor(
     cls = DallasSensorDS2482 if bus else DallasSensorW1
     sensor = cls(
         manager=manager,
+        message_bus=message_bus,
         address=address,
         id=id,
         name=name,
         update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
-        send_message=manager.send_message,
         filters=config.get(FILTERS, []),
         **kwargs,
     )
@@ -635,6 +658,7 @@ def create_dallas_sensor(
 
 def create_ina219_sensor(
     manager: Manager,
+    message_bus: MessageBus,
     topic_prefix: str,
     config: dict = {},
 ):
@@ -649,7 +673,7 @@ def create_ina219_sensor(
             address=address,
             sensors=config.get("sensors", []),
             manager=manager,
-            send_message=manager.send_message,
+            message_bus=message_bus,
             topic_prefix=topic_prefix,
             update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
         )

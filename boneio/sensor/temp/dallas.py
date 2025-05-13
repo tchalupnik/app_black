@@ -77,7 +77,7 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
                 return
             self._state = _temp
             self._timestamp = timestamp
-            self._send_message(
+            self._message_bus.send_message(
                 topic=self._send_topic,
                 payload={STATE: self._state},
             )

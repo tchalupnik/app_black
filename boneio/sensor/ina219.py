@@ -65,7 +65,7 @@ class INA219Sensor(BasicMqtt, Filter):
             return
         self._state = _state
         self._timestamp = timestamp
-        self._send_message(
+        self._message_bus.send_message(
             topic=self._send_topic,
             payload={STATE: self.state},
         )

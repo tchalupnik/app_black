@@ -150,11 +150,11 @@ class PreviousCover(BasicMqtt):
 
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
-        self._send_message(
+        self._message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=self.state
         )
         pos = round(self._position, 0)
-        self._send_message(topic=f"{self._send_topic}/pos", payload={ "position": str(pos) })
+        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload={ "position": str(pos) })
         self._state_save(value={"position": pos})
 
     def _stop_cover(self, on_exit=False) -> None:
@@ -201,7 +201,7 @@ class PreviousCover(BasicMqtt):
                 rounded_pos = 100
             elif rounded_pos < 0:
                 rounded_pos = 0
-        self._send_message(topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)})
+        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)})
         asyncio.create_task(self.async_send_state())
         if rounded_pos == self._set_position or (
             self._set_position is None
@@ -224,7 +224,7 @@ class PreviousCover(BasicMqtt):
         _LOGGER.info("Closing cover %s.", self._id)
 
         self._requested_closing = True
-        self._send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
+        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
         await self.run_cover(
             current_operation=CLOSING,
         )
@@ -239,7 +239,7 @@ class PreviousCover(BasicMqtt):
         _LOGGER.info("Opening cover %s.", self._id)
 
         self._requested_closing = False
-        self._send_message(topic=f"{self._send_topic}/state", payload=OPENING)
+        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
         await self.run_cover(
             current_operation=OPENING,
         )
@@ -261,7 +261,7 @@ class PreviousCover(BasicMqtt):
             set_position,
             current_operation,
         )
-        self._send_message(
+        self._message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=current_operation
         )
         await self.run_cover(

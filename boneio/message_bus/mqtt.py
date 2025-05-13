@@ -10,20 +10,22 @@ import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import Any, Awaitable, Callable, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Set, Union
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
-from aiomqtt import MqttError, Will
+from aiomqtt import Message, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from boneio.const import OFFLINE, PAHO, STATE
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
-from boneio.helper.message_bus import MessageBus
 from boneio.helper.queue import UniqueQueue
-from boneio.manager import Manager
+
+if TYPE_CHECKING:
+    from boneio.manager import Manager
+from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +53,7 @@ class MQTTClient(MessageBus):
         self.reconnect_interval = 1
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
+        self._mqtt_energy_listeners: dict[str, Callable[[str, str], Awaitable[None]]] = {}
         self._discovery_topics = (
             [
                 f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/#"
@@ -128,6 +131,13 @@ class MQTTClient(MessageBus):
         await self.asyncio_client.subscribe(
             topic=args, **params, timeout=timeout
         )
+
+    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
+        self._mqtt_energy_listeners[topic] = callback
+
+    async def unsubscribe_and_stop_listen(self, topic: str) -> None:
+        await self.unsubscribe([topic])
+        del self._mqtt_energy_listeners[topic]
 
     async def unsubscribe(
         self,
@@ -241,6 +251,7 @@ class MQTTClient(MessageBus):
             tasks.add(cancel_task)
 
             await self.subscribe(topics=self._topics)
+            await self.subscribe(topics=list(self._mqtt_energy_listeners.keys()))
             await self.subscribe(topics=self._discovery_topics)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
@@ -251,7 +262,7 @@ class MQTTClient(MessageBus):
         return self._connection_established
 
     async def handle_messages(
-        self, messages: Any, callback: Callable[[str, str], Awaitable[None]]
+        self, messages: Message, callback: Callable[[str, str], Awaitable[None]]
     ):
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
@@ -274,6 +285,12 @@ class MQTTClient(MessageBus):
                             topic=topic, payload=None, retain=True
                         )
                     break
+            if message.topic.matches(f"{self._config_helper.topic_prefix}/energy/#"):
+                for topic, listener_callback in self._mqtt_energy_listeners.items():
+                    if message.topic.matches(topic):
+                        callback_start = False
+                        await listener_callback(str(message.topic), payload)
+                        break
             if callback_start:
                 _LOGGER.debug(
                     "Received message topic: %s, payload: %s",

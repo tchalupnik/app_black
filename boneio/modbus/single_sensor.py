@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Optional, Union
+from typing import Optional
 
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.config import ConfigHelper
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
+from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,9 +27,7 @@ class SingleSensor(Filter):
         value_type: str,
         return_type: str,
         filters: list,
-        send_message: Callable[
-            [str, Union[str, int, dict, None], Optional[bool]], None
-        ],
+        message_bus: MessageBus,
         config_helper: ConfigHelper,
         user_filters: Optional[list] = [],
         ha_filter: str = "round(2)",
@@ -61,7 +60,7 @@ class SingleSensor(Filter):
         self._filters = filters
         self._value = None
         self._return_type = return_type
-        self._send_message = send_message
+        self._message_bus = message_bus
         self._config_helper = config_helper
         self._timestamp = time.time()
         self._parent = parent
@@ -92,7 +91,7 @@ class SingleSensor(Filter):
         self._config_helper.add_autodiscovery_msg(
             topic=self._topic, payload=payload, ha_type=SENSOR
         )
-        self._send_message(topic=self._topic, payload=payload)
+        self._message_bus.send_message(topic=self._topic, payload=payload)
 
     def discovery_message(self):
         value_template = (

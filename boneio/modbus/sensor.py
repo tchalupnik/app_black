@@ -88,7 +88,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     value_type=register.get("value_type"),
                     return_type=register.get("return_type", "regular"),
                     filters=register.get("filters", []),
-                    send_message=self._send_message,
+                    message_bus=self._message_bus,
                     config_helper=self._config_helper,
                     ha_filter=register.get("ha_filter", "round(2)"),
                 )
@@ -183,7 +183,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     "Sending online payload about device %s.", self._name
                 )
                 self._payload_online = ONLINE
-                self._send_message(
+                self._message_bus.send_message(
                     topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
                     payload=self._payload_online,
                 )
@@ -194,7 +194,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 else:
                     # Let's assume device is offline.
                     self.set_payload_offline()
-                    self._send_message(
+                    self._message_bus.send_message(
                         topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
                         payload=self._payload_online,
                     )
@@ -251,7 +251,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     ),
                 )
             self._timestamp = timestamp
-            self._send_message(
+            self._message_bus.send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
                 payload=output,
             )

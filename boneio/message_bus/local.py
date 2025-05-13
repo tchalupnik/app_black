@@ -1,41 +1,15 @@
-"""Message bus abstraction for BoneIO."""
+from __future__ import annotations
+
 import asyncio
 import logging
-from abc import ABC, abstractmethod
-from typing import Callable, Dict, Set, Union
+from typing import TYPE_CHECKING, Callable, Dict, Set, Union
 
-from boneio.manager import Manager
+if TYPE_CHECKING:
+    from boneio.manager import Manager
+    
+from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
-
-class MessageBus(ABC):
-    """Base class for message handling."""
-    
-    @abstractmethod
-    async def send_message(self, topic: str, payload: Union[str, dict], retain: bool = False) -> None:
-        """Send a message."""
-        pass
-
-    @property
-    @abstractmethod
-    def state(self) -> bool:
-        """Get bus state."""
-        pass
-        
-    @abstractmethod
-    async def start_client(self) -> None:
-        """Start the message bus client."""
-        pass
-
-    @abstractmethod
-    def set_manager(self, manager: Manager) -> None:
-        """Set manager."""
-        pass
-
-    @abstractmethod
-    async def announce_offline(self) -> None:
-        """Announce that the device is offline."""
-        pass
 
 class LocalMessageBus(MessageBus):
     """Local message bus that doesn't use MQTT."""
@@ -60,7 +34,7 @@ class LocalMessageBus(MessageBus):
                 except Exception as e:
                     _LOGGER.error("Error in local message callback: %s", e)
     
-    def subscribe(self, topic: str, callback: Callable) -> None:
+    async def subscribe(self, topic: str, callback: Callable) -> None:
         """Subscribe to a topic."""
         if topic not in self._subscribers:
             self._subscribers[topic] = set()

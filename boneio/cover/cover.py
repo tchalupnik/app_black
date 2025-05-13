@@ -202,14 +202,14 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return
         _LOGGER.info("Opening cover %s.", self._id)
         await self.run_cover(current_operation=OPENING)
-        self._send_message(topic=f"{self._send_topic}/state", payload=OPENING)
+        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
 
     async def close(self) -> None:
         if self._position <= 0:
             return
         _LOGGER.info("Closing cover %s.", self._id)
         await self.run_cover(current_operation=CLOSING)
-        self._send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
+        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
 
     async def set_cover_position(self, position: int) -> None:
         if not 0 <= position <= 100:
@@ -281,8 +281,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             **json_position
         )
         await self._event_bus.async_trigger_event(event_type="cover", entity_id=self.id, event=event)
-        self._send_message(topic=f"{self._send_topic}/state", payload=state)
-        self._send_message(topic=f"{self._send_topic}/pos", payload=json_position)
+        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
+        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json_position)
 
     async def send_state_and_save(self, json_position: PositionDict):
         await self.send_state(self.state, json_position)

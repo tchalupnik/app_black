@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-
-from typing import Callable, Union, Optional
 from boneio.helper.util import strip_accents
+from boneio.message_bus.basic import MessageBus
 
 
 class BasicMqtt:
@@ -15,16 +14,14 @@ class BasicMqtt:
         id: str,
         topic_prefix: str,
         name: str,
-        send_message: Callable[
-            [str, Union[str, int, dict, None], Optional[bool]], None
-        ],
+        message_bus: MessageBus,
         topic_type: str,
         **kwargs,
     ):
         """Initialize module."""
         self._id = id.replace(" ", "")
         self._name = name
-        self._send_message = send_message
+        self._message_bus = message_bus
         topic_id = strip_accents(self.id)
         self._send_topic = f"{topic_prefix}/{topic_type}/{topic_id}"
 
