@@ -66,3 +66,9 @@ schema:
       action: ['output', 'cover']
     meta:
       label: What message to send to mqtt topic
+  action_mqtt_boneio:
+    type: string
+    forbidden_if:
+      action: ['output', 'cover']
+    meta:
+      label: Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.

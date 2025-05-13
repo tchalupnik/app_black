@@ -30,6 +30,7 @@ from boneio.const import (
     MODBUS,
     MQTT,
     NONE,
+    OFF,
     ON,
     ONEWIRE,
     ONLINE,
@@ -44,6 +45,7 @@ from boneio.const import (
     STATE,
     STOP,
     SWITCH,
+    TOGGLE,
     TOPIC,
     UART,
     UARTS,
@@ -95,7 +97,6 @@ AVAILABILITY_FUNCTION_CHOOSER = {
     LED: ha_led_availabilty_message,
     SWITCH: ha_switch_availabilty_message,
     VALVE: ha_valve_availabilty_message,
-
 }
 
 
@@ -205,7 +206,7 @@ class Manager:
             _name = _config.pop(ID)
             restore_state = _config.pop(RESTORE_STATE, False)
             _id = strip_accents(_name)
-            out = configure_relay( #grouped_output updated here.
+            out = configure_relay(  # grouped_output updated here.
                 manager=self,
                 message_bus=message_bus,
                 state_manager=self._state_manager,
@@ -229,9 +230,7 @@ class Manager:
                 self.send_ha_autodiscovery(
                     id=out.id,
                     name=out.name,
-                    ha_type=(
-                        LIGHT if out.output_type == LED else out.output_type
-                    ),
+                    ha_type=(LIGHT if out.output_type == LED else out.output_type),
                     availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
                         out.output_type, ha_switch_availabilty_message
                     ),
@@ -249,7 +248,8 @@ class Manager:
         self._serial_number_sensor = create_serial_number_sensor(
             manager=self,
             message_bus=self._message_bus,
-            topic_prefix=self._config_helper.topic_prefix)
+            topic_prefix=self._config_helper.topic_prefix,
+        )
         self._modbus_sensors = self._configure_modbus_sensors(sensors=sensors)
 
         if oled.get("enabled", False):
@@ -264,12 +264,8 @@ class Manager:
                 enabled_screens=self._screens,
                 output=self.grouped_outputs,
                 inputs=self._inputs,
-                temp_sensor=(
-                    self._temp_sensors[0] if self._temp_sensors else None
-                ),
-                ina219=(
-                    self._ina219_sensors[0] if self._ina219_sensors else None
-                ),
+                temp_sensor=(self._temp_sensors[0] if self._temp_sensors else None),
+                ina219=(self._ina219_sensors[0] if self._ina219_sensors else None),
                 extra_sensors=extra_sensors,
             )
             try:
@@ -355,9 +351,7 @@ class Manager:
                 event_bus=self._event_bus,
                 members=members,
             )
-            self._configured_output_groups[configured_group.id] = (
-                configured_group
-            )
+            self._configured_output_groups[configured_group.id] = configured_group
             if configured_group.output_type != NONE:
                 self.send_ha_autodiscovery(
                     id=configured_group.id,
@@ -378,15 +372,12 @@ class Manager:
                 coro=configured_group.event_listener, name=configured_group.id
             )
 
-
     def _configure_covers(self, reload_config: bool = False):
         """Configure covers."""
         if reload_config:
             config = load_config_from_file(self._config_file_path)
             self._config_covers = config.get(COVER, [])
-            self._config_helper.clear_autodiscovery_type(
-                ha_type=COVER
-            )
+            self._config_helper.clear_autodiscovery_type(ha_type=COVER)
         for _config in self._config_covers:
             _id = strip_accents(_config[ID])
             open_relay = self._outputs.get(_config.get("open_relay"))
@@ -403,10 +394,7 @@ class Manager:
                     _config.get("close_relay"),
                 )
                 continue
-            if (
-                open_relay.output_type != COVER
-                or close_relay.output_type != COVER
-            ):
+            if open_relay.output_type != COVER or close_relay.output_type != COVER:
                 _LOGGER.error(
                     "Can't configure cover %s. %s. Current types are: %s, %s",
                     _id,
@@ -434,7 +422,7 @@ class Manager:
                     send_ha_autodiscovery=self.send_ha_autodiscovery,
                     topic_prefix=self._config_helper.topic_prefix,
                 )
-                
+
             except CoverConfigurationException as err:
                 _LOGGER.error("Can't configure cover %s. %s", _id, err)
                 continue
@@ -455,9 +443,7 @@ class Manager:
             try:
                 pin = gpio.pop(PIN)
             except AttributeError as err:
-                _LOGGER.error(
-                    "Wrong config. Can't configure %s. Error %s", gpio, err
-                )
+                _LOGGER.error("Wrong config. Can't configure %s. Error %s", gpio, err)
                 return
             if check_if_pin_configured(pin=pin):
                 return
@@ -477,12 +463,8 @@ class Manager:
             if config:
                 self._event_pins = config.get(EVENT_ENTITY, [])
                 self._binary_pins = config.get(BINARY_SENSOR, [])
-                self._config_helper.clear_autodiscovery_type(
-                    ha_type=EVENT_ENTITY
-                )
-                self._config_helper.clear_autodiscovery_type(
-                    ha_type=BINARY_SENSOR
-                )
+                self._config_helper.clear_autodiscovery_type(ha_type=EVENT_ENTITY)
+                self._config_helper.clear_autodiscovery_type(ha_type=BINARY_SENSOR)
         for gpio in self._event_pins:
             configure_single_input(
                 configure_sensor_func=configure_event_sensor, gpio=gpio
@@ -524,9 +506,7 @@ class Manager:
         _ds_onewire_bus = {}
 
         for _single_ds in ds2482:
-            _LOGGER.debug(
-                "Preparing DS2482 bus at address %s.", _single_ds[ADDRESS]
-            )
+            _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds[ADDRESS])
             from boneio.helper.loader import (
                 configure_ds2482,
             )
@@ -742,9 +722,7 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
-    def get_output_and_action(
-        self, device_id, action, action_output, action_cover
-    ):
+    def get_output_and_action(self, device_id, action, action_output, action_cover):
         """Get output device and its action based on configuration."""
         if action == OUTPUT:
             return (
@@ -788,6 +766,15 @@ class Manager:
             if action == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
+                action_boneio = action_definition.get("action_mqtt_boneio")
+                action_output = action_definition.get("action_output")
+                pin = action_definition.get("pin")
+                if action_boneio and pin and action_output in (TOGGLE, ON, OFF):
+                    self.send_message(
+                        topic=f"{action_boneio}/cmd/relay{pin}",
+                        payload=action_output,
+                        retain=False,
+                    )
                 if action_topic and action_payload:
                     self.send_message(
                         topic=action_topic, payload=action_payload, retain=False
@@ -801,26 +788,22 @@ class Manager:
                 action_cover=action_cover,
             )
             if output and action:
-                _LOGGER.debug(
-                    "Executing action %s for output %s", action, output.name
-                )
+                _LOGGER.debug("Executing action %s for output %s", action, output.name)
                 _f = getattr(output, action)
                 if _f:
                     await _f(**extra_data)
             else:
                 if not action:
                     _LOGGER.warning(
-                        "Action doesn't exists %s, %s, %s. Check spelling", action_definition, actions
+                        "Action doesn't exists %s, %s, %s. Check spelling",
+                        action_definition,
+                        actions,
                     )
                 if not output:
                     _LOGGER.warning("Device %s for action not found", device_id)
         payload = generate_payload()
-        _LOGGER.debug(
-            "Sending message %s for input %s", payload, topic
-        )
-        self.send_message(
-            topic=topic, payload=payload, retain=False
-        )
+        _LOGGER.debug("Sending message %s for input %s", payload, topic)
+        self.send_message(topic=topic, payload=payload, retain=False)
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
             self._loop.call_soon_threadsafe(
@@ -839,13 +822,10 @@ class Manager:
             return "success"
         return "not_found"
 
-
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        if topic.startswith(
-            f"{self._config_helper.ha_discovery_prefix}/status"
-        ):
+        if topic.startswith(f"{self._config_helper.ha_discovery_prefix}/status"):
             if message == ONLINE:
                 self.resend_autodiscovery()
                 self._event_bus.signal_ha_online()
@@ -855,9 +835,7 @@ class Manager:
         except AssertionError as err:
             _LOGGER.error("Wrong topic %s. Error %s", topic, err)
             return
-        topic_parts_raw = topic[
-            len(self._config_helper.cmd_topic_prefix) :
-        ].split("/")
+        topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
         try:
             msg_type = topic_parts.popleft()
@@ -886,11 +864,7 @@ class Manager:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self._outputs.get(device_id)
-            if (
-                target_device
-                and target_device.output_type != NONE
-                and message != ""
-            ):
+            if target_device and target_device.output_type != NONE and message != "":
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
@@ -927,9 +901,7 @@ class Manager:
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
-                    asyncio.create_task(
-                        getattr(target_device, action_from_msg)()
-                    )
+                    asyncio.create_task(getattr(target_device, action_from_msg)())
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
@@ -947,10 +919,10 @@ class Manager:
                 _LOGGER.info("Reloading covers actions")
                 self._configure_covers(reload_config=True)
 
-
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")
         import os
+
         os._exit(0)  # Terminate the process
 
     @property
@@ -1012,7 +984,13 @@ class Manager:
             else:
                 web_url = None
         payload = availability_msg_func(
-            topic=topic_prefix, id=id, name=name, model=self._config_helper.device_type.title(), web_url=web_url, **kwargs
+            topic=topic_prefix,
+            id=id,
+            name=name,
+            model=self._config_helper.device_type.title(),
+            device_name=self._config_helper.name,
+            web_url=web_url,
+            **kwargs,
         )
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
