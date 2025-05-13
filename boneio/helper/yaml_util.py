@@ -513,6 +513,79 @@ class CustomValidator(Validator):
     def _normalize_coerce_actions_output(self, value):
         return str(value).upper()
 
+    def _normalize_coerce_power_value_to_watts(self, value):
+        """
+        Parse a power or energy value and return it in watts (W).
+        Accepts:
+        - Numeric values (int, float)
+        - Strings with units: 'W', 'kW', 'kWh', 'MW', 'mW', etc.
+        - For 'kWh' (kilowatt-hour), returns equivalent average power in W (1kWh = 1000W for 1h)
+        - For 'kW', 'MW', etc., converts to W
+        Example:
+            9 -> 9.0
+            '9W' -> 9.0
+            '1kW' -> 1000.0
+            '1kWh' -> 1000.0
+            '2.5MW' -> 2500000.0
+        Returns float (watts) or raises ValueError if invalid.
+        """
+        import re
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if not isinstance(value, str):
+            raise ValueError(f"Unsupported type for power value: {type(value)}")
+        value = value.strip().replace(' ', '').lower()
+        pattern = r"^([-+]?[0-9]*\.?[0-9]+)([a-z]*)$"
+        match = re.match(pattern, value)
+        if not match:
+            _LOGGER.warning(f"Could not parse power value: {value}")
+            raise ValueError(f"Could not parse power value: {value}")
+        num, unit = match.groups()
+        num = float(num)
+        multiplier = 1.0
+        if unit in ('w', ''):
+            multiplier = 1.0
+        elif unit == 'kw':
+            multiplier = 1000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'gw':
+            multiplier = 1_000_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'kwh':
+            # 1 kWh = 1000 W (for 1h). For config, treat as 1000W average.
+            multiplier = 1000.0
+        elif unit == 'mwh':
+            multiplier = 1_000_000.0
+        elif unit == 'gwh':
+            multiplier = 1_000_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'wh':
+            multiplier = 1.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        elif unit == 'mw':
+            multiplier = 1_000_000.0
+        else:
+            _LOGGER.warning(f"Unknown unit for power value: {unit}")
+            raise ValueError(f"Unknown unit for power value: {unit}")
+        result = num * multiplier
+        _LOGGER.debug(f"Parsed power value '{value}' as {result} W")
+        return result
+
+
 
 def load_config_from_string(config_str: str) -> dict:
     """Load config from string."""
@@ -549,3 +622,5 @@ def load_config_from_file(config_file: str):
         _LOGGER.warning("Missing yaml file. %s", config_file)
         return None
     return load_config_from_string(config_yaml)
+
+

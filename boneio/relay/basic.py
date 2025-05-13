@@ -38,16 +38,7 @@ class BasicRelay(BasicMqtt):
         self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
         self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
         self.virtual_power_usage = kwargs.pop("virtual_power_usage", None)
-        if self.virtual_power_usage is not None:
-            try:
-                # Accept '9W' or '9' (as int/float)
-                if isinstance(self.virtual_power_usage, str) and self.virtual_power_usage.lower().endswith('w'):
-                    self.virtual_power_usage = float(self.virtual_power_usage[:-1])
-                else:
-                    self.virtual_power_usage = float(self.virtual_power_usage)
-            except Exception as e:
-                _LOGGER.warning(f"Invalid virtual_power_usage for {id}: {self.virtual_power_usage} ({e})")
-                self.virtual_power_usage = None
+        # No parsing needed, Cerberus coerce handles conversion to watts.
         super().__init__(id=id, name=name or id, topic_type=topic_type, topic_prefix=topic_prefix, **kwargs)
         self._output_type = output_type
         self._event_bus = event_bus

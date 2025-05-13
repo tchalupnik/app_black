@@ -26,6 +26,7 @@ def ha_availabilty_message(
     id: str,
     name: str,
     topic: str = "boneIO",
+    device_name: str = "boneIO",
     device_type: str = INPUT,
     model: str = "boneIO Relay Board",
     web_url: str | None = None,
@@ -42,13 +43,14 @@ def ha_availabilty_message(
             "identifiers": [topic],
             "manufacturer": "boneIO",
             "model": model,
-            "name": f"boneIO {topic}",
+            "name": device_name,
             "sw_version": __version__,
             **web_url
         },
         "name": name,
         "state_topic": f"{topic}/{device_type}/{id}",
         "unique_id": f"{topic}{device_type}{id}",
+        # "object_id": f"{topic}{device_type}{id}",
         **kwargs,
     }
 

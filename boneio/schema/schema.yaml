@@ -491,6 +491,14 @@ output:
         required: False
         meta:
           label: How long can this relay be on. Can"t be used if output_type is "none".
+      virtual_power_usage:
+        type: 
+          - string
+          - number
+        coerce:
+          - power_value_to_watts
+        meta:
+          label: Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.
       restore_state:
         type: boolean
         required: True
