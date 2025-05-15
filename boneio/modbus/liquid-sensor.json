@@ -33,5 +33,16 @@
         }
       ]
     }
+  ],
+  "additional_sensors": [
+    {
+      "name": "Measurement Volume",
+      "source": "measurement_value",
+      "unit_of_measurement": "l",
+      "device_class": "volume_storage",
+      "state_class": "measurement",
+      "formula": "width * length * X * 10",
+      "config_keys": ["width", "length"]
+    }
   ]
 }

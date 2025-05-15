@@ -267,6 +267,24 @@ modbus_sensors:
         schema:
           temperature: !include filters.yaml
           humidity: !include filters.yaml
+      data:
+        type: dict
+        required: False
+        meta:
+          label: Data to pass to additional sensors.
+          schema:
+            type: dict
+            schema:
+              width:
+                type: integer
+                required: True
+                meta:
+                  label: Width of sensor in meters.
+              length:
+                type: integer
+                required: True
+                meta:
+                  label: Length of sensor in meters.
 lm75:
   type: list
   required: False

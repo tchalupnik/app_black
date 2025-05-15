@@ -28,7 +28,7 @@ from boneio.helper.util import open_json
 from boneio.models import SensorState
 
 from .client import VALUE_TYPES, Modbus
-from .single_sensor import SingleSensor
+from .single_sensor import SingleAdditionalSensor, SingleSensor
 from .utils import CONVERT_METHODS, REGISTERS_BASE
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         config_helper: ConfigHelper,
         event_bus: EventBus,
         id: str = DefaultName,
+        additional_data: dict = {},
         **kwargs,
     ):
         """Initialize Modbus sensor class."""
@@ -69,6 +70,11 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
             k.lower(): v for k, v in sensors_filters.items()
         }
         self._modbus_sensors: List[Dict[str, SingleSensor]] = []
+        self._additional_sensors: List[Dict[str, SingleAdditionalSensor]] = []
+        self._additional_sensors_by_source_name: Dict[str, List[SingleAdditionalSensor]] = {}
+        self._additional_data = additional_data
+        print("nanamam",self._name)
+        # Obsługa standardowych sensorów
         for index, data in enumerate(self._db[REGISTERS_BASE]):
             base = data[BASE]
             self._modbus_sensors.append({})
@@ -98,6 +104,45 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 self._modbus_sensors[index][
                     single_sensor.decoded_name
                 ] = single_sensor
+        # Obsługa additional_sensors
+
+        if "additional_sensors" in self._db:
+            for additional in self._db["additional_sensors"]:
+                config_keys = additional.get("config_keys", [])
+                if not self._additional_data:
+                    continue
+                if not all(k in self._additional_data for k in config_keys):
+                    continue
+                source_sensor = None
+                for sensors in self._modbus_sensors:
+                    for s in sensors.values():
+                        if s.decoded_name == additional["source"].replace("_", ""):
+                            source_sensor = s
+                            break
+                if not source_sensor:
+                    _LOGGER.warning("Source sensor '%s' for additional sensor '%s' not found.", additional["source"], additional["name"])
+                    continue
+                single_sensor = SingleAdditionalSensor(
+                    name=additional["name"],
+                    parent={NAME: self._name, ID: self._id, MODEL: self._model},
+                    register_address=-1,
+                    base_address=base,
+                    unit_of_measurement=additional.get("unit_of_measurement", "m3"),
+                    state_class=additional.get("state_class", "measurement"),
+                    device_class=additional.get("device_class", "volume"),
+                    value_type=None,
+                    return_type=None,
+                    filters=[],
+                    message_bus=self._message_bus,
+                    config_helper=self._config_helper,
+                    ha_filter=additional.get("ha_filter", "round(2)"),
+                    formula=additional.get("formula", ""),
+                    context_config = { k: v for k,v in self._additional_data.items() if k in config_keys },
+                )
+                self._additional_sensors.append({single_sensor.decoded_name: single_sensor})
+                if source_sensor.decoded_name not in self._additional_sensors_by_source_name:
+                    self._additional_sensors_by_source_name[source_sensor.decoded_name] = []
+                self._additional_sensors_by_source_name[source_sensor.decoded_name].append(single_sensor)
         _LOGGER.info(
             "Available single sensors for %s: %s",
             self._name,
@@ -109,6 +154,18 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 ]
             ),
         )
+        if self._additional_sensors:
+            _LOGGER.info(
+                "Available additional sensors for %s: %s",
+                self._name,
+                ", ".join(
+                    [
+                        s.name
+                        for sensors in self._additional_sensors
+                        for s in sensors.values()
+                    ]
+                ),
+            )
         self._event_bus = event_bus
         self._event_bus.add_haonline_listener(target=self.set_payload_offline)
         try:
@@ -132,6 +189,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
         for sensors in self._modbus_sensors:
+            for sensor in sensors.values():
+                sensor.send_ha_discovery()
+        for sensors in self._additional_sensors:
             for sensor in sensors.values():
                 sensor.send_ha_discovery()
         return datetime.now()
@@ -166,6 +226,15 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     "Discovery for %s not sent. First register not available.",
                     self._id,
                 )
+
+    def _evaluate_formula(self, formula: str, context: dict) -> float:
+        """
+        Evaluate the formula for additional sensor using provided context.
+        Allowed names: X (value from source sensor), config (dict with config values)
+        """
+        code = compile(formula, "<string>", "eval")
+        return eval(code, {"__builtins__": {}}, context)
+    
 
     async def async_update(self, timestamp: float) -> Optional[float]:
         """Fetch state periodically and send to MQTT."""
@@ -238,6 +307,16 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                         )
                         decoded_value = None
                 sensor.set_value(value=decoded_value, timestamp=timestamp)
+                if self._additional_sensors and sensor.get_value() is not None:
+                    if sensor.decoded_name in self._additional_sensors_by_source_name:
+                        for additional_sensor in self._additional_sensors_by_source_name[sensor.decoded_name]:
+                            context = {
+                                "X": sensor.get_value(),
+                                **additional_sensor.context
+                            }
+                            value = self._evaluate_formula(additional_sensor.formula, context)
+                            additional_sensor.set_value(value=value, timestamp=timestamp)
+                            output[additional_sensor.decoded_name] = additional_sensor.state
                 output[sensor.decoded_name] = sensor.state
                 await self._event_bus.async_trigger_event(
                     event_type=MODBUS_SENSOR,

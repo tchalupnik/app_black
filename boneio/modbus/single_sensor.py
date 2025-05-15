@@ -158,3 +158,53 @@ class SingleSensor(Filter):
     @property
     def last_timestamp(self) -> float:
         return self._timestamp
+
+
+class SingleAdditionalSensor(SingleSensor):
+    def __init__(
+        self,
+        name: str,
+        parent: dict,
+        register_address: int,
+        base_address: int,
+        unit_of_measurement: str,
+        state_class: str,
+        device_class: str,
+        value_type: str,
+        return_type: str,
+        filters: list,
+        message_bus: MessageBus,
+        formula: str,
+        context_config: dict,
+        config_helper: ConfigHelper,
+        user_filters: Optional[list] = [],
+        ha_filter: str = "round(2)",
+    ) -> None:
+        super().__init__(
+            name=name,
+            parent=parent,
+            register_address=register_address,
+            base_address=base_address,
+            unit_of_measurement=unit_of_measurement,
+            state_class=state_class,
+            device_class=device_class,
+            value_type=value_type,
+            return_type=return_type,
+            filters=filters,
+            message_bus=message_bus,
+            config_helper=config_helper,
+            user_filters=user_filters,
+            ha_filter=ha_filter,
+        )
+        self._formula = formula
+        self._context_config = context_config
+
+    @property
+    def formula(self) -> str:
+        return self._formula
+
+    @property
+    def context(self) -> dict:
+        return self._context_config
+
+    

@@ -233,7 +233,7 @@ def modbus_sensor_availabilty_message(
             "identifiers": [id],
             "manufacturer": "boneIO",
             "model": model,
-            "name": f"boneIO {name.upper()}",
+            "name": name,
             "sw_version": __version__,
         },
         "name": sensor_id,

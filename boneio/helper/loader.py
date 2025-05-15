@@ -235,6 +235,8 @@ def create_modbus_sensors(manager: Manager, message_bus: MessageBus, sensors, **
     for sensor in sensors:
         name = sensor.get(ID)
         id = name.replace(" ", "")
+        print("name to check", name)
+        additional_data = sensor.get("data", {})
         try:
             modbus_sensors[id.lower()] = ModbusSensor(
                 address=sensor[ADDRESS],
@@ -247,6 +249,7 @@ def create_modbus_sensors(manager: Manager, message_bus: MessageBus, sensors, **
                     UPDATE_INTERVAL, TimePeriod(seconds=60)
                 ),
                 sensors_filters=sensor.get("sensors_filters", {}),
+                additional_data=additional_data,
                 **kwargs,
             )
         except FileNotFoundError as err:
