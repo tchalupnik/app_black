@@ -73,8 +73,8 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         self._additional_sensors: List[Dict[str, SingleAdditionalSensor]] = []
         self._additional_sensors_by_source_name: Dict[str, List[SingleAdditionalSensor]] = {}
         self._additional_data = additional_data
-        print("nanamam",self._name)
-        # Obsługa standardowych sensorów
+        print("aaa", additional_data)
+        # Standard sensors
         for index, data in enumerate(self._db[REGISTERS_BASE]):
             base = data[BASE]
             self._modbus_sensors.append({})
@@ -104,8 +104,8 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 self._modbus_sensors[index][
                     single_sensor.decoded_name
                 ] = single_sensor
-        # Obsługa additional_sensors
 
+        # Additional sensors
         if "additional_sensors" in self._db:
             for additional in self._db["additional_sensors"]:
                 config_keys = additional.get("config_keys", [])

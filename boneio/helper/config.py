@@ -3,6 +3,7 @@ Module to provide basic config options.
 """
 from __future__ import annotations
 
+import logging
 from _collections_abc import dict_values
 from typing import Union
 
@@ -18,6 +19,9 @@ from boneio.const import (
     SWITCH,
     VALVE,
 )
+from boneio.helper.util import sanitize_mqtt_topic
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ConfigHelper:
@@ -28,9 +32,12 @@ class ConfigHelper:
         device_type: str = "boneIO Black",
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
+        network_info: dict = None,
+        is_web_active: bool = False,
     ):
         self._name = name
-        self._topic_prefix = topic_prefix if topic_prefix else name
+        sanitized_topic_prefix = sanitize_mqtt_topic(topic_prefix) if topic_prefix else sanitize_mqtt_topic(name)
+        self._topic_prefix = sanitized_topic_prefix
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._device_type = device_type
@@ -46,6 +53,16 @@ class ConfigHelper:
             VALVE: {},
         }
         self.manager_ready: bool = False
+        self._network_info = network_info
+        self._is_web_active = is_web_active
+
+    @property
+    def network_info(self) -> dict:
+        return self._network_info
+
+    @property
+    def is_web_active(self) -> bool:
+        return self._is_web_active
 
     @property
     def topic_prefix(self) -> str:

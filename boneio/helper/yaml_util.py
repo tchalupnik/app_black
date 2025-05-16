@@ -430,6 +430,40 @@ class CustomValidator(Validator):
     def _normalize_coerce_actions_output(self, value):
         return str(value).upper()
 
+    def _normalize_coerce_length_to_meters(self, value) -> float:
+        """
+        Convert a length value to meters.
+        Accepts:
+        - Numeric values (int, float) - assumed to be in meters
+        - Strings with units: 'm', 'cm', 'mm'
+        Examples:
+        5 -> 5.0
+        '5m' -> 5.0
+        '500cm' -> 5.0
+        '2000mm' -> 2.0
+        """
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        value = str(value).strip().lower()
+        match = re.match(r"^([-+]?[0-9]*\.?[0-9]*)\s*(m|cm|mm)?$", value)
+        if not match:
+            raise ValueError(f"Invalid length value: {value}")
+        num = float(match.group(1))
+        unit = match.group(2) or "m"
+        if unit == "m":
+            multiplier = 1.0
+        elif unit == "cm":
+            multiplier = 0.01
+        elif unit == "mm":
+            multiplier = 0.001
+        else:
+            raise ValueError(f"Unknown unit for length value: {unit}")
+        result = num * multiplier
+        _LOGGER.debug(f"Parsed length value '{value}' as {result} m")
+        return result
+
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
         """Validate and transform time period with time unit and integer value."""
         if isinstance(value, int):
@@ -529,7 +563,6 @@ class CustomValidator(Validator):
             '2.5MW' -> 2500000.0
         Returns float (watts) or raises ValueError if invalid.
         """
-        import re
         if value is None:
             return None
         if isinstance(value, (int, float)):

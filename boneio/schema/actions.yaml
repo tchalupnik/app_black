@@ -2,25 +2,25 @@ type: dict
 schema:
   action:
     type: string
-    allowed: ['mqtt', 'output', 'cover', 'mqtt_output', 'mqtt_cover']
+    allowed: ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt']
     coerce: lower
     case_insensitive: true
   pin:
     type: string
     required_if:
-      action: ['output', 'group', 'cover', 'mqtt_output', 'mqtt_cover']
+      action: ['output', 'group', 'cover', 'output_over_mqtt', 'cover_over_mqtt']
   topic:
     type: string
     required_if:
       action: ['mqtt']
     forbidden_if:
-      action: ['output', 'cover', 'mqtt_output', 'mqtt_cover']
+      action: ['output', 'cover', 'mqtt_output', 'cover_over_mqtt']
     meta:
       label: If mqtt action then topic to send
   action_cover:
     type: string
     required_if:
-      action: ['cover', 'mqtt_cover']
+      action: ['cover', 'cover_over_mqtt']
     forbidden_if:
       action: ['output', 'mqtt', 'mqtt_output']
     allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE']
@@ -49,9 +49,9 @@ schema:
   action_output:
     type: string
     required_if:
-      action: ['output', 'mqtt_output']
+      action: ['output', 'output_over_mqtt']
     forbidden_if:
-      action: ['cover', 'mqtt', 'mqtt_cover']
+      action: ['cover', 'mqtt', 'cover_over_mqtt']
     allowed: ['TOGGLE', 'ON', 'OFF']
     coerce: action_field
     default: TOGGLE
@@ -61,15 +61,15 @@ schema:
   action_mqtt_msg:
     type: string
     required_if:
-      action: ['mqtt', 'mqtt_output', 'mqtt_cover']
+      action: ['mqtt', 'output_over_mqtt', 'cover_over_mqtt']
     forbidden_if:
       action: ['output', 'cover']
     meta:
       label: What message to send to mqtt topic
-  action_mqtt_boneio:
+  boneio_id:
     type: string
     required_if:
-      action: ['mqtt_output', 'mqtt_cover']
+      action: ['output_over_mqtt', 'cover_over_mqtt']
     forbidden_if:
       action: ['output', 'cover', 'mqtt']
     meta:

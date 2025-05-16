@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set
+from typing import Callable, Coroutine, List, Optional, Set, Tuple
 
 from board import SCL, SDA
 from busio import I2C
@@ -15,6 +15,7 @@ from boneio.const import (
     BUTTON,
     CLOSE,
     COVER,
+    COVER_OVER_MQTT,
     DALLAS,
     DS2482,
     EVENT_ENTITY,
@@ -30,12 +31,12 @@ from boneio.const import (
     MODBUS,
     MQTT,
     NONE,
-    OFF,
     ON,
     ONEWIRE,
     ONLINE,
     OPEN,
     OUTPUT,
+    OUTPUT_OVER_MQTT,
     PCA,
     PCF,
     PIN,
@@ -45,7 +46,6 @@ from boneio.const import (
     STATE,
     STOP,
     SWITCH,
-    TOGGLE,
     TOPIC,
     UART,
     UARTS,
@@ -88,6 +88,7 @@ from boneio.helper.yaml_util import load_config_from_file
 from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.models import OutputState
+from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 
 _LOGGER = logging.getLogger(__name__)
@@ -126,7 +127,6 @@ class Manager:
         cover: list = [],
         web_active: bool = False,
         web_port: int = 8090,
-        network_state: Optional[dict] = None,
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
@@ -140,7 +140,6 @@ class Manager:
         self._event_bus = event_bus
         self._is_web_on = web_active
         self._web_bind_port = web_port
-        self._network_info = network_state
 
         self._message_bus: MessageBus = message_bus
 
@@ -153,7 +152,7 @@ class Manager:
         self._mcp = {}
         self._pcf = {}
         self._pca = {}
-        self._outputs = {}
+        self._outputs: dict[str, BasicRelay] = {}
         self._configured_output_groups = {}
         self._interlock_manager = SoftwareInterlockManager()
 
@@ -722,19 +721,21 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
-    def get_output_and_action(self, device_id, action, action_output, action_cover):
+    def get_output_and_action(
+        self, entity_id: str, action: str, action_output: str, action_cover: str
+    ) -> Tuple[BasicRelay, str]:
         """Get output device and its action based on configuration."""
         if action == OUTPUT:
             return (
                 self._outputs.get(
-                    strip_accents(device_id),
-                    self._configured_output_groups.get(device_id),
+                    strip_accents(entity_id),
+                    self._configured_output_groups.get(entity_id),
                 ),
                 relay_actions.get(action_output),
             )
         else:
             return (
-                self._covers.get(strip_accents(device_id)),
+                self._covers.get(strip_accents(entity_id)),
                 cover_actions.get(action_cover),
             )
 
@@ -751,6 +752,32 @@ class Manager:
         actions = gpio.get_actions_of_click(click_type=x)
         topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
+        async def invoke_action_on_output(
+            entity_id: str, action_output: str, action: str, action_cover: str
+        ):
+            output, action_to_execute = self.get_output_and_action(
+                entity_id=entity_id,
+                action=action,
+                action_output=action_output,
+                action_cover=action_cover,
+            )
+            if output and action_to_execute:
+                _LOGGER.debug(
+                    "Executing action %s for output %s", action_to_execute, output.name
+                )
+                _f = getattr(output, action_to_execute)
+                if _f:
+                    await _f(**extra_data)
+            else:
+                if not action_to_execute:
+                    _LOGGER.warning(
+                        "Action doesn't exists %s, %s, %s. Check spelling",
+                        action_definition,
+                        actions,
+                    )
+                if not output:
+                    _LOGGER.warning("Device %s for action not found", entity_id)
+
         def generate_payload():
             if gpio.input_type == INPUT:
                 if duration:
@@ -759,48 +786,47 @@ class Manager:
             return x
 
         for action_definition in actions:
-            device_id = action_definition.get("pin")
+            entity_id = action_definition.get("pin")
             action = action_definition.get("action")
             action_output = action_definition.get("action_output")
             action_cover = action_definition.get("action_cover")
+            extra_data = action_definition.get("data", {})
             if action == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
-                action_boneio = action_definition.get("action_mqtt_boneio")
-                action_output = action_definition.get("action_output")
-                pin = action_definition.get("pin")
-                if action_boneio and pin and action_output in (TOGGLE, ON, OFF):
-                    self.send_message(
-                        topic=f"{action_boneio}/cmd/relay{pin}",
-                        payload=action_output,
-                        retain=False,
-                    )
                 if action_topic and action_payload:
                     self.send_message(
                         topic=action_topic, payload=action_payload, retain=False
                     )
                 continue
-            extra_data = action_definition.get("data", {})
-            output, action = self.get_output_and_action(
-                device_id=device_id,
-                action=action,
-                action_output=action_output,
-                action_cover=action_cover,
-            )
-            if output and action:
-                _LOGGER.debug("Executing action %s for output %s", action, output.name)
-                _f = getattr(output, action)
-                if _f:
-                    await _f(**extra_data)
-            else:
-                if not action:
-                    _LOGGER.warning(
-                        "Action doesn't exists %s, %s, %s. Check spelling",
-                        action_definition,
-                        actions,
+            elif action == OUTPUT or action == COVER:
+                await invoke_action_on_output(
+                    entity_id=entity_id,
+                    action_output=action_output,
+                    action=action,
+                    action_cover=action_cover,
+                )
+            elif action == OUTPUT_OVER_MQTT:
+                boneio_id = action_definition.get("boneio_id")
+                if relay_actions.get(action_output.upper()):
+                    self.send_message(
+                        topic=f"{boneio_id}/cmd/relay/{entity_id}/set",
+                        payload=action_output,
+                        retain=False,
                     )
-                if not output:
-                    _LOGGER.warning("Device %s for action not found", device_id)
+                else:
+                    _LOGGER.warning("Desired action %s does not exists", action_output)
+            elif action == COVER_OVER_MQTT:
+                boneio_id = action_definition.get("boneio_id")
+                if cover_actions.get(action_cover.upper()):
+                    self.send_message(
+                        topic=f"{boneio_id}/cmd/cover/{entity_id}/set",
+                        payload=action_cover,
+                        retain=False,
+                    )
+                else:
+                    _LOGGER.warning("Desired action %s does not exists", action_cover)
+
         payload = generate_payload()
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
         self.send_message(topic=topic, payload=payload, retain=False)
@@ -976,13 +1002,12 @@ class Manager:
         if not self._config_helper.ha_discovery:
             return
         topic_prefix = topic_prefix or self._config_helper.topic_prefix
-        if self._host_data:
-            web_url = self._host_data.web_url
-        else:
-            if self._network_info and IP in self._network_info:
-                web_url = f"http://{self._network_info[IP]}:{self._web_bind_port}"
-            else:
-                web_url = None
+        web_url = None
+        if self._config_helper.is_web_active:
+            if self._host_data:
+                web_url = self._host_data.web_url
+            elif self._config_helper.network_info and IP in self._config_helper.network_info:
+                web_url = f"http://{self._config_helper.network_info[IP]}:{self._web_bind_port}"
         payload = availability_msg_func(
             topic=topic_prefix,
             id=id,

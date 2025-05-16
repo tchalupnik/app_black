@@ -80,6 +80,7 @@ async def async_run(
     event_bus = EventBus(loop=asyncio.get_event_loop())
     shutdown_event = asyncio.Event()
     loop = asyncio.get_event_loop()
+    network_state = get_network_info()
 
     def signal_handler():
         """Handle shutdown signals."""
@@ -95,9 +96,20 @@ async def async_run(
     event_bus_task.add_done_callback(tasks.discard)
 
     main_config = config.get(BONEIO, {})
+
+    if "web" in config:
+        web_active = True
+        web_config = config.get("web") or {}
+    else:
+        web_active = False
+        web_config = {}
+
+    print("mainAAAA", main_config)
     _config_helper = ConfigHelper(
         name=main_config.get(NAME, BONEIO),
         device_type=main_config.get("device_type", "boneIO Black"),
+        network_info=network_state,
+        is_web_active=web_active,
         topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
@@ -122,14 +134,7 @@ async def async_run(
         for item in config_modules
     }
 
-    if "web" in config:
-        web_active = True
-        web_config = config.get("web") or {}
-        network_state = get_network_info()
-    else:
-        web_active = False
-        network_state = None
-        web_config = {}
+    
 
     manager = Manager(
         message_bus=message_bus,
@@ -151,7 +156,6 @@ async def async_run(
         },
         web_active=web_active,
         web_port=web_config.get("port", 8090),
-        network_state=network_state,
         **manager_kwargs,
     )
     # Convert coroutines to Tasks

@@ -59,6 +59,23 @@
             "description": "ID of close relay of output.",
             "title": "Close relay"
           },
+          "platform": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "previous",
+            "enum": [
+              "time_based",
+              "venetian",
+              "previous"
+            ],
+            "examples": [
+              "time_based"
+            ],
+            "description": "Platform to use for cover.",
+            "title": "Platform"
+          },
           "open_time": {
             "type": [
               "string",
@@ -76,6 +93,24 @@
             ],
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
+          },
+          "tilt_duration": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
+            "title": "Tilt duration"
+          },
+          "actuator_activation_duration": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
+            "title": "Actuator activation duration"
           },
           "device_class": {
             "type": [

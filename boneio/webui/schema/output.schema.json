@@ -96,6 +96,15 @@
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
+          "virtual_power_usage": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.",
+            "title": "Virtual power usage"
+          },
           "restore_state": {
             "oneOf": [
               {
@@ -114,9 +123,16 @@
                 "x-yaml-boolean": true
               }
             ],
-            "default": true,
+            "default": true
+          },
+          "interlock_group": {
+            "type": [
+              "string",
+              "string",
+              "array"
+            ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
-            "title": "Restore state"
+            "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
@@ -135,6 +151,7 @@
               "switch",
               "light",
               "cover",
+              "valve",
               "none"
             ],
             "examples": [
@@ -142,11 +159,6 @@
             ],
             "description": "If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "title": "Output type"
-          },
-          "virtual_power_usage": {
-            "type": ["string", "number"],
-            "description": "Virtual power usage in Watts (e.g. 9 or '9W'). Used for virtual energy meter.",
-            "title": "Virtual Power Usage"
           }
         },
         "required": [

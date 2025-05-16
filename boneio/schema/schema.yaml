@@ -27,8 +27,7 @@ mqtt:
         label: Port to connect to mqtt broker
     topic_prefix:
       type: string
-      default: boneIO
-      required: True
+      required: False
       meta:
         label: Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.
     ha_discovery:
@@ -272,19 +271,27 @@ modbus_sensors:
         required: False
         meta:
           label: Data to pass to additional sensors.
-          schema:
-            type: dict
-            schema:
-              width:
-                type: integer
-                required: True
-                meta:
-                  label: Width of sensor in meters.
-              length:
-                type: integer
-                required: True
-                meta:
-                  label: Length of sensor in meters.
+        schema:
+          width:
+            type:
+              - string
+              - float
+              - integer
+            coerce:
+              - length_to_meters
+            required: False
+            meta:
+              label: Width of sensor in meters, cm etc. Without unit is meters
+          length:
+            type:
+              - string
+              - float
+              - integer
+            coerce:
+              - length_to_meters
+            required: False
+            meta:
+              label: Length of sensor in meters, cm etc. Without unit is meters
 lm75:
   type: list
   required: False

@@ -497,6 +497,36 @@
             },
             "description": "List of sub sensors to use to filter. Available values are temperature or humidity.",
             "title": "Sensors filters"
+          },
+          "extra_data": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "width": {
+                "type": [
+                  "string",
+                  "string",
+                  "number",
+                  "integer"
+                ],
+                "description": "Width of sensor in meters, cm etc. Without unit is meters",
+                "title": "Width"
+              },
+              "length": {
+                "type": [
+                  "string",
+                  "string",
+                  "number",
+                  "integer"
+                ],
+                "description": "Length of sensor in meters, cm etc. Without unit is meters",
+                "title": "Length"
+              }
+            },
+            "description": "Data to pass to additional sensors.",
+            "title": "Extra data"
           }
         },
         "required": [
@@ -1003,6 +1033,15 @@
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
+          "virtual_power_usage": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.",
+            "title": "Virtual power usage"
+          },
           "restore_state": {
             "oneOf": [
               {
@@ -1021,9 +1060,16 @@
                 "x-yaml-boolean": true
               }
             ],
-            "default": true,
+            "default": true
+          },
+          "interlock_group": {
+            "type": [
+              "string",
+              "string",
+              "array"
+            ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
-            "title": "Restore state"
+            "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
@@ -1042,6 +1088,7 @@
               "switch",
               "light",
               "cover",
+              "valve",
               "none"
             ],
             "examples": [
@@ -1364,7 +1411,9 @@
                       "enum": [
                         "mqtt",
                         "output",
-                        "cover"
+                        "cover",
+                        "mqtt_output",
+                        "mqtt_cover"
                       ],
                       "examples": [
                         "mqtt"
@@ -1396,13 +1445,43 @@
                         "CLOSE",
                         "STOP",
                         "TOGGLE_OPEN",
-                        "TOGGLE_CLOSE"
+                        "TOGGLE_CLOSE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
                       ],
                       "examples": [
                         "TOGGLE"
                       ],
                       "description": "If cover action chosen then what action to perform.",
                       "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "string",
+                        "object"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
                     },
                     "action_output": {
                       "type": [
@@ -1428,6 +1507,14 @@
                       ],
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
+                    },
+                    "action_mqtt_boneio": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
+                      "title": "Action mqtt boneio"
                     }
                   }
                 }
@@ -1451,7 +1538,9 @@
                       "enum": [
                         "mqtt",
                         "output",
-                        "cover"
+                        "cover",
+                        "mqtt_output",
+                        "mqtt_cover"
                       ],
                       "examples": [
                         "mqtt"
@@ -1483,13 +1572,43 @@
                         "CLOSE",
                         "STOP",
                         "TOGGLE_OPEN",
-                        "TOGGLE_CLOSE"
+                        "TOGGLE_CLOSE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
                       ],
                       "examples": [
                         "TOGGLE"
                       ],
                       "description": "If cover action chosen then what action to perform.",
                       "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "string",
+                        "object"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
                     },
                     "action_output": {
                       "type": [
@@ -1515,6 +1634,14 @@
                       ],
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
+                    },
+                    "action_mqtt_boneio": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
+                      "title": "Action mqtt boneio"
                     }
                   }
                 }
@@ -1713,7 +1840,9 @@
                       "enum": [
                         "mqtt",
                         "output",
-                        "cover"
+                        "cover",
+                        "mqtt_output",
+                        "mqtt_cover"
                       ],
                       "examples": [
                         "mqtt"
@@ -1745,13 +1874,43 @@
                         "CLOSE",
                         "STOP",
                         "TOGGLE_OPEN",
-                        "TOGGLE_CLOSE"
+                        "TOGGLE_CLOSE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
                       ],
                       "examples": [
                         "TOGGLE"
                       ],
                       "description": "If cover action chosen then what action to perform.",
                       "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "string",
+                        "object"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
                     },
                     "action_output": {
                       "type": [
@@ -1777,6 +1936,14 @@
                       ],
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
+                    },
+                    "action_mqtt_boneio": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
+                      "title": "Action mqtt boneio"
                     }
                   }
                 }
@@ -1800,7 +1967,9 @@
                       "enum": [
                         "mqtt",
                         "output",
-                        "cover"
+                        "cover",
+                        "mqtt_output",
+                        "mqtt_cover"
                       ],
                       "examples": [
                         "mqtt"
@@ -1832,13 +2001,43 @@
                         "CLOSE",
                         "STOP",
                         "TOGGLE_OPEN",
-                        "TOGGLE_CLOSE"
+                        "TOGGLE_CLOSE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
                       ],
                       "examples": [
                         "TOGGLE"
                       ],
                       "description": "If cover action chosen then what action to perform.",
                       "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "string",
+                        "object"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
                     },
                     "action_output": {
                       "type": [
@@ -1864,6 +2063,14 @@
                       ],
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
+                    },
+                    "action_mqtt_boneio": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
+                      "title": "Action mqtt boneio"
                     }
                   }
                 }
@@ -1887,7 +2094,9 @@
                       "enum": [
                         "mqtt",
                         "output",
-                        "cover"
+                        "cover",
+                        "mqtt_output",
+                        "mqtt_cover"
                       ],
                       "examples": [
                         "mqtt"
@@ -1919,13 +2128,43 @@
                         "CLOSE",
                         "STOP",
                         "TOGGLE_OPEN",
-                        "TOGGLE_CLOSE"
+                        "TOGGLE_CLOSE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
                       ],
                       "examples": [
                         "TOGGLE"
                       ],
                       "description": "If cover action chosen then what action to perform.",
                       "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "string",
+                        "object"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "string",
+                            "integer"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
                     },
                     "action_output": {
                       "type": [
@@ -1951,6 +2190,14 @@
                       ],
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
+                    },
+                    "action_mqtt_boneio": {
+                      "type": [
+                        "string",
+                        "string"
+                      ],
+                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
+                      "title": "Action mqtt boneio"
                     }
                   }
                 }
@@ -2120,6 +2367,23 @@
             "description": "ID of close relay of output.",
             "title": "Close relay"
           },
+          "platform": {
+            "type": [
+              "string",
+              "string"
+            ],
+            "default": "previous",
+            "enum": [
+              "time_based",
+              "venetian",
+              "previous"
+            ],
+            "examples": [
+              "time_based"
+            ],
+            "description": "Platform to use for cover.",
+            "title": "Platform"
+          },
           "open_time": {
             "type": [
               "string",
@@ -2137,6 +2401,24 @@
             ],
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
+          },
+          "tilt_duration": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
+            "title": "Tilt duration"
+          },
+          "actuator_activation_duration": {
+            "type": [
+              "string",
+              "string",
+              "string"
+            ],
+            "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
+            "title": "Actuator activation duration"
           },
           "device_class": {
             "type": [
