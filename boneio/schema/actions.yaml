@@ -73,4 +73,4 @@ schema:
     forbidden_if:
       action: ['output', 'cover', 'mqtt']
     meta:
-      label: Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.
+      label: boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.
