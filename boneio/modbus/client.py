@@ -138,28 +138,27 @@ class Modbus:
 
     async def async_close(self) -> None:
         """Disconnect client."""
-        async with self._lock:
-            if self._client:
-                try:
-                    # Run close in the executor
-                    await self._loop.run_in_executor(self._executor, self._client.close)
-                except asyncio.CancelledError:
-                    _LOGGER.warning("modbus communication closed")
-                    pass
-                except ModbusException as exception_error:
-                    _LOGGER.error(exception_error)
-                finally:
-                    del self._client
-                    self._client = None
-                    self._executor.shutdown(wait=False)
-                    _LOGGER.warning("modbus communication closed")
+        if self._client:
+            try:
+                # Run close in the executor
+                await self._loop.run_in_executor(self._executor, self._client.close)
+            except asyncio.CancelledError:
+                _LOGGER.warning("modbus communication closed")
+                pass
+            except ModbusException as exception_error:
+                _LOGGER.error(exception_error)
+            finally:
+                del self._client
+                self._client = None
+                self._executor.shutdown(wait=False)
+                _LOGGER.warning("modbus communication closed")
 
     def _pymodbus_connect(self) -> bool:
         """Connect client."""
         try:
             return self._client.connect()  # type: ignore[union-attr]
         except ModbusException as exception_error:
-            _LOGGER.error(exception_error)
+            _LOGGER.error(f"No connection to Modbus: {exception_error}")
             return False
 
     async def read_and_decode(
@@ -181,6 +180,60 @@ class Modbus:
         )
         return decoded_value
 
+    def read_registers_blocking(self, unit: int | str, address: int, count: int = 2, method: str = "input") -> ModbusResponse:
+        start_time = time.perf_counter()
+        result = None
+        kwargs = {"unit": unit, "count": count} if unit else {}
+        read_method = self._read_methods[method]
+        
+        try:
+            # Run connection in the executor
+            connected = self._pymodbus_connect()
+            if not connected:
+                _LOGGER.error("Can't connect to Modbus.")
+                return None
+
+            print("read method", read_method)
+            _LOGGER.debug(
+                "Reading %s registers from %s with method %s from device %s.",
+                count,
+                address,
+                method,
+                unit,
+            )
+
+            # Run the read operation in the executor
+            result: ReadInputRegistersResponse = read_method(address, **kwargs)
+            print("result", result)
+
+            if not hasattr(result, REGISTERS):
+                _LOGGER.error("No result from read: %s", str(result))
+                result = None
+
+        except ValueError as exception_error:
+            _LOGGER.error("Error reading registers: %s", exception_error)
+            pass
+        except (ModbusException, struct.error) as exception_error:
+            _LOGGER.error("Error reading registers: %s", exception_error)
+            pass
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout reading registers from device %s", unit)
+            pass
+        except asyncio.CancelledError as err:
+            _LOGGER.error("Operation cancelled reading registers from device %s with error %s", unit, err)
+            pass
+        except Exception as e:
+            _LOGGER.error(f"Unexpected error reading registers: {type(e).__name__} - {e}")
+            pass
+        finally:
+            end_time = time.perf_counter()
+            _LOGGER.debug(
+                "Read completed in %.3f seconds: %s",
+                end_time - start_time,
+                result.registers if hasattr(result, REGISTERS) else None,
+            )
+            return result
+
     async def read_registers(
         self,
         unit: int | str,  # device address
@@ -190,56 +243,8 @@ class Modbus:
     ) -> ModbusResponse:
         """Call async pymodbus."""
         async with self._lock:
-            start_time = time.perf_counter()
-            result = None
+            return await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
             
-            try:
-                # Run connection in the executor
-                connected = self._pymodbus_connect()
-                if not connected:
-                    _LOGGER.error("Can't connect to Modbus.")
-                    return None
-
-                kwargs = {"unit": unit, "count": count} if unit else {}
-                read_method = self._read_methods[method]
-                _LOGGER.debug(
-                    "Reading %s registers from %s with method %s from device %s.",
-                    count,
-                    address,
-                    method,
-                    unit,
-                )
-
-                # Run the read operation in the executor
-                result: ReadInputRegistersResponse = await self._loop.run_in_executor(
-                    self._executor,
-                    lambda: read_method(address, **kwargs)
-                )
-
-                if not hasattr(result, REGISTERS):
-                    _LOGGER.error("No result from read: %s", str(result))
-                    result = None
-
-            except (ModbusException, struct.error) as exception_error:
-                _LOGGER.error("Error reading registers: %s", exception_error)
-                pass
-            except asyncio.TimeoutError:
-                _LOGGER.error("Timeout reading registers from device %s", unit)
-                pass
-            except asyncio.CancelledError as err:
-                _LOGGER.error("Operation cancelled reading registers from device %s with error %s", unit, err)
-                pass
-            except Exception as e:
-                _LOGGER.error(f"Unexpected error reading registers: {type(e).__name__} - {e}")
-                pass
-            finally:
-                end_time = time.perf_counter()
-                _LOGGER.debug(
-                    "Read completed in %.3f seconds: %s",
-                    end_time - start_time,
-                    result.registers if hasattr(result, REGISTERS) else None,
-                )
-                return result
 
     def decode_value(self, payload, value_type):
         _payload_type = VALUE_TYPES[value_type]
