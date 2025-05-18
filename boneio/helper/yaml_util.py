@@ -618,6 +618,46 @@ class CustomValidator(Validator):
         _LOGGER.debug(f"Parsed power value '{value}' as {result} W")
         return result
 
+    def _normalize_coerce_volume_flow_rate_to_lpm(self, value):
+        """
+        Parse a volume flow rate value and return it in liters per minute (L/min).
+        Accepts:
+        - Numeric values (int, float)
+        - Strings with units: 'L/min', 'L/h', etc.
+        Example:
+            9 -> 9.0
+            '9L/min' -> 9.0
+            '1L/h' -> 1000.0
+        Returns float (L/h) or raises ValueError if invalid.
+        """
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if not isinstance(value, str):
+            raise ValueError(f"Unsupported type for power value: {type(value)}")
+        value = value.strip().replace(' ', '').lower()
+        pattern = r"^([-+]?[0-9]*\.?[0-9]+)([a-z]*)$"
+        match = re.match(pattern, value)
+        if not match:
+            _LOGGER.warning(f"Could not parse power value: {value}")
+            raise ValueError(f"Could not parse power value: {value}")
+        num, unit = match.groups()
+        num = float(num)
+        multiplier = 1.0
+        if unit in ('lpm', 'l/h', ''):
+            multiplier = 1.0
+        elif unit == 'l/min':
+            multiplier = 60.0
+        elif unit == 'l/h':
+            multiplier = 3600.0
+        else:
+            _LOGGER.warning(f"Unknown unit for volume flow rate value: {unit}")
+            raise ValueError(f"Unknown unit for volume flow rate value: {unit}")
+        result = num * multiplier
+        _LOGGER.debug(f"Parsed volume flow rate value '{value}' as {result} L/h")
+        return result
+
 
 
 def load_config_from_string(config_str: str) -> dict:
