@@ -54,7 +54,7 @@ class Oled:
     def __init__(
         self,
         host_data: HostData,
-        grouped_outputs: List[str],
+        grouped_outputs_by_expander: List[str],
         sleep_timeout: TimePeriod,
         screen_order: List[str],
         event_bus: EventBus
@@ -62,19 +62,19 @@ class Oled:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
         self._event_bus = event_bus
-        self._grouped_outputs = None
+        self.grouped_outputs_by_expander = None
         self._input_groups = []
         self._host_data = host_data
 
         def configure_outputs() -> None:
             try:
                 _ind_screen = screen_order.index("outputs")
-                if not grouped_outputs:
+                if not grouped_outputs_by_expander:
                     _LOGGER.debug("No outputs configured. Omitting in screen.")
                     return
                 screen_order.pop(_ind_screen)
-                screen_order[_ind_screen:_ind_screen] = grouped_outputs
-                self._grouped_outputs = grouped_outputs
+                screen_order[_ind_screen:_ind_screen] = grouped_outputs_by_expander
+                self.grouped_outputs_by_expander = grouped_outputs_by_expander
             except ValueError:
                 pass
 
