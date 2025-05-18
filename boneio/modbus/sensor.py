@@ -73,7 +73,6 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         self._additional_sensors: List[Dict[str, SingleAdditionalSensor]] = []
         self._additional_sensors_by_source_name: Dict[str, List[SingleAdditionalSensor]] = {}
         self._additional_data = additional_data
-        print("aaa", additional_data)
         # Standard sensors
         for index, data in enumerate(self._db[REGISTERS_BASE]):
             base = data[BASE]
@@ -253,7 +252,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                 )
                 self._payload_online = ONLINE
                 self._message_bus.send_message(
-                    topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
+                    topic=f"{self._config_helper.topic_prefix}/{self._id}/{STATE}",
                     payload=self._payload_online,
                 )
             if not values:
@@ -264,7 +263,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self._message_bus.send_message(
-                        topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
+                        topic=f"{self._config_helper.topic_prefix}/{self._id}/{STATE}",
                         payload=self._payload_online,
                     )
                     self._discovery_sent = False
@@ -329,6 +328,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
                         timestamp=sensor.last_timestamp,
                     ),
                 )
+                
             self._timestamp = timestamp
             self._message_bus.send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
