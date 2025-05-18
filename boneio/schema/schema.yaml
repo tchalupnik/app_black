@@ -524,6 +524,14 @@ output:
           - power_value_to_watts
         meta:
           label: Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.
+      virtual_volume_flow_rate:
+        type: 
+          - string
+          - number
+        coerce:
+          - volume_flow_rate_to_lpm
+        meta:
+          label: Virtual volume flow rate in liters per minute (e.g. 9 or '9L/min' OR 9L/h). Used for virtual flow meter.
       restore_state:
         type: boolean
         required: True
