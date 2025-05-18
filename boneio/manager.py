@@ -176,13 +176,13 @@ class Manager:
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
         )
 
-        self.grouped_outputs = create_expander(
+        self.grouped_outputs_by_expander = create_expander(
             expander_dict=self._mcp,
             expander_config=mcp23017,
             exp_type=MCP,
             i2cbusio=self._i2cbusio,
         )
-        self.grouped_outputs.update(
+        self.grouped_outputs_by_expander.update(
             create_expander(
                 expander_dict=self._pcf,
                 expander_config=pcf8575,
@@ -190,7 +190,7 @@ class Manager:
                 i2cbusio=self._i2cbusio,
             )
         )
-        self.grouped_outputs.update(
+        self.grouped_outputs_by_expander.update(
             create_expander(
                 expander_dict=self._pca,
                 expander_config=pca9685,
@@ -205,6 +205,7 @@ class Manager:
             _name = _config.pop(ID)
             restore_state = _config.pop(RESTORE_STATE, False)
             _id = strip_accents(_name)
+            _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.
                 manager=self,
                 message_bus=message_bus,
@@ -236,7 +237,8 @@ class Manager:
                 )
             self._loop.create_task(self._delayed_send_state(out))
 
-        self._configure_covers()
+        if self._outputs:
+            self._configure_covers()
 
         self._outputs_group = output_group
         self._configure_output_group()
@@ -261,7 +263,7 @@ class Manager:
                 manager=self,
                 event_bus=self._event_bus,
                 enabled_screens=self._screens,
-                output=self.grouped_outputs,
+                output=self.grouped_outputs_by_expander,
                 inputs=self._inputs,
                 temp_sensor=(self._temp_sensors[0] if self._temp_sensors else None),
                 ina219=(self._ina219_sensors[0] if self._ina219_sensors else None),
@@ -271,7 +273,7 @@ class Manager:
                 self._oled = Oled(
                     host_data=self._host_data,
                     screen_order=self._screens,
-                    grouped_outputs=list(self.grouped_outputs),
+                    grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
                     sleep_timeout=oled.get("screensaver_timeout", 60),
                     event_bus=self._event_bus,
                 )
