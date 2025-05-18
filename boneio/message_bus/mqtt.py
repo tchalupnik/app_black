@@ -128,6 +128,7 @@ class MQTTClient(MessageBus):
             params["properties"] = properties
 
         # e.g. subscribe([("my/topic", SubscribeOptions(qos=0), ("another/topic", SubscribeOptions(qos=2)])
+        _LOGGER.debug("Subscribing to %s", args)
         await self.asyncio_client.subscribe(
             topic=args, **params, timeout=timeout
         )
@@ -250,9 +251,8 @@ class MQTTClient(MessageBus):
             cancel_task = asyncio.create_task(wait_for_cancel())
             tasks.add(cancel_task)
 
-            await self.subscribe(topics=self._topics)
-            await self.subscribe(topics=list(self._mqtt_energy_listeners.keys()))
-            await self.subscribe(topics=self._discovery_topics)
+            topics = self._topics + list(self._mqtt_energy_listeners.keys()) + self._discovery_topics
+            await self.subscribe(topics=topics)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
