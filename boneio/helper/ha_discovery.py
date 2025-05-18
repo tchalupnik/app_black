@@ -228,7 +228,7 @@ def modbus_sensor_availabilty_message(
 ):
     """Create Modbus Sensor availability topic for HA."""
     return {
-        "availability": [{"topic": f"{topic}/{id}{STATE}"}],
+        "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
         "device": {
             "identifiers": [id],
             "manufacturer": "boneIO",
