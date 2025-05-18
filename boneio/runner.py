@@ -86,7 +86,7 @@ async def async_run(
         """Handle shutdown signals."""
         _LOGGER.info("Received shutdown signal, initiating graceful shutdown...")
         shutdown_event.set()
-        
+
     # Register signal handlers
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, signal_handler)
@@ -104,7 +104,6 @@ async def async_run(
         web_active = False
         web_config = {}
 
-    print("mainAAAA", main_config)
     _config_helper = ConfigHelper(
         name=main_config.get(NAME, BONEIO),
         device_type=main_config.get("device_type", "boneIO Black"),
@@ -117,14 +116,13 @@ async def async_run(
 
     # Initialize message bus based on config
     if MQTT in config:
-        client = MQTTClient(
+        message_bus = MQTTClient(
             host=config[MQTT][HOST],
             username=config[MQTT].get(USERNAME, mqttusername),
             password=config[MQTT].get(PASSWORD, mqttpassword),
             port=config[MQTT].get(PORT, 1883),
             config_helper=_config_helper,
         )
-        message_bus = client
     else:
         from boneio.message_bus import LocalMessageBus
         message_bus = LocalMessageBus()
@@ -133,8 +131,6 @@ async def async_run(
         item["name"]: config.get(item["name"], item["default"])
         for item in config_modules
     }
-
-    
 
     manager = Manager(
         message_bus=message_bus,
@@ -160,7 +156,6 @@ async def async_run(
     )
     # Convert coroutines to Tasks
     message_bus.set_manager(manager=manager)
-
     tasks.update(manager.get_tasks())
 
     message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
@@ -186,7 +181,7 @@ async def async_run(
         web_server_task.add_done_callback(tasks.discard)
     else:
         _LOGGER.info("Web server not configured.")
-
+    
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
@@ -198,13 +193,15 @@ async def async_run(
             asyncio.create_task(shutdown_event.wait())
         ], return_when=asyncio.FIRST_COMPLETED)
 
+
         if shutdown_event.is_set():
             _LOGGER.info("Starting graceful shutdown...")
             await message_bus.announce_offline()
             main_gather.cancel()
             try:
                 await main_gather
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as err:
+                _LOGGER.error(f"Main task cancelled 1: {err}")
                 pass
 
         return 0
@@ -214,6 +211,8 @@ async def async_run(
         _LOGGER.info("Restart or graceful exit requested")
     except Exception as e:
         _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
+    except BaseException as e:
+        _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}")
     finally:
         _LOGGER.info("Cleaning up resources...")
         # Stop the event bus
