@@ -30,10 +30,10 @@ class MCPRelay(BasicRelay):
         super().__init__(
             **kwargs, output_type=output_type, restored_state=restored_state
         )
-        self.init_with_check_if_can_restore_state(restored_state=restored_state)
         self._pin_id = pin
         self._expander_id = mcp_id
 
+        self.init_with_check_if_can_restore_state(restored_state=restored_state)
         _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
 
     def init_with_check_if_can_restore_state(self, restored_state: bool) -> None:
