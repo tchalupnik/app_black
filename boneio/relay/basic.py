@@ -269,11 +269,13 @@ class BasicRelay(BasicMqtt):
                 payload={STATE: state},
                 retain=True,
             )
-            if self._virtual_energy_sensor:
+            if self._virtual_energy_sensor and not optimized_value:
                 if state == ON:
                     self._virtual_energy_sensor.start_virtual_sensors_task()
                 elif self._virtual_energy_sensor.last_on_timestamp is not None:
                     self._virtual_energy_sensor.stop_virtual_sensors_task()
+        if optimized_value:
+            return
         self._last_timestamp = time.time()
         event = OutputState(
             id=self.id,
@@ -302,7 +304,7 @@ class BasicRelay(BasicMqtt):
             _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
             #Workaround for HA is sendind state ON/OFF without physically changing the relay.
             asyncio.create_task(self.async_send_state(optimized_value=ON))
-            return
+            await asyncio.sleep(0.01)
         asyncio.create_task(self.async_send_state())
         
 
