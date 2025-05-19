@@ -193,7 +193,6 @@ class Modbus:
                 _LOGGER.error("Can't connect to Modbus.")
                 return None
 
-            print("read method", read_method)
             _LOGGER.debug(
                 "Reading %s registers from %s with method %s from device %s.",
                 count,
@@ -204,7 +203,6 @@ class Modbus:
 
             # Run the read operation in the executor
             result: ReadInputRegistersResponse = read_method(address, **kwargs)
-            print("result", result)
 
             if not hasattr(result, REGISTERS):
                 _LOGGER.error("No result from read: %s", str(result))

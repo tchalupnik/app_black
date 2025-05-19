@@ -200,8 +200,7 @@ async def async_run(
             main_gather.cancel()
             try:
                 await main_gather
-            except asyncio.CancelledError as err:
-                _LOGGER.error(f"Main task cancelled 1: {err}")
+            except asyncio.CancelledError:
                 pass
 
         return 0

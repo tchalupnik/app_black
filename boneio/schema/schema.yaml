@@ -529,9 +529,9 @@ output:
           - string
           - number
         coerce:
-          - volume_flow_rate_to_lpm
+          - volume_flow_rate_to_lph
         meta:
-          label: Virtual volume flow rate in liters per minute (e.g. 9 or '9L/min' OR 9L/h). Used for virtual flow meter.
+          label: Virtual volume flow rate in liters per hour (e.g. 9 or 9L/min OR 9L/h). Used for virtual flow meter.
       restore_state:
         type: boolean
         required: True

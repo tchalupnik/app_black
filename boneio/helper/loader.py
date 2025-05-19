@@ -235,7 +235,6 @@ def create_modbus_sensors(manager: Manager, message_bus: MessageBus, sensors, **
     for sensor in sensors:
         name = sensor.get(ID)
         id = name.replace(" ", "")
-        print("name to check", name)
         additional_data = sensor.get("data", {})
         try:
             modbus_sensors[id.lower()] = ModbusSensor(
@@ -364,8 +363,8 @@ def configure_relay(
             "output_type": output_type,
         }
     elif output_kind == GPIO:
-        if GPIO not in manager.grouped_outputs:
-            manager.grouped_outputs[GPIO] = {}
+        if GPIO not in manager.grouped_outputs_by_expander:
+            manager.grouped_outputs_by_expander[GPIO] = {}
         extra_args = {
             "pin": config.pop(PIN),
         }
@@ -392,8 +391,8 @@ def configure_relay(
         **extra_args,
     )
     manager._interlock_manager.register(relay, interlock_groups)
-    manager.grouped_outputs[expander_id][relay_id] = relay
-    if relay.virtual_power_usage is not None:
+    manager.grouped_outputs_by_expander[expander_id][relay_id] = relay
+    if relay.is_virtual_power:
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_power",
             relay_id=relay_id,
@@ -417,6 +416,31 @@ def configure_relay(
             device_class="energy",
             state_class="total_increasing",
             value_template="{{ value_json.energy }}"
+        )
+    if relay.is_virtual_volume_flow_rate:
+        manager.send_ha_autodiscovery(
+            id=f"{relay_id}_virtual_volume_flow_rate",
+            relay_id=relay_id,
+            name=f"{name} Virtual Volume Flow Rate",
+            ha_type="sensor",
+            device_type="energy",
+            availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+            unit_of_measurement="L/h",
+            device_class="volume_flow_rate",
+            state_class="measurement",
+            value_template="{{ value_json.volume_flow_rate }}"
+        )
+        manager.send_ha_autodiscovery(
+            id=f"{relay_id}_virtual_consumption",
+            relay_id=relay_id,
+            name=f"{name} Virtual consumption",
+            ha_type="sensor",
+            device_type="energy",
+            availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+            unit_of_measurement="L",
+            device_class="water",
+            state_class="total_increasing",
+            value_template="{{ value_json.water }}"
         )
     return relay
 
