@@ -216,8 +216,8 @@ class Oled:
             else:
                 with canvas(self._device) as draw:
                     if (
-                        self._grouped_outputs
-                        and self._current_screen in self._grouped_outputs
+                        self.grouped_outputs_by_expander
+                        and self._current_screen in self.grouped_outputs_by_expander
                     ):
                         self._draw_output(data, draw)
                         for id in data.keys():
@@ -245,7 +245,7 @@ class Oled:
             )
 
     async def _output_callback(self, event: OutputState):
-        if self._grouped_outputs and self._current_screen in self._grouped_outputs:
+        if self.grouped_outputs_by_expander and self._current_screen in self.grouped_outputs_by_expander:
             self.handle_data_update(type=self._current_screen)
 
     async def _standard_callback(self, event: SensorState):
