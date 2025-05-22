@@ -265,21 +265,21 @@ class HostData:
                     sensor_id = sensor.get("sensor_id")
                     if sensor_type == "modbus":
                         modbus_id = sensor.get("modbus_id")
-                        _modbus_sensors = manager.modbus_sensors.get(modbus_id)
-                        if _modbus_sensors:
-                            single_sensor = _modbus_sensors.get_sensor_by_name(
+                        _modbus_coordinator = manager.modbus_coordinators.get(modbus_id)
+                        if _modbus_coordinator:
+                            entity = _modbus_coordinator.get_entity_by_name(
                                 sensor_id
                             )
-                            if not single_sensor:
+                            if not entity:
                                 _LOGGER.warning(
                                     "Sensor %s not found", sensor_id
                                 )
                                 continue
                             short_name = "".join(
-                                [x[:3] for x in single_sensor.name.split()]
+                                [x[:3] for x in entity.name.split()]
                             )
                             output[short_name] = (
-                                f"{round(single_sensor.state, 2)} {single_sensor.unit_of_measurement}"
+                                f"{round(entity.state, 2)} {entity.unit_of_measurement}"
                             )
                     elif sensor_type == "dallas":
                         for single_sensor in manager.temp_sensors:

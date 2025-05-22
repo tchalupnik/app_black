@@ -903,11 +903,11 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
     for modbus_sensors in boneio_manager.modbus_sensors.values():
         if not modbus_sensors:
             continue
-        for sensor in modbus_sensors.get_all_sensors():
-            for single_sensor in sensor.values():
+        for entities in modbus_sensors.get_all_entities():
+            for entity in entities.values():
                 boneio_manager.event_bus.add_event_listener(
                     event_type="modbus_sensor",
-                    entity_id=single_sensor.id,
+                    entity_id=entity.id,
                     listener_id="ws",
                     target=modbus_sensor_state_changed,
                 )
@@ -1018,15 +1018,15 @@ async def websocket_endpoint(
                 for modbus_sensors in boneio_manager.modbus_sensors.values():
                     if not modbus_sensors:
                         continue
-                    for sensor in modbus_sensors.get_all_sensors():
-                        for single_sensor in sensor.values():
+                    for entities in modbus_sensors.get_all_entities():
+                        for entity in entities.values():
                             try:
                                 sensor_state = SensorState(
-                                    id=single_sensor.id,
-                                    name=single_sensor.name,
-                                    state=single_sensor.state,
-                                    unit=single_sensor.unit_of_measurement,
-                                    timestamp=single_sensor.last_timestamp,
+                                    id=entity.id,
+                                    name=entity.name,
+                                    state=entity.state,
+                                    unit=entity.unit_of_measurement,
+                                    timestamp=entity.last_timestamp,
                                 )
                                 update = StateUpdate(type="modbus_sensor", data=sensor_state)
                                 if not await send_state_update(update):

@@ -74,6 +74,7 @@ from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input import GpioEventButtonNew, GpioEventButtonOld
 from boneio.message_bus.basic import MessageBus
+from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.sensor import (
     DallasSensorDS2482,
     GpioInputBinarySensorNew,
@@ -227,27 +228,26 @@ def create_expander(
     return grouped_outputs
 
 
-def create_modbus_sensors(manager: Manager, message_bus: MessageBus, sensors, **kwargs) -> dict:
+def create_modbus_coordinators(manager: Manager, message_bus: MessageBus, entries, **kwargs) -> dict[str, ModbusCoordinator]:
     """Create Modbus sensor for each device."""
-    from boneio.modbus.sensor import ModbusSensor
-
-    modbus_sensors = {}
-    for sensor in sensors:
-        name = sensor.get(ID)
+    
+    modbus_coordinators = {}
+    for entry in entries:
+        name = entry.get(ID)
         id = name.replace(" ", "")
-        additional_data = sensor.get("data", {})
+        additional_data = entry.get("data", {})
         try:
-            modbus_sensors[id.lower()] = ModbusSensor(
-                address=sensor[ADDRESS],
+            modbus_coordinators[id.lower()] = ModbusCoordinator(
+                address=entry[ADDRESS],
                 id=id,
                 name=name,
                 manager=manager,
-                model=sensor[MODEL],
+                model=entry[MODEL],
                 message_bus=message_bus,
-                update_interval=sensor.get(
+                update_interval=entry.get(
                     UPDATE_INTERVAL, TimePeriod(seconds=60)
                 ),
-                sensors_filters=sensor.get("sensors_filters", {}),
+                sensors_filters=entry.get("sensors_filters", {}),
                 additional_data=additional_data,
                 **kwargs,
             )
@@ -258,7 +258,7 @@ def create_modbus_sensors(manager: Manager, message_bus: MessageBus, sensors, **
                 err,
             )
             pass
-    return modbus_sensors
+    return modbus_coordinators
 
 
 OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")

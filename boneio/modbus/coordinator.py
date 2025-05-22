@@ -34,7 +34,7 @@ from .utils import CONVERT_METHODS, REGISTERS_BASE
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
+class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus sensor in BoneIO."""
 
     SensorClass = None
@@ -172,14 +172,14 @@ class ModbusSensor(BasicMqtt, AsyncUpdater, Filter):
         except Exception as e:
             _LOGGER.error("Error in AsyncUpdater: %s", e)
 
-    def get_sensor_by_name(self, name: str) -> Optional[SingleSensor]:
+    def get_entity_by_name(self, name: str) -> Optional[SingleSensor]:
         """Return sensor by name."""
         for sensors in self._modbus_sensors:
             if name in sensors:
                 return sensors.get(name)
         return None
 
-    def get_all_sensors(self) -> List[Dict[str, SingleSensor]]:
+    def get_all_entities(self) -> List[Dict[str, SingleSensor]]:
         return self._modbus_sensors
 
     def set_payload_offline(self):

@@ -87,6 +87,7 @@ from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
+from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
@@ -162,7 +163,7 @@ class Manager:
         self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
         self._temp_sensors: List[TempSensor] = []
         self._ina219_sensors = []
-        self._modbus_sensors = {}
+        self._modbus_coordinators = {}
         self._modbus = None
         self._screens = []
 
@@ -170,7 +171,7 @@ class Manager:
 
         self._configure_temp_sensors(sensors=sensors)
 
-        self._modbus_sensors = {}
+        self._modbus_coordinators = {}
         self._configure_ina219_sensors(sensors=sensors)
         self._configure_sensors(
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
@@ -251,7 +252,7 @@ class Manager:
             message_bus=self._message_bus,
             topic_prefix=self._config_helper.topic_prefix,
         )
-        self._modbus_sensors = self._configure_modbus_sensors(sensors=sensors)
+        self._modbus_coordinators = self._configure_modbus_coordinators(entries=sensors)
 
         if oled.get("enabled", False):
             from boneio.oled import Oled
@@ -306,8 +307,8 @@ class Manager:
         return self._ina219_sensors
 
     @property
-    def modbus_sensors(self) -> dict:
-        return self._modbus_sensors
+    def modbus_coordinators(self) -> dict[str, ModbusCoordinator]:
+        return self._modbus_coordinators
 
     @property
     def temp_sensors(self) -> list[TempSensor]:
@@ -627,15 +628,15 @@ class Manager:
                 if ina219:
                     self._ina219_sensors.append(ina219)
 
-    def _configure_modbus_sensors(self, sensors: dict) -> dict:
-        if sensors.get(MODBUS) and self._modbus:
-            from boneio.helper.loader import create_modbus_sensors
+    def _configure_modbus_coordinators(self, entries: dict) -> dict:
+        if entries.get(MODBUS) and self._modbus:
+            from boneio.helper.loader import create_modbus_coordinators
 
-            return create_modbus_sensors(
+            return create_modbus_coordinators(
                 manager=self,
                 message_bus=self._message_bus,
                 event_bus=self._event_bus,
-                sensors=sensors.get(MODBUS),
+                entries=entries.get(MODBUS),
                 modbus=self._modbus,
                 config_helper=self._config_helper,
             )
