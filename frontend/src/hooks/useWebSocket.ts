@@ -40,7 +40,7 @@ export interface StateUpdate {
 
 // Type guard to check if data is IOState
 export function isIOState(data: StateUpdateData): data is IOState {
-  return 'pin' in data;
+  return 'pin' in data && data.type !== 'cover';
 }
 
 // Type guard to check if data is SensorState
