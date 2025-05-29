@@ -14,7 +14,8 @@ FILTERS = {
     "multiply": lambda x, y: x * y if x else x,
     "filter_out": lambda x, y: None if x == y else x,
     "filter_out_greater": lambda x, y: None if x > y else x,
-    "filter_out_lower": lambda x, y: None if x < y else x
+    "filter_out_lower": lambda x, y: None if x < y else x,
+    "encode_temperature": lambda x, y: (int(x * y) << 1) | 1,
 }
 
 

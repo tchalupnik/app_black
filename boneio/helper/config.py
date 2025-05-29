@@ -15,8 +15,11 @@ from boneio.const import (
     EVENT_ENTITY,
     HOMEASSISTANT,
     LIGHT,
+    NUMERIC,
+    SELECT,
     SENSOR,
     SWITCH,
+    TEXT_SENSOR,
     VALVE,
 )
 from boneio.helper.util import sanitize_mqtt_topic
@@ -51,6 +54,9 @@ class ConfigHelper:
             BUTTON: {},
             EVENT_ENTITY: {},
             VALVE: {},
+            TEXT_SENSOR: {},
+            SELECT: {},
+            NUMERIC: {},
         }
         self.manager_ready: bool = False
         self._network_info = network_info

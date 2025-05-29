@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections import deque
 from typing import Callable, Coroutine, List, Optional, Set, Tuple
@@ -28,7 +29,6 @@ from boneio.const import (
     LM75,
     MCP,
     MCP_TEMP_9808,
-    MODBUS,
     MQTT,
     NONE,
     ON,
@@ -118,6 +118,7 @@ class Manager:
         output_group: List = [],
         sensors: dict = {},
         modbus: dict = {},
+        modbus_devices: dict = {},
         pca9685: list = [],
         mcp23017: list = [],
         pcf8575: list = [],
@@ -252,7 +253,7 @@ class Manager:
             message_bus=self._message_bus,
             topic_prefix=self._config_helper.topic_prefix,
         )
-        self._modbus_coordinators = self._configure_modbus_coordinators(entries=sensors)
+        self._modbus_coordinators = self._configure_modbus_coordinators(devices=modbus_devices)
 
         if oled.get("enabled", False):
             from boneio.oled import Oled
@@ -628,15 +629,15 @@ class Manager:
                 if ina219:
                     self._ina219_sensors.append(ina219)
 
-    def _configure_modbus_coordinators(self, entries: dict) -> dict:
-        if entries.get(MODBUS) and self._modbus:
+    def _configure_modbus_coordinators(self, devices: dict) -> dict:
+        if devices and self._modbus:
             from boneio.helper.loader import create_modbus_coordinators
 
             return create_modbus_coordinators(
                 manager=self,
                 message_bus=self._message_bus,
                 event_bus=self._event_bus,
-                entries=entries.get(MODBUS),
+                entries=devices,
                 modbus=self._modbus,
                 config_helper=self._config_helper,
             )
@@ -947,6 +948,13 @@ class Manager:
             elif device_id == "cover_reload" and message == "cover_reload":
                 _LOGGER.info("Reloading covers actions")
                 self._configure_covers(reload_config=True)
+        elif msg_type == "modbus" and command == "set":
+            target_device = self._modbus_coordinators.get(device_id)
+            if target_device:
+                if isinstance(message, str):
+                    message = json.loads(message)
+                    if "device" in message and "value" in message:
+                        await target_device.write_register(value=message["value"], entity=message["device"])
 
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")

@@ -7,6 +7,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from pymodbus.client.common import (
+    ReadHoldingRegistersResponse,
+    WriteSingleRegisterResponse,
+)
 from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.exceptions import ModbusException
@@ -202,7 +206,7 @@ class Modbus:
             )
 
             # Run the read operation in the executor
-            result: ReadInputRegistersResponse = read_method(address, **kwargs)
+            result: ReadInputRegistersResponse | ReadHoldingRegistersResponse = read_method(address, **kwargs)
 
             if not hasattr(result, REGISTERS):
                 _LOGGER.error("No result from read: %s", str(result))
@@ -232,6 +236,54 @@ class Modbus:
             )
             return result
 
+    def write_register_blocking(self, unit: int | str, address: int, value: int | float) -> ModbusResponse:
+        """Call async pymodbus."""
+        start_time = time.perf_counter()
+        result = None
+        try:
+            # Run connection in the executor
+            connected = self._pymodbus_connect()
+            if not connected:
+                _LOGGER.error("Can't connect to Modbus.")
+                return None
+
+            _LOGGER.debug(
+                "Writing register %s with value %s to device %s.",
+                address,
+                value,
+                unit,
+            )
+
+            # Run the read operation in the executor
+            result: WriteSingleRegisterResponse = self._client.write_register(address=address, value=value, unit=unit)
+
+            if result.isError():
+                _LOGGER.error("Operation failed.")
+                result = None
+
+        except ValueError as exception_error:
+            _LOGGER.error("ValueError: Error writing registers: %s", exception_error)
+            pass
+        except (ModbusException, struct.error) as exception_error:
+            _LOGGER.error("ModbusException: Error writing registers: %s", exception_error)
+            pass
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout writing registers to device %s", unit)
+            pass
+        except asyncio.CancelledError as err:
+            _LOGGER.error("Operation cancelled writing registers to device %s with error %s", unit, err)
+            pass
+        except Exception as e:
+            _LOGGER.error(f"Unexpected error writing registers: {type(e).__name__} - {e}")
+            pass
+        finally:
+            end_time = time.perf_counter()
+            _LOGGER.debug(
+                "Write completed in %.3f seconds.",
+                end_time - start_time,
+            )
+            return result
+
     async def read_registers(
         self,
         unit: int | str,  # device address
@@ -251,3 +303,8 @@ class Modbus:
         )
         value = getattr(decoder, _payload_type["f"])()
         return value
+
+    async def write_register(self, unit: int | str, address: int, value: int | float) -> ModbusResponse:
+        """Call async pymodbus."""
+        async with self._lock:
+            return await self._loop.run_in_executor(self._executor, self.write_register_blocking, unit, address, value)

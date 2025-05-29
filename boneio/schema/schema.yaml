@@ -203,7 +203,7 @@ modbus:
       allowed: ['N', 'E', 'O']
       default: 'N'
 
-modbus_sensors:
+modbus_devices:
   type: list
   required: False
   meta:
@@ -236,6 +236,7 @@ modbus_sensors:
             'liquid-sensor',
             'orno-or-we-517',
             'pt100',
+            'fujitsu-ac',
             'r4dcb08',
             'sdm120',
             'sdm630',
@@ -244,6 +245,7 @@ modbus_sensors:
             'socomec_e03',
             'socomec_e23',
             'sofar',
+            'ventclear',
           ]
         meta:
           label: Model to load from database.

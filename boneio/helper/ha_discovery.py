@@ -9,11 +9,13 @@ from boneio.const import (
     INPUT,
     INPUT_SENSOR,
     LONG,
+    NUMERIC,
     OFF,
     ON,
     OPEN,
     OPENING,
     RELAY,
+    SELECT,
     SENSOR,
     SINGLE,
     STATE,
@@ -215,6 +217,31 @@ def ha_sensor_temp_availabilty_message(
         **kwargs,
     }
 
+def modbus_availabilty_message(
+    id: str,
+    entity_id: str,
+    name: str,
+    state_topic_base: str,
+    topic: str,
+    model: str,
+    device_type: str = SENSOR,
+    **kwargs,
+):
+    """Create Modbus availability topic for HA."""
+    return {
+        "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
+        "device": {
+            "identifiers": [id],
+            "manufacturer": "boneIO",
+            "model": model,
+            "name": name,
+            "sw_version": __version__,
+        },
+        "name": entity_id,
+        "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
+        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
+        **kwargs,
+    }
 
 def modbus_sensor_availabilty_message(
     id: str,
@@ -239,6 +266,59 @@ def modbus_sensor_availabilty_message(
         "name": sensor_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{name.lower()}",
+        **kwargs,
+    }
+
+def modbus_select_availabilty_message(
+    id: str,
+    entity_id: str,
+    name: str,
+    state_topic_base: str,
+    topic: str,
+    model: str,
+    device_type: str = SELECT,
+    **kwargs,
+):
+    """Create Modbus Select availability topic for HA."""
+    return {
+        "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
+        "device": {
+            "identifiers": [id],
+            "manufacturer": "boneIO",
+            "model": model,
+            "name": name,
+            "sw_version": __version__,
+        },
+        "name": entity_id,
+        "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
+        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
+        **kwargs,
+    }
+
+
+def modbus_numeric_availabilty_message(
+    id: str,
+    entity_id: str,
+    name: str,
+    state_topic_base: str,
+    topic: str,
+    model: str,
+    device_type: str = NUMERIC,
+    **kwargs,
+):
+    """Create Modbus Numeric availability topic for HA."""
+    return {
+        "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
+        "device": {
+            "identifiers": [id],
+            "manufacturer": "boneIO",
+            "model": model,
+            "name": name,
+            "sw_version": __version__,
+        },
+        "name": entity_id,
+        "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
+        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
         **kwargs,
     }
 

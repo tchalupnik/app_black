@@ -45,7 +45,7 @@ class SensorState(BaseModel):
     """Sensor state model."""
     id: str
     name: str
-    state: Union[float, None]
+    state: Union[float, str, None]
     unit: Union[str, None]
     timestamp: Union[float, None]
 

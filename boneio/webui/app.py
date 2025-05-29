@@ -802,9 +802,9 @@ async def sensor_state_changed(event: SensorState):
     await app.state.websocket_manager.broadcast_state("sensor", event)
 
 
-async def modbus_sensor_state_changed(event: SensorState):
+async def modbus_device_state_changed(event: SensorState):
     """Callback when output state changes."""
-    await app.state.websocket_manager.broadcast_state("modbus_sensor", event)
+    await app.state.websocket_manager.broadcast_state("modbus_device", event)
 
 
 def init_app(
@@ -900,16 +900,16 @@ def remove_listener_for_all_inputs(boneio_manager: Manager):
 
 
 def sensor_listener_for_all_sensors(boneio_manager: Manager):
-    for modbus_sensors in boneio_manager.modbus_sensors.values():
-        if not modbus_sensors:
+    for modbus_coordinator in boneio_manager.modbus_coordinators.values():
+        if not modbus_coordinator:
             continue
-        for entities in modbus_sensors.get_all_entities():
+        for entities in modbus_coordinator.get_all_entities():
             for entity in entities.values():
                 boneio_manager.event_bus.add_event_listener(
-                    event_type="modbus_sensor",
+                    event_type="modbus_device",
                     entity_id=entity.id,
                     listener_id="ws",
-                    target=modbus_sensor_state_changed,
+                    target=modbus_device_state_changed,
                 )
     for single_ina_device in boneio_manager.ina219_sensors:
         for ina in single_ina_device.sensors.values():
@@ -1015,10 +1015,10 @@ async def websocket_endpoint(
                         _LOGGER.error(f"Error preparing cover state: {type(e).__name__} - {e}")
 
                 # Send modbus sensor states
-                for modbus_sensors in boneio_manager.modbus_sensors.values():
-                    if not modbus_sensors:
+                for modbus_coordinator in boneio_manager.modbus_coordinators.values():
+                    if not modbus_coordinator:
                         continue
-                    for entities in modbus_sensors.get_all_entities():
+                    for entities in modbus_coordinator.get_all_entities():
                         for entity in entities.values():
                             try:
                                 sensor_state = SensorState(
@@ -1028,7 +1028,7 @@ async def websocket_endpoint(
                                     unit=entity.unit_of_measurement,
                                     timestamp=entity.last_timestamp,
                                 )
-                                update = StateUpdate(type="modbus_sensor", data=sensor_state)
+                                update = StateUpdate(type="modbus_device", data=sensor_state)
                                 if not await send_state_update(update):
                                     return
 
