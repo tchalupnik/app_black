@@ -30,13 +30,16 @@ from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
 from boneio.helper.util import open_json
+from boneio.modbus.derived import (
+    ModbusDerivedNumericSensor,
+    ModbusDerivedSelect,
+    ModbusDerivedSwitch,
+    ModbusDerivedTextSensor,
+)
 from boneio.modbus.sensor import (
     ModbusBinarySensor,
-    ModbusDerivedNumericSensor,
-    ModbusDerivedTextSensor,
     ModbusNumericSensor,
 )
-from boneio.modbus.sensor.derived import ModbusDerivedSelect, ModbusDerivedSwitch
 from boneio.modbus.sensor.text import ModbusTextSensor
 from boneio.modbus.writeable.binary import ModbusBinaryWriteableEntityDiscrete
 from boneio.modbus.writeable.numeric import (
@@ -211,7 +214,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 )
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
-    def __init_derived_numeric_sensor(
+    def __init_derived_numeric(
         self, additional: dict
     ) -> ModbusDerivedNumericSensor | None:
         config_keys = additional.get("config_keys", [])
@@ -345,7 +348,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             if entity_type == TEXT_SENSOR:
                 derived_sensor = self.__init_derived_text_sensor(additional)
             elif entity_type == SENSOR:
-                derived_sensor = self.__init_derived_numeric_sensor(additional)
+                derived_sensor = self.__init_derived_numeric(additional)
             elif entity_type == SELECT:
                 derived_sensor = self.__init_derived_select(additional)
             elif entity_type == SWITCH:

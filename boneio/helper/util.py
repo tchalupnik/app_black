@@ -1,6 +1,6 @@
-import unicodedata
-import os
 import json
+import os
+import unicodedata
 from typing import Any, Callable, TypeVar
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
@@ -39,6 +39,7 @@ def sanitize_mqtt_topic(name: str) -> str:
         str: Sanitized string
     """
     import re
+
     from .logger import _LOGGER
 
     original = name
@@ -58,3 +59,9 @@ def open_json(path: str, model: str) -> dict:
     with open(file, "r") as db_file:
         datastore = json.load(db_file)
         return datastore
+
+def find_key_by_value(d, value):
+    for k, v in d.items():
+        if v == value:
+            return k
+    return None

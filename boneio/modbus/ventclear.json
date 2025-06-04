@@ -106,6 +106,7 @@
         {
           "name": "Open window mode status",
           "address": 32,
+          "write_address": 32,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "S_WORD"
@@ -113,6 +114,7 @@
         {
           "name": "Outside mode status",
           "address": 33,
+          "write_address": 33,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "S_WORD"
@@ -120,6 +122,7 @@
         {
           "name": "Party mode status",
           "address": 34,
+          "write_address": 34,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "S_WORD"

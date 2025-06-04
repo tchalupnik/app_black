@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from pymodbus.client.common import (
+    ReadCoilsResponse,
     ReadHoldingRegistersResponse,
     WriteSingleRegisterResponse,
 )
@@ -131,6 +132,7 @@ class Modbus:
             self._read_methods = {
                 "input": self._client.read_input_registers,
                 "holding": self._client.read_holding_registers,
+                "coil": self._client.read_coils,
             }
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
@@ -206,7 +208,7 @@ class Modbus:
             )
 
             # Run the read operation in the executor
-            result: ReadInputRegistersResponse | ReadHoldingRegistersResponse = read_method(address, **kwargs)
+            result: ReadInputRegistersResponse | ReadHoldingRegistersResponse | ReadCoilsResponse = read_method(address, **kwargs)
 
             if not hasattr(result, REGISTERS):
                 _LOGGER.error("No result from read: %s", str(result))
