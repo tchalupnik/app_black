@@ -13,7 +13,7 @@ from boneio.const import (
     BINARY_SENSOR,
     ID,
     LENGTH,
-    MODBUS_SENSOR,
+    MODBUS_DEVICE,
     MODEL,
     NAME,
     OFFLINE,
@@ -546,8 +546,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             elif update_interval != self._update_interval.total_in_seconds:
                 update_interval = self._update_interval.total_in_seconds
             output = {}
-            current_modbus_sensors = self._modbus_entities[index]
-            for sensor in current_modbus_sensors.values():
+            current_modbus_entities = self._modbus_entities[index]
+            for sensor in current_modbus_entities.values():
                 if not sensor.value_type:
                     # Go with old method. Remove when switch Sofar to new.
                     decoded_value = CONVERT_METHODS[sensor.return_type](
@@ -589,7 +589,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                             )
                 output[sensor.decoded_name] = sensor.state
                 await self._event_bus.async_trigger_event(
-                    event_type=MODBUS_SENSOR,
+                    event_type=MODBUS_DEVICE,
                     entity_id=sensor.id,
                     event=SensorState(
                         id=sensor.id,

@@ -34,7 +34,7 @@ interface CoverState {
 type StateUpdateData = IOState | SensorState | CoverState;
 
 export interface StateUpdate {
-  type: 'input' | 'output' | 'modbus_sensor' | 'sensor' | 'cover';
+  type: 'input' | 'output' | 'modbus_device' | 'sensor' | 'cover';
   data: StateUpdateData;
 }
 

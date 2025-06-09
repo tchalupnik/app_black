@@ -93,7 +93,7 @@ function AppContent() {
             }
             return [...prev, message.data];
           });
-        } else if (message.type === 'modbus_sensor' || message.type === 'sensor') {
+        } else if (message.type === 'modbus_device' || message.type === 'sensor') {
           setSensors(prev => {
             const index = prev.findIndex(s => s.name === message.data.name);
             if (index >= 0) {
