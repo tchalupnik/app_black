@@ -47,9 +47,10 @@ class GpioInputBinarySensorNew(GpioBaseClass):
         if self._pressed_state == PRESSED:
             self.button_pressed_time = time_now
         _LOGGER.debug(
-            "Binary sensor: %s event on pin %s - %s",
+            "Binary sensor: %s event on pin %s - %s at %s",
             self._pressed_state,
             self._pin,
             self.name,
+            time_now,
         )
         self.press_callback(click_type=self._pressed_state, duration=None)

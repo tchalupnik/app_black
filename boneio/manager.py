@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections import deque
 from typing import Callable, Coroutine, List, Optional, Set, Tuple
 
@@ -767,11 +768,14 @@ class Manager:
             )
             if output and action_to_execute:
                 _LOGGER.debug(
-                    "Executing action %s for output %s", action_to_execute, output.name
+                    "Executing action %s for output %s at %s",
+                    action_to_execute,
+                    output.name,
+                    time.time(),
                 )
                 _f = getattr(output, action_to_execute)
                 if _f:
-                    await _f(**extra_data)
+                    self._loop.create_task(_f(**extra_data))
             else:
                 if not action_to_execute:
                     _LOGGER.warning(

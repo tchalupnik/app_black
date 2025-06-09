@@ -314,13 +314,14 @@ class BasicRelay(BasicMqtt):
         asyncio.create_task(self.async_send_state())
 
 
-    async def async_toggle(self, time=None) -> None:
+    async def async_toggle(self, timestamp=None) -> None:
         """Toggle relay."""
-        _LOGGER.debug("Toggle relay %s.", self.name)
+        now = time.time()
+        _LOGGER.debug("Toggle relay %s at %s.", self.name, now)
         if self.is_active:
-            await self.async_turn_off(time=time)
+            await self.async_turn_off(time=timestamp)
         else:
-            await self.async_turn_on(time=time)
+            await self.async_turn_on(time=timestamp)
 
     def turn_on(self, time=None) -> None:
         """Call turn on action."""

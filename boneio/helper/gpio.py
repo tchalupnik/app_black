@@ -162,11 +162,15 @@ class GpioBaseClass:
         self, click_type: ClickTypes, duration: float | None = None
     ) -> None:
         """Handle press callback."""
+        self._last_timestamp = time.time()
         _LOGGER.debug(
-            "Press callback: %s on pin %s - %s", click_type, self._pin, self.name
+            "Press callback: %s on pin %s - %s at %s",
+            click_type,
+            self._pin,
+            self.name,
+            self._last_timestamp,
         )
         self._last_state = click_type
-        self._last_timestamp = time.time()
         self._loop.create_task(
             self.async_press_callback(
                 click_type,
