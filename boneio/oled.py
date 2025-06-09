@@ -240,7 +240,7 @@ class Oled:
         if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds > 0:
             self._cancel_sleep_handle = async_track_point_in_time(
                 loop=self._loop,
-                action=lambda x: self._sleeptime(),
+                job=lambda x: self._sleeptime(),
                 point_in_time=utcnow() + self._sleep_timeout.as_timedelta,
             )
 

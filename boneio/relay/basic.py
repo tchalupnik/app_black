@@ -295,11 +295,11 @@ class BasicRelay(BasicMqtt):
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
-    async def async_turn_on(self) -> None:
+    async def async_turn_on(self, time=None) -> None:
         """Turn on the relay asynchronously."""
         can_turn_on = self.check_interlock()
         if can_turn_on:
-            self.turn_on()
+            self.turn_on(time)
         else:
             _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
             #Workaround for HA is sendind state ON/OFF without physically changing the relay.
@@ -308,19 +308,19 @@ class BasicRelay(BasicMqtt):
         asyncio.create_task(self.async_send_state())
         
 
-    async def async_turn_off(self) -> None:
+    async def async_turn_off(self, time=None) -> None:
         """Turn off the relay asynchronously."""
-        self.turn_off()
+        self.turn_off(time)
         asyncio.create_task(self.async_send_state())
 
 
-    async def async_toggle(self) -> None:
+    async def async_toggle(self, time=None) -> None:
         """Toggle relay."""
         _LOGGER.debug("Toggle relay %s.", self.name)
         if self.is_active:
-            await self.async_turn_off()
+            await self.async_turn_off(time=time)
         else:
-            await self.async_turn_on()
+            await self.async_turn_on(time=time)
 
     def turn_on(self, time=None) -> None:
         """Call turn on action."""
@@ -336,22 +336,24 @@ class BasicRelay(BasicMqtt):
             _LOGGER.debug("Cancelling momentary action for %s", self.name)
             self._momentary_action()
         (action, delayed_action) = (
-            (self.turn_off, self._momentary_turn_on)
+            (self.async_turn_off, self._momentary_turn_on)
             if momentary_type == ON
-            else (self.turn_on, self._momentary_turn_off)
+            else (self.async_turn_on, self._momentary_turn_off)
         )
         if delayed_action:
             _LOGGER.debug("Applying momentary action for %s in %s", self.name, delayed_action.as_timedelta)
             self._momentary_action = async_track_point_in_time(
                 loop=self._loop,
-                action=lambda x: self._momentary_callback(time=x, action=action),
+                job=self._momentary_callback,
                 point_in_time=utcnow() + delayed_action.as_timedelta,
+                action=action,
             )
 
     @callback
-    def _momentary_callback(self, time, action):
+    async def _momentary_callback(self, time, action):
         _LOGGER.info("Momentary callback at %s for output %s", time, self.name)
-        action(time=time)
+        await action(time=time)
+        self._momentary_action = None
 
     @property
     def is_active(self) -> bool:

@@ -327,8 +327,9 @@ def as_utc(dattim: dt.datetime) -> dt.datetime:
 @callback
 def async_track_point_in_time(
     loop: asyncio.AbstractEventLoop,
-    action,
+    job,
     point_in_time: datetime,
+    **kwargs
 ) -> CALLBACK_TYPE:
     """Add a listener that fires once after a specific point in UTC time."""
     # Ensure point_in_time is UTC
@@ -356,10 +357,13 @@ def async_track_point_in_time(
             cancel_callback = loop.call_later(delta, run_action, job)
             return
 
-        loop.call_soon(job, utc_point_in_time)
+        if asyncio.iscoroutinefunction(job):
+            loop.create_task(job(utc_point_in_time, **kwargs))
+        else:
+            loop.call_soon(job, utc_point_in_time, **kwargs)
 
     delta = expected_fire_timestamp - time.time()
-    cancel_callback = loop.call_later(delta, run_action, action)
+    cancel_callback = loop.call_later(delta, run_action, job)
 
     @callback
     def unsub_point_in_time_listener() -> None:
