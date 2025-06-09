@@ -7,7 +7,7 @@
       "register_type": "input",
       "registers": [
         {
-          "name": "INtake Temperature",
+          "name": "Intake Temperature",
           "address": 16,
           "entity_type": "sensor",
           "state_class": "measurement",
