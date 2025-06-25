@@ -9,10 +9,7 @@
       ],
       "properties": {
         "uart": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "enum": [
             "uart1",
             "uart2",
@@ -28,15 +25,15 @@
         },
         "baudrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1,
           "enum": [
@@ -49,16 +46,13 @@
         },
         "bytesize": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8
         },
         "parity": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "default": "N",
           "enum": [
             "N",

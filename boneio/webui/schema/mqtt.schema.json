@@ -9,44 +9,31 @@
       ],
       "properties": {
         "host": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Mqtt broker hostname or IP address",
           "title": "Host"
         },
         "username": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Username to connect ot mqtt broker",
           "title": "Username"
         },
         "password": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Password to mqtt",
           "title": "Password"
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
           "title": "Port"
         },
         "topic_prefix": {
-          "type": [
-            "string",
-            "string"
-          ],
-          "default": "boneIO",
+          "type": "string",
           "description": "Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.",
           "title": "Topic prefix"
         },
@@ -80,10 +67,7 @@
               "title": "Enabled"
             },
             "topic_prefix": {
-              "type": [
-                "string",
-                "string"
-              ],
+              "type": "string",
               "default": "homeassistant",
               "description": "Prefix topic of HA discovery.",
               "title": "Topic prefix"

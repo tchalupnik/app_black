@@ -14,10 +14,7 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to send to use in HA and in GPIO Input. Default to `kind_pin`",
             "title": "Id"
           },
@@ -52,14 +49,15 @@
             "title": "All on behaviour"
           },
           "output_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "switch",
             "enum": [
-              "switch",
-              "light"
+              "LIGHT",
+              "Light",
+              "SWITCH",
+              "Switch",
+              "light",
+              "switch"
             ],
             "examples": [
               "switch"

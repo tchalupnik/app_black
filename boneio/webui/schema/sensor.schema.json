@@ -14,18 +14,12 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to address.",
             "title": "Id"
           },
           "platform": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "dallas",
             "enum": [
               "dallas"
@@ -38,17 +32,14 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Dallas device",
             "title": "Address"
           },
           "bus_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.",
             "title": "Bus id"
           },
@@ -94,20 +85,13 @@
             "title": "Filters"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "unit_of_measurement": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",

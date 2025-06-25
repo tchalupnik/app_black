@@ -14,27 +14,20 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "0s",
             "description": "How long to sleep for PCF to initialize.",
             "title": "Init sleep"

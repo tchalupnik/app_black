@@ -9,39 +9,55 @@
       ],
       "properties": {
         "name": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Name of boneio. Default is Black.",
           "title": "Name"
         },
         "version": {
           "type": [
             "string",
-            "number",
-            "string"
+            "number"
+          ],
+          "enum": [
+            "0.7",
+            "0.8"
+          ],
+          "examples": [
+            "0.7"
           ],
           "description": "BoneIO Black Hardware version",
           "title": "Version"
         },
         "device_type": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "enum": [
-            "32x10A",
-            "32x10",
-            "32",
-            "24x16A",
-            "24x16",
             "24",
-            "cover",
-            "cover mix",
-            "cm",
+            "24X16",
+            "24X16A",
+            "24x16",
+            "24x16A",
+            "24x16a",
+            "32",
+            "32X10",
+            "32X10A",
+            "32x10",
+            "32x10A",
             "32x10a",
-            "24x16a"
+            "CM",
+            "COVER",
+            "COVER MIX",
+            "COVER Mix",
+            "COVER mix",
+            "Cm",
+            "Cover",
+            "Cover MIX",
+            "Cover Mix",
+            "Cover mix",
+            "cm",
+            "cover",
+            "cover MIX",
+            "cover Mix",
+            "cover mix"
           ],
           "examples": [
             "32x10A"

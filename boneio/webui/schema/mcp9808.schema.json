@@ -14,29 +14,21 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 24,
             "description": "Address of I2C device",
             "title": "Address"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -61,10 +53,7 @@
             "title": "Filters"
           },
           "unit_of_measurement": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",

@@ -14,26 +14,17 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Output ID",
             "title": "Id"
           },
           "boneio_output": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Reference to predefined output configuration",
             "title": "Boneio output"
           },
           "kind": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "gpio",
               "mcp",
@@ -47,63 +38,47 @@
             "title": "Kind"
           },
           "mcp_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "MCP ID reference",
             "title": "Mcp id"
           },
           "pca_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PCA ID to connect",
             "title": "Pca id"
           },
           "pcf_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PCF ID to connect",
             "title": "Pcf id"
           },
           "pin": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
           "virtual_power_usage": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.",
             "title": "Virtual power usage"
+          },
+          "virtual_volume_flow_rate": {
+            "type": "string",
+            "description": "Virtual volume flow rate in liters per hour (e.g. 9 or 9L/min OR 9L/h). Used for virtual flow meter.",
+            "title": "Virtual volume flow rate"
           },
           "restore_state": {
             "oneOf": [
@@ -128,7 +103,6 @@
           "interlock_group": {
             "type": [
               "string",
-              "string",
               "array"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
@@ -136,23 +110,30 @@
           },
           "percentage_default_brightness": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
           },
           "output_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
-              "switch",
-              "light",
+              "COVER",
+              "Cover",
+              "LIGHT",
+              "Light",
+              "NONE",
+              "None",
+              "SWITCH",
+              "Switch",
+              "VALVE",
+              "Valve",
               "cover",
-              "valve",
-              "none"
+              "light",
+              "none",
+              "switch",
+              "valve"
             ],
             "examples": [
               "switch"

@@ -11,8 +11,8 @@
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -27,18 +27,12 @@
           "default": {},
           "properties": {
             "username": {
-              "type": [
-                "string",
-                "string"
-              ],
+              "type": "string",
               "description": "Username to connect to web interface",
               "title": "Username"
             },
             "password": {
-              "type": [
-                "string",
-                "string"
-              ],
+              "type": "string",
               "description": "Password to web interface",
               "title": "Password"
             }

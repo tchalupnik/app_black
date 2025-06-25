@@ -9,10 +9,7 @@
       ],
       "properties": {
         "id": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Id of bus to use in sensor config.",
           "title": "Id"
         }

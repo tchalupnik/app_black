@@ -14,26 +14,17 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to pin number.",
             "title": "Id"
           },
           "pin": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PIN to use.",
             "title": "Pin"
           },
           "gpio_mode": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "gpio",
             "enum": [
               "gpio",
@@ -48,10 +39,7 @@
             "title": "Gpio mode"
           },
           "detection_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "new",
             "enum": [
               "new",
@@ -86,20 +74,13 @@
             "title": "Clear message"
           },
           "bounce_time": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "120ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
           },
           "boneio_input": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
           },
@@ -170,10 +151,7 @@
             "title": "Initial send"
           },
           "device_class": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "battery",
               "battery_charging",
@@ -227,40 +205,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -288,16 +264,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -307,10 +283,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -324,20 +297,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }
@@ -354,40 +321,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -415,16 +380,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -434,10 +399,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -451,20 +413,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }

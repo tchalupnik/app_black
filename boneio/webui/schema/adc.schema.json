@@ -14,18 +14,12 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to pin number.",
             "title": "Id"
           },
           "pin": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "P9_33",
               "P9_35",
@@ -42,11 +36,7 @@
             "title": "Pin"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"

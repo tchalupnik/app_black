@@ -9,21 +9,23 @@
       ],
       "properties": {
         "default": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "enum": [
-            "critical",
-            "error",
-            "warning",
-            "info",
-            "debug",
             "CRITICAL",
+            "Critical",
+            "DEBUG",
+            "Debug",
             "ERROR",
-            "WARNING",
+            "Error",
             "INFO",
-            "DEBUG"
+            "Info",
+            "WARNING",
+            "Warning",
+            "critical",
+            "debug",
+            "error",
+            "info",
+            "warning"
           ],
           "examples": [
             "critical"
@@ -32,12 +34,20 @@
           "title": "Default"
         },
         "logs": {
-          "type": [
-            "string",
-            "object"
-          ],
-          "description": "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO.",
-          "title": "Logs"
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "error",
+              "warning",
+              "info",
+              "debug"
+            ],
+            "examples": [
+              "critical"
+            ]
+          }
         }
       },
       "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",

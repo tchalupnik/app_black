@@ -9,44 +9,31 @@
       ],
       "properties": {
         "host": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Mqtt broker hostname or IP address",
           "title": "Host"
         },
         "username": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Username to connect ot mqtt broker",
           "title": "Username"
         },
         "password": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Password to mqtt",
           "title": "Password"
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
           "title": "Port"
         },
         "topic_prefix": {
-          "type": [
-            "string",
-            "string"
-          ],
-          "default": "boneIO",
+          "type": "string",
           "description": "Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.",
           "title": "Topic prefix"
         },
@@ -80,10 +67,7 @@
               "title": "Enabled"
             },
             "topic_prefix": {
-              "type": [
-                "string",
-                "string"
-              ],
+              "type": "string",
               "default": "homeassistant",
               "description": "Prefix topic of HA discovery.",
               "title": "Topic prefix"
@@ -108,8 +92,8 @@
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -124,18 +108,12 @@
           "default": {},
           "properties": {
             "username": {
-              "type": [
-                "string",
-                "string"
-              ],
+              "type": "string",
               "description": "Username to connect to web interface",
               "title": "Username"
             },
             "password": {
-              "type": [
-                "string",
-                "string"
-              ],
+              "type": "string",
               "description": "Password to web interface",
               "title": "Password"
             }
@@ -154,21 +132,23 @@
       ],
       "properties": {
         "default": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "enum": [
-            "critical",
-            "error",
-            "warning",
-            "info",
-            "debug",
             "CRITICAL",
+            "Critical",
+            "DEBUG",
+            "Debug",
             "ERROR",
-            "WARNING",
+            "Error",
             "INFO",
-            "DEBUG"
+            "Info",
+            "WARNING",
+            "Warning",
+            "critical",
+            "debug",
+            "error",
+            "info",
+            "warning"
           ],
           "examples": [
             "critical"
@@ -177,12 +157,20 @@
           "title": "Default"
         },
         "logs": {
-          "type": [
-            "string",
-            "object"
-          ],
-          "description": "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO.",
-          "title": "Logs"
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "error",
+              "warning",
+              "info",
+              "debug"
+            ],
+            "examples": [
+              "critical"
+            ]
+          }
         }
       },
       "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",
@@ -263,10 +251,7 @@
             ],
             "properties": {
               "sensor_type": {
-                "type": [
-                  "string",
-                  "string"
-                ],
+                "type": "string",
                 "enum": [
                   "modbus",
                   "dallas"
@@ -276,18 +261,12 @@
                 ]
               },
               "modbus_id": {
-                "type": [
-                  "string",
-                  "string"
-                ],
+                "type": "string",
                 "description": "Only needed if sensor type is modbus.",
                 "title": "Modbus id"
               },
               "sensor_id": {
-                "type": [
-                  "string",
-                  "string"
-                ]
+                "type": "string"
               }
             },
             "required": [
@@ -299,11 +278,7 @@
           "title": "Extra screen sensors"
         },
         "screensaver_timeout": {
-          "type": [
-            "string",
-            "string",
-            "string"
-          ],
+          "type": "string",
           "default": "60s",
           "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "title": "Screensaver timeout"
@@ -319,10 +294,7 @@
       ],
       "properties": {
         "uart": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "enum": [
             "uart1",
             "uart2",
@@ -338,15 +310,15 @@
         },
         "baudrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1,
           "enum": [
@@ -359,16 +331,13 @@
         },
         "bytesize": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8
         },
         "parity": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "default": "N",
           "enum": [
             "N",
@@ -386,7 +355,7 @@
       "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
       "title": "Modbus"
     },
-    "modbus_sensors": {
+    "modbus_devices": {
       "type": [
         "string",
         "array"
@@ -398,30 +367,54 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of Modbus sensor",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
           },
           "model": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
+              "CWT",
+              "Cwt",
+              "DTS1964_3F",
+              "Dts1964_3F",
+              "FUJITSU-AC",
+              "Fujitsu-Ac",
+              "LIQUID-SENSOR",
+              "Liquid-Sensor",
+              "ORNO-OR-WE-517",
+              "Orno-Or-We-517",
+              "PT100",
+              "Pt100",
+              "R4DCB08",
+              "R4Dcb08",
+              "SDM120",
+              "SDM630",
+              "SHT20",
+              "SHT30",
+              "SOCOMEC_E03",
+              "SOCOMEC_E23",
+              "SOFAR",
+              "Sdm120",
+              "Sdm630",
+              "Sht20",
+              "Sht30",
+              "Socomec_E03",
+              "Socomec_E23",
+              "Sofar",
+              "VENTCLEAR",
+              "Ventclear",
               "cwt",
               "dts1964_3f",
+              "fujitsu-ac",
               "liquid-sensor",
               "orno-or-we-517",
               "pt100",
@@ -432,7 +425,8 @@
               "sht30",
               "socomec_e03",
               "socomec_e23",
-              "sofar"
+              "sofar",
+              "ventclear"
             ],
             "examples": [
               "cwt"
@@ -441,11 +435,7 @@
             "title": "Model"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "30s",
             "description": "Update interval.",
             "title": "Update interval"
@@ -498,7 +488,7 @@
             "description": "List of sub sensors to use to filter. Available values are temperature or humidity.",
             "title": "Sensors filters"
           },
-          "extra_data": {
+          "data": {
             "type": [
               "string",
               "object"
@@ -506,27 +496,25 @@
             "properties": {
               "width": {
                 "type": [
+                  "integer",
                   "string",
-                  "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "integer",
                   "string",
-                  "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
               }
             },
             "description": "Data to pass to additional sensors.",
-            "title": "Extra data"
+            "title": "Data"
           }
         },
         "required": [
@@ -536,7 +524,7 @@
         ]
       },
       "description": "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use predefined modbus sensors. It would fetch data from them and publish to mqtt.",
-      "title": "Modbus sensors"
+      "title": "Modbus devices"
     },
     "lm75": {
       "type": [
@@ -550,28 +538,21 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 72,
             "description": "Address of I2C",
             "title": "Address"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -596,10 +577,7 @@
             "title": "Filters"
           },
           "unit_of_measurement": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",
@@ -626,18 +604,14 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -669,18 +643,12 @@
               ],
               "properties": {
                 "id": {
-                  "type": [
-                    "string",
-                    "string"
-                  ],
+                  "type": "string",
                   "description": "Id of I2C to use in pin config",
                   "title": "Id"
                 },
                 "device_class": {
-                  "type": [
-                    "string",
-                    "string"
-                  ],
+                  "type": "string",
                   "enum": [
                     "current",
                     "power",
@@ -713,11 +681,7 @@
             }
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -739,29 +703,21 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 24,
             "description": "Address of I2C device",
             "title": "Address"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -786,10 +742,7 @@
             "title": "Filters"
           },
           "unit_of_measurement": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",
@@ -816,27 +769,20 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "0s",
             "description": "How long to sleep for MCP to initialize.",
             "title": "Init sleep"
@@ -861,27 +807,20 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "0s",
             "description": "How long to sleep for PCF to initialize.",
             "title": "Init sleep"
@@ -906,27 +845,20 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "0s",
             "description": "How long to sleep for PCA to initialize.",
             "title": "Init sleep"
@@ -951,26 +883,17 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Output ID",
             "title": "Id"
           },
           "boneio_output": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Reference to predefined output configuration",
             "title": "Boneio output"
           },
           "kind": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "gpio",
               "mcp",
@@ -984,63 +907,47 @@
             "title": "Kind"
           },
           "mcp_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "MCP ID reference",
             "title": "Mcp id"
           },
           "pca_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PCA ID to connect",
             "title": "Pca id"
           },
           "pcf_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PCF ID to connect",
             "title": "Pcf id"
           },
           "pin": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
           "virtual_power_usage": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.",
             "title": "Virtual power usage"
+          },
+          "virtual_volume_flow_rate": {
+            "type": "string",
+            "description": "Virtual volume flow rate in liters per hour (e.g. 9 or 9L/min OR 9L/h). Used for virtual flow meter.",
+            "title": "Virtual volume flow rate"
           },
           "restore_state": {
             "oneOf": [
@@ -1065,7 +972,6 @@
           "interlock_group": {
             "type": [
               "string",
-              "string",
               "array"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
@@ -1073,23 +979,30 @@
           },
           "percentage_default_brightness": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
           },
           "output_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
-              "switch",
-              "light",
+              "COVER",
+              "Cover",
+              "LIGHT",
+              "Light",
+              "NONE",
+              "None",
+              "SWITCH",
+              "Switch",
+              "VALVE",
+              "Valve",
               "cover",
-              "valve",
-              "none"
+              "light",
+              "none",
+              "switch",
+              "valve"
             ],
             "examples": [
               "switch"
@@ -1118,10 +1031,7 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to send to use in HA and in GPIO Input. Default to `kind_pin`",
             "title": "Id"
           },
@@ -1156,14 +1066,15 @@
             "title": "All on behaviour"
           },
           "output_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "switch",
             "enum": [
-              "switch",
-              "light"
+              "LIGHT",
+              "Light",
+              "SWITCH",
+              "Switch",
+              "light",
+              "switch"
             ],
             "examples": [
               "switch"
@@ -1191,26 +1102,17 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to pin number.",
             "title": "Id"
           },
           "pin": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PIN to use.",
             "title": "Pin"
           },
           "gpio_mode": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "gpio",
             "enum": [
               "gpio",
@@ -1225,10 +1127,7 @@
             "title": "Gpio mode"
           },
           "detection_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "new",
             "enum": [
               "new",
@@ -1263,20 +1162,13 @@
             "title": "Clear message"
           },
           "bounce_time": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "120ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
           },
           "boneio_input": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
           },
@@ -1347,10 +1239,7 @@
             "title": "Initial send"
           },
           "device_class": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "battery",
               "battery_charging",
@@ -1404,40 +1293,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -1465,16 +1352,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1484,10 +1371,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -1501,20 +1385,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }
@@ -1531,40 +1409,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -1592,16 +1468,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1611,10 +1487,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -1628,20 +1501,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }
@@ -1665,26 +1532,17 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to pin number.",
             "title": "Id"
           },
           "pin": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "PIN to use.",
             "title": "Pin"
           },
           "gpio_mode": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "gpio",
             "enum": [
               "gpio",
@@ -1699,10 +1557,7 @@
             "title": "Gpio mode"
           },
           "detection_type": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "new",
             "enum": [
               "new",
@@ -1737,20 +1592,13 @@
             "title": "Clear message"
           },
           "bounce_time": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "30ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
           },
           "boneio_input": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
           },
@@ -1799,10 +1647,7 @@
             "title": "Inverted"
           },
           "device_class": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "button",
             "enum": [
               "button",
@@ -1833,40 +1678,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -1894,16 +1737,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1913,10 +1756,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -1930,20 +1770,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }
@@ -1960,40 +1794,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -2021,16 +1853,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2040,10 +1872,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -2057,20 +1886,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }
@@ -2087,40 +1910,38 @@
                   ],
                   "properties": {
                     "action": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "cover",
+                        "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "cover",
-                        "mqtt_output",
-                        "mqtt_cover"
+                        "output_over_mqtt"
                       ],
                       "examples": [
                         "mqtt"
                       ]
                     },
                     "pin": {
-                      "type": [
-                        "string",
-                        "string"
-                      ]
+                      "type": "string"
                     },
                     "topic": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "If mqtt action then topic to send",
                       "title": "Topic"
                     },
                     "action_cover": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -2148,16 +1969,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2167,10 +1988,7 @@
                       "title": "Data"
                     },
                     "action_output": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "default": "TOGGLE",
                       "enum": [
                         "TOGGLE",
@@ -2184,20 +2002,14 @@
                       "title": "Action output"
                     },
                     "action_mqtt_msg": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
+                      "type": "string",
                       "description": "What message to send to mqtt topic",
                       "title": "Action mqtt msg"
                     },
-                    "action_mqtt_boneio": {
-                      "type": [
-                        "string",
-                        "string"
-                      ],
-                      "description": "Instead of mqtt topic, send message to another boneio device directly by giving boneio topic.",
-                      "title": "Action mqtt boneio"
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
                     }
                   }
                 }
@@ -2221,18 +2033,12 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to pin number.",
             "title": "Id"
           },
           "pin": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "P9_33",
               "P9_35",
@@ -2249,11 +2055,7 @@
             "title": "Pin"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -2322,10 +2124,7 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed.",
             "title": "Id"
           },
@@ -2352,26 +2151,17 @@
             "title": "Restore state"
           },
           "open_relay": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "ID of open relay of output.",
             "title": "Open relay"
           },
           "close_relay": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "ID of close relay of output.",
             "title": "Close relay"
           },
           "platform": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "previous",
             "enum": [
               "time_based",
@@ -2385,46 +2175,27 @@
             "title": "Platform"
           },
           "open_time": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "title": "Open time"
           },
           "close_time": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
           },
           "tilt_duration": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
             "title": "Tilt duration"
           },
           "actuator_activation_duration": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
             "title": "Actuator activation duration"
           },
           "device_class": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "enum": [
               "awning",
               "blind",
@@ -2489,18 +2260,12 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": 24,
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -2517,10 +2282,7 @@
       ],
       "properties": {
         "id": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Id of bus to use in sensor config.",
           "title": "Id"
         }
@@ -2543,18 +2305,12 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id to use in HA if needed. Default to address.",
             "title": "Id"
           },
           "platform": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "dallas",
             "enum": [
               "dallas"
@@ -2567,17 +2323,14 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Dallas device",
             "title": "Address"
           },
           "bus_id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.",
             "title": "Bus id"
           },
@@ -2623,20 +2376,13 @@
             "title": "Filters"
           },
           "update_interval": {
-            "type": [
-              "string",
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "unit_of_measurement": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",
@@ -2661,39 +2407,55 @@
       ],
       "properties": {
         "name": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "description": "Name of boneio. Default is Black.",
           "title": "Name"
         },
         "version": {
           "type": [
             "string",
-            "number",
-            "string"
+            "number"
+          ],
+          "enum": [
+            "0.7",
+            "0.8"
+          ],
+          "examples": [
+            "0.7"
           ],
           "description": "BoneIO Black Hardware version",
           "title": "Version"
         },
         "device_type": {
-          "type": [
-            "string",
-            "string"
-          ],
+          "type": "string",
           "enum": [
-            "32x10A",
-            "32x10",
-            "32",
-            "24x16A",
-            "24x16",
             "24",
-            "cover",
-            "cover mix",
-            "cm",
+            "24X16",
+            "24X16A",
+            "24x16",
+            "24x16A",
+            "24x16a",
+            "32",
+            "32X10",
+            "32X10A",
+            "32x10",
+            "32x10A",
             "32x10a",
-            "24x16a"
+            "CM",
+            "COVER",
+            "COVER MIX",
+            "COVER Mix",
+            "COVER mix",
+            "Cm",
+            "Cover",
+            "Cover MIX",
+            "Cover Mix",
+            "Cover mix",
+            "cm",
+            "cover",
+            "cover MIX",
+            "cover Mix",
+            "cover mix"
           ],
           "examples": [
             "32x10A"

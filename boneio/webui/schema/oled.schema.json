@@ -77,10 +77,7 @@
             ],
             "properties": {
               "sensor_type": {
-                "type": [
-                  "string",
-                  "string"
-                ],
+                "type": "string",
                 "enum": [
                   "modbus",
                   "dallas"
@@ -90,18 +87,12 @@
                 ]
               },
               "modbus_id": {
-                "type": [
-                  "string",
-                  "string"
-                ],
+                "type": "string",
                 "description": "Only needed if sensor type is modbus.",
                 "title": "Modbus id"
               },
               "sensor_id": {
-                "type": [
-                  "string",
-                  "string"
-                ]
+                "type": "string"
               }
             },
             "required": [
@@ -113,11 +104,7 @@
           "title": "Extra screen sensors"
         },
         "screensaver_timeout": {
-          "type": [
-            "string",
-            "string",
-            "string"
-          ],
+          "type": "string",
           "default": "60s",
           "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "title": "Screensaver timeout"

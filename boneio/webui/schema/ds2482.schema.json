@@ -14,18 +14,12 @@
         ],
         "properties": {
           "id": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "description": "Id of I2C to use in pin config",
             "title": "Id"
           },
           "address": {
-            "type": [
-              "string",
-              "string"
-            ],
+            "type": "string",
             "default": 24,
             "description": "GPIO of I2C SDA",
             "title": "Address"
