@@ -172,13 +172,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
         self._event_bus.add_sigterm_listener(self.on_exit)
 
-        def _schedule_send_state_task(state_to_send, json_pos_to_send):
-            asyncio.ensure_future(self.send_state(state_to_send, json_pos_to_send), loop=self._loop)
-
         self._loop.call_soon_threadsafe(
             self._loop.call_later,
             0.5,
-            _schedule_send_state_task,
+            self.send_state,
             self.state,
             self.json_position
         )
@@ -195,7 +192,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             self._close_relay.turn_off()
             self._current_operation = IDLE
             if not on_exit:
-                await self.send_state(self.state, self.json_position)
+                self.send_state(self.state, self.json_position)
 
     async def open(self) -> None:
         if self._position >= 100:
@@ -270,7 +267,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     def last_timestamp(self) -> float:
         return self._last_timestamp
 
-    async def send_state(self, state: str, json_position: PositionDict = None) -> None:
+    def send_state(self, state: str, json_position: PositionDict = None) -> None:
         event = CoverState(
             id=self.id,
             name=self.name,
@@ -280,10 +277,14 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             current_operation=self._current_operation,
             **json_position
         )
-        await self._event_bus.async_trigger_event(event_type="cover", entity_id=self.id, event=event)
+        self._event_bus.trigger_event({
+            "event_type": "cover", 
+            "entity_id": self.id, 
+            "event_state": event
+        })
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
         self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json_position)
 
-    async def send_state_and_save(self, json_position: PositionDict):
-        await self.send_state(self.state, json_position)
+    def send_state_and_save(self, json_position: PositionDict):
+        self.send_state(self.state, json_position)
         self._state_save(json_position)

@@ -146,7 +146,7 @@ class PreviousCover(BasicMqtt):
             timestamp=self.last_timestamp,
             current_operation=self._current_operation,
         )
-        await self._event_bus.async_trigger_event(event_type="cover", entity_id=self.id, event=event)
+        self._event_bus.trigger_event({"event_type": "cover", "entity_id": self.id, "event_state": event})
 
     def send_state(self) -> None:
         """Send state of cover to mqtt."""

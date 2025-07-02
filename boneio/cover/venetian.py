@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 import time
@@ -89,9 +88,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         if total_steps == 0 or duration == 0:
             self._current_operation = IDLE
             self._loop.call_soon_threadsafe(
-                asyncio.run_coroutine_threadsafe,
-                self.send_state(self.state, self.json_position),
-                self._loop,
+                self.send_state, self.state, self.json_position
             )
             return
 
@@ -146,9 +143,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             self._last_timestamp = current_time  # Użyj pobranego czasu
             if current_time - self._last_update_time >= 1:
                 self._loop.call_soon_threadsafe(
-                    asyncio.run_coroutine_threadsafe,
-                    self.send_state(self.state, self.json_position),
-                    self._loop,
+                    self.send_state, self.state, self.json_position
                 )
                 self._last_update_time = current_time
 
@@ -176,9 +171,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         relay.turn_off()
         self._current_operation = IDLE
         self._loop.call_soon_threadsafe(
-            asyncio.run_coroutine_threadsafe,
-            self.send_state_and_save(self.json_position),
-            self._loop,
+            self.send_state_and_save, self.json_position
         )
         self._last_update_time = (
             time.monotonic()
