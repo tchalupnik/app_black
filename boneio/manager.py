@@ -5,13 +5,14 @@ import json
 import logging
 import time
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set, Tuple
+from typing import Callable, Coroutine, List, Optional, Set
 
 from board import SCL, SDA
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.const import (
+    ACTIONS,
     ADDRESS,
     BINARY_SENSOR,
     BUTTON,
@@ -223,8 +224,9 @@ class Manager:
             if not out:
                 continue
             if restore_state:
-                self._event_bus.add_output_listener(
-                    output_id=out.id,
+                self._event_bus.add_event_listener(
+                    event_type="output",
+                    entity_id=out.id,
                     listener_id="manager",
                     target=self._relay_callback,
                 )
@@ -431,6 +433,84 @@ class Manager:
                 _LOGGER.error("Can't configure cover %s. %s", _id, err)
                 continue
 
+    def parse_actions(self, pin: str, actions: dict) -> dict:
+        """Parse actions from config."""
+        parsed_actions = {}
+        for click_type in actions:
+            if click_type not in parsed_actions:
+                parsed_actions[click_type] = []
+            for action_definition in actions.get(click_type, []):
+                action = action_definition.get("action")
+                if action == OUTPUT:
+                    entity_id = action_definition.get("pin")
+                    stripped_entity_id = strip_accents(entity_id)
+                    action_output = action_definition.get("action_output")
+                    output = self._outputs.get(stripped_entity_id, self._configured_output_groups.get(stripped_entity_id))
+                    action_to_execute = relay_actions.get(action_output)
+                    if output and action_to_execute:
+                        _f = getattr(output, action_to_execute)
+                        if _f:
+                            parsed_actions[click_type].append({
+                                "action": action,
+                                "pin": stripped_entity_id,
+                                "action_to_execute": action_to_execute,
+                            })
+                            continue
+                    _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
+                elif action == COVER:
+                    entity_id = action_definition.get("pin")
+                    stripped_entity_id = strip_accents(entity_id)
+                    action_cover = action_definition.get("action_cover")
+                    extra_data = action_definition.get("data", {})
+                    cover = self._covers.get(stripped_entity_id)
+                    action_to_execute = cover_actions.get(action_cover)
+                    if cover and action_to_execute:
+                        _f = getattr(cover, action_to_execute)
+                        if _f:
+                            parsed_actions[click_type].append({
+                                "action": action,
+                                "action_to_execute": action_to_execute,
+                                "extra_data": extra_data,
+                            })
+                            continue
+                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                elif action == MQTT:
+                    action_mqtt_msg = action_definition.get("action_mqtt_msg")
+                    action_topic = action_definition.get(TOPIC)
+                    if action_topic and action_mqtt_msg:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "action_mqtt_msg": action_mqtt_msg,
+                            "action_topic": action_topic,
+                        })
+                        continue
+                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                elif action == OUTPUT_OVER_MQTT:
+                    boneio_id = action_definition.get("boneio_id")
+                    action_output = action_definition.get("action_output")
+                    action_to_execute = relay_actions.get(action_output.upper())
+                    if boneio_id and action_to_execute:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "boneio_id": boneio_id,
+                            "action_output": action_output,
+                        })
+                        continue
+                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                elif action == COVER_OVER_MQTT:
+                    boneio_id = action_definition.get("boneio_id")
+                    action_cover = action_definition.get("action_cover")
+                    action_to_execute = cover_actions.get(action_cover.upper())
+                    if boneio_id and action_to_execute:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "boneio_id": boneio_id,
+                            "action_cover": action_cover,
+                        })
+                        continue
+                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+        return parsed_actions
+
     def configure_inputs(self, reload_config: bool = False):
         """Configure inputs. Either events or binary sensors."""
 
@@ -454,10 +534,11 @@ class Manager:
             input = configure_sensor_func(
                 gpio=gpio,
                 pin=pin,
-                press_callback=self.press_callback,
+                manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self._inputs.get(pin, None),  # for reload actions.
+                actions=self.parse_actions(pin, gpio.pop(ACTIONS, {})),
             )
             if input:
                 self._inputs[input.pin] = input
@@ -726,30 +807,13 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
-    def get_output_and_action(
-        self, entity_id: str, action: str, action_output: str, action_cover: str
-    ) -> Tuple[BasicRelay, str]:
-        """Get output device and its action based on configuration."""
-        if action == OUTPUT:
-            return (
-                self._outputs.get(
-                    strip_accents(entity_id),
-                    self._configured_output_groups.get(entity_id),
-                ),
-                relay_actions.get(action_output),
-            )
-        else:
-            return (
-                self._covers.get(strip_accents(entity_id)),
-                cover_actions.get(action_cover),
-            )
-
     async def press_callback(
         self,
         x: ClickTypes,
         gpio: GpioBaseClass,
         empty_message_after: bool = False,
         duration: float | None = None,
+        start_time: float | None = None,
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt.
@@ -757,34 +821,6 @@ class Manager:
         actions = gpio.get_actions_of_click(click_type=x)
         topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
-        async def invoke_action_on_output(
-            entity_id: str, action_output: str, action: str, action_cover: str
-        ):
-            output, action_to_execute = self.get_output_and_action(
-                entity_id=entity_id,
-                action=action,
-                action_output=action_output,
-                action_cover=action_cover,
-            )
-            if output and action_to_execute:
-                _LOGGER.debug(
-                    "Executing action %s for output %s at %s",
-                    action_to_execute,
-                    output.name,
-                    time.time(),
-                )
-                _f = getattr(output, action_to_execute)
-                if _f:
-                    self._loop.create_task(_f(**extra_data))
-            else:
-                if not action_to_execute:
-                    _LOGGER.warning(
-                        "Action doesn't exists %s, %s, %s. Check spelling",
-                        action_definition,
-                        actions,
-                    )
-                if not output:
-                    _LOGGER.warning("Device %s for action not found", entity_id)
 
         def generate_payload():
             if gpio.input_type == INPUT:
@@ -796,9 +832,7 @@ class Manager:
         for action_definition in actions:
             entity_id = action_definition.get("pin")
             action = action_definition.get("action")
-            action_output = action_definition.get("action_output")
-            action_cover = action_definition.get("action_cover")
-            extra_data = action_definition.get("data", {})
+            
             if action == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
@@ -807,33 +841,43 @@ class Manager:
                         topic=action_topic, payload=action_payload, retain=False
                     )
                 continue
-            elif action == OUTPUT or action == COVER:
-                await invoke_action_on_output(
-                    entity_id=entity_id,
-                    action_output=action_output,
-                    action=action,
-                    action_cover=action_cover,
+            elif action == OUTPUT:
+                output = self._outputs.get(entity_id, self._configured_output_groups.get(entity_id))
+                action_to_execute = action_definition.get("action_to_execute")
+                _LOGGER.debug(
+                    "Executing action %s for output %s. Duration: %s",
+                    action_to_execute,
+                    output.name,
+                    time.time() - start_time,
                 )
+                _f = getattr(output, action_to_execute)
+                await _f()
+            elif action == COVER:
+                cover = self._covers.get(entity_id)
+                action_to_execute = action_definition.get("action_to_execute")
+                extra_data = action_definition.get("extra_data", {})
+                _LOGGER.debug(
+                    "Executing action %s for cover %s. Duration: %s",
+                    action_to_execute,
+                    cover.name,
+                    time.time() - start_time,
+                )
+                _f = getattr(cover, action_to_execute)
+                await _f(**extra_data)
             elif action == OUTPUT_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
-                if relay_actions.get(action_output.upper()):
-                    self.send_message(
-                        topic=f"{boneio_id}/cmd/relay/{entity_id}/set",
-                        payload=action_output,
-                        retain=False,
-                    )
-                else:
-                    _LOGGER.warning("Desired action %s does not exists", action_output)
+                self.send_message(
+                    topic=f"{boneio_id}/cmd/relay/{entity_id}/set",
+                    payload=action_definition.get("action_output"),
+                    retain=False,
+                )
             elif action == COVER_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
-                if cover_actions.get(action_cover.upper()):
-                    self.send_message(
+                self.send_message(
                         topic=f"{boneio_id}/cmd/cover/{entity_id}/set",
-                        payload=action_cover,
+                        payload=action_definition.get("action_cover"),
                         retain=False,
                     )
-                else:
-                    _LOGGER.warning("Desired action %s does not exists", action_cover)
 
         payload = generate_payload()
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
