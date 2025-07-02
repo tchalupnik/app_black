@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Any, Tuple
 
 from cerberus import TypeDefinition, Validator
-from yaml import MarkedYAMLError, SafeLoader, YAMLError, load
+from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
 from boneio.const import ID, OUTPUT
 from boneio.helper.exceptions import ConfigurationException
@@ -242,6 +242,7 @@ def merge_board_config(config: dict) -> dict:
 
     board_name = normalize_board_name(config["boneio"]["device_type"])
     version = normalize_version(config["boneio"]["version"])
+    config["boneio"]["version"] = version
     
     try:
         board_file = get_board_config_path(f"output_{board_name}", version)
@@ -426,6 +427,14 @@ class CustomValidator(Validator):
     def _normalize_coerce_str(self, value):
         """Convert value to string."""
         return str(value)
+
+    def _normalize_coerce_version_to_str(self, value):
+        """Convert value to string."""
+        print(value)
+        _v = str(value)
+        print(type(_v))
+        print(_v)
+        return _v
 
     def _normalize_coerce_actions_output(self, value):
         return str(value).upper()
@@ -666,6 +675,8 @@ def load_config_from_string(config_str: str) -> dict:
     # First normalize the document
     doc = v.normalized(config_str, always_return_document=True)
     # Then merge board config
+    if "modbus_sensors" in doc:
+        _LOGGER.warning("Modbus sensors are renamed to modbus_devices. Please update your config.")
     merged_doc = merge_board_config(doc)
     
     # Finally validate
@@ -695,3 +706,122 @@ def load_config_from_file(config_file: str):
     return load_config_from_string(config_yaml)
 
 
+def update_config_section(config_file: str, section: str, data: dict) -> dict:
+    """
+    Update content of a configuration section with intelligent !include handling.
+    
+    Args:
+        config_file: Path to the main config.yaml file
+        section: Name of the section to update
+        data: New data for the section
+        
+    Returns:
+        dict: Status response with success/error message
+    """
+    import os
+    from pathlib import Path
+    
+    config_dir = Path(config_file).parent
+    
+    _LOGGER.info(f"Updating section '{section}' with data: {data}")
+    
+    # Custom YAML loader that preserves !include tags
+    class IncludeLoader(SafeLoader):
+        pass
+    
+    def include_constructor(loader, node):
+        """Constructor for !include tag that preserves the tag info."""
+        filename = loader.construct_scalar(node)
+        # Return a special object that preserves the include info
+        include_obj = type('Include', (), {'filename': filename, 'tag': '!include'})()
+        return include_obj
+    
+    IncludeLoader.add_constructor('!include', include_constructor)
+    
+    try:
+        # Read current config.yaml with custom loader
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config_content = load(f, Loader=IncludeLoader)
+        
+        if config_content is None:
+            config_content = {}
+        
+        # Check if section exists in config
+        if section in config_content:
+            section_value = config_content[section]
+            
+            # Check if it's an !include directive
+            if hasattr(section_value, 'tag') and section_value.tag == '!include':
+                # It's an !include - update the included file
+                include_filename = section_value.filename
+                include_file_path = os.path.join(config_dir, include_filename)
+                
+                _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
+                
+                # Save data to the included file
+                content = dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                with open(include_file_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                    
+                _LOGGER.info(f"Successfully updated included file: {include_file_path}")
+                
+            else:
+                # It's a regular section - replace in config.yaml
+                _LOGGER.info(f"Section '{section}' is inline, updating in config.yaml")
+                config_content[section] = data
+                
+                # Save updated config.yaml (need to handle !include when saving)
+                # Read original file as text to preserve !include syntax
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    original_lines = f.readlines()
+                
+                # Find and replace the section in the original text
+                updated_lines = []
+                in_section = False
+                section_indent = 0
+                
+                for line in original_lines:
+                    if line.strip().startswith(f"{section}:"):
+                        # Found the section start
+                        in_section = True
+                        section_indent = len(line) - len(line.lstrip())
+                        # Add the section header
+                        updated_lines.append(line)
+                        # Add the new data
+                        section_yaml = dump({section: data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                        section_lines = section_yaml.split('\n')[1:]  # Skip the section name line
+                        for data_line in section_lines:
+                            if data_line.strip():
+                                updated_lines.append(' ' * section_indent + data_line + '\n')
+                    elif in_section:
+                        # Check if we're still in the same section
+                        line_indent = len(line) - len(line.lstrip())
+                        if line.strip() and line_indent <= section_indent:
+                            # We've moved to a new section
+                            in_section = False
+                            updated_lines.append(line)
+                        # Skip lines that are part of the old section
+                    else:
+                        updated_lines.append(line)
+                
+                # Write updated config
+                with open(config_file, 'w', encoding='utf-8') as f:
+                    f.writelines(updated_lines)
+                    
+                _LOGGER.info(f"Successfully updated section '{section}' in config.yaml")
+        else:
+            # Section doesn't exist - add it to config.yaml
+            _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
+            
+            # Append new section to the end of the file
+            section_yaml = dump({section: data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            with open(config_file, 'a', encoding='utf-8') as f:
+                f.write('\n' + section_yaml)
+                
+            _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
+        
+        return {"status": "success", "message": f"Section '{section}' saved successfully"}
+        
+    except Exception as e:
+        _LOGGER.error(f"Error saving section '{section}': {str(e)}")
+        return {"status": "error", "message": f"Error saving section: {str(e)}"}
