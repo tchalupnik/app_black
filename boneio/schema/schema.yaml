@@ -89,7 +89,7 @@ logger:
       type: string
       required: False
       coerce: lower  # Convert to lowercase
-      allowed: ['critical', 'error', 'warning', 'info', 'debug', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
+      allowed: ['critical', 'error', 'warning', 'info', 'debug']
       meta:
         label: Module which you want logger to set. Default for app logger.
     logs:
@@ -97,7 +97,7 @@ logger:
       valueschema:
         type: string
         coerce: lower  # Convert to lowercase for all values
-        allowed: ['critical', 'error', 'warning', 'info', 'debug', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
+        allowed: ['critical', 'error', 'warning', 'info', 'debug']
       meta:
         label: "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO."
 
@@ -647,6 +647,7 @@ binary_sensor:
       boneio_input:
         type: string
         required: False
+        allowed: ["in_01", "in_02", "in_03", "in_04", "in_05", "in_06", "in_07", "in_08", "in_09", "in_10", "in_11", "in_12", "in_13", "in_14", "in_15", "in_16", "in_17", "in_18", "in_19", "in_20", "in_21", "in_22", "in_23", "in_24", "in_25", "in_26", "in_27", "in_28", "in_29", "in_30", "in_31", "in_32", "in_33", "in_34", "in_35", "in_36", "in_37", "in_38", "in_39", "in_40", "in_41", "in_42", "in_43", "in_44", "in_45", "in_46", "in_47", "in_48", "in_49"]
         coerce:
           - str
           - lower
@@ -762,6 +763,7 @@ event:
       boneio_input:
         type: string
         required: False
+        allowed: ["in_01", "in_02", "in_03", "in_04", "in_05", "in_06", "in_07", "in_08", "in_09", "in_10", "in_11", "in_12", "in_13", "in_14", "in_15", "in_16", "in_17", "in_18", "in_19", "in_20", "in_21", "in_22", "in_23", "in_24", "in_25", "in_26", "in_27", "in_28", "in_29", "in_30", "in_31", "in_32", "in_33", "in_34", "in_35", "in_36", "in_37", "in_38", "in_39", "in_40", "in_41", "in_42", "in_43", "in_44", "in_45", "in_46", "in_47", "in_48", "in_49"]
         coerce:
           - str
           - lower
@@ -1005,8 +1007,9 @@ boneio:
         - float
         - string
       coerce:
-        - str
+        - version_to_str
       required: False
+      allowed: ["0.7", "0.8"]
       meta:
         label: BoneIO Black Hardware version
     device_type:
