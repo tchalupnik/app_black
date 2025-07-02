@@ -460,17 +460,17 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     )
                     output[additional_sensor.decoded_name] = additional_sensor.state
                 output[modbus_sensor.decoded_name] = modbus_sensor.state
-        await self._event_bus.async_trigger_event(
-            event_type=MODBUS_SENSOR,
-            entity_id=modbus_sensor.id,
-            event=SensorState(
+        self._event_bus.trigger_event({
+            "event_type": MODBUS_DEVICE,
+            "entity_id": modbus_sensor.id,
+            "event": SensorState(
                 id=modbus_sensor.id,
                 name=modbus_sensor.name,
                 state=modbus_sensor.state,
                 unit=modbus_sensor.unit_of_measurement,
                 timestamp=modbus_sensor.last_timestamp,
             ),
-        )
+        })
         self._timestamp = timestamp
         self._message_bus.send_message(
             topic=f"{self._send_topic}/{modbus_sensor.base_address}",
@@ -588,17 +588,17 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                                 additional_sensor.state
                             )
                 output[sensor.decoded_name] = sensor.state
-                await self._event_bus.async_trigger_event(
-                    event_type=MODBUS_DEVICE,
-                    entity_id=sensor.id,
-                    event=SensorState(
+                self._event_bus.trigger_event({
+                    "event_type": MODBUS_DEVICE,
+                    "entity_id": sensor.id,
+                    "event_state": SensorState( 
                         id=sensor.id,
                         name=sensor.name,
                         state=sensor.state,
                         unit=sensor.unit_of_measurement,
                         timestamp=sensor.last_timestamp,
                     ),
-                )
+                })
 
             self._timestamp = timestamp
             self._message_bus.send_message(
