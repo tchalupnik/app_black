@@ -74,4 +74,4 @@ class StateManager:
             # Let's not save state if something happens same time.
             return
         async with self._lock:
-            self._loop.run_in_executor(None, self._save_state)
+            await self._loop.run_in_executor(None, self._save_state)

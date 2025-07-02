@@ -286,8 +286,11 @@ class BasicRelay(BasicMqtt):
             timestamp=self.last_timestamp,
             expander_id=self.expander_id,
         )
-        await self._event_bus.async_trigger_output_event(output_id=self.id, event=event)
-        await self._event_bus.async_trigger_event(event_type="output", entity_id=self.id, event=event)
+        self._event_bus.trigger_event({
+            "event_type": "output", 
+            "entity_id": self.id, 
+            "event_state": event
+        })
         
 
     def check_interlock(self) -> bool:
@@ -295,11 +298,11 @@ class BasicRelay(BasicMqtt):
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
-    async def async_turn_on(self, time=None) -> None:
+    async def async_turn_on(self, timestamp=None) -> None:
         """Turn on the relay asynchronously."""
         can_turn_on = self.check_interlock()
         if can_turn_on:
-            self.turn_on(time)
+            await self._loop.run_in_executor(None, self.turn_on, timestamp)
         else:
             _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
             #Workaround for HA is sendind state ON/OFF without physically changing the relay.
@@ -308,26 +311,26 @@ class BasicRelay(BasicMqtt):
         asyncio.create_task(self.async_send_state())
         
 
-    async def async_turn_off(self, time=None) -> None:
+    async def async_turn_off(self, timestamp=None) -> None:
         """Turn off the relay asynchronously."""
-        self.turn_off(time)
-        asyncio.create_task(self.async_send_state())
+        await self._loop.run_in_executor(None, self.turn_off, timestamp)
+        await self.async_send_state()
 
 
     async def async_toggle(self, timestamp=None) -> None:
         """Toggle relay."""
         now = time.time()
-        _LOGGER.debug("Toggle relay %s at %s.", self.name, now)
-        if self.is_active:
-            await self.async_turn_off(time=timestamp)
+        _LOGGER.debug("Toggle relay %s, state: %s, at %s.", self.name, self.state, now)
+        if self.state == ON:
+            await self.async_turn_off(timestamp=timestamp)
         else:
-            await self.async_turn_on(time=timestamp)
+            await self.async_turn_on(timestamp=timestamp)
 
-    def turn_on(self, time=None) -> None:
+    def turn_on(self, timestamp=None) -> None:
         """Call turn on action."""
         raise NotImplementedError
     
-    def turn_off(self, time=None) -> None:
+    def turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         raise NotImplementedError
 
@@ -351,9 +354,9 @@ class BasicRelay(BasicMqtt):
             )
 
     @callback
-    async def _momentary_callback(self, time, action):
-        _LOGGER.info("Momentary callback at %s for output %s", time, self.name)
-        await action(time=time)
+    async def _momentary_callback(self, timestamp, action):
+        _LOGGER.info("Momentary callback at %s for output %s", timestamp, self.name)
+        await action(timestamp=timestamp)
         self._momentary_action = None
 
     @property

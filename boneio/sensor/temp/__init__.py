@@ -80,17 +80,17 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
             return
         self._state = _temp
         self._timestamp = timestamp
-        await self.manager.event_bus.async_trigger_event(
-            event_type="sensor",
-            entity_id=self.id,
-            event=SensorState(
+        self.manager.event_bus.trigger_event({
+            "event_type": "sensor",
+            "entity_id": self.id,
+            "event_state": SensorState(
                 id=self.id,
                 name=self.name,
                 state=self.state,
                 unit=self.unit_of_measurement,
                 timestamp=self.last_timestamp,
             ),
-        )
+        })
         self._message_bus.send_message(
             topic=self._send_topic,
             payload={STATE: self._state},

@@ -53,4 +53,4 @@ class GpioInputBinarySensorNew(GpioBaseClass):
             self.name,
             time_now,
         )
-        self.press_callback(click_type=self._pressed_state, duration=None)
+        self.press_callback(click_type=self._pressed_state, duration=None, start_time=time_now)

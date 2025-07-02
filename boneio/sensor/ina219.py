@@ -112,14 +112,14 @@ class INA219(AsyncUpdater):
             if sensor.raw_state != value:
                 sensor.raw_state = value
                 sensor.update(timestamp=timestamp)
-                await self.manager.event_bus.async_trigger_event(
-                    event_type="sensor",
-                    entity_id=sensor.id,
-                    event=SensorState(
+                self.manager.event_bus.trigger_event({
+                    "event_type": "sensor",
+                    "entity_id": sensor.id,
+                    "event_state": SensorState(
                         id=sensor.id,
                         name=sensor.name,
                         state=sensor.state,
                         unit=sensor.unit_of_measurement,
                         timestamp=sensor.last_timestamp,
                     ),
-                )
+                })

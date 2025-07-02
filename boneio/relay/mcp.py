@@ -72,11 +72,13 @@ class MCPRelay(BasicRelay):
     def turn_on(self, time=None) -> None:
         """Call turn on action."""
         self.pin.value = True
+        self._state = ON
         if not time:
             self._execute_momentary_turn(momentary_type=ON)
 
     def turn_off(self, time=None) -> None:
         """Call turn off action."""
         self.pin.value = False
+        self._state = OFF
         if not time:
             self._execute_momentary_turn(momentary_type=OFF)

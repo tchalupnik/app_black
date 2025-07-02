@@ -150,7 +150,11 @@ class HostSensor(AsyncUpdater):
             state="new_state", #doesn't matter here, as we fetch everything in Oled.
             timestamp=timestamp,
         )
-        await self._event_bus.async_trigger_event(event_type="host", entity_id=self.id, event=sensor_state)
+        self._event_bus.trigger_event({
+            "event_type": "host", 
+            "entity_id": self.id, 
+            "event_state": sensor_state
+        })
 
     @property
     def state(self) -> dict:
