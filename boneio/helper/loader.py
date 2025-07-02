@@ -9,7 +9,6 @@ from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
 
 from boneio.const import (
-    ACTIONS,
     ADDRESS,
     BINARY_SENSOR,
     COVER,
@@ -448,10 +447,11 @@ def configure_relay(
 def configure_event_sensor(
     gpio: dict,
     pin: str,
-    press_callback: Callable,
+    manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
     input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    actions: dict = {},
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
@@ -467,15 +467,15 @@ def configure_event_sensor(
                     "You reconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
-            input.set_actions(actions=gpio.get(ACTIONS, {}))
+            input.set_actions(actions=actions)
         else:
             input = gpioEventButtonClass(
                 pin=pin,
                 name=name,
                 input_type=INPUT,
                 empty_message_after=gpio.pop("clear_message", False),
-                actions=gpio.pop(ACTIONS, {}),
-                press_callback=press_callback,
+                actions=actions,
+                manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 **gpio,
             )
@@ -496,10 +496,11 @@ def configure_event_sensor(
 def configure_binary_sensor(
     gpio: dict,
     pin: str,
-    press_callback: Callable,
+    manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
     input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    actions: dict = {},
 ) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
     """Configure input sensor or button."""
     try:
@@ -515,15 +516,15 @@ def configure_binary_sensor(
                     "You preconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
-            input.set_actions(actions=gpio.get(ACTIONS, {}))
+            input.set_actions(actions=actions)
         else:
             input = GpioInputBinarySensorClass(
                 pin=pin,
                 name=name,
-                actions=gpio.pop(ACTIONS, {}),
+                actions=actions,
                 input_type=INPUT_SENSOR,
                 empty_message_after=gpio.pop("clear_message", False),
-                press_callback=press_callback,
+                manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 **gpio,
             )

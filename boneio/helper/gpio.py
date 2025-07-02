@@ -121,7 +121,7 @@ class GpioBaseClass:
     def __init__(
         self,
         pin: str,
-        press_callback: Callable[
+        manager_press_callback: Callable[
             [ClickTypes, GpioBaseClass, str, bool, float | None],
             Awaitable[None],
         ],
@@ -141,7 +141,7 @@ class GpioBaseClass:
         )
         self._bounce_time = bounce_time.total_in_seconds
         self._loop = asyncio.get_running_loop()
-        self._press_callback = press_callback
+        self._manager_press_callback = manager_press_callback
         self._name = name
         setup_input(pin=self._pin, pull_mode=gpio_mode)
         self._actions = actions
@@ -153,52 +153,62 @@ class GpioBaseClass:
         self._last_state = "Unknown"
         self._last_timestamp = 0.0
         self._event_bus = event_bus
+        self._event_lock = asyncio.Lock()
 
     @property
     def boneio_input(self) -> str:
         return self._boneio_input or ""
 
     def press_callback(
-        self, click_type: ClickTypes, duration: float | None = None
+        self, click_type: ClickTypes, duration: float | None = None, start_time: float | None = None
     ) -> None:
         """Handle press callback."""
-        self._last_timestamp = time.time()
+        asyncio.run_coroutine_threadsafe(self._handle_press_with_lock(click_type, duration, start_time), self._loop)
+        
+        
+    async def _handle_press_with_lock(self, click_type: ClickTypes, duration: float | None = None, start_time: float | None = None):
+        """Handle press event with a lock to ensure sequential execution."""
+        now = time.time()
         _LOGGER.debug(
-            "Press callback: %s on pin %s - %s at %s",
-            click_type,
-            self._pin,
-            self.name,
-            self._last_timestamp,
+            "[%s] Attempting to acquire lock for event '%s'. Duration: %s", self.name, click_type, now - start_time
         )
-        self._last_state = click_type
-        self._loop.create_task(
-            self.async_press_callback(
+        async with self._event_lock:
+            _LOGGER.debug(
+                "[%s] Acquired lock for event '%s'. Processing...",
+                self.name,
                 click_type,
-                duration,
             )
-        )
+            self._last_timestamp = time.time()
+            _LOGGER.debug(
+                "Press callback: %s on pin %s - %s. Duration: %s",
+                click_type,
+                self._pin,
+                self.name,
+                self._last_timestamp - start_time,
+            )
+            self._last_state = click_type
+            await self._manager_press_callback(
+                click_type,
+                self,
+                self._empty_message_after,
+                duration,
+                start_time,
+            )
+            event = InputState(
+                name=self.name,
+                pin=self._pin,
+                state=self.last_state,
+                type=self.input_type,
+                timestamp=self.last_press_timestamp,
+                boneio_input=self.boneio_input,
+            )
+            self._event_bus.trigger_event({
+                "event_type": "input", 
+                "entity_id": self.id, 
+                "event_state": event
+            })
+        _LOGGER.debug("[%s] Released lock for event '%s'", self.name, click_type)
 
-    async def async_press_callback(
-        self,
-        click_type: ClickTypes,
-        duration: float | None = None,
-    ) -> None:
-
-        await self._press_callback(
-            click_type,
-            self,
-            self._empty_message_after,
-            duration,
-        )
-        event = InputState(
-            name=self.name,
-            pin=self._pin,
-            state=self.last_state,
-            type=self.input_type,
-            timestamp=self.last_press_timestamp,
-            boneio_input=self.boneio_input,
-        )
-        await self._event_bus.async_trigger_event(event_type="input", entity_id=self.id, event=event)
 
     def set_actions(self, actions: dict) -> None:
         self._actions = actions
