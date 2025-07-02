@@ -20,14 +20,18 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
-            "type": "string",
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
             "default": "0s",
             "description": "How long to sleep for MCP to initialize.",
             "title": "Init sleep"

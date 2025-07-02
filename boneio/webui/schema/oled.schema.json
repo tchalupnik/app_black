@@ -104,7 +104,11 @@
           "title": "Extra screen sensors"
         },
         "screensaver_timeout": {
-          "type": "string",
+          "type": [
+            "string",
+            "number"
+          ],
+          "x-timeperiod": true,
           "default": "60s",
           "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "title": "Screensaver timeout"

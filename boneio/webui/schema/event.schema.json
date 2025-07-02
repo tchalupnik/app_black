@@ -74,13 +74,169 @@
             "title": "Clear message"
           },
           "bounce_time": {
-            "type": "string",
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
             "default": "30ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
           },
           "boneio_input": {
             "type": "string",
+            "enum": [
+              "IN_01",
+              "IN_02",
+              "IN_03",
+              "IN_04",
+              "IN_05",
+              "IN_06",
+              "IN_07",
+              "IN_08",
+              "IN_09",
+              "IN_10",
+              "IN_11",
+              "IN_12",
+              "IN_13",
+              "IN_14",
+              "IN_15",
+              "IN_16",
+              "IN_17",
+              "IN_18",
+              "IN_19",
+              "IN_20",
+              "IN_21",
+              "IN_22",
+              "IN_23",
+              "IN_24",
+              "IN_25",
+              "IN_26",
+              "IN_27",
+              "IN_28",
+              "IN_29",
+              "IN_30",
+              "IN_31",
+              "IN_32",
+              "IN_33",
+              "IN_34",
+              "IN_35",
+              "IN_36",
+              "IN_37",
+              "IN_38",
+              "IN_39",
+              "IN_40",
+              "IN_41",
+              "IN_42",
+              "IN_43",
+              "IN_44",
+              "IN_45",
+              "IN_46",
+              "IN_47",
+              "IN_48",
+              "IN_49",
+              "In_01",
+              "In_02",
+              "In_03",
+              "In_04",
+              "In_05",
+              "In_06",
+              "In_07",
+              "In_08",
+              "In_09",
+              "In_10",
+              "In_11",
+              "In_12",
+              "In_13",
+              "In_14",
+              "In_15",
+              "In_16",
+              "In_17",
+              "In_18",
+              "In_19",
+              "In_20",
+              "In_21",
+              "In_22",
+              "In_23",
+              "In_24",
+              "In_25",
+              "In_26",
+              "In_27",
+              "In_28",
+              "In_29",
+              "In_30",
+              "In_31",
+              "In_32",
+              "In_33",
+              "In_34",
+              "In_35",
+              "In_36",
+              "In_37",
+              "In_38",
+              "In_39",
+              "In_40",
+              "In_41",
+              "In_42",
+              "In_43",
+              "In_44",
+              "In_45",
+              "In_46",
+              "In_47",
+              "In_48",
+              "In_49",
+              "in_01",
+              "in_02",
+              "in_03",
+              "in_04",
+              "in_05",
+              "in_06",
+              "in_07",
+              "in_08",
+              "in_09",
+              "in_10",
+              "in_11",
+              "in_12",
+              "in_13",
+              "in_14",
+              "in_15",
+              "in_16",
+              "in_17",
+              "in_18",
+              "in_19",
+              "in_20",
+              "in_21",
+              "in_22",
+              "in_23",
+              "in_24",
+              "in_25",
+              "in_26",
+              "in_27",
+              "in_28",
+              "in_29",
+              "in_30",
+              "in_31",
+              "in_32",
+              "in_33",
+              "in_34",
+              "in_35",
+              "in_36",
+              "in_37",
+              "in_38",
+              "in_39",
+              "in_40",
+              "in_41",
+              "in_42",
+              "in_43",
+              "in_44",
+              "in_45",
+              "in_46",
+              "in_47",
+              "in_48",
+              "in_49"
+            ],
+            "examples": [
+              "in_01"
+            ],
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
           },
@@ -219,16 +375,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -335,16 +491,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -451,16 +607,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"

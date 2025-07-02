@@ -20,15 +20,19 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 24,
             "description": "Address of I2C device",
             "title": "Address"
           },
           "update_interval": {
-            "type": "string",
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"

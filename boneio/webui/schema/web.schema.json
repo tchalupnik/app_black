@@ -11,8 +11,8 @@
       "properties": {
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8090,
           "description": "Port to run web server",

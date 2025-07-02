@@ -20,8 +20,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -82,7 +82,11 @@
             "title": "Model"
           },
           "update_interval": {
-            "type": "string",
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
             "default": "30s",
             "description": "Update interval.",
             "title": "Update interval"
@@ -143,8 +147,8 @@
             "properties": {
               "width": {
                 "type": [
-                  "integer",
                   "string",
+                  "integer",
                   "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
@@ -152,8 +156,8 @@
               },
               "length": {
                 "type": [
-                  "integer",
                   "string",
+                  "integer",
                   "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",

@@ -54,19 +54,27 @@
           },
           "pin": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
-            "type": "string",
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
-            "type": "string",
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
@@ -110,8 +118,8 @@
           },
           "percentage_default_brightness": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
