@@ -112,6 +112,11 @@ class WebServer:
         except asyncio.CancelledError:
             pass  # Expected due to cancellation
 
+    async def trigger_shutdown(self) -> None:
+        """Signal the web server to start its shutdown sequence."""
+        _LOGGER.info("Web server shutdown triggered.")
+        self._shutdown_event.set()
+
     async def _wait_shutdown(self):
         await self._shutdown_event.wait()
         _LOGGER.info("Shutdown signal received")
