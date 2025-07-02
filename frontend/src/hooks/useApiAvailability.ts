@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axiosInstance from '../api/axios';
+import axios from 'axios';
 
 const CHECK_INTERVAL = 30000; // 30 seconds
 const MIN_CHECK_DURATION = 5000; // 5 seconds
@@ -35,7 +35,7 @@ export function useApiAvailability() {
     checkStartTimeRef.current = Date.now();
 
     try {
-      await axiosInstance.get('/api/version');
+      await axios.get('/api/version');
       await ensureMinCheckDuration();
       setIsApiAvailable(true);
     } catch (error) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axiosInstance from '../api/axios';
+import axios from 'axios';
 
 export function useDeviceName() {
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -8,7 +8,7 @@ export function useDeviceName() {
   useEffect(() => {
     const fetchDeviceName = async () => {
       try {
-        const response = await axiosInstance.get('/api/name');
+        const response = await axios.get('/api/name');
         setDeviceName(response.data.name);
       } catch (error) {
         console.error('Failed to fetch device name:', error);
