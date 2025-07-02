@@ -35,8 +35,9 @@ class OutputGroup(BasicRelay):
         self.check_state()
 
         for member in self._group_members:
-            self._event_bus.add_output_listener(
-                output_id=member.id,
+            self._event_bus.add_event_listener(
+                event_type="output",
+                entity_id=member.id,
                 listener_id=self.id,
                 target=self.event_listener,
             )
