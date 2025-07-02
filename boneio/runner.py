@@ -80,6 +80,8 @@ async def async_run(
     event_bus = EventBus(loop=asyncio.get_event_loop())
     shutdown_event = asyncio.Event()
     loop = asyncio.get_event_loop()
+    if debug >= 2:
+        loop.set_debug(True)
     network_state = get_network_info()
 
     def signal_handler():
@@ -214,6 +216,15 @@ async def async_run(
         _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}")
     finally:
         _LOGGER.info("Cleaning up resources...")
+
+        # Trigger web server shutdown if it's running
+        if web_server and hasattr(web_server, 'trigger_shutdown'):
+            try:
+                _LOGGER.info("Requesting web server shutdown...")
+                await web_server.trigger_shutdown()
+            except Exception as e:
+                _LOGGER.error(f"Error triggering web server shutdown: {e}")
+
         # Stop the event bus
         event_bus.request_stop()
         
@@ -221,8 +232,10 @@ async def async_run(
         remaining_tasks = list(tasks)
         if remaining_tasks:
             # Cancel and wait for all remaining tasks
+            # Web server task will be cancelled here if it hasn't finished after trigger_shutdown
             for task in remaining_tasks:
                 if not task.done():
+                    _LOGGER.debug(f"Cancelling task: {task.get_name() if hasattr(task, 'get_name') else task}")
                     task.cancel()
             
             # Wait for all tasks to complete
