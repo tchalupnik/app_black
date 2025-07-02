@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 import os
 from typing import Any, Dict, List, Union
@@ -34,7 +35,8 @@ def convert_type(cerberus_type: Union[str, List[str]]) -> Union[str, List[str]]:
         'float': 'number',
         'boolean': 'boolean',
         'dict': 'object',
-        'list': 'array'
+        'list': 'array',
+        'timeperiod': 'number'  # timeperiod as number (milliseconds) for ConfigEditor2
     }
     if isinstance(cerberus_type, list):
         return [type_map.get(type, 'string') for type in cerberus_type]
@@ -74,14 +76,22 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
                 field_schema.update(create_boolean_schema())
             else:
                 base_type = convert_type(schema["type"])
-                types = ["string"]  # Always allow string for !include
+                types = set(["string"])  # Always allow string for !include
                 if isinstance(base_type, list):
-                    types.extend(base_type)
+                    types.update(base_type)
                 else:
-                    types.append(base_type)
+                    types.add(base_type)
                 if schema.get("nullable", False):
-                    types.append("null")
-                field_schema["type"] = types
+                    types.add("null")
+                # Convert to list and optimize single types
+                type_list = list(types)
+                field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
+                
+                # Mark timeperiod fields for special handling in ConfigEditor2
+                if isinstance(schema["type"], list) and "timeperiod" in schema["type"]:
+                    field_schema["x-timeperiod"] = True
+                elif schema["type"] == "timeperiod":
+                    field_schema["x-timeperiod"] = True
 
         # Handle required fields - only if required and no default
         if schema.get("required", False) and "default" not in schema:
@@ -94,17 +104,30 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
         # Handle nested dictionaries and arrays
         if "schema" in schema and isinstance(schema["schema"], dict):
             if schema.get("type") == "dict":
-                types = ["string", "object"]  # Allow both string for !include and object
+                types = set(["string", "object"])  # Allow both string for !include and object
                 if schema.get("nullable", False):
-                    types.append("null")
-                field_schema["type"] = types
+                    types.add("null")
+                # Convert to list and optimize single types
+                type_list = list(types)
+                field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
                 field_schema["properties"] = {}
                 nested_required = []
                 
                 for nested_field, nested_schema in schema["schema"].items():
-                    field_schema["properties"][nested_field] = convert_cerberus_to_json_schema(
-                        {nested_field: nested_schema}
-                    )["properties"][nested_field]
+                    # Obsługa pól typu dict z valueschema (np. logs)
+                    if nested_schema.get("type") == "dict" and "valueschema" in nested_schema:
+                        nested_field_schema = {"type": "object"}
+                        value_schema = nested_schema["valueschema"]
+                        additional_schema = convert_cerberus_to_json_schema({"_": value_schema})["properties"]["_"]
+                        # Obsługa allowed -> enum
+                        if "allowed" in value_schema:
+                            additional_schema["enum"] = value_schema["allowed"]
+                        nested_field_schema["additionalProperties"] = additional_schema
+                        field_schema["properties"][nested_field] = nested_field_schema
+                    else:
+                        field_schema["properties"][nested_field] = convert_cerberus_to_json_schema(
+                            {nested_field: nested_schema}
+                        )["properties"][nested_field]
                     # Only add to required if the field is required and has no default
                     if nested_schema.get("required", False) and "default" not in nested_schema:
                         nested_required.append(nested_field)
@@ -113,10 +136,12 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
                     field_schema["required"] = nested_required
                     
             elif schema.get("type") == "list":
-                types = ["string", "array"]  # Allow both string for !include and array
+                types = set(["string", "array"])  # Allow both string for !include and array
                 if schema.get("nullable", False):
-                    types.append("null")
-                field_schema["type"] = types
+                    types.add("null")
+                # Convert to list and optimize single types
+                type_list = list(types)
+                field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
                 if isinstance(schema["schema"], dict):
                     field_schema["items"] = convert_cerberus_to_json_schema(
                         {"item": schema["schema"]}
@@ -124,16 +149,42 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
 
         # Handle allowed values (enum)
         if "allowed" in schema:
-            if schema.get("type") == "list":
-                if "items" not in field_schema:
-                    field_schema["items"] = {}
-                field_schema["items"]["enum"] = schema["allowed"]
-                # Add examples for better IDE support
-                field_schema["items"]["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+            allowed_values = schema["allowed"]
+            # Jeśli pole ma coerce: lower, dodaj warianty wielkości liter
+            if "coerce" in schema and "lower" in schema["coerce"]:
+                extended_values = set(allowed_values)
+                for value in allowed_values:
+                    if isinstance(value, str):
+                        # Dodaj warianty: lowercase, uppercase, title case
+                        extended_values.add(value.lower())
+                        extended_values.add(value.upper())
+                        extended_values.add(value.title())
+                        # Dla wartości z spacjami, dodaj warianty każdego słowa
+                        if ' ' in value:
+                            words = value.split(' ')
+                            # Wszystkie kombinacje wielkości liter dla słów
+                            for combo in itertools.product(*[[w.lower(), w.upper(), w.title()] for w in words]):
+                                extended_values.add(' '.join(combo))
+                
+                if schema.get("type") == "list":
+                    if "items" not in field_schema:
+                        field_schema["items"] = {}
+                    field_schema["items"]["enum"] = sorted(list(extended_values))
+                    field_schema["items"]["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                else:
+                    field_schema["enum"] = sorted(list(extended_values))
+                    field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
             else:
-                field_schema["enum"] = schema["allowed"]
-                # Add examples for better IDE support
-                field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                if schema.get("type") == "list":
+                    if "items" not in field_schema:
+                        field_schema["items"] = {}
+                    field_schema["items"]["enum"] = allowed_values
+                    field_schema["items"]["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                else:
+                    field_schema["enum"] = allowed_values
+                    field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+            # Add examples for better IDE support
+            # field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
 
         # Handle descriptions from meta
         if "meta" in schema and isinstance(schema["meta"], dict):
