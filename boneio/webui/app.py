@@ -36,7 +36,10 @@ from boneio.const import COVER, NONE
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import ConfigurationException
-from boneio.helper.yaml_util import load_config_from_file
+from boneio.helper.yaml_util import (
+    load_config_from_file,
+    update_config_section,
+)
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -688,7 +691,20 @@ async def check_configuration():
         return {"status": "error", "message": str(e)}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.get("/api/config")
+async def get_parsed_config():
+    """Get parsed configuration data with !include resolved."""
+    try:
+        # Load config using BoneIOLoader which handles !include
+        config_data = load_config_from_file(app.state.yaml_config_file)
         
+        _LOGGER.info("Successfully loaded parsed configuration")
+        return {"config": config_data}
+        
+    except Exception as e:
+        _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}")
 
 @app.get("/api/files")
 async def list_files(path: str = None):
@@ -777,6 +793,19 @@ async def update_file_content(file_path: str, content: dict = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/api/config/{section}")
+async def update_section_content(section: str, data: dict = Body(...)):
+    """Update content of a configuration section."""
+    
+    try:
+        result = update_config_section(app.state.yaml_config_file, section, data)
+        if result["status"] == "error":
+            raise HTTPException(status_code=500, detail=result["message"])
+        return result
+        
+    except Exception as e:
+        _LOGGER.error(f"Error saving section '{section}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
 def on_exit(self) -> None:
     asyncio.create_task(app.state.websocket_manager.close_all())
@@ -857,18 +886,16 @@ def add_listener_for_all_outputs(boneio_manager: Manager):
     for output in boneio_manager.outputs.values():
         if output.output_type == COVER or output.output_type == NONE:
             continue
-        boneio_manager.event_bus.add_output_listener(
-            output_id=output.id,
+        boneio_manager.event_bus.add_event_listener(
+            event_type="output",
+            entity_id=output.id,
             listener_id="ws",
             target=output_state_changed,
         )
 
 
 def remove_listener_for_all_outputs(boneio_manager: Manager):
-    for output in boneio_manager.outputs.values():
-        boneio_manager.event_bus.remove_output_listener(
-            output_id=output.id, listener_id=f"ws${output.id}"
-        )
+    boneio_manager.event_bus.remove_event_listener(event_type="output", listener_id="ws")
 
 def add_listener_for_all_covers(boneio_manager: Manager):
     for cover in boneio_manager.covers.values():
