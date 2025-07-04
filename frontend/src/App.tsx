@@ -12,6 +12,7 @@ import { useWebSocket, StateUpdate, isCoverState } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
+import UISettings from './components/UISettings/UISettings';
 
 export const WebSocketContext = createContext<{
   outputs: StateUpdate['data'][];
@@ -163,6 +164,20 @@ function AppContent() {
           <ProtectedRoute>
             <Layout configEditor={true}>
               <ConfigEditor />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Layout>
+              <UISettings />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/settings/:section" element={
+          <ProtectedRoute>
+            <Layout>
+              <UISettings />
             </Layout>
           </ProtectedRoute>
         } />

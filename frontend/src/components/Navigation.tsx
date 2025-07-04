@@ -97,6 +97,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/inputs', icon: FaInbox, label: 'Inputs' },
     { path: '/sensors', icon: FaThermometerHalf, label: 'Sensors' },
     { path: '/config', icon: FaCode, label: 'Config' },
+    { path: '/settings', icon: FaCode, label: 'Settings', experimental: true },
     { path: '/logs', icon: FaList, label: 'Logs' },
     { path: '/help', icon: FaQuestionCircle, label: 'Help' },
   ];
@@ -114,6 +115,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
             <item.icon className={clsx('h-5 w-5', { 'lg:hidden': !sideMenu })} />
             <span className={clsx({ 'hidden lg:inline': !sideMenu })}>
               {item.label}
+              {item.experimental && <span className="ml-1 text-xs bg-yellow-500 text-black px-1 rounded">EXPERIMENTAL</span>}
             </span>
           </a>
         </li>
