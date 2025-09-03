@@ -27,7 +27,7 @@ dependencies = [
     "adafruit-circuitpython-pca9685==3.4.17",
     "adafruit-circuitpython-pcf8575==1.0.9",
     "adafruit-circuitpython-typing==1.9.5",
-    "Adafruit-BBIO==1.2.0",
+    "adafruit-beaglebone-io-python @ git+https://github.com/tchalupnik/adafruit-beaglebone-io-python.git",
     "fastapi==0.103.2",
     "pydantic==2.5.3",
     "hypercorn==0.14.4",
