@@ -23,6 +23,6 @@ event: !include event.yaml
 binary_sensor: !include binary_sensor.yaml
 
 output: !include output24x16A.yaml
-  
+
 
 # adc: !include adc.yaml Uncomment only if needed.

@@ -24,7 +24,7 @@ export default function ThemeChanger() {
       <FaSun className="w-5 h-5" />
     ) : (
       <FaMoon className="w-5 h-5" />
-    )} 
+    )}
     </button>
     </div>
   );

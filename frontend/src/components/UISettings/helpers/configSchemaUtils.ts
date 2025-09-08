@@ -80,21 +80,21 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
     if (!formData || typeof formData !== 'object') return formData;
 
     const converted = { ...formData };
-    
+
     // Przetwarzamy wszystkie klucze z formData, nie tylko z originalData
     // aby uwzględnić nowe pola dodane w formularzu
     Object.keys(converted).forEach(key => {
       const currentValue = converted[key];
       const originalValue = originalData[key];
       const propSchema = extendedSchema?.properties?.[key];
-      
+
       // Jeśli klucz nie istnieje w originalData, zachowujemy wartość z formularza
       if (originalValue === undefined || originalValue === null) {
         return;
       }
-      
+
       const originalType = typeof originalValue;
-      
+
       // Handle array with items schema
       if (Array.isArray(currentValue)) {
         // Sprawdzamy czy schema ma definicję items
@@ -104,9 +104,9 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
             if (typeof item === 'object' && item !== null) {
               // Jeśli mamy oryginalny element, używamy go jako referencji
               if (Array.isArray(originalValue) && index < originalValue.length && typeof originalValue[index] === 'object') {
-                return convertFormDataToOriginalTypes(item, originalValue[index], 
+                return convertFormDataToOriginalTypes(item, originalValue[index],
                   typeof propSchema.items === 'object' ? propSchema.items as ExtendedJSONSchema : undefined);
-              } 
+              }
               // Dla nowych elementów używamy tylko schematu
               else if (typeof propSchema.items === 'object') {
                 const itemsSchema = propSchema.items as ExtendedJSONSchema;
@@ -114,10 +114,10 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
                 if (hasProperties(itemsSchema) && itemsSchema.properties) {
                   Object.keys(item).forEach(itemKey => {
                     const itemPropSchema = itemsSchema.properties?.[itemKey];
-                    
-                    if (itemPropSchema && 
-                        typeof itemPropSchema === 'object' && 
-                        itemPropSchema['x-timeperiod'] === true && 
+
+                    if (itemPropSchema &&
+                        typeof itemPropSchema === 'object' &&
+                        itemPropSchema['x-timeperiod'] === true &&
                         typeof item[itemKey] === 'number') {
                       item[itemKey] = convertMillisecondsToTimeperiod(item[itemKey]);
                     }
@@ -131,9 +131,9 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
         }
       }
       // Convert milliseconds back to timeperiod string for backend
-      else if (propSchema && 
-               typeof propSchema === 'object' && 
-               propSchema['x-timeperiod'] === true && 
+      else if (propSchema &&
+               typeof propSchema === 'object' &&
+               propSchema['x-timeperiod'] === true &&
                typeof currentValue === 'number') {
         console.log(`Converting timeperiod ${key}: ${currentValue}ms`, propSchema);
         const timeperiodString = convertMillisecondsToTimeperiod(currentValue);
@@ -148,13 +148,13 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
         }
       }
       // Handle nested objects recursively
-      else if (typeof currentValue === 'object' && currentValue !== null && 
+      else if (typeof currentValue === 'object' && currentValue !== null &&
                typeof originalValue === 'object' && originalValue !== null) {
-        converted[key] = convertFormDataToOriginalTypes(currentValue, originalValue, 
+        converted[key] = convertFormDataToOriginalTypes(currentValue, originalValue,
           propSchema && typeof propSchema === 'object' ? propSchema as ExtendedJSONSchema : undefined);
       }
     });
-    
+
     return converted;
   };
 
@@ -175,7 +175,7 @@ export const stripHiddenAndDefaults = (
     uiSchema: any = {}
   ): any => {
     console.log("stripHiddenAndDefaults", formData, schema, uiSchema)
-    
+
     // Handle arrays
     if (Array.isArray(formData)) {
       const filteredArray = formData
@@ -191,38 +191,38 @@ export const stripHiddenAndDefaults = (
           if (Array.isArray(item)) return item.length > 0;
           return Object.keys(item).length > 0;
         });
-      
+
       return filteredArray;
     }
-    
+
     // Handle primitives
     if (typeof formData !== "object" || formData === null) {
       return formData;
     }
-    
+
     const result: any = {};
-    
+
     for (const key of Object.keys(formData)) {
       const fieldValue = formData[key];
       const fieldSchema = schema?.properties?.[key];
       const fieldUiSchema = uiSchema?.[key] || {};
-      
+
       // Skip hidden fields
       if (fieldUiSchema["ui:widget"] === "hidden") {
         console.log(`Skipping hidden field: ${key}`);
         continue;
       }
-      
+
       // Skip fields with default values
       const defaultValue = fieldSchema?.default;
       if (defaultValue !== undefined && JSON.stringify(fieldValue) === JSON.stringify(defaultValue)) {
         console.log(`Skipping default value field: ${key} = ${JSON.stringify(defaultValue)}`);
         continue;
       }
-      
+
       // Recursively process nested objects and arrays
       const processedChild = stripHiddenAndDefaults(fieldValue, fieldSchema, fieldUiSchema);
-      
+
       // Include field if it has meaningful content
       if (processedChild !== undefined && processedChild !== null) {
         if (typeof processedChild === "object") {
@@ -240,6 +240,6 @@ export const stripHiddenAndDefaults = (
         }
       }
     }
-    
+
     return result;
   }

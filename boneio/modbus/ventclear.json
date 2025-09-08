@@ -118,7 +118,7 @@
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "S_WORD"
-        },  
+        },
         {
           "name": "Party mode status",
           "address": 34,

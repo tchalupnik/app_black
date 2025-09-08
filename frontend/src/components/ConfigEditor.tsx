@@ -55,7 +55,7 @@ export default function ConfigEditor() {
 
   const handleSave = async () => {
     if (!selectedFile) return;
-    
+
     try {
       await axios.put(`/api/files/${encodeURIComponent(selectedFile)}`, {
         content: fileContent
@@ -70,7 +70,7 @@ export default function ConfigEditor() {
     if (!monacoYaml) {
       // Load all schemas
       const mainSchema = await fetch("/schema/config.schema.json").then(r => r.json());
-      
+
       monacoYaml = await configureMonacoYaml(monaco, {
         enableSchemaRequest: true,
         schemas: [
@@ -134,7 +134,7 @@ export default function ConfigEditor() {
             </span>
           )}
           <span className="text-base-content/70">
-            {item.type === 'directory' 
+            {item.type === 'directory'
               ? (isOpen ? <FaRegFolderOpen /> : <FaRegFolder />)
               : <FaRegFile />
             }
@@ -160,10 +160,10 @@ export default function ConfigEditor() {
   const waitForServerRestart = async () => {
     setIsRestarting(true);
     setRestartStatus('waiting');
-    
+
     // Wait for server to go down first
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Then start checking if it's back up
     setRestartStatus('checking');
     while (true) {
@@ -204,7 +204,7 @@ export default function ConfigEditor() {
   useEffect(() => {
     const initializeEditor = async () => {
       await loadDirectoryTree();
-      
+
       // Load last opened file if it exists
       const lastOpenedFile = localStorage.getItem('lastOpenedFile');
       if (lastOpenedFile) {
@@ -226,8 +226,8 @@ export default function ConfigEditor() {
       </div>
       <div className="flex-1 overflow-hidden flex flex-col h-full max-h-screen">
         <div className="flex items-center p-2 border-b border-base-content/10">
-          <button 
-            onClick={() => setShowFileTree(!showFileTree)} 
+          <button
+            onClick={() => setShowFileTree(!showFileTree)}
             className="btn btn-ghost btn-sm p-1"
             title={showFileTree ? "Hide file tree" : "Show file tree"}
           >
@@ -263,20 +263,20 @@ export default function ConfigEditor() {
           />
         </div>
         <div className="h-12 bg-base-200 border-t border-base-content/10 flex items-center justify-end px-4 gap-4">
-          <button 
+          <button
             onClick={handleSave}
             disabled={!selectedFile}
             className="btn btn-primary btn-sm"
           >
             Save
           </button>
-          <button 
+          <button
             onClick={() => setShowConfigCheck(true)}
             className="btn btn-primary btn-sm"
           >
             Check Config
           </button>
-          <button 
+          <button
             onClick={async () => {
               await handleSave();
               try {
@@ -309,7 +309,7 @@ export default function ConfigEditor() {
           <span>Restart not possible. Application is not running as systemd service. Restart manually.</span>
         </div>
       </div>
-      <ConfigCheckModal 
+      <ConfigCheckModal
         isOpen={showConfigCheck}
         onClose={() => setShowConfigCheck(false)}
       />

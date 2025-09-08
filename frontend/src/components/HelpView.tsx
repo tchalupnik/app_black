@@ -37,10 +37,10 @@ export default function HelpView() {
   //   try {
   //     setIsCheckingUpdate(true);
   //     setUpdateStatus('Sprawdzanie dostępności aktualizacji...');
-      
+
   //     const response = await axios.get('/api/check_update');
   //     setUpdateInfo(response.data);
-      
+
   //     if (response.data.status === 'success') {
   //       if (response.data.update_available) {
   //         setUpdateStatus(`Dostępna jest nowa wersja: ${response.data.latest_version}`);
@@ -67,20 +67,20 @@ export default function HelpView() {
   //     // i ponownie sprawdzić stan
   //     return;
   //   }
-    
+
   //   // Jeśli już sprawdziliśmy i nie ma aktualizacji, nie kontynuuj
   //   if (!updateInfo.update_available) {
   //     setUpdateStatus('Masz już najnowszą wersję aplikacji.');
   //     return;
   //   }
-    
+
   //   try {
   //     setIsUpdating(true);
   //     setUpdateStatus('Rozpoczynanie aktualizacji...');
   //     setUpdateProgress(10);
-      
+
   //     const response = await axios.post('/api/update');
-      
+
   //     if (response.data.status === 'success') {
   //       setUpdateStatus('Aktualizacja w toku...');
   //       setUpdateProgress(30);
@@ -103,7 +103,7 @@ export default function HelpView() {
   //     try {
   //       // Sprawdź, czy serwer jest dostępny
   //       const response = await axios.get('/api/version');
-        
+
   //       // Jeśli serwer odpowiada, to znaczy, że restart się zakończył
   //       setUpdateProgress(100);
   //       setUpdateStatus('Aktualizacja zakończona pomyślnie!');
@@ -113,7 +113,7 @@ export default function HelpView() {
   //       // Serwer jest w trakcie restartu
   //       attempts++;
   //       setUpdateProgress(30 + Math.min(60, attempts * 2)); // Maksymalnie do 90%
-        
+
   //       if (attempts >= maxAttempts) {
   //         setUpdateStatus('Upłynął limit czasu aktualizacji. Sprawdź status ręcznie.');
   //         setIsUpdating(false);
@@ -131,7 +131,7 @@ export default function HelpView() {
   // Formatowanie daty publikacji
   // const formatDate = (dateString?: string) => {
   //   if (!dateString) return '';
-    
+
   //   const date = new Date(dateString);
   //   return date.toLocaleDateString('pl-PL', {
   //     year: 'numeric',
@@ -149,7 +149,7 @@ export default function HelpView() {
         {version && (
           <p className="text-base-content/70 mb-4">Your app version: {version}</p>
         )}
-        
+
         {/* Informacja o aktualizacji */}
         {/* {updateInfo && updateInfo.status === 'success' && (
           <div className="card bg-base-100 shadow-xl mb-4 p-4">
@@ -158,17 +158,17 @@ export default function HelpView() {
               <div className="grid grid-cols-2 gap-1 text-sm">
                 <div className="text-left font-semibold">Aktualna wersja:</div>
                 <div className="text-right">{updateInfo.current_version}</div>
-                
+
                 <div className="text-left font-semibold">Najnowsza wersja:</div>
                 <div className="text-right">{updateInfo.latest_version}</div>
-                
+
                 {updateInfo.published_at && (
                   <>
                     <div className="text-left font-semibold">Data publikacji:</div>
                     <div className="text-right">{formatDate(updateInfo.published_at)}</div>
                   </>
                 )}
-                
+
                 {updateInfo.is_prerelease !== undefined && (
                   <>
                     <div className="text-left font-semibold">Typ wydania:</div>
@@ -178,20 +178,20 @@ export default function HelpView() {
                   </>
                 )}
               </div>
-              
+
               <div className="mt-3">
                 <p className={updateInfo.update_available ? "text-success font-bold" : "text-info"}>
-                  {updateInfo.update_available 
-                    ? "Dostępna jest nowa wersja!" 
+                  {updateInfo.update_available
+                    ? "Dostępna jest nowa wersja!"
                     : "Masz najnowszą wersję."}
                 </p>
               </div>
-              
+
               {updateInfo.release_url && (
                 <div className="card-actions justify-center mt-2">
-                  <a 
-                    href={updateInfo.release_url} 
-                    target="_blank" 
+                  <a
+                    href={updateInfo.release_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="link link-primary text-sm"
                   >
@@ -202,49 +202,49 @@ export default function HelpView() {
             </div>
           </div>
         )} */}
-        
+
         {/* Przyciski aktualizacji */}
         {/* <div className="my-4 flex flex-col items-center">
           <div className="flex gap-2 mb-4">
-            <button 
-              onClick={checkForUpdates} 
+            <button
+              onClick={checkForUpdates}
               disabled={isCheckingUpdate || isUpdating}
               className="btn btn-outline btn-info"
             >
               {isCheckingUpdate ? 'Sprawdzanie...' : 'Sprawdź aktualizacje'}
             </button>
-            
-            <button 
-              onClick={startUpdate} 
+
+            <button
+              onClick={startUpdate}
               disabled={!!(isUpdating || isCheckingUpdate || (updateInfo && !updateInfo.update_available))}
               className="btn btn-primary"
             >
               {isUpdating ? 'Aktualizacja w toku...' : 'Aktualizuj BoneIO'}
             </button>
           </div>
-          
+
           {updateStatus && (
             <div className="text-sm mt-2">{updateStatus}</div>
           )}
-          
+
           {isUpdating && (
             <div className="w-full mt-4">
-              <progress 
-                className="progress progress-primary w-full" 
-                value={updateProgress} 
+              <progress
+                className="progress progress-primary w-full"
+                value={updateProgress}
                 max="100"
               ></progress>
             </div>
           )}
         </div> */}
-        
+
         <p className="text-lg mb-4">We'd like to help you with your problems.</p>
         <p className="text-lg flex flex-col">
           Join our community on Discord and get help{' '}
-          <a 
-            href="https://discord.gg/Hm2CzSjvtu" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <a
+            href="https://discord.gg/Hm2CzSjvtu"
+            target="_blank"
+            rel="noopener noreferrer"
             className="link link-primary"
           >
             https://discord.gg/Hm2CzSjvtu
@@ -252,10 +252,10 @@ export default function HelpView() {
         </p>
         <p className="text-lg flex flex-col">
           Repository containing this app:{' '}
-          <a 
-            href="https://github.com/boneIO-eu/app_black" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <a
+            href="https://github.com/boneIO-eu/app_black"
+            target="_blank"
+            rel="noopener noreferrer"
             className="link link-primary"
           >
             https://github.com/boneIO-eu/app_black
@@ -263,10 +263,10 @@ export default function HelpView() {
         </p>
         <p className="text-lg flex flex-col">
           Documentation of application:{' '}
-          <a 
-            href="https://boneio.eu/docs/black" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <a
+            href="https://boneio.eu/docs/black"
+            target="_blank"
+            rel="noopener noreferrer"
             className="link link-primary"
           >
             https://boneio.eu/docs/black

@@ -20,10 +20,10 @@ const SensorItem = memo(({ sensor, isGrid }: {
       <div className='text-right'>
         <div className="flex items-baseline gap-2 justify-end">
           <span className="text-2xl font-mono">
-            {sensor.state !== null 
-              ? typeof sensor.state === 'number' 
-                ? sensor.state.toFixed(2) 
-                : sensor.state 
+            {sensor.state !== null
+              ? typeof sensor.state === 'number'
+                ? sensor.state.toFixed(2)
+                : sensor.state
               : 'N/A'}
           </span>
           {sensor.unit && (
@@ -60,7 +60,7 @@ export default function SensorView() {
         <h2 className="text-xl font-bold">Sensors</h2>
         <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
       </div>
-      <div className={isGrid 
+      <div className={isGrid
         ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
         : "flex flex-col gap-4"
       }>

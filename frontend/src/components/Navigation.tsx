@@ -132,5 +132,5 @@ export const DrawerSide = () => {
       <Menu sideMenu={true} />
     </div>
   </div>)
-  
+
 }

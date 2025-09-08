@@ -14,14 +14,10 @@ from typing import Awaitable
 
 from boneio.const import (
     CONFIG_PIN,
-    FALLING,
     GPIO_MODE,
-    LOW,
     PRESSED,
     RELEASED,
     ClickTypes,
-    GpioEdges,
-    GpioStates,
 )
 from boneio.const import GPIO as GPIO_STR
 from boneio.helper.exceptions import GPIOInputException
@@ -68,13 +64,16 @@ def write_output(pin: str, value: str) -> None:
     GPIO.output(pin, value)
 
 
-def read_input(pin: str, on_state: GpioStates = LOW) -> bool:
+def read_input(pin: str, on_state: GPIO.LOW | GPIO.HIGH = GPIO.LOW) -> bool:
     """Read a value from a GPIO."""
     return GPIO.input(pin) is on_state
 
 
 def edge_detect(
-    pin: str, callback: Callable, bounce: int = 0, edge: GpioEdges = FALLING
+    pin: str,
+    callback: Callable,
+    bounce: int = 0,
+    edge: GPIO.FALLING | GPIO.RISING = GPIO.FALLING,
 ) -> None:
     """Add detection for RISING and FALLING events."""
     try:
@@ -83,7 +82,7 @@ def edge_detect(
         raise GPIOInputException(err)
 
 
-def add_event_detect(pin: str, edge: GpioEdges = FALLING) -> None:
+def add_event_detect(pin: str, edge: GPIO.FALLING | GPIO.RISING = GPIO.FALLING) -> None:
     """Add detection for RISING and FALLING events."""
     try:
         GPIO.add_event_detect(gpio=pin, edge=edge)

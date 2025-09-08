@@ -9,7 +9,7 @@ export default function Sidebar() {
       <div className="p-4 border-b border-base-content/10">
         <h1 className="text-xl font-bold">BoneIO</h1>
       </div>
-      
+
       <ul className="menu menu-lg p-4">
         <li>
           <Link

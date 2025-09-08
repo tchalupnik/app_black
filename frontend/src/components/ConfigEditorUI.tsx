@@ -52,16 +52,16 @@ export default function ConfigEditorUI() {
       const configResponse = await axios.get('/api/config/flattened');
       const config = configResponse.data.config;
       setConfig(config);
-      
+
       // Get the schema structure to build the UI
       const schema = await fetch("/schema/config.schema.json").then(r => r.json());
       console.log("Schema and config loaded:", { schema: schema, config });
-      
+
       // Build config sections from schema and config data
       const sections = buildConfigSections(schema.properties, config);
       console.log("Built config sections:", sections);
       setConfigSections(sections);
-      
+
       // Generate YAML view
       updateYamlView(config);
     } catch (err: any) {
@@ -74,7 +74,7 @@ export default function ConfigEditorUI() {
 
   const buildConfigSections = (schemaProperties: any, configData: any): ConfigSection[] => {
     const sections: ConfigSection[] = [];
-    
+
     // Process each property in the schema
     if (schemaProperties) {
       Object.entries(schemaProperties).forEach(([key, propSchema]: [string, any]) => {
@@ -85,9 +85,9 @@ export default function ConfigEditorUI() {
           fields: [],
           expanded: false
         };
-        
+
         console.log("PROP", propSchema)
-        
+
         // If this is an object with properties
         if (propSchema.type && propSchema.type.includes && propSchema.type.includes('object') && propSchema.properties) {
           section.fields = buildConfigFields(propSchema, configData?.[key] || {}, key);
@@ -103,17 +103,17 @@ export default function ConfigEditorUI() {
             expanded: false
           }));
         }
-        
+
         sections.push(section);
       });
     }
-    
+
     return sections;
   };
 
   const buildConfigFields = (schema: any, data: any, parentKey: string): ConfigField[] => {
     const fields: ConfigField[] = [];
-    
+
     if (schema.properties) {
       Object.entries(schema.properties).forEach(([key, propSchema]: [string, any]) => {
         const fullKey = `${parentKey}.${key}`;
@@ -126,7 +126,7 @@ export default function ConfigEditorUI() {
           required: schema.required?.includes(key),
           value: data[key] !== undefined ? data[key] : propSchema.default
         };
-        
+
         // Handle select options
         if (propSchema.enum) {
           field.type = 'select';
@@ -135,13 +135,13 @@ export default function ConfigEditorUI() {
             label: value
           }));
         }
-        
+
         // Handle nested objects
         if (propSchema.type && propSchema.type.includes && propSchema.type.includes('object') && propSchema.properties) {
           field.type = 'object';
           field.fields = buildConfigFields(propSchema, data[key] || {}, fullKey);
         }
-        
+
         // Handle arrays
         if (propSchema.type && propSchema.type.includes && propSchema.type.includes('array')) {
           field.type = 'array';
@@ -151,7 +151,7 @@ export default function ConfigEditorUI() {
               key: `${fullKey}[]`,
               title: 'Item'
             };
-            
+
             // If array items are objects with properties
             if (propSchema.items.type && propSchema.items.type.includes && propSchema.items.type.includes('object') && propSchema.items.properties) {
               field.arrayItemType.type = 'object';
@@ -159,7 +159,7 @@ export default function ConfigEditorUI() {
             }
           }
         }
-        
+
         // Add validation
         if (propSchema.minimum !== undefined || propSchema.maximum !== undefined || propSchema.pattern) {
           field.validation = {
@@ -169,20 +169,20 @@ export default function ConfigEditorUI() {
             message: propSchema.errorMessage
           };
         }
-        
+
         fields.push(field);
       });
     }
-    
+
     return fields;
   };
 
   const mapSchemaTypeToFieldType = (schema: any): ConfigField['type'] => {
     if (!schema.type) return 'string';
-    
+
     // Handle array of types (e.g. ["string", "integer"])
     const type = Array.isArray(schema.type) ? schema.type[1] : schema.type;
-    
+
     switch (type) {
       case 'integer':
       case 'number':
@@ -207,7 +207,7 @@ export default function ConfigEditorUI() {
     if (loading) {
       return <div className="flex justify-center p-8"><div className="loading loading-spinner loading-lg"></div></div>;
     }
-    
+
     if (error) {
       return (
         <div className="alert alert-error">
@@ -216,7 +216,7 @@ export default function ConfigEditorUI() {
         </div>
       );
     }
-    
+
     return (
       <div className="p-4">
         {configSections.map(section => (
@@ -224,7 +224,7 @@ export default function ConfigEditorUI() {
             <div className="card-body">
               <h2 className="card-title flex justify-between">
                 {section.title}
-                <button 
+                <button
                   className="btn btn-sm btn-ghost"
                   onClick={() => toggleSectionExpand(section.key)}
                 >
@@ -232,7 +232,7 @@ export default function ConfigEditorUI() {
                 </button>
               </h2>
               {section.description && <p className="text-sm opacity-70">{section.description}</p>}
-              
+
               {section.expanded && (
                 <div className="mt-4">
                   {section.isArray ? (
@@ -257,9 +257,9 @@ export default function ConfigEditorUI() {
             </div>
           </div>
         ))}
-        
+
         <div className="flex justify-end mt-6">
-          <button 
+          <button
             className={`btn btn-primary ${saveStatus === 'saving' ? 'loading' : ''}`}
             onClick={saveConfig}
             disabled={saveStatus === 'saving'}
@@ -268,14 +268,14 @@ export default function ConfigEditorUI() {
             Save Configuration
           </button>
         </div>
-        
+
         {saveStatus === 'success' && (
           <div className="alert alert-success mt-4">
             <FaCheck className="w-6 h-6" />
             <span>Configuration saved successfully!</span>
           </div>
         )}
-        
+
         {saveStatus === 'error' && (
           <div className="alert alert-error mt-4">
             <FaTimes className="w-6 h-6" />
@@ -297,9 +297,9 @@ export default function ConfigEditorUI() {
                 {field.required && <span className="text-error">*</span>}
               </span>
             </label>
-            
+
             {renderFieldInput(field)}
-            
+
             {field.description && (
               <label className="label">
                 <span className="label-text-alt text-xs opacity-70">{field.description}</span>
@@ -379,16 +379,16 @@ export default function ConfigEditorUI() {
     // Update the field value in the config state
     const newConfig = { ...config };
     const keyPath = field.key.split('.');
-    
+
     // Remove the first segment (parent key)
     const parentKey = keyPath.shift();
-    
+
     // Navigate to the correct nested object
     let current = newConfig[parentKey as string];
-    
+
     // Handle array indices in the path
     const lastKey = keyPath.pop() as string;
-    
+
     keyPath.forEach(segment => {
       const match = segment.match(/(.+)\[(\d+)\]/);
       if (match) {
@@ -404,21 +404,21 @@ export default function ConfigEditorUI() {
         current = current[segment];
       }
     });
-    
+
     // Set the value
     current[lastKey] = value;
-    
+
     // Update state
     setConfig(newConfig);
-    
+
     // Update YAML view
     updateYamlView(newConfig);
   };
 
   const toggleSectionExpand = (sectionKey: string) => {
-    setConfigSections(prev => 
-      prev.map(section => 
-        section.key === sectionKey 
+    setConfigSections(prev =>
+      prev.map(section =>
+        section.key === sectionKey
           ? { ...section, expanded: !section.expanded }
           : section
       )
@@ -431,13 +431,13 @@ export default function ConfigEditorUI() {
       // This would need to be implemented on the backend
       await axios.post('/api/config/update', { config });
       setSaveStatus('success');
-      
+
       // Reset status after a delay
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err) {
       console.error('Error saving config:', err);
       setSaveStatus('error');
-      
+
       // Reset status after a delay
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
@@ -446,20 +446,20 @@ export default function ConfigEditorUI() {
   return (
     <div className="container mx-auto">
       <div className="tabs tabs-boxed mb-6">
-        <a 
+        <a
           className={`tab ${activeTab === 'form' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('form')}
         >
           Form Editor
         </a>
-        <a 
+        <a
           className={`tab ${activeTab === 'yaml' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('yaml')}
         >
           YAML View
         </a>
       </div>
-      
+
       {activeTab === 'form' ? (
         renderConfigForm()
       ) : (

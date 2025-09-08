@@ -33,14 +33,14 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
       setTilt(cover.tilt);
     }
   }, [cover.tilt, isTiltActive]);
-  
+
   // Update slider position when cover position changes (if not actively sliding)
   useEffect(() => {
     if (!isSliderActive) {
       setSliderPosition(cover.position);
     }
   }, [cover.position, isSliderActive]);
-  
+
   // Debounce function for setting position
   const debouncedSetPosition = useCallback(() => {
     const timer = setTimeout(() => {
@@ -64,7 +64,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
     }, 300);
     return () => clearTimeout(timer);
   }, [tilt, cover.id, cover.tilt]);
-  
+
   // Set up debounce effect
   useEffect(() => {
     if (isSliderActive) {
@@ -97,7 +97,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
     setIsTiltActive(true);
   };
 
-  
+
   return (
   <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
     <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
@@ -114,21 +114,21 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
     </div>
     <div className={`${isGrid ? 'mt-3' : 'flex flex-col items-end gap-2'}`}>
       <div className="flex gap-2">
-        <button 
+        <button
           className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => action(cover.id, cover.name, 'open')}
           disabled={error !== null || cover.current_operation === 'opening' || (cover.state === 'open' && cover.position === 100)}
         >
           <LuArrowUpNarrowWide />
         </button>
-        <button 
+        <button
           className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => action(cover.id, cover.name, 'stop')}
           disabled={error !== null || cover.current_operation === 'idle'}
         >
           <FaStop />
         </button>
-        <button 
+        <button
           className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => action(cover.id, cover.name, 'close')}
           disabled={error !== null || cover.current_operation === 'closing' || (cover.state === 'closed' && cover.position === 0)}
@@ -156,7 +156,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
         </>)
         }
       </div>
-      
+
       <div className="w-full mt-3 bg-secondary p-2 rounded-lg">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
           <span>0%</span>

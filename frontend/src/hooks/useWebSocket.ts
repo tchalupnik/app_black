@@ -102,11 +102,11 @@ const setupWebSocket = async (
   try {
     const baseUrl = import.meta.env.VITE_API_URL || '';
     const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws/state`;
-    
+
     // Get token if authentication is required
     const token = isAuthRequired && localStorage.getItem('token') || null;
     const protocols = token ? [`token.${token}`] : undefined;
-    
+
     // Create WebSocket with protocol
     globalWs = new WebSocket(wsUrl, protocols);
 

@@ -54,12 +54,12 @@ export default function OutputsView({error}: {error: string | null}) {
             <h2 className="card-title">Controls</h2>
             <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
           </div>
-          <div className={isGrid 
+          <div className={isGrid
             ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
             : "flex flex-col gap-4"
           }>
             {validOutputs.map((output) => (
-              <OutputItem 
+              <OutputItem
                 key={output.id}
                 output={output}
                 onToggle={toggleOutput}
@@ -68,12 +68,12 @@ export default function OutputsView({error}: {error: string | null}) {
               />
             ))}
           </div>
-          <div className={isGrid 
+          <div className={isGrid
             ? "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
             : "flex flex-col gap-4"
           }>
             {covers.filter(cover => isCoverState(cover)).map((cover) => (
-              <CoverItem 
+              <CoverItem
                 key={cover.id}
                 cover={cover as { id: string; name: string; state: string; position: number; tilt?: number; current_operation: string; timestamp?: number }}
                 action={actionCover}

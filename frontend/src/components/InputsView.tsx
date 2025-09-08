@@ -71,7 +71,7 @@ export default function InputsView() {
         <h2 className="text-xl font-bold">Inputs</h2>
         <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
       </div>
-      <div className={isGrid 
+      <div className={isGrid
         ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
         : "flex flex-col gap-4"
       }>

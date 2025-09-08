@@ -56,7 +56,7 @@ export default function LogViewer() {
 
   useEffect(() => {
     fetchLogs();
-    
+
     if (autoRefresh) {
       const interval = setInterval(fetchLogs, 5000);
       return () => clearInterval(interval);
@@ -94,7 +94,7 @@ export default function LogViewer() {
       // If we're near the bottom (within 100px), enable auto-scroll
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
       setAutoScroll(isNearBottom);
-      
+
       // Check if we're in the top half of the content
       setIsTopHalf(scrollTop < (scrollHeight - clientHeight) / 2);
     }
@@ -159,7 +159,7 @@ export default function LogViewer() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100">
       <div className="bg-base-200 p-4 border-b border-base-content/10 flex items-center gap-4">
-        <select 
+        <select
           value={timeRange}
           onChange={(e) => setTimeRange(e.target.value)}
           className="select select-sm"
@@ -171,7 +171,7 @@ export default function LogViewer() {
           <option value="-1d">Last day</option>
           <option value="-7d">Last week</option>
         </select>
-        
+
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -198,18 +198,18 @@ export default function LogViewer() {
         </button>
       </div>
 
-      <div 
+      <div
         ref={logContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-auto p-4 font-mono text-sm relative"
       >
         <div className="space-y-1">
           {logs.map((log, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`flex gap-4 cursor-pointer px-1 rounded transition-colors ${
                 selectedLogIndices.has(index)
-                  ? 'bg-primary/20 hover:bg-primary/30' 
+                  ? 'bg-primary/20 hover:bg-primary/30'
                   : 'hover:bg-base-200'
               }`}
               onClick={(e) => {

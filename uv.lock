@@ -312,14 +312,16 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+no-dev = [
+    { name = "adafruit-bbio" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "bandit" },
     { name = "pre-commit" },
     { name = "ruff" },
     { name = "ty" },
-]
-no-dev = [
-    { name = "adafruit-bbio" },
 ]
 
 [package.metadata]
@@ -335,7 +337,6 @@ requires-dist = [
     { name = "adafruit-circuitpython-pct2075", specifier = "==1.1.23" },
     { name = "adafruit-circuitpython-typing", specifier = "==1.9.5" },
     { name = "aiomqtt", specifier = "==1.1.0" },
-    { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.7.5" },
     { name = "cerberus", specifier = "==1.3.7" },
     { name = "colorlog", specifier = "==6.9.0" },
     { name = "fastapi", specifier = "==0.103.2" },
@@ -343,7 +344,6 @@ requires-dist = [
     { name = "hypercorn", specifier = "==0.14.4" },
     { name = "luma-core", specifier = "==2.4.2" },
     { name = "luma-oled", specifier = "==3.13.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.8.0" },
     { name = "psutil", specifier = "==7.0.0" },
     { name = "pydantic", specifier = "==2.5.3" },
     { name = "pymodbus", specifier = "==2.5.3" },
@@ -351,12 +351,18 @@ requires-dist = [
     { name = "python-jose", extras = ["cryptography"], specifier = "==3.3.0" },
     { name = "pyyaml", specifier = "==6.0.1" },
     { name = "qrcode", specifier = "==7.4.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a20" },
     { name = "w1thermsensor", extras = ["async"], specifier = "==2.3.0" },
     { name = "websockets", specifier = "==11.0.3" },
 ]
-provides-extras = ["dev", "no-dev"]
+provides-extras = ["no-dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "bandit", specifier = ">=1.7.5" },
+    { name = "pre-commit", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.6.0" },
+    { name = "ty", specifier = ">=0.0.1a20" },
+]
 
 [[package]]
 name = "cbor2"

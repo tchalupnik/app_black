@@ -28,6 +28,6 @@ boneio:
   name: "boneIO Black 24x16A"
   version: 0.8
   device_type: "24x16A"
-  
+
 web:
 # adc: !include adc.yaml Uncomment only if needed.

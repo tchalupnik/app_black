@@ -34,11 +34,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isApiAvailable || isLoading) {
     return <NotAvailable />
   }
-  
+
   if (!isAuthenticated && isAuthRequired) {
     return <LoginView />
   }
-  
+
   return <>{children}</>;
 }
 
@@ -53,7 +53,7 @@ function AppContent() {
 
   useEffect(() => {
     console.log("WebSocket state:", { isAuthenticated, isAuthRequired });
-    
+
     // Clear states when not authenticated and auth is required
     if ((!isAuthenticated && isAuthRequired) || !isApiAvailable) {
       setOutputs([]);
@@ -103,7 +103,7 @@ function AppContent() {
                 return prev; // No change needed
               }
               const newSensors = [...prev];
-              newSensors[index] = message.data; 
+              newSensors[index] = message.data;
               return newSensors;
             }
             return [...prev, message.data];
@@ -113,9 +113,9 @@ function AppContent() {
             const index = prev.findIndex(c => c.name === message.data.name);
             if (index >= 0) {
               const prevCover = prev[index];
-              if (isCoverState(prevCover) && isCoverState(message.data) && 
-                  prevCover.state === message.data.state && 
-                  prevCover.position === message.data.position && 
+              if (isCoverState(prevCover) && isCoverState(message.data) &&
+                  prevCover.state === message.data.state &&
+                  prevCover.position === message.data.position &&
                   prevCover.tilt === message.data.tilt &&
                   prevCover.current_operation === message.data.current_operation) {
                 return prev; // No change needed

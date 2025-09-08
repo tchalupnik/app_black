@@ -541,7 +541,7 @@ def configure_binary_sensor(
                 id=pin,
                 name=name,
                 ha_type=BINARY_SENSOR,
-                device_class=gpio.get(DEVICE_CLASS, None),
+                device_class=gpio.get(DEVICE_CLASS),
                 availability_msg_func=ha_binary_sensor_availabilty_message,
             )
         return input

@@ -39,6 +39,8 @@ license = { text = "GNU General Public License v3.0" }
 no-dev = [
   "adafruit-bbio @ git+https://github.com/tchalupnik/adafruit-beaglebone-io-python.git",
 ]
+
+[dependency-groups]
 dev = [
   "ruff>=0.6.0",
   "ty>=0.0.1a20",

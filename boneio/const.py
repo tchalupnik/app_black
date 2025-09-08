@@ -1,15 +1,5 @@
 from typing import Literal
 
-try:
-    from Adafruit_BBIO.GPIO import BOTH, FALLING, HIGH, LOW, RISING
-except ModuleNotFoundError:
-    HIGH = "high"
-    LOW = "low"
-    BOTH = "both"
-    FALLING = "falling"
-    RISING = "rising"
-    pass
-
 BONEIO = "boneio"
 NONE = "none"
 
@@ -154,10 +144,6 @@ STOP = "stop"
 
 # TYPING
 ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
-OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
-GpioStates = Literal[HIGH, LOW]
-GpioEdges = Literal[BOTH, FALLING]
-InputTypes = Literal[INPUT, INPUT_SENSOR]
 ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
 DEVICE_CLASS = "device_class"
 DallasBusTypes = Literal[DS2482, DALLAS]

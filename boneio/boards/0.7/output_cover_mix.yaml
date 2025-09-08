@@ -133,5 +133,3 @@ output_mapping:
     kind: mcp
     mcp_id: mcp_right
     pin: 15
-
-

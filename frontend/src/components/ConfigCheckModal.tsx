@@ -37,7 +37,7 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
     <div className="fixed inset-0 bg-base-300/80 flex items-center justify-center z-50">
       <div className="bg-base-200 p-8 rounded-lg shadow-lg max-w-2xl w-full mx-4">
         <h2 className="text-2xl font-bold mb-6">Configuration Check</h2>
-        
+
         {isChecking ? (
           <div className="flex flex-col items-center gap-4 py-8">
             <div className="loading loading-spinner loading-lg"></div>
@@ -56,7 +56,7 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
               </pre>
             )}
             <div className="flex justify-end gap-4 mt-6">
-              <button 
+              <button
                 className="btn btn-ghost"
                 onClick={() => {
                   setCheckResult(null);
@@ -65,7 +65,7 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
               >
                 Close
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={() => {
                   setCheckResult(null);
@@ -84,13 +84,13 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
               First save your file, then click the check button.
             </p>
             <div className="flex justify-end gap-4">
-              <button 
+              <button
                 className="btn btn-ghost"
                 onClick={onClose}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={handleCheck}
               >

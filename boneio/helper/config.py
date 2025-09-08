@@ -4,7 +4,6 @@ Module to provide basic config options.
 
 from __future__ import annotations
 
-import logging
 from _collections_abc import dict_values
 
 from boneio.const import (
@@ -23,8 +22,6 @@ from boneio.const import (
     VALVE,
 )
 from boneio.helper.util import sanitize_mqtt_topic
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ConfigHelper:

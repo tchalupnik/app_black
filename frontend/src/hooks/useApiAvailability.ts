@@ -67,9 +67,9 @@ export function useApiAvailability() {
     };
   }, [checkApiAvailability, setupInterval]);
 
-  return { 
-    isApiAvailable, 
-    isChecking, 
+  return {
+    isApiAvailable,
+    isChecking,
     nextCheckTime,
     nextCheckInMs: Math.max(0, nextCheckTime.getTime() - Date.now()),
     checkNow

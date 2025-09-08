@@ -30,7 +30,7 @@ const OutputItem: React.FC<OutputItemProps> = ({
   onToggle,
   isGrid,
   error,
-}) => { 
+}) => {
   const { Icon, onColor } = getIconAndOnColor(output.type);
   return (
   <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>

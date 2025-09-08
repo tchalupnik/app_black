@@ -36,7 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const response = await axios.get(`${baseUrl}/api/auth/required`);
         setIsAuthRequired(response.data.required);
         console.log("required", response.data.required);
-        
+
         const token = localStorage.getItem('token');
         if (token) {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
