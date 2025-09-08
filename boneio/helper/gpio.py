@@ -7,49 +7,7 @@ import time
 
 from boneio.helper.events import EventBus
 from boneio.models import InputState
-
-try:
-    from Adafruit_BBIO import GPIO
-except ModuleNotFoundError:
-
-    class GPIO:
-        IN = "in"
-        OUT = "out"
-        PUD_OFF = "poff"
-        PUD_UP = "pup"
-        PUD_DOWN = "pdown"
-
-        @staticmethod
-        def setup(pin, direction, pull_up_down=None):
-            _LOGGER.warning(
-                f"GPIO.setup({pin}, {direction}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
-            )
-
-        @staticmethod
-        def output(pin, value):
-            _LOGGER.warning(
-                f"GPIO.output({pin}, {value}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
-            )
-
-        @staticmethod
-        def input(pin):
-            _LOGGER.warning(
-                f"GPIO.input({pin}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
-            )
-            return False
-
-        @staticmethod
-        def add_event_detect(gpio, edge, callback=None, bouncetime=0):
-            _LOGGER.warning(
-                f"GPIO.add_event_detect({gpio}, {edge}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
-            )
-
-        @staticmethod
-        def add_event_callback(gpio, callback):
-            _LOGGER.warning(
-                f"GPIO.add_event_callback({gpio}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
-            )
-
+from Adafruit_BBIO import GPIO
 
 import subprocess
 from typing import Awaitable

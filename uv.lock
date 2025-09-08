@@ -312,19 +312,19 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-beaglebone = [
-    { name = "adafruit-bbio" },
-]
 dev = [
     { name = "bandit" },
     { name = "pre-commit" },
     { name = "ruff" },
     { name = "ty" },
 ]
+no-dev = [
+    { name = "adafruit-bbio" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "adafruit-bbio", marker = "extra == 'beaglebone'", git = "https://github.com/tchalupnik/adafruit-beaglebone-io-python.git" },
+    { name = "adafruit-bbio", marker = "extra == 'no-dev'", git = "https://github.com/tchalupnik/adafruit-beaglebone-io-python.git" },
     { name = "adafruit-blinka", specifier = "==8.56.0" },
     { name = "adafruit-circuitpython-ds18x20", specifier = "==1.4.3" },
     { name = "adafruit-circuitpython-mcp230xx", specifier = "==2.5.16" },
@@ -356,7 +356,7 @@ requires-dist = [
     { name = "w1thermsensor", extras = ["async"], specifier = "==2.3.0" },
     { name = "websockets", specifier = "==11.0.3" },
 ]
-provides-extras = ["beaglebone", "dev"]
+provides-extras = ["dev", "no-dev"]
 
 [[package]]
 name = "cbor2"

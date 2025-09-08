@@ -50,7 +50,7 @@ class PWMPCA(BasicRelay):
             if self._pin.duty_cycle > 65535:
                 return 0
             return self._pin.duty_cycle
-        except:
+        except KeyError:
             _LOGGER.error("Cant read value form driver on pin %s", self._pin_id)
             return 0
 
@@ -59,7 +59,7 @@ class PWMPCA(BasicRelay):
             """Set brightness in 0-65535 vale"""
             _LOGGER.debug("Set brightness relay %s.", value)
             self._pin.duty_cycle = value
-        except:
+        except KeyError:
             _LOGGER.error("Cant set value form driver on pin %s", self._pin_id)
 
     @property

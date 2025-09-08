@@ -36,7 +36,7 @@ requires-python = ">=3.10"
 license = { text = "GNU General Public License v3.0" }
 
 [project.optional-dependencies]
-beaglebone = [
+no-dev = [
   "adafruit-bbio @ git+https://github.com/tchalupnik/adafruit-beaglebone-io-python.git",
 ]
 dev = [

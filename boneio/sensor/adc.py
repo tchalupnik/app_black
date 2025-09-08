@@ -2,28 +2,11 @@
 
 import logging
 
+import Adafruit_BBIO.ADC as ADC
+
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
-
-try:
-    import Adafruit_BBIO.ADC as ADC
-except ModuleNotFoundError:
-
-    class ADC:
-        @staticmethod
-        def setup():
-            _LOGGER.warning(
-                "ADC.setup() - BeagleBone ADC not available. Install with: pip install boneio[beaglebone]"
-            )
-
-        @staticmethod
-        def read(pin):
-            _LOGGER.warning(
-                f"ADC.read({pin}) - BeagleBone ADC not available. Install with: pip install boneio[beaglebone]"
-            )
-            return 0.0
-
 
 _LOGGER = logging.getLogger(__name__)
 
