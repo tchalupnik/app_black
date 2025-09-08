@@ -40,7 +40,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     console.log('💾 ArrayTableWidget: handleSave called, calling onChange');
     // If called from @rjsf onSubmit, e.formData contains the data
     const dataToSave = e?.formData || editingItem;
-    
+
     const newValue = [...value];
     if (editingIndex !== null) {
       newValue[editingIndex] = dataToSave;
@@ -139,10 +139,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             <h3 className="font-bold text-lg mb-4">
               {editingIndex !== null ? 'Edit Item' : 'Add New Item'}
             </h3>
-            
+
             {/* @rjsf Form - only renders in modal, doesn't trigger parent onChange until save */}
             <Form
-              schema={schema.items || {}}
+              schema={(schema.items && typeof schema.items === 'object' && !Array.isArray(schema.items)) ? schema.items : {}}
               uiSchema={uiSchema}
               formData={editingItem}
               validator={validator}
@@ -151,15 +151,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               className="space-y-4"
             >
               <div className="modal-action">
-                <button 
-                  type="button" 
-                  onClick={handleCancel} 
+                <button
+                  type="button"
+                  onClick={handleCancel}
                   className="btn btn-ghost"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
                 >
                   {editingIndex !== null ? 'Save Changes' : 'Add Item'}

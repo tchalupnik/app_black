@@ -16,21 +16,14 @@ export interface SectionFormProps {
  * Wraps RJSF form with custom UI schema and logic.
  */
 const SectionForm: React.FC<SectionFormProps> = ({
-  schema,
-  uiSchema,
-  formData,
-  onChange,
-  onSubmit,
-  disabled,
   children,
 }) => {
   // TODO: podłącz @rjsf/shadcn i custom widgety
   // Placeholder - tu będzie RJSF
   return (
-    <form onSubmit={e => { e.preventDefault(); onSubmit(); }}>
+    <form>
       {/* TODO: <Form schema={schema} uiSchema={uiSchema} ... /> */}
       {children}
-      <pre className="bg-base-200 p-2 mt-2 rounded text-xs overflow-x-auto">{JSON.stringify(formData, null, 2)}</pre>
     </form>
   );
 };

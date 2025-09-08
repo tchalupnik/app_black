@@ -10,7 +10,7 @@ import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperi
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
- * 
+ *
  * This component provides a modern form-based interface for editing YAML configuration files.
  * Each configuration section (mqtt, web, logger, etc.) is presented as a separate tab with
  * a JSON Schema-driven form. Users can edit one section at a time and save changes individually.
@@ -37,7 +37,7 @@ export default function UISettings() {
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
-  
+
   // Function to navigate to a section
   const navigateToSection = (sectionName: string) => {
     navigate(`/settings/${sectionName}`);
@@ -71,40 +71,46 @@ export default function UISettings() {
   ];
 
 
- 
+
 
   /**
    * Convert data to match schema types (for form display)
    */
   const convertDataToSchemaTypes = (data: Record<string, any>, schema: RJSFSchema): Record<string, any> => {
     console.log("convertDataToSchemaTypes called with:", { data, schema });
-    
+
     if (!data || !schema || typeof data !== 'object' || typeof schema !== 'object') {
       return data;
     }
 
     const converted = { ...data };
-    
+
     // Handle properties in schema
     if (schema.properties) {
       Object.keys(schema.properties).forEach(key => {
         if (key in converted && converted[key] !== null && converted[key] !== undefined) {
-          const propSchema = schema.properties[key];
+          const propSchema = schema.properties![key];
+
+          // Type guard: ensure propSchema is not a boolean
+          if (typeof propSchema === 'boolean') {
+            return; // Skip boolean schemas
+          }
+
           const currentValue = converted[key];
-          
+
           console.log(`Processing key: ${key}, currentValue:`, currentValue, `propSchema:`, propSchema);
-          
+
           // Handle array with items schema
           if (propSchema.items && Array.isArray(currentValue)) {
             converted[key] = currentValue.map((item: any) => {
-              if (typeof item === 'object' && propSchema.items.properties) {
-                return convertDataToSchemaTypes(item, propSchema.items);
+              if (typeof item === 'object' && typeof propSchema.items === 'object' && !Array.isArray(propSchema.items) && propSchema.items.properties) {
+                return convertDataToSchemaTypes(item, propSchema.items as RJSFSchema);
               }
               return item;
             });
           }
           // Convert timeperiod object to milliseconds for form display
-          else if (propSchema['x-timeperiod'] === true) {
+          else if ((propSchema as any)['x-timeperiod'] === true) {
             const milliseconds = convertTimeperiodToMilliseconds(currentValue);
             converted[key] = milliseconds;
             console.log(`✓ Converted timeperiod ${key}:`, currentValue, '→', milliseconds, 'ms');
@@ -123,12 +129,12 @@ export default function UISettings() {
           }
           // Handle nested objects recursively
           else if (propSchema.type === 'object' && typeof currentValue === 'object') {
-            converted[key] = convertDataToSchemaTypes(currentValue, propSchema);
+            converted[key] = convertDataToSchemaTypes(currentValue, propSchema as RJSFSchema);
           }
         }
       });
     }
-    
+
     console.log("convertDataToSchemaTypes result:", converted);
     return converted;
   };
@@ -141,12 +147,12 @@ export default function UISettings() {
       // Load parsed config from backend (handles !include automatically)
       const configResponse = await fetch('/api/config');
       const configContent = await configResponse.json();
-      
+
       // Load main schema
       const isDevelopment = import.meta.env.DEV;
       const mainSchemaResponse = await fetch(isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json');
       const mainSchema = await mainSchemaResponse.json();
-      
+
       // Convert data to match schema types for form display
       const configData = configContent?.config || {};
       const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
@@ -155,7 +161,7 @@ export default function UISettings() {
 
       // Create sections based on available schemas and data
       const loadedSections: ConfigSection[] = [];
-      
+
       for (const sectionConfig of configSections) {
         try {
           // Try to load section-specific schema
@@ -163,7 +169,7 @@ export default function UISettings() {
           try {
             // Extract the section schema from the nested structure
             sectionSchema = mainSchema.properties?.[sectionConfig.name] || mainSchema;
-            
+
             if (isDevelopment) {
               console.log(`✅ Loaded schema for ${sectionConfig.name} from Vite static files`);
             }
@@ -174,7 +180,7 @@ export default function UISettings() {
           }
 
           const normalizedSchema = normalizeSchema(sectionSchema);
-          
+
           console.log("AHA", configData)
           loadedSections.push({
             name: sectionConfig.name,
@@ -200,7 +206,7 @@ export default function UISettings() {
   const handleSectionChange = (sectionName: string, newFormData: any) => {
     setFormData((prevFormData: Record<string, any>) => ({ ...prevFormData, [sectionName]: newFormData }));
     console.log("handleSectionChange", sectionName, newFormData)
-    
+
     // Compare with original data to determine if there are unsaved changes
     if (JSON.stringify(newFormData) !== JSON.stringify(originalData[sectionName])) {
       console.log("unsaved changed")
@@ -224,21 +230,21 @@ export default function UISettings() {
       // Find the section schema
       const sectionInfo = sections.find(s => s.name === sectionName);
       const sectionSchema = sectionInfo?.schema;
-      
+
       // Convert form data back to original types before sending
       const dataToSend = convertFormDataToOriginalTypes(
-        formData[sectionName], 
+        formData[sectionName],
         originalData[sectionName],
         sectionSchema
       );
-      
+
       // Usuń pola ukryte i wartości domyślne
       const minimalConfig = stripHiddenAndDefaults(
         dataToSend,
         sectionSchema,
         sectionInfo?.uiSchema || {}
       );
-      
+
       // Send converted data to backend
       console.log("I'd like to send")
       console.log(minimalConfig)
@@ -249,13 +255,13 @@ export default function UISettings() {
       //   },
       //   body: JSON.stringify(minimalConfig),
       // });
-      
+
       // if (response.status === 200) {
       //   setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
       //   setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
       //   // Update original data to reflect the saved state
       //   setOriginalData(prev => ({ ...prev, [sectionName]: formData[sectionName] }));
-        
+
       //   // Clear success status after 3 seconds
       //   setTimeout(() => {
       //     setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
@@ -264,7 +270,7 @@ export default function UISettings() {
     } catch (error) {
       console.error('Error saving section:', error);
       setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
-      
+
       // Clear error status after 5 seconds
       setTimeout(() => {
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
@@ -279,7 +285,7 @@ export default function UISettings() {
    */
   const filterEnumOptions = (enumValues: string[]): string[] => {
     if (!enumValues || enumValues.length === 0) return enumValues;
-    
+
     // Group values by their lowercase version
     const groups: { [key: string]: string[] } = {};
     enumValues.forEach(value => {
@@ -289,7 +295,7 @@ export default function UISettings() {
       }
       groups[lowerValue].push(value);
     });
-    
+
     // For each group, prefer lowercase variant
     const filtered: string[] = [];
     Object.values(groups).forEach(group => {
@@ -299,7 +305,7 @@ export default function UISettings() {
       } else {
         // Multiple variants, prefer lowercase
         const lowerCase = group.find(v => v === v.toLowerCase());
-        
+
         if (lowerCase) {
           filtered.push(lowerCase);
         } else {
@@ -308,7 +314,7 @@ export default function UISettings() {
         }
       }
     });
-    
+
     return filtered;
   };
 
@@ -325,10 +331,10 @@ export default function UISettings() {
       if (normalized.oneOf && Array.isArray(normalized.oneOf)) {
         // Check if this is a boolean field with string alternatives
         const hasBooleanType = normalized.oneOf.some((option: any) => option.type === 'boolean');
-        const hasYamlBooleanString = normalized.oneOf.some((option: any) => 
+        const hasYamlBooleanString = normalized.oneOf.some((option: any) =>
           option.type === 'string' && option['x-yaml-boolean'] === true
         );
-        
+
         if (hasBooleanType && hasYamlBooleanString) {
           // Convert to simple boolean type
           const booleanOption = normalized.oneOf.find((option: any) => option.type === 'boolean');
@@ -346,7 +352,7 @@ export default function UISettings() {
         // Check if enum contains numbers that should be strings
         const hasNumbers = normalized.enum.some((val: any) => typeof val === 'number');
         const hasStrings = normalized.enum.some((val: any) => typeof val === 'string');
-        
+
         if (hasNumbers && hasStrings) {
           // Convert all enum values to strings to match the string type
           normalized.enum = normalized.enum.map((val: any) => String(val));
@@ -428,14 +434,14 @@ export default function UISettings() {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadConfigurationSafe = async () => {
       if (!isMounted) return;
       await loadConfiguration();
     };
-    
+
     loadConfigurationSafe();
-    
+
     return () => {
       isMounted = false;
     };
@@ -477,7 +483,7 @@ export default function UISettings() {
             {sections.map((section) => {
               const sectionConfig = configSections.find(s => s.name === section.name);
               const status = saveStatus[section.name];
-              
+
               return (
                 <button
                   key={section.name}
@@ -584,7 +590,7 @@ export default function UISettings() {
                       </Form>
                     )}
                   </div>
-                  
+
                   {/* YAML Preview */}
                   <div className="w-1/2 border-l border-base-content/10 bg-base-300">
                     <div className="p-4 border-b border-base-content/10">
