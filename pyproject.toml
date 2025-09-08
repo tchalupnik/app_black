@@ -86,10 +86,3 @@ exclude = [
 
 [tool.ty.src]
 include = ["boneio/"]
-
-[tool.ty.rules]
-unresolved-import = "ignore"
-
-[tool.bandit]
-exclude_dirs = ["tests"]
-skips = ["B101", "B601"]
