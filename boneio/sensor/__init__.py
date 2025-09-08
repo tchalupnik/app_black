@@ -1,4 +1,5 @@
 """Sensor module."""
+
 from boneio.sensor.adc import GpioADCSensor, initialize_adc
 from boneio.sensor.gpio import GpioInputBinarySensor as GpioInputBinarySensorOld
 from boneio.sensor.gpio_new import GpioInputBinarySensorNew
@@ -15,5 +16,5 @@ __all__ = [
     "GpioInputBinarySensorNew",
     "initialize_adc",
     "GpioADCSensor",
-    "INA219"
+    "INA219",
 ]

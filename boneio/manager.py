@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import json
 import logging
 import time
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set
+from typing import Coroutine
 
 from board import SCL, SDA
 from busio import I2C
@@ -114,20 +115,20 @@ class Manager:
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
-        relay_pins: List = [],
-        event_pins: List = [],
-        binary_pins: List = [],
-        output_group: List = [],
+        relay_pins: list = [],
+        event_pins: list = [],
+        binary_pins: list = [],
+        output_group: list = [],
         sensors: dict = {},
         modbus: dict = {},
         modbus_devices: dict = {},
         pca9685: list = [],
         mcp23017: list = [],
         pcf8575: list = [],
-        ds2482: Optional[List] = [],
-        dallas: Optional[dict] = None,
+        ds2482: list | None = [],
+        dallas: dict | None = None,
         oled: dict = {},
-        adc: Optional[List] = None,
+        adc: list | None = None,
         cover: list = [],
         web_active: bool = False,
         web_port: int = 8090,
@@ -161,10 +162,10 @@ class Manager:
         self._interlock_manager = SoftwareInterlockManager()
 
         self._oled = None
-        self._tasks: List[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
         self._config_covers = cover
         self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
-        self._temp_sensors: List[TempSensor] = []
+        self._temp_sensors: list[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_coordinators = {}
         self._modbus = None
@@ -256,7 +257,9 @@ class Manager:
             message_bus=self._message_bus,
             topic_prefix=self._config_helper.topic_prefix,
         )
-        self._modbus_coordinators = self._configure_modbus_coordinators(devices=modbus_devices)
+        self._modbus_coordinators = self._configure_modbus_coordinators(
+            devices=modbus_devices
+        )
 
         if oled.get("enabled", False):
             from boneio.oled import Oled
@@ -445,18 +448,27 @@ class Manager:
                     entity_id = action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
                     action_output = action_definition.get("action_output")
-                    output = self._outputs.get(stripped_entity_id, self._configured_output_groups.get(stripped_entity_id))
+                    output = self._outputs.get(
+                        stripped_entity_id,
+                        self._configured_output_groups.get(stripped_entity_id),
+                    )
                     action_to_execute = relay_actions.get(action_output)
                     if output and action_to_execute:
                         _f = getattr(output, action_to_execute)
                         if _f:
-                            parsed_actions[click_type].append({
-                                "action": action,
-                                "pin": stripped_entity_id,
-                                "action_to_execute": action_to_execute,
-                            })
+                            parsed_actions[click_type].append(
+                                {
+                                    "action": action,
+                                    "pin": stripped_entity_id,
+                                    "action_to_execute": action_to_execute,
+                                }
+                            )
                             continue
-                    _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
+                    _LOGGER.warning(
+                        "Device %s for action in %s not found. Omitting.",
+                        entity_id,
+                        pin,
+                    )
                 elif action == COVER:
                     entity_id = action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
@@ -467,48 +479,64 @@ class Manager:
                     if cover and action_to_execute:
                         _f = getattr(cover, action_to_execute)
                         if _f:
-                            parsed_actions[click_type].append({
-                                "action": action,
-                                "action_to_execute": action_to_execute,
-                                "extra_data": extra_data,
-                            })
+                            parsed_actions[click_type].append(
+                                {
+                                    "action": action,
+                                    "action_to_execute": action_to_execute,
+                                    "extra_data": extra_data,
+                                }
+                            )
                             continue
-                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                    _LOGGER.warning(
+                        "Device %s for action not found. Omitting.", entity_id
+                    )
                 elif action == MQTT:
                     action_mqtt_msg = action_definition.get("action_mqtt_msg")
                     action_topic = action_definition.get(TOPIC)
                     if action_topic and action_mqtt_msg:
-                        parsed_actions[click_type].append({
-                            "action": action,
-                            "action_mqtt_msg": action_mqtt_msg,
-                            "action_topic": action_topic,
-                        })
+                        parsed_actions[click_type].append(
+                            {
+                                "action": action,
+                                "action_mqtt_msg": action_mqtt_msg,
+                                "action_topic": action_topic,
+                            }
+                        )
                         continue
-                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                    _LOGGER.warning(
+                        "Device %s for action not found. Omitting.", entity_id
+                    )
                 elif action == OUTPUT_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
                     action_output = action_definition.get("action_output")
                     action_to_execute = relay_actions.get(action_output.upper())
                     if boneio_id and action_to_execute:
-                        parsed_actions[click_type].append({
-                            "action": action,
-                            "boneio_id": boneio_id,
-                            "action_output": action_output,
-                        })
+                        parsed_actions[click_type].append(
+                            {
+                                "action": action,
+                                "boneio_id": boneio_id,
+                                "action_output": action_output,
+                            }
+                        )
                         continue
-                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                    _LOGGER.warning(
+                        "Device %s for action not found. Omitting.", entity_id
+                    )
                 elif action == COVER_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
                     action_cover = action_definition.get("action_cover")
                     action_to_execute = cover_actions.get(action_cover.upper())
                     if boneio_id and action_to_execute:
-                        parsed_actions[click_type].append({
-                            "action": action,
-                            "boneio_id": boneio_id,
-                            "action_cover": action_cover,
-                        })
+                        parsed_actions[click_type].append(
+                            {
+                                "action": action,
+                                "boneio_id": boneio_id,
+                                "action_cover": action_cover,
+                            }
+                        )
                         continue
-                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                    _LOGGER.warning(
+                        "Device %s for action not found. Omitting.", entity_id
+                    )
         return parsed_actions
 
     def configure_inputs(self, reload_config: bool = False):
@@ -569,14 +597,14 @@ class Manager:
         return task
 
     @property
-    def inputs(self) -> List[GpioBaseClass]:
+    def inputs(self) -> list[GpioBaseClass]:
         return list(self._inputs.values())
 
     def _configure_sensors(
         self,
-        dallas: Optional[dict],
-        ds2482: Optional[List],
-        sensors: Optional[List],
+        dallas: dict | None,
+        ds2482: list | None,
+        sensors: list | None,
     ):
         """
         Configure Dallas sensors via GPIO PIN bus or DS2482 bus.
@@ -652,7 +680,7 @@ class Manager:
                 )
             )
 
-    def _configure_adc(self, adc_list: Optional[List]) -> None:
+    def _configure_adc(self, adc_list: list | None) -> None:
         if adc_list:
             from boneio.helper.loader import create_adc
 
@@ -753,7 +781,7 @@ class Manager:
             return
         configure_logger(log_config=_config.get("logger"), debug=-1)
 
-    def get_tasks(self) -> Set[asyncio.Task]:
+    def get_tasks(self) -> set[asyncio.Task]:
         """Retrieve asyncio tasks to run."""
         return self._tasks
 
@@ -821,7 +849,6 @@ class Manager:
         actions = gpio.get_actions_of_click(click_type=x)
         topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
-
         def generate_payload():
             if gpio.input_type == INPUT:
                 if duration:
@@ -832,7 +859,7 @@ class Manager:
         for action_definition in actions:
             entity_id = action_definition.get("pin")
             action = action_definition.get("action")
-            
+
             if action == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
@@ -842,7 +869,9 @@ class Manager:
                     )
                 continue
             elif action == OUTPUT:
-                output = self._outputs.get(entity_id, self._configured_output_groups.get(entity_id))
+                output = self._outputs.get(
+                    entity_id, self._configured_output_groups.get(entity_id)
+                )
                 action_to_execute = action_definition.get("action_to_execute")
                 _LOGGER.debug(
                     "Executing action %s for output %s. Duration: %s",
@@ -874,10 +903,10 @@ class Manager:
             elif action == COVER_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
                 self.send_message(
-                        topic=f"{boneio_id}/cmd/cover/{entity_id}/set",
-                        payload=action_definition.get("action_cover"),
-                        retain=False,
-                    )
+                    topic=f"{boneio_id}/cmd/cover/{entity_id}/set",
+                    payload=action_definition.get("action_cover"),
+                    retain=False,
+                )
 
         payload = generate_payload()
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
@@ -1002,7 +1031,9 @@ class Manager:
                 if isinstance(message, str):
                     message = json.loads(message)
                     if "device" in message and "value" in message:
-                        await target_device.write_register(value=message["value"], entity=message["device"])
+                        await target_device.write_register(
+                            value=message["value"], entity=message["device"]
+                        )
 
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")
@@ -1065,7 +1096,10 @@ class Manager:
         if self._config_helper.is_web_active:
             if self._host_data:
                 web_url = self._host_data.web_url
-            elif self._config_helper.network_info and IP in self._config_helper.network_info:
+            elif (
+                self._config_helper.network_info
+                and IP in self._config_helper.network_info
+            ):
                 web_url = f"http://{self._config_helper.network_info[IP]}:{self._web_bind_port}"
         payload = availability_msg_func(
             topic=topic_prefix,

@@ -123,11 +123,11 @@ class INA219_I2C:
     def get_shunt_voltage(self, mV=False):
         raw_value = self.read_word(self.INA219_SV)
         return raw_value
-    
+
     @property
     def power(self) -> float:
         return self.get_power(mW=False)
-    
+
     @property
     def voltage(self) -> float:
         return self.get_bus_voltage()

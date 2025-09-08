@@ -68,10 +68,7 @@ class GpioEventButton(GpioBaseClass):
                 self._is_waiting_for_second_click = True
 
         else:  # is released?
-            if (
-                not self._is_waiting_for_second_click
-                and not self._double_click_ran
-            ):
+            if not self._is_waiting_for_second_click and not self._double_click_ran:
                 if self._timer_long.is_waiting():
                     self.press_callback(click_type=SINGLE, duration=None)
             self._timer_long.reset()

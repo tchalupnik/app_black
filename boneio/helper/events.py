@@ -1,9 +1,10 @@
 import asyncio
+from collections.abc import Callable
 import datetime as dt
 import logging
 import time
 from datetime import datetime
-from typing import Any, Callable, Coroutine, List, Optional
+from typing import Any, Coroutine
 
 from boneio.helper.util import callback
 
@@ -96,7 +97,7 @@ class EventBus:
             "cover": {},
             "modbus_device": {},
             "sensor": {},
-            "host": {}
+            "host": {},
         }
         self._listener_id_index = {}
         self._worker_task = None
@@ -104,9 +105,7 @@ class EventBus:
         self._shutting_down = False
         self._sigterm_listeners = []
         self._haonline_listeners = []
-        self._timer_handle = _async_create_timer(
-            self._loop, self._run_second_event
-        )
+        self._timer_handle = _async_create_timer(self._loop, self._run_second_event)
         self._shutting_down = False
         self._monitor_task = None
 
@@ -143,16 +142,18 @@ class EventBus:
         Dispatch event to registered listeners.
         :param event: dict or object with at least 'event_type' field
         """
-        event_type = event.get('event_type')
-        event_state = event.get('event_state')
-        entity_id = event.get('entity_id')
+        event_type = event.get("event_type")
+        event_state = event.get("event_state")
+        entity_id = event.get("entity_id")
         if not event_type or event_type not in self._event_listeners:
             _LOGGER.warning(f"Unknown event_type: {event_type}")
             return
         if not entity_id:
             _LOGGER.warning(f"Unknown entity_id: {entity_id}")
             return
-        entity_id_listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
+        entity_id_listeners = self._event_listeners.get(event_type, {}).get(
+            entity_id, {}
+        )
         for listener in entity_id_listeners.values():
             try:
                 await listener.target(event_state)
@@ -226,18 +227,18 @@ class EventBus:
         def task_done_callback(task):
             task.result()  # Retrieve the result to handle any raised exception
             raise asyncio.CancelledError
-        
+
         async def cleanup_and_exit():
             try:
                 await asyncio.sleep(2)
                 await self.ask_stop()
             except Exception as e:
                 _LOGGER.error(f"Error during cleanup: {e}")
-        
+
         # Create and run the cleanup task
         exit_task = self._loop.create_task(cleanup_and_exit())
         exit_task.add_done_callback(task_done_callback)
-        
+
     def add_every_second_listener(self, name, target):
         """Add listener on every second job."""
         self._every_second_listeners[name] = ListenerJob(target=target)
@@ -274,7 +275,9 @@ class EventBus:
 
         return listener_job
 
-    def remove_event_listener(self, event_type: str = None, entity_id: str = None, listener_id: str = None) -> None:
+    def remove_event_listener(
+        self, event_type: str = None, entity_id: str = None, listener_id: str = None
+    ) -> None:
         """Remove event listener. Can remove by event_type, listener_id, or both."""
         if listener_id and listener_id in self._listener_id_index:
             # Remove by listener_id
@@ -288,16 +291,17 @@ class EventBus:
                         del self._event_listeners[evt_type][ent_id][listener_id]
                     if not self._event_listeners[evt_type][ent_id]:
                         del self._event_listeners[evt_type][ent_id]
-            
+
             if event_type is None and entity_id is None:
                 # If removing all references to this listener_id
                 del self._listener_id_index[listener_id]
             else:
                 # Update index to remove only specific references
                 self._listener_id_index[listener_id] = [
-                    (evt_type, ent_id) 
+                    (evt_type, ent_id)
                     for evt_type, ent_id in self._listener_id_index[listener_id]
-                    if (event_type and evt_type != event_type) or (entity_id and ent_id != entity_id)
+                    if (event_type and evt_type != event_type)
+                    or (entity_id and ent_id != entity_id)
                 ]
                 if not self._listener_id_index[listener_id]:
                     del self._listener_id_index[listener_id]
@@ -307,7 +311,9 @@ class EventBus:
             if entity_id:
                 # Remove specific entity
                 if entity_id in self._event_listeners[event_type]:
-                    for lid in list(self._event_listeners[event_type][entity_id].keys()):
+                    for lid in list(
+                        self._event_listeners[event_type][entity_id].keys()
+                    ):
                         self.remove_event_listener(event_type, entity_id, lid)
                     del self._event_listeners[event_type][entity_id]
             else:
@@ -343,10 +349,7 @@ def as_utc(dattim: dt.datetime) -> dt.datetime:
 
 @callback
 def async_track_point_in_time(
-    loop: asyncio.AbstractEventLoop,
-    job,
-    point_in_time: datetime,
-    **kwargs
+    loop: asyncio.AbstractEventLoop, job, point_in_time: datetime, **kwargs
 ) -> CALLBACK_TYPE:
     """Add a listener that fires once after a specific point in UTC time."""
     # Ensure point_in_time is UTC
@@ -355,7 +358,7 @@ def async_track_point_in_time(
 
     # Since this is called once, we accept a so we can avoid
     # having to figure out how to call the action every time its called.
-    cancel_callback: Optional[asyncio.TimerHandle] = None
+    cancel_callback: asyncio.TimerHandle | None = None
 
     @callback
     def run_action(job) -> None:
@@ -400,7 +403,7 @@ def async_track_point_in_timestamp(
     """Add a listener that fires once after a specific point in UTC time."""
     # Since this is called once, we accept a so we can avoid
     # having to figure out how to call the action every time its called.
-    cancel_callback: Optional[asyncio.TimerHandle] = None
+    cancel_callback: asyncio.TimerHandle | None = None
 
     @callback
     def run_action(job) -> None:
@@ -452,9 +455,9 @@ def async_call_later_miliseconds(
 
 def create_unawaited_task_threadsafe(
     loop: asyncio.AbstractEventLoop,
-    transient_tasks: List["asyncio.Task[Any]"],
+    transient_tasks: list[asyncio.Task[Any]],
     coro: Coroutine[Any, Any, None],
-    task_future: Optional["asyncio.Future[asyncio.Task[Any]]"] = None,
+    task_future: asyncio.Future[asyncio.Task[Any]] | None = None,
 ) -> None:
     """
     Schedule a coroutine on the loop and add the Task to transient_tasks.

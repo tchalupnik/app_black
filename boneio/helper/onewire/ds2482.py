@@ -1,6 +1,7 @@
 """DS2482 base class.
 Module by https://github.com/fgervais/ds2482
 """
+
 import time
 
 import adafruit_bus_device.i2c_device as i2c_device

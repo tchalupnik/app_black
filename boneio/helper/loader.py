@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 import time
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Callable, Dict, Union
+from typing import TYPE_CHECKING, Any
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
@@ -94,7 +95,9 @@ from boneio.sensor import GpioADCSensor, initialize_adc
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_adc(manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = []):
+def create_adc(
+    manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = []
+):
     """Create ADC sensor."""
 
     initialize_adc()
@@ -112,9 +115,7 @@ def create_adc(manager: Manager, message_bus: MessageBus, topic_prefix: str, adc
                 manager=manager,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.get(
-                    UPDATE_INTERVAL, TimePeriod(seconds=60)
-                ),
+                update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
                 filters=gpio.get(FILTERS, []),
             )
             if gpio.get(SHOW_HA, True):
@@ -196,6 +197,7 @@ def create_serial_number_sensor(
     )
     return sensor
 
+
 expander_class = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
 
 
@@ -227,9 +229,11 @@ def create_expander(
     return grouped_outputs
 
 
-def create_modbus_coordinators(manager: Manager, message_bus: MessageBus, entries, **kwargs) -> dict[str, ModbusCoordinator]:
+def create_modbus_coordinators(
+    manager: Manager, message_bus: MessageBus, entries, **kwargs
+) -> dict[str, ModbusCoordinator]:
     """Create Modbus sensor for each device."""
-    
+
     modbus_coordinators = {}
     for entry in entries:
         name = entry.get(ID)
@@ -243,9 +247,7 @@ def create_modbus_coordinators(manager: Manager, message_bus: MessageBus, entrie
                 manager=manager,
                 model=entry[MODEL],
                 message_bus=message_bus,
-                update_interval=entry.get(
-                    UPDATE_INTERVAL, TimePeriod(seconds=60)
-                ),
+                update_interval=entry.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
                 sensors_filters=entry.get("sensors_filters", {}),
                 additional_data=additional_data,
                 **kwargs,
@@ -318,9 +320,7 @@ def configure_relay(
         if restore_state
         else False
     )
-    if output_type == NONE and state_manager.get(
-        attr_type=RELAY, attr=relay_id
-    ):
+    if output_type == NONE and state_manager.get(attr_type=RELAY, attr=relay_id):
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
@@ -402,7 +402,7 @@ def configure_relay(
             unit_of_measurement="W",
             device_class="power",
             state_class="measurement",
-            value_template="{{ value_json.power }}"
+            value_template="{{ value_json.power }}",
         )
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_energy",
@@ -414,7 +414,7 @@ def configure_relay(
             unit_of_measurement="Wh",
             device_class="energy",
             state_class="total_increasing",
-            value_template="{{ value_json.energy }}"
+            value_template="{{ value_json.energy }}",
         )
     if relay.is_virtual_volume_flow_rate:
         manager.send_ha_autodiscovery(
@@ -427,7 +427,7 @@ def configure_relay(
             unit_of_measurement="L/h",
             device_class="volume_flow_rate",
             state_class="measurement",
-            value_template="{{ value_json.volume_flow_rate }}"
+            value_template="{{ value_json.volume_flow_rate }}",
         )
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_consumption",
@@ -439,7 +439,7 @@ def configure_relay(
             unit_of_measurement="L",
             device_class="water",
             state_class="total_increasing",
-            value_template="{{ value_json.water }}"
+            value_template="{{ value_json.water }}",
         )
     return relay
 
@@ -450,7 +450,11 @@ def configure_event_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    input: GpioEventButtonOld
+    | GpioEventButtonNew
+    | GpioInputBinarySensorOld
+    | GpioInputBinarySensorNew
+    | None = None,
     actions: dict = {},
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
@@ -499,7 +503,11 @@ def configure_binary_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    input: GpioEventButtonOld
+    | GpioEventButtonNew
+    | GpioInputBinarySensorOld
+    | GpioInputBinarySensorNew
+    | None = None,
     actions: dict = {},
 ) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
     """Configure input sensor or button."""
@@ -551,8 +559,8 @@ def configure_cover(
     tilt_duration: TimePeriod | None,
     **kwargs,
 ) -> PreviousCover | TimeBasedCover:
-    
     platform = config.get("platform", "previous")
+
     def state_save(value: dict[str, int]):
         if config[RESTORE_STATE]:
             state_manager.save_attribute(
@@ -560,12 +568,17 @@ def configure_cover(
                 attribute=cover_id,
                 value=value,
             )
+
     if platform == "venetian":
         if not tilt_duration:
-            raise CoverConfigurationException("Tilt duration must be configured for tilt cover.")
+            raise CoverConfigurationException(
+                "Tilt duration must be configured for tilt cover."
+            )
         _LOGGER.debug("Configuring tilt cover %s", cover_id)
         restored_state: dict = state_manager.get(
-            attr_type=COVER, attr=cover_id, default_value={"position": 100, "tilt_position": 100}
+            attr_type=COVER,
+            attr=cover_id,
+            default_value={"position": 100, "tilt_position": 100},
         )
         if isinstance(restored_state, (float, int)):
             restored_state = {"position": restored_state, "tilt_position": 100}
@@ -575,7 +588,9 @@ def configure_cover(
             message_bus=message_bus,
             restored_state=restored_state,
             tilt_duration=tilt_duration,
-            actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
+            actuator_activation_duration=config.get(
+                "actuator_activation_duration", TimePeriod(milliseconds=0)
+            ),
             **kwargs,
         )
         availability_msg_func = ha_cover_with_tilt_availabilty_message
@@ -621,9 +636,7 @@ def configure_cover(
     return cover
 
 
-def configure_ds2482(
-    i2cbusio: I2C, address: str = DS2482_ADDRESS
-) -> OneWireBus:
+def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
     ds2482 = DS2482(i2c=i2cbusio, address=address)
     ow_bus = OneWireBus(ds2482=ds2482)
     return ow_bus
@@ -634,18 +647,16 @@ def configure_dallas() -> AsyncBoneIOW1ThermSensor:
 
 
 def find_onewire_devices(
-    ow_bus: Union[OneWireBus, AsyncBoneIOW1ThermSensor],
+    ow_bus: OneWireBus | AsyncBoneIOW1ThermSensor,
     bus_id: str,
     bus_type: DallasBusTypes,
-) -> Dict[OneWireAddress]:
+) -> dict[OneWireAddress]:
     out = {}
     try:
         devices = ow_bus.scan()
         for device in devices:
             _addr: int = device.int_address
-            _LOGGER.debug(
-                "Found device on bus %s with address %s", bus_id, hex(_addr)
-            )
+            _LOGGER.debug("Found device on bus %s with address %s", bus_id, hex(_addr))
             out[_addr] = device
     except RuntimeError as err:
         _LOGGER.error("Problem with scanning %s bus. %s", bus_type, err)
@@ -658,7 +669,7 @@ def create_dallas_sensor(
     address: OneWireAddress,
     config: dict,
     **kwargs,
-) -> Union[DallasSensorDS2482, DallasSensorW1]:
+) -> DallasSensorDS2482 | DallasSensorW1:
     name = config.get(ID) or hex(address)
     id = name.replace(" ", "")
     bus: OneWireBus = kwargs.get("bus")

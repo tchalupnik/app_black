@@ -1,4 +1,5 @@
 """GpioInputBinarySensor to receive signals."""
+
 import asyncio
 import logging
 

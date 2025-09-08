@@ -7,7 +7,6 @@ import logging
 import os
 import signal
 import warnings
-from typing import Any, Set
 
 from boneio.const import (
     ADC,
@@ -49,7 +48,7 @@ from boneio.message_bus import MQTTClient
 from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
-warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptography')
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="cryptography")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,11 +71,11 @@ async def async_run(
     config_file: str,
     mqttusername: str = "",
     mqttpassword: str = "",
-    debug: int = 0
-) -> list[Any]:
+    debug: int = 0,
+) -> int:
     """Run BoneIO."""
     web_server = None
-    tasks: Set[asyncio.Task] = set()
+    tasks: set[asyncio.Task] = set()
     event_bus = EventBus(loop=asyncio.get_event_loop())
     shutdown_event = asyncio.Event()
     loop = asyncio.get_event_loop()
@@ -113,7 +112,9 @@ async def async_run(
         is_web_active=web_active,
         topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
-        ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
+        ha_discovery_prefix=config.get(MQTT, {})
+        .get(HA_DISCOVERY, {})
+        .get(TOPIC_PREFIX, "homeassistant"),
     )
 
     # Initialize message bus based on config
@@ -127,6 +128,7 @@ async def async_run(
         )
     else:
         from boneio.message_bus import LocalMessageBus
+
         message_bus = LocalMessageBus()
 
     manager_kwargs = {
@@ -151,7 +153,7 @@ async def async_run(
             MCP_TEMP_9808: config.get(MCP_TEMP_9808, []),
             ONEWIRE: config.get(SENSOR, []),
         },
-        modbus_devices=config.get("modbus_devices"),
+        modbus_devices=config.get("modbus_devices", {}),
         web_active=web_active,
         web_port=web_config.get("port", 8090),
         **manager_kwargs,
@@ -165,7 +167,7 @@ async def async_run(
     message_bus_task = asyncio.create_task(message_bus.start_client())
     tasks.add(message_bus_task)
     message_bus_task.add_done_callback(tasks.discard)
-    
+
     # Start web server if configured
     if web_active:
         _LOGGER.info("Starting Web server.")
@@ -173,28 +175,27 @@ async def async_run(
             config_file=config_file,
             config_helper=_config_helper,
             manager=manager,
-            port=web_config.get("port", 8090),  
-            auth=web_config.get("auth", {}),  
+            port=web_config.get("port", 8090),
+            auth=web_config.get("auth", {}),
             logger=config.get("logger", {}),
-            debug_level=debug
+            debug_level=debug,
         )
         web_server_task = asyncio.create_task(web_server.start_webserver())
         tasks.add(web_server_task)
         web_server_task.add_done_callback(tasks.discard)
     else:
         _LOGGER.info("Web server not configured.")
-    
+
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
         main_gather = asyncio.gather(*task_list)
-        
-        # Wait for either shutdown signal or main task completion
-        await asyncio.wait([
-            main_gather,
-            asyncio.create_task(shutdown_event.wait())
-        ], return_when=asyncio.FIRST_COMPLETED)
 
+        # Wait for either shutdown signal or main task completion
+        await asyncio.wait(
+            [main_gather, asyncio.create_task(shutdown_event.wait())],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
         if shutdown_event.is_set():
             _LOGGER.info("Starting graceful shutdown...")
@@ -218,7 +219,7 @@ async def async_run(
         _LOGGER.info("Cleaning up resources...")
 
         # Trigger web server shutdown if it's running
-        if web_server and hasattr(web_server, 'trigger_shutdown'):
+        if web_server and hasattr(web_server, "trigger_shutdown"):
             try:
                 _LOGGER.info("Requesting web server shutdown...")
                 await web_server.trigger_shutdown()
@@ -227,7 +228,7 @@ async def async_run(
 
         # Stop the event bus
         event_bus.request_stop()
-        
+
         # Create a copy of tasks set to avoid modification during iteration
         remaining_tasks = list(tasks)
         if remaining_tasks:
@@ -235,14 +236,16 @@ async def async_run(
             # Web server task will be cancelled here if it hasn't finished after trigger_shutdown
             for task in remaining_tasks:
                 if not task.done():
-                    _LOGGER.debug(f"Cancelling task: {task.get_name() if hasattr(task, 'get_name') else task}")
+                    _LOGGER.debug(
+                        f"Cancelling task: {task.get_name() if hasattr(task, 'get_name') else task}"
+                    )
                     task.cancel()
-            
+
             # Wait for all tasks to complete
             try:
                 await asyncio.gather(*remaining_tasks, return_exceptions=True)
             except Exception as e:
                 _LOGGER.error(f"Error during cleanup: {type(e).__name__} - {e}")
-        
+
         _LOGGER.info("Shutdown complete")
         return 0

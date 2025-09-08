@@ -1,11 +1,11 @@
 """
 Module to provide basic config options.
 """
+
 from __future__ import annotations
 
 import logging
 from _collections_abc import dict_values
-from typing import Union
 
 from boneio.const import (
     BINARY_SENSOR,
@@ -35,11 +35,15 @@ class ConfigHelper:
         device_type: str = "boneIO Black",
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
-        network_info: dict = None,
+        network_info: dict | None = None,
         is_web_active: bool = False,
-    ):
+    ) -> None:
         self._name = name
-        sanitized_topic_prefix = sanitize_mqtt_topic(topic_prefix) if topic_prefix else sanitize_mqtt_topic(name)
+        sanitized_topic_prefix = (
+            sanitize_mqtt_topic(topic_prefix)
+            if topic_prefix
+            else sanitize_mqtt_topic(name)
+        )
         self._topic_prefix = sanitized_topic_prefix
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
@@ -98,9 +102,14 @@ class ConfigHelper:
     def subscribe_topic(self) -> str:
         return f"{self.cmd_topic_prefix}+/+/#"
 
-    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: Union[str, dict, None]):
+    def add_autodiscovery_msg(
+        self, ha_type: str, topic: str, payload: str | dict | None
+    ):
         """Add autodiscovery message."""
-        self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}
+        self._autodiscovery_messages[ha_type][topic] = {
+            "topic": topic,
+            "payload": payload,
+        }
 
     @property
     def ha_types(self) -> list[str]:
@@ -113,11 +122,9 @@ class ConfigHelper:
             if topic in self._autodiscovery_messages[ha_type]:
                 return True
         return False
-    
+
     def clear_autodiscovery_type(self, ha_type: str):
         self._autodiscovery_messages[ha_type] = {}
-
-
 
     @property
     def autodiscovery_msgs(self) -> dict_values:

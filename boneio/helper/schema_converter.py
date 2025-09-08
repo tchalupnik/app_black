@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import os
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import yaml
 from yaml import SafeLoader, load
@@ -11,38 +11,40 @@ from yaml import SafeLoader, load
 
 class BoneIOLoader(SafeLoader):
     """Custom YAML loader with !include constructor."""
-    
+
     def __init__(self, stream):
         self._root = os.path.split(stream.name)[0]
         super().__init__(stream)
-    
+
     def include(self, node):
         """Include file referenced at node."""
         filename = os.path.join(self._root, self.construct_scalar(node))
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             return load(f, BoneIOLoader)
 
-# Register the !include constructor
-BoneIOLoader.add_constructor('!include', BoneIOLoader.include)
 
-def convert_type(cerberus_type: Union[str, List[str]]) -> Union[str, List[str]]:
+# Register the !include constructor
+BoneIOLoader.add_constructor("!include", BoneIOLoader.include)
+
+
+def convert_type(cerberus_type: str | list[str]) -> str | list[str]:
     """Convert Cerberus type to JSON Schema type."""
-    
-        
+
     type_map = {
-        'string': 'string',
-        'integer': 'integer',
-        'float': 'number',
-        'boolean': 'boolean',
-        'dict': 'object',
-        'list': 'array',
-        'timeperiod': 'number'  # timeperiod as number (milliseconds) for ConfigEditor2
+        "string": "string",
+        "integer": "integer",
+        "float": "number",
+        "boolean": "boolean",
+        "dict": "object",
+        "list": "array",
+        "timeperiod": "number",  # timeperiod as number (milliseconds) for ConfigEditor2
     }
     if isinstance(cerberus_type, list):
-        return [type_map.get(type, 'string') for type in cerberus_type]
-    return type_map.get(cerberus_type, 'string')
+        return [type_map.get(type, "string") for type in cerberus_type]
+    return type_map.get(cerberus_type, "string")
 
-def create_boolean_schema() -> Dict[str, Any]:
+
+def create_boolean_schema() -> dict[str, Any]:
     """Create a schema that accepts both boolean and boolean-like string values."""
     return {
         "oneOf": [
@@ -50,18 +52,19 @@ def create_boolean_schema() -> Dict[str, Any]:
             {
                 "type": "string",
                 "enum": ["yes", "no", "true", "false", "on", "off"],
-                "x-yaml-boolean": True
-            }
+                "x-yaml-boolean": True,
+            },
         ]
     }
 
-def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str, Any]:
+
+def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str, Any]:
     """Convert a Cerberus schema to JSON Schema format."""
     json_schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {},
-        "required": []
+        "required": [],
     }
 
     for field, schema in cerberus_schema.items():
@@ -85,8 +88,10 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
                     types.add("null")
                 # Convert to list and optimize single types
                 type_list = list(types)
-                field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
-                
+                field_schema["type"] = (
+                    type_list[0] if len(type_list) == 1 else type_list
+                )
+
                 # Mark timeperiod fields for special handling in ConfigEditor2
                 if isinstance(schema["type"], list) and "timeperiod" in schema["type"]:
                     field_schema["x-timeperiod"] = True
@@ -104,44 +109,62 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
         # Handle nested dictionaries and arrays
         if "schema" in schema and isinstance(schema["schema"], dict):
             if schema.get("type") == "dict":
-                types = set(["string", "object"])  # Allow both string for !include and object
+                types = set(
+                    ["string", "object"]
+                )  # Allow both string for !include and object
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
                 type_list = list(types)
-                field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
+                field_schema["type"] = (
+                    type_list[0] if len(type_list) == 1 else type_list
+                )
                 field_schema["properties"] = {}
                 nested_required = []
-                
+
                 for nested_field, nested_schema in schema["schema"].items():
                     # Obsługa pól typu dict z valueschema (np. logs)
-                    if nested_schema.get("type") == "dict" and "valueschema" in nested_schema:
+                    if (
+                        nested_schema.get("type") == "dict"
+                        and "valueschema" in nested_schema
+                    ):
                         nested_field_schema = {"type": "object"}
                         value_schema = nested_schema["valueschema"]
-                        additional_schema = convert_cerberus_to_json_schema({"_": value_schema})["properties"]["_"]
+                        additional_schema = convert_cerberus_to_json_schema(
+                            {"_": value_schema}
+                        )["properties"]["_"]
                         # Obsługa allowed -> enum
                         if "allowed" in value_schema:
                             additional_schema["enum"] = value_schema["allowed"]
                         nested_field_schema["additionalProperties"] = additional_schema
                         field_schema["properties"][nested_field] = nested_field_schema
                     else:
-                        field_schema["properties"][nested_field] = convert_cerberus_to_json_schema(
-                            {nested_field: nested_schema}
-                        )["properties"][nested_field]
+                        field_schema["properties"][nested_field] = (
+                            convert_cerberus_to_json_schema(
+                                {nested_field: nested_schema}
+                            )["properties"][nested_field]
+                        )
                     # Only add to required if the field is required and has no default
-                    if nested_schema.get("required", False) and "default" not in nested_schema:
+                    if (
+                        nested_schema.get("required", False)
+                        and "default" not in nested_schema
+                    ):
                         nested_required.append(nested_field)
-                
+
                 if nested_required:
                     field_schema["required"] = nested_required
-                    
+
             elif schema.get("type") == "list":
-                types = set(["string", "array"])  # Allow both string for !include and array
+                types = set(
+                    ["string", "array"]
+                )  # Allow both string for !include and array
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
                 type_list = list(types)
-                field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
+                field_schema["type"] = (
+                    type_list[0] if len(type_list) == 1 else type_list
+                )
                 if isinstance(schema["schema"], dict):
                     field_schema["items"] = convert_cerberus_to_json_schema(
                         {"item": schema["schema"]}
@@ -160,29 +183,39 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
                         extended_values.add(value.upper())
                         extended_values.add(value.title())
                         # Dla wartości z spacjami, dodaj warianty każdego słowa
-                        if ' ' in value:
-                            words = value.split(' ')
+                        if " " in value:
+                            words = value.split(" ")
                             # Wszystkie kombinacje wielkości liter dla słów
-                            for combo in itertools.product(*[[w.lower(), w.upper(), w.title()] for w in words]):
-                                extended_values.add(' '.join(combo))
-                
+                            for combo in itertools.product(
+                                *[[w.lower(), w.upper(), w.title()] for w in words]
+                            ):
+                                extended_values.add(" ".join(combo))
+
                 if schema.get("type") == "list":
                     if "items" not in field_schema:
                         field_schema["items"] = {}
                     field_schema["items"]["enum"] = sorted(list(extended_values))
-                    field_schema["items"]["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                    field_schema["items"]["examples"] = (
+                        [schema["allowed"][0]] if schema["allowed"] else []
+                    )
                 else:
                     field_schema["enum"] = sorted(list(extended_values))
-                    field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                    field_schema["examples"] = (
+                        [schema["allowed"][0]] if schema["allowed"] else []
+                    )
             else:
                 if schema.get("type") == "list":
                     if "items" not in field_schema:
                         field_schema["items"] = {}
                     field_schema["items"]["enum"] = allowed_values
-                    field_schema["items"]["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                    field_schema["items"]["examples"] = (
+                        [schema["allowed"][0]] if schema["allowed"] else []
+                    )
                 else:
                     field_schema["enum"] = allowed_values
-                    field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
+                    field_schema["examples"] = (
+                        [schema["allowed"][0]] if schema["allowed"] else []
+                    )
             # Add examples for better IDE support
             # field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
 
@@ -201,13 +234,18 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
 
     return json_schema
 
-def generate_section_schema(section_name: str, section_schema: Dict[str, Any]) -> Dict[str, Any]:
+
+def generate_section_schema(
+    section_name: str, section_schema: dict[str, Any]
+) -> dict[str, Any]:
     """Generate a schema for a specific section."""
     if section_schema.get("type") == "array":
         # For array types, use the items schema directly
         return {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            **convert_cerberus_to_json_schema({section_name: section_schema})["properties"][section_name]
+            **convert_cerberus_to_json_schema({section_name: section_schema})[
+                "properties"
+            ][section_name],
         }
     else:
         # For object types, wrap in an object schema
@@ -215,30 +253,33 @@ def generate_section_schema(section_name: str, section_schema: Dict[str, Any]) -
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
             "properties": {
-                section_name: convert_cerberus_to_json_schema({section_name: section_schema})["properties"][section_name]
-            }
+                section_name: convert_cerberus_to_json_schema(
+                    {section_name: section_schema}
+                )["properties"][section_name]
+            },
         }
+
 
 def main():
     """Main function to convert schema."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     schema_file = os.path.join(script_dir, "..", "schema", "schema.yaml")
     output_dir = os.path.join(script_dir, "..", "webui", "schema")
-    
+
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Load the schema
     with open(schema_file, "r") as f:
         schema = yaml.load(f, Loader=BoneIOLoader)
-    
+
     # Convert and save the main schema
     json_schema = convert_cerberus_to_json_schema(schema)
     main_schema_file = os.path.join(output_dir, "config.schema.json")
     with open(main_schema_file, "w") as f:
         json.dump(json_schema, f, indent=2)
     print(f"Schema written to {main_schema_file}")
-    
+
     # Generate and save section-specific schemas
     for section_name, section_schema in schema.items():
         section_json_schema = generate_section_schema(section_name, section_schema)
@@ -246,6 +287,7 @@ def main():
         with open(section_schema_file, "w") as f:
             json.dump(section_json_schema, f, indent=2)
         print(f"Section schema for {section_name} written to {section_schema_file}")
+
 
 if __name__ == "__main__":
     main()

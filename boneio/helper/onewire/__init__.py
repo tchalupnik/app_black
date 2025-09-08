@@ -1,4 +1,5 @@
 """Helper dir for DS2482."""
+
 from boneio.helper.onewire.ds2482 import DS2482, DS2482_ADDRESS
 from boneio.helper.onewire.onewire import (
     OneWire,

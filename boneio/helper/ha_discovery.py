@@ -35,9 +35,7 @@ def ha_availabilty_message(
     **kwargs,
 ):
     """Create availability topic for HA."""
-    web_url = {
-        "configuration_url": web_url
-    } if web_url else {}
+    web_url = {"configuration_url": web_url} if web_url else {}
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "optimistic": False,
@@ -47,7 +45,7 @@ def ha_availabilty_message(
             "model": model,
             "name": device_name,
             "sw_version": __version__,
-            **web_url
+            **web_url,
         },
         "name": name,
         "state_topic": f"{topic}/{device_type}/{id}",
@@ -56,10 +54,9 @@ def ha_availabilty_message(
         **kwargs,
     }
 
+
 def ha_virtual_energy_sensor_discovery_message(
-    topic: str,
-    relay_id: str,
-    **kwargs
+    topic: str, relay_id: str, **kwargs
 ) -> dict[str, str]:
     """
     Generate MQTT autodiscovery messages for Home Assistant for virtual power and energy sensors.
@@ -76,7 +73,9 @@ def ha_virtual_energy_sensor_discovery_message(
     return msg
 
 
-def ha_light_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
+def ha_light_availabilty_message(
+    id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs
+):
     """Create LIGHT availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
@@ -86,7 +85,7 @@ def ha_light_availabilty_message(id: str, topic: str = "boneIO", device_type: st
     return msg
 
 
-def ha_led_availabilty_message(id: str, topic: str = "boneIO",  **kwargs):
+def ha_led_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     """Create LED availability topic for HA."""
     msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set"
@@ -110,7 +109,9 @@ def ha_button_availabilty_message(
     return msg
 
 
-def ha_switch_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
+def ha_switch_availabilty_message(
+    id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs
+):
     """Create SWITCH availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
@@ -119,7 +120,10 @@ def ha_switch_availabilty_message(id: str, topic: str = "boneIO", device_type: s
     msg["value_template"] = "{{ value_json.state }}"
     return msg
 
-def ha_valve_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
+
+def ha_valve_availabilty_message(
+    id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs
+):
     """Create Valve availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
@@ -152,7 +156,14 @@ def ha_sensor_availabilty_message(device_type: str = SENSOR, **kwargs):
     return msg
 
 
-def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs):
+def ha_binary_sensor_availabilty_message(
+    id: str,
+    name: str,
+    device_class: str,
+    topic: str = "boneIO",
+    model: str = "boneIO Relay Board",
+    **kwargs,
+):
     """Create availability topic for HA."""
     kwargs = {"device_class": device_class, **kwargs} if device_class else {**kwargs}
     return {
@@ -174,7 +185,11 @@ def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, 
 
 
 def ha_sensor_ina_availabilty_message(
-    id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str,
+    name: str,
+    topic: str = "boneIO",
+    model: str = "boneIO Relay Board",
+    **kwargs,
 ):
     """Create availability topic for HA."""
     return {
@@ -196,7 +211,11 @@ def ha_sensor_ina_availabilty_message(
 
 
 def ha_sensor_temp_availabilty_message(
-    id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str,
+    name: str,
+    topic: str = "boneIO",
+    model: str = "boneIO Relay Board",
+    **kwargs,
 ):
     """Create availability topic for HA."""
     return {
@@ -216,6 +235,7 @@ def ha_sensor_temp_availabilty_message(
         "value_template": "{{ value_json.state }}",
         **kwargs,
     }
+
 
 def modbus_availabilty_message(
     id: str,
@@ -243,6 +263,7 @@ def modbus_availabilty_message(
         **kwargs,
     }
 
+
 def modbus_sensor_availabilty_message(
     id: str,
     sensor_id: str,
@@ -268,6 +289,7 @@ def modbus_sensor_availabilty_message(
         "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{name.lower()}",
         **kwargs,
     }
+
 
 def modbus_select_availabilty_message(
     id: str,
@@ -324,10 +346,15 @@ def modbus_numeric_availabilty_message(
 
 
 def ha_cover_availabilty_message(
-    id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str,
+    name: str,
+    device_class: str,
+    topic: str = "boneIO",
+    model: str = "boneIO Relay Board",
+    **kwargs,
 ):
     """Create Cover availability topic for HA."""
-    kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
+    kwargs = {"device_class": device_class, **kwargs} if device_class else {**kwargs}
     msg = ha_availabilty_message(
         device_type=COVER, topic=topic, id=id, name=name, model=model, **kwargs
     )
@@ -344,16 +371,21 @@ def ha_cover_availabilty_message(
         "state_closed": CLOSED,
         "state_closing": CLOSING,
         "state_topic": f"{topic}/{COVER}/{id}/state",
-        "position_template": '{{ value_json.position }}',
+        "position_template": "{{ value_json.position }}",
         "position_topic": f"{topic}/{COVER}/{id}/pos",
     }
 
 
 def ha_cover_with_tilt_availabilty_message(
-    id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str,
+    name: str,
+    device_class: str,
+    topic: str = "boneIO",
+    model: str = "boneIO Relay Board",
+    **kwargs,
 ):
     """Create Cover with tilt availability topic for HA."""
-    kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
+    kwargs = {"device_class": device_class, **kwargs} if device_class else {**kwargs}
     msg = ha_availabilty_message(
         device_type=COVER, topic=topic, id=id, name=name, model=model, **kwargs
     )
@@ -374,6 +406,6 @@ def ha_cover_with_tilt_availabilty_message(
         "state_topic": f"{topic}/{COVER}/{id}/state",
         "position_topic": f"{topic}/{COVER}/{id}/pos",
         "tilt_status_topic": f"{topic}/{COVER}/{id}/pos",
-        "position_template": '{{ value_json.position }}',
-        "tilt_status_template": '{{ value_json.tilt }}',
+        "position_template": "{{ value_json.position }}",
+        "tilt_status_template": "{{ value_json.tilt }}",
     }

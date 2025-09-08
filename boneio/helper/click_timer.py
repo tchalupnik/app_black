@@ -20,7 +20,7 @@ class ClickTimer:
     def is_waiting(self) -> bool:
         """If variable is set then timer is ON, if None is Off."""
         return self._remove_listener is not None
-    
+
     @property
     def delay(self) -> float:
         return self._delay
@@ -37,4 +37,6 @@ class ClickTimer:
 
     def start_timer(self) -> None:
         """Start timer."""
-        self._remove_listener = self._loop.call_later(self._delay, self._start_action, time.time())
+        self._remove_listener = self._loop.call_later(
+            self._delay, self._start_action, time.time()
+        )

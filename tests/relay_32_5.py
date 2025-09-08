@@ -3,10 +3,9 @@ import logging
 
 from boneio.helper import load_config_from_file
 from boneio.manager import Manager
+from boneio.const import LM75, MCP23017, MCP_TEMP_9808, OUTPUT
 
 _LOGGER = logging.getLogger(__name__)
-
-from boneio.const import LM75, MCP23017, MCP_TEMP_9808, OUTPUT
 
 
 async def test_32_5():

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,15 +22,13 @@ class Filter:
     _filters = []
 
     def _apply_filters(
-        self, value: float | None, filters: Optional[list] = None
+        self, value: float | None, filters: list | None = None
     ) -> float | None:
         filters = filters if filters is not None else self._filters
         for filter in filters:
             for k, v in filter.items():
                 if k not in FILTERS:
-                    _LOGGER.warning(
-                        "Filter %s doesn't exists. Fix it in config.", k
-                    )
+                    _LOGGER.warning("Filter %s doesn't exists. Fix it in config.", k)
                     continue
                 if value is None:
                     return None

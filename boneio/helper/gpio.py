@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
 import time
 
@@ -12,17 +13,46 @@ try:
 except ModuleNotFoundError:
 
     class GPIO:
+        IN = "in"
+        OUT = "out"
         PUD_OFF = "poff"
-        PUD_UP = "poff"
-        PUD_DOWN = "poff"
+        PUD_UP = "pup"
+        PUD_DOWN = "pdown"
 
-        def __init__(self):
-            pass
+        @staticmethod
+        def setup(pin, direction, pull_up_down=None):
+            _LOGGER.warning(
+                f"GPIO.setup({pin}, {direction}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
+            )
 
-    pass
+        @staticmethod
+        def output(pin, value):
+            _LOGGER.warning(
+                f"GPIO.output({pin}, {value}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
+            )
+
+        @staticmethod
+        def input(pin):
+            _LOGGER.warning(
+                f"GPIO.input({pin}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
+            )
+            return False
+
+        @staticmethod
+        def add_event_detect(gpio, edge, callback=None, bouncetime=0):
+            _LOGGER.warning(
+                f"GPIO.add_event_detect({gpio}, {edge}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
+            )
+
+        @staticmethod
+        def add_event_callback(gpio, callback):
+            _LOGGER.warning(
+                f"GPIO.add_event_callback({gpio}) - BeagleBone GPIO not available. Install with: pip install boneio[beaglebone]"
+            )
+
 
 import subprocess
-from typing import Awaitable, Callable
+from typing import Awaitable
 
 from boneio.const import (
     CONFIG_PIN,
@@ -32,8 +62,8 @@ from boneio.const import (
     PRESSED,
     RELEASED,
     ClickTypes,
-    Gpio_Edges,
-    Gpio_States,
+    GpioEdges,
+    GpioStates,
 )
 from boneio.const import GPIO as GPIO_STR
 from boneio.helper.exceptions import GPIOInputException
@@ -55,7 +85,6 @@ def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
 
 def setup_output(pin: str) -> None:
     """Set up a GPIO as output."""
-
     GPIO.setup(pin, GPIO.OUT, pull_up_down=GPIO.PUD_DOWN)
 
 
@@ -78,28 +107,25 @@ def setup_input(pin: str, pull_mode: str = "gpio") -> None:
 
 def write_output(pin: str, value: str) -> None:
     """Write a value to a GPIO."""
-
     GPIO.output(pin, value)
 
 
-def read_input(pin: str, on_state: Gpio_States = LOW) -> bool:
+def read_input(pin: str, on_state: GpioStates = LOW) -> bool:
     """Read a value from a GPIO."""
     return GPIO.input(pin) is on_state
 
 
 def edge_detect(
-    pin: str, callback: Callable, bounce: int = 0, edge: Gpio_Edges = FALLING
+    pin: str, callback: Callable, bounce: int = 0, edge: GpioEdges = FALLING
 ) -> None:
     """Add detection for RISING and FALLING events."""
     try:
-        GPIO.add_event_detect(
-            gpio=pin, edge=edge, callback=callback, bouncetime=bounce
-        )
+        GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
     except RuntimeError as err:
         raise GPIOInputException(err)
 
 
-def add_event_detect(pin: str, edge: Gpio_Edges = FALLING) -> None:
+def add_event_detect(pin: str, edge: GpioEdges = FALLING) -> None:
     """Add detection for RISING and FALLING events."""
     try:
         GPIO.add_event_detect(gpio=pin, edge=edge)
@@ -136,9 +162,7 @@ class GpioBaseClass:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        bounce_time: TimePeriod = kwargs.get(
-            "bounce_time", TimePeriod(milliseconds=50)
-        )
+        bounce_time: TimePeriod = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
         self._bounce_time = bounce_time.total_in_seconds
         self._loop = asyncio.get_running_loop()
         self._manager_press_callback = manager_press_callback
@@ -160,17 +184,29 @@ class GpioBaseClass:
         return self._boneio_input or ""
 
     def press_callback(
-        self, click_type: ClickTypes, duration: float | None = None, start_time: float | None = None
+        self,
+        click_type: ClickTypes,
+        duration: float | None = None,
+        start_time: float | None = None,
     ) -> None:
         """Handle press callback."""
-        asyncio.run_coroutine_threadsafe(self._handle_press_with_lock(click_type, duration, start_time), self._loop)
-        
-        
-    async def _handle_press_with_lock(self, click_type: ClickTypes, duration: float | None = None, start_time: float | None = None):
+        asyncio.run_coroutine_threadsafe(
+            self._handle_press_with_lock(click_type, duration, start_time), self._loop
+        )
+
+    async def _handle_press_with_lock(
+        self,
+        click_type: ClickTypes,
+        duration: float | None = None,
+        start_time: float | None = None,
+    ):
         """Handle press event with a lock to ensure sequential execution."""
         now = time.time()
         _LOGGER.debug(
-            "[%s] Attempting to acquire lock for event '%s'. Duration: %s", self.name, click_type, now - start_time
+            "[%s] Attempting to acquire lock for event '%s'. Duration: %s",
+            self.name,
+            click_type,
+            now - start_time,
         )
         async with self._event_lock:
             _LOGGER.debug(
@@ -202,13 +238,10 @@ class GpioBaseClass:
                 timestamp=self.last_press_timestamp,
                 boneio_input=self.boneio_input,
             )
-            self._event_bus.trigger_event({
-                "event_type": "input", 
-                "entity_id": self.id, 
-                "event_state": event
-            })
+            self._event_bus.trigger_event(
+                {"event_type": "input", "entity_id": self.id, "event_state": event}
+            )
         _LOGGER.debug("[%s] Released lock for event '%s'", self.name, click_type)
-
 
     def set_actions(self, actions: dict) -> None:
         self._actions = actions

@@ -18,7 +18,6 @@ class AsyncUpdater:
         self.manager.append_task(coro=self._refresh, name=self.id)
         self._timestamp = time.time()
 
-
     async def _refresh(self) -> None:
         try:
             while True:
@@ -29,11 +28,13 @@ class AsyncUpdater:
                     )
                 else:
                     update_interval = (
-                    self.update(timestamp=time.time()) or self._update_interval.total_in_seconds
-                )
+                        self.update(timestamp=time.time())
+                        or self._update_interval.total_in_seconds
+                    )
                 await asyncio.sleep(update_interval)
         except asyncio.CancelledError:
             raise
+
     @property
     def last_timestamp(self) -> float:
         return self._timestamp

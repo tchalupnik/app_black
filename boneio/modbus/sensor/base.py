@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.config import ConfigHelper
@@ -14,7 +13,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class BaseSensor(Filter):
-
     _ha_type_ = SENSOR
 
     def __init__(
@@ -23,13 +21,13 @@ class BaseSensor(Filter):
         parent: dict,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
-        unit_of_measurement: Optional[str] = None,
-        state_class: Optional[str]   = None,
-        device_class: Optional[str] = None,
-        value_type: Optional[str] = None,
-        return_type: Optional[str] = None,
+        unit_of_measurement: str | None = None,
+        state_class: str | None = None,
+        device_class: str | None = None,
+        value_type: str | None = None,
+        return_type: str | None = None,
         filters: list = [],
-        user_filters: Optional[list] = [],
+        user_filters: list | None = [],
         ha_filter: str = "round(2)",
     ) -> None:
         self._name = name
@@ -120,8 +118,12 @@ class BaseSensor(Filter):
         self._message_bus.send_message(topic=self._topic, payload=payload)
 
     def discovery_message(self):
-        value_template = f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}" if self._ha_filter else f"{{{{ value_json.{self.decoded_name} }}}}" 
-        
+        value_template = (
+            f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}"
+            if self._ha_filter
+            else f"{{{{ value_json.{self.decoded_name} }}}}"
+        )
+
         kwargs = {
             "unit_of_measurement": self.unit_of_measurement,
             "state_class": self._state_class,
@@ -152,13 +154,13 @@ class ModbusBaseSensor(BaseSensor):
         base_address: int,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
-        unit_of_measurement: Optional[str] = None,
-        state_class: Optional[str] = None,
-        device_class: Optional[str] = None,
-        value_type: Optional[str] = None,
-        return_type: Optional[str] = None,
-        filters: Optional[list] = None,
-        user_filters: Optional[list] = [],
+        unit_of_measurement: str | None = None,
+        state_class: str | None = None,
+        device_class: str | None = None,
+        value_type: str | None = None,
+        return_type: str | None = None,
+        filters: list | None = None,
+        user_filters: list | None = [],
         ha_filter: str = "",
     ) -> None:
         """
@@ -199,4 +201,3 @@ class ModbusBaseSensor(BaseSensor):
     @property
     def base_address(self) -> int:
         return self._base_address
-    

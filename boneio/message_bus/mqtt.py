@@ -6,11 +6,12 @@ Code based on cgarwood/python-openzwave-mqtt.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Awaitable
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
 from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class MQTTClient(MessageBus):
     """Represent an MQTT client."""
@@ -53,7 +55,9 @@ class MQTTClient(MessageBus):
         self.reconnect_interval = 1
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
-        self._mqtt_energy_listeners: dict[str, Callable[[str, str], Awaitable[None]]] = {}
+        self._mqtt_energy_listeners: dict[
+            str, Callable[[str, str], Awaitable[None]]
+        ] = {}
         self._discovery_topics = (
             [
                 f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/#"
@@ -67,7 +71,7 @@ class MQTTClient(MessageBus):
             "homeassistant/status",
         ]
         self._running = True
-        self._cancel_future: Optional[asyncio.Future] = None
+        self._cancel_future: asyncio.Future | None = None
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -87,10 +91,10 @@ class MQTTClient(MessageBus):
     async def publish(  # pylint:disable=too-many-arguments
         self,
         topic: str,
-        payload: Optional[str] = None,
+        payload: str | None = None,
         retain: bool = False,
         qos: int = 0,
-        properties: Optional[Properties] = None,
+        properties: Properties | None = None,
         timeout: float = 10,
     ) -> None:
         """Publish to topic.
@@ -110,8 +114,8 @@ class MQTTClient(MessageBus):
         self,
         topics: list[str],
         qos: int = 0,
-        options: Optional[SubscribeOptions] = None,
-        properties: Optional[Properties] = None,
+        options: SubscribeOptions | None = None,
+        properties: Properties | None = None,
         timeout: float = 10.0,
     ) -> None:
         """Subscribe to topic.
@@ -129,11 +133,11 @@ class MQTTClient(MessageBus):
 
         # e.g. subscribe([("my/topic", SubscribeOptions(qos=0), ("another/topic", SubscribeOptions(qos=2)])
         _LOGGER.debug("Subscribing to %s", args)
-        await self.asyncio_client.subscribe(
-            topic=args, **params, timeout=timeout
-        )
+        await self.asyncio_client.subscribe(topic=args, **params, timeout=timeout)
 
-    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
+    async def subscribe_and_listen(
+        self, topic: str, callback: Callable[[str, str], Awaitable[None]]
+    ) -> None:
         self._mqtt_energy_listeners[topic] = callback
 
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
@@ -143,7 +147,7 @@ class MQTTClient(MessageBus):
     async def unsubscribe(
         self,
         topics: list[str],
-        properties: Optional[Properties] = None,
+        properties: Properties | None = None,
         timeout: float = 10.0,
     ) -> None:
         """Unsubscribe from topic.
@@ -159,7 +163,7 @@ class MQTTClient(MessageBus):
     def send_message(
         self,
         topic: str,
-        payload: Union[str, int, dict, None],
+        payload: str | int | dict | None,
         retain: bool = False,
     ) -> None:
         """Send a message from the manager options."""
@@ -192,9 +196,7 @@ class MQTTClient(MessageBus):
                 try:
                     await self._subscribe_manager(self._manager)
                 except MqttError as err:
-                    self.reconnect_interval = min(
-                        self.reconnect_interval * 2, 60
-                    )
+                    self.reconnect_interval = min(self.reconnect_interval * 2, 60)
                     _LOGGER.error(
                         "MQTT error: %s. Reconnecting in %s seconds",
                         err,
@@ -220,30 +222,26 @@ class MQTTClient(MessageBus):
             self.publish_queue.set_connected(True)
             # Create a new future for this run
             self._cancel_future = asyncio.Future()
-            
+
             async def wait_for_cancel():
                 await self._cancel_future
                 # When future completes, raise CancelledError to stop other tasks
                 raise asyncio.CancelledError("Stop requested")
-            
-            tasks: Set[asyncio.Task] = set()
+
+            tasks: set[asyncio.Task] = set()
 
             publish_task = asyncio.create_task(self._handle_publish())
             tasks.add(publish_task)
 
             # Messages that doesn't match a filter will get logged and handled here.
-            messages = await stack.enter_async_context(
-                self.asyncio_client.messages()
-            )
+            messages = await stack.enter_async_context(self.asyncio_client.messages())
 
             messages_task = asyncio.create_task(
                 self.handle_messages(messages, manager.receive_message)
             )
             if not self._connection_established:
                 self._connection_established = True
-                reconnect_task = asyncio.create_task(
-                    manager.reconnect_callback()
-                )
+                reconnect_task = asyncio.create_task(manager.reconnect_callback())
                 tasks.add(reconnect_task)
             tasks.add(messages_task)
 
@@ -251,7 +249,11 @@ class MQTTClient(MessageBus):
             cancel_task = asyncio.create_task(wait_for_cancel())
             tasks.add(cancel_task)
 
-            topics = self._topics + list(self._mqtt_energy_listeners.keys()) + self._discovery_topics
+            topics = (
+                self._topics
+                + list(self._mqtt_energy_listeners.keys())
+                + self._discovery_topics
+            )
             await self.subscribe(topics=topics)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
@@ -274,16 +276,10 @@ class MQTTClient(MessageBus):
                     topic = str(message.topic)
                     if (
                         message.payload
-                        and not self._config_helper.is_topic_in_autodiscovery(
-                            topic
-                        )
+                        and not self._config_helper.is_topic_in_autodiscovery(topic)
                     ):
-                        _LOGGER.info(
-                            "Removing unused discovery entity %s", topic
-                        )
-                        self.send_message(
-                            topic=topic, payload=None, retain=True
-                        )
+                        _LOGGER.info("Removing unused discovery entity %s", topic)
+                        self.send_message(topic=topic, payload=None, retain=True)
                     break
             if message.topic.matches(f"{self._config_helper.topic_prefix}/energy/#"):
                 for topic, listener_callback in self._mqtt_energy_listeners.items():

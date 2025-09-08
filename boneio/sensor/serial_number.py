@@ -1,4 +1,5 @@
 """Serial Number sensor."""
+
 import logging
 
 from boneio.const import SENSOR
@@ -30,7 +31,7 @@ class SerialNumberSensor(BasicMqtt, AsyncUpdater):
         if not network_info or "mac" not in network_info:
             return
         # Remove colons and take last 6 characters
-        _state = network_info["mac"].replace(':', '')[-6:]
+        _state = network_info["mac"].replace(":", "")[-6:]
         self._state = f"blk{_state}"
         self._timestamp = timestamp
         self._message_bus.send_message(

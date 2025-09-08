@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
 import socket
 import time
 from math import floor
 
-# Typing imports that create a circular dependency
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING
 
 import psutil
 
@@ -147,14 +147,12 @@ class HostSensor(AsyncUpdater):
         sensor_state = HostSensorState(
             id=self.id,
             name=self._type,
-            state="new_state", #doesn't matter here, as we fetch everything in Oled.
+            state="new_state",  # doesn't matter here, as we fetch everything in Oled.
             timestamp=timestamp,
         )
-        self._event_bus.trigger_event({
-            "event_type": "host", 
-            "entity_id": self.id, 
-            "event_state": sensor_state
-        })
+        self._event_bus.trigger_event(
+            {"event_type": "host", "entity_id": self.id, "event_state": sensor_state}
+        )
 
     @property
     def state(self) -> dict:
@@ -174,8 +172,8 @@ class HostData:
         ina219: INA219Class | None,
         manager: Manager,
         event_bus: EventBus,
-        enabled_screens: List[str],
-        extra_sensors: List[dict],
+        enabled_screens: list[str],
+        extra_sensors: list[dict],
     ) -> None:
         """Initialize HostData."""
         self._manager = manager
@@ -271,17 +269,11 @@ class HostData:
                         modbus_id = sensor.get("modbus_id")
                         _modbus_coordinator = manager.modbus_coordinators.get(modbus_id)
                         if _modbus_coordinator:
-                            entity = _modbus_coordinator.get_entity_by_name(
-                                sensor_id
-                            )
+                            entity = _modbus_coordinator.get_entity_by_name(sensor_id)
                             if not entity:
-                                _LOGGER.warning(
-                                    "Sensor %s not found", sensor_id
-                                )
+                                _LOGGER.warning("Sensor %s not found", sensor_id)
                                 continue
-                            short_name = "".join(
-                                [x[:3] for x in entity.name.split()]
-                            )
+                            short_name = "".join([x[:3] for x in entity.name.split()])
                             output[short_name] = (
                                 f"{round(entity.state, 2)} {entity.unit_of_measurement}"
                             )
@@ -312,9 +304,7 @@ class HostData:
             )
         self._output = output
         self._inputs = {
-            f"Inputs screen {i + 1}": list(inputs.values())[
-                i * 25 : (i + 1) * 25
-            ]
+            f"Inputs screen {i + 1}": list(inputs.values())[i * 25 : (i + 1) * 25]
             for i in range((len(inputs) + 24) // 25)
         }
         self._loop = asyncio.get_running_loop()
@@ -342,9 +332,7 @@ class HostData:
         """Get stats for output."""
         out = {}
         for output in self._output[type].values():
-            out[output.id] = {
-                "name": output.name, "state": output.state
-            }
+            out[output.id] = {"name": output.name, "state": output.state}
 
         return out
 
@@ -354,7 +342,9 @@ class HostData:
         for input in self._inputs[type]:
             inputs[input.id] = {
                 "name": input.name,
-                "state": input.last_state[0].upper() if input.last_state and input.last_state != "Unknown" else ""
+                "state": input.last_state[0].upper()
+                if input.last_state and input.last_state != "Unknown"
+                else "",
             }
         return inputs
 

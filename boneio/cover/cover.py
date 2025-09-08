@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Callable
 
 from boneio.const import (
     CLOSED,
@@ -23,11 +23,14 @@ from boneio.relay import MCPRelay
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class BaseCoverABC(ABC):
     """Base cover class."""
 
     @abstractmethod
-    def __init__(self, id: str,
+    def __init__(
+        self,
+        id: str,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
@@ -38,11 +41,10 @@ class BaseCoverABC(ABC):
         **kwargs,
     ) -> None:
         pass
-        
 
     @abstractmethod
     async def stop(self) -> None:
-        """Stop cover.""" 
+        """Stop cover."""
         pass
 
     @abstractmethod
@@ -75,7 +77,6 @@ class BaseCoverABC(ABC):
         """Set cover position."""
         pass
 
-
     @property
     @abstractmethod
     def state(self) -> str:
@@ -96,15 +97,20 @@ class BaseCoverABC(ABC):
     def last_timestamp(self) -> float:
         pass
 
-
     @abstractmethod
-    async def run_cover(self, current_operation: str, target_position: float | None = None,  target_tilt: float | None = None) -> None:
+    async def run_cover(
+        self,
+        current_operation: str,
+        target_position: float | None = None,
+        target_tilt: float | None = None,
+    ) -> None:
         """This function is called to run cover after calling open, close, toggle, toggle_open, toggle_close, set_cover_position"""
         pass
 
     @abstractmethod
     async def send_state(self, state: str, position: float) -> None:
         pass
+
 
 class BaseVenetianCoverABC:
     @property
@@ -139,7 +145,9 @@ class BaseVenetianCoverABC:
 
 
 class BaseCover(BaseCoverABC, BasicMqtt):
-    def __init__(self, id: str,
+    def __init__(
+        self,
+        id: str,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
@@ -173,11 +181,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._event_bus.add_sigterm_listener(self.on_exit)
 
         self._loop.call_soon_threadsafe(
-            self._loop.call_later,
-            0.5,
-            self.send_state,
-            self.state,
-            self.json_position
+            self._loop.call_later, 0.5, self.send_state, self.state, self.json_position
         )
 
     async def on_exit(self) -> None:
@@ -199,14 +203,18 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return
         _LOGGER.info("Opening cover %s.", self._id)
         await self.run_cover(current_operation=OPENING)
-        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/state", payload=OPENING
+        )
 
     async def close(self) -> None:
         if self._position <= 0:
             return
         _LOGGER.info("Closing cover %s.", self._id)
         await self.run_cover(current_operation=CLOSING)
-        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/state", payload=CLOSING
+        )
 
     async def set_cover_position(self, position: int) -> None:
         if not 0 <= position <= 100:
@@ -241,7 +249,6 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         else:
             await self.close()
 
-
     @property
     def state(self) -> str:
         if self._current_operation == OPENING:
@@ -275,15 +282,15 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             kind=self.kind,
             timestamp=self._last_timestamp,
             current_operation=self._current_operation,
-            **json_position
+            **json_position,
         )
-        self._event_bus.trigger_event({
-            "event_type": "cover", 
-            "entity_id": self.id, 
-            "event_state": event
-        })
+        self._event_bus.trigger_event(
+            {"event_type": "cover", "entity_id": self.id, "event_state": event}
+        )
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
-        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json_position)
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/pos", payload=json_position
+        )
 
     def send_state_and_save(self, json_position: PositionDict):
         self.send_state(self.state, json_position)

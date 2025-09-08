@@ -25,7 +25,6 @@ dependencies = [
   "adafruit-circuitpython-pca9685==3.4.17",
   "adafruit-circuitpython-pcf8575==1.0.9",
   "adafruit-circuitpython-typing==1.9.5",
-  "adafruit-bbio @ git+https://github.com/tchalupnik/adafruit-beaglebone-io-python.git",
   "fastapi==0.103.2",
   "pydantic==2.5.3",
   "hypercorn==0.14.4",
@@ -36,6 +35,17 @@ dependencies = [
 requires-python = ">=3.10"
 license = { text = "GNU General Public License v3.0" }
 
+[project.optional-dependencies]
+beaglebone = [
+  "adafruit-bbio @ git+https://github.com/tchalupnik/adafruit-beaglebone-io-python.git",
+]
+dev = [
+  "ruff>=0.6.0",
+  "ty>=0.0.1a20",
+  "pre-commit>=3.8.0",
+  "bandit>=1.7.5",
+]
+
 [project.urls]
 Homepage = "https://boneio.eu"
 Repository = "https://github.com/boneIO-eu/app_bbb"
@@ -45,54 +55,39 @@ Changelog = "https://github.com/boneIO-eu/app_bbb/releases"
 [project.scripts]
 boneio = "boneio.bonecli:main"
 
-[tool.pdm]
-version = { from = "boneio/version.py" }
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pdm.dev-dependencies]
-dev = [
-  "black>=23.3.0",
-  "isort>=5.11.5",
-  "pre-commit>=2.21.0",
-  "flake8>=5.0.4",
-  "bandit>=1.7.5",
-  "setuptools>=67.7.2",
+[tool.hatch.version]
+path = "boneio/version.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+exclude = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "tests/fixtures",
 ]
 
-[build-system]
-requires = ["pdm-pep517", "setuptools>=42", "pybind11"]
-build-backend = "pdm.pep517.api"
+[tool.ty.src]
+include = ["boneio/"]
 
-[tool.black]
-line-length = 88
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-  | pdm/_vendor
-  | tests/fixtures
-)/
-'''
+[tool.ty.rules]
+unresolved-import = "ignore"
 
-[tool.isort]
-profile = "black"
-atomic = true
-filter_files = true
-known_first_party = ["boneio"]
-
-[tool.pdm.scripts]
-lint = "pre-commit run --all-files"
-
-[tool.setuptools.extension]
-gpio_event = { sources = [
-  "boneio/binding/gpio_event.cpp",
-], libraries = [
-  "gpiod",
-] }
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101", "B601"]

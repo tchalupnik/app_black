@@ -9,14 +9,20 @@ from boneio.modbus.sensor.base import ModbusBaseSensor
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator
-from typing import Optional
 
 
 class ModbusBinaryWriteableEntityDiscrete(ModbusBaseSensor):
-
     _ha_type_ = BINARY_SENSOR
 
-    def __init__(self, coordinator: ModbusCoordinator, write_address: Optional[int] = None, payload_off: str = "OFF", payload_on: str = "ON", write_filters: Optional[list] = [], **kwargs):
+    def __init__(
+        self,
+        coordinator: ModbusCoordinator,
+        write_address: int | None = None,
+        payload_off: str = "OFF",
+        payload_on: str = "ON",
+        write_filters: list | None = None,
+        **kwargs,
+    ):
         ModbusBaseSensor.__init__(self, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address
@@ -50,8 +56,7 @@ class ModbusBinaryWriteableEntityDiscrete(ModbusBaseSensor):
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
-            device_type=SENSOR, #because we send everything to boneio/sensor from modbus.
+            device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
             **kwargs,
         )
         return msg
-        

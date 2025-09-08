@@ -12,6 +12,9 @@ class SoftwareInterlockManager:
     def can_turn_on(self, relay, group_names):
         for group in group_names:
             for other_relay in self.groups.get(group, []):
-                if other_relay is not relay and getattr(other_relay, "state", None) == ON:
+                if (
+                    other_relay is not relay
+                    and getattr(other_relay, "state", None) == ON
+                ):
                     return False
         return True

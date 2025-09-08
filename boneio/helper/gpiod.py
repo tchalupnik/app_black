@@ -1,44 +1,53 @@
 from __future__ import annotations
-import asyncio
 import logging
 from boneio.const import PINS
 import gpiod
-from gpiod.line import Direction, Bias, Edge, Value
+from gpiod.line import Direction, Bias, Edge
 from gpiod.line_settings import LineSettings
 from datetime import timedelta
-_LOGGER = logging.getLogger(__name__)
 
+_LOGGER = logging.getLogger(__name__)
 
 
 def _get_device(pin: str):
     pin = PINS.get(pin, "P9_22")
-    return f"/dev/gpiochip{pin["chip"]}"
+    return f"/dev/gpiochip{pin['chip']}"
 
-def _configure_line(device, port, **kwargs):
+
+def _configure_line(device, port, direction, bias):
     return gpiod.request_lines(
-        device, 
-        consumer="gpio", 
-        config={port: LineSettings(**kwargs)})
+        device,
+        consumer="gpio",
+        config={port: LineSettings(direction=direction, bias=bias)},
+    )
 
-def setup_input(device, line, pull_mode):
+
+def setup_input(device: str, line: int, pull_mode: str):
     """Set up a GPIO as input."""
     _LOGGER.debug("Requesting input %s:%s", device, line)
     return _configure_line(
         device,
-        line, 
+        line,
         direction=Direction.INPUT,
-        bias=(Bias.PULL_UP if pull_mode == "gpio_pu" else Bias.PULL_DOWN))
+        bias=(Bias.PULL_UP if pull_mode == "gpio_pu" else Bias.PULL_DOWN),
+    )
+
 
 def enable_edge_detect(req, detect_edges, debounce_ms):
     """Add detection for RISING and FALLING events."""
     _LOGGER.debug("Detecting %s edges on %s:%s", detect_edges, req.chip_name, req.lines)
     req.reconfigure_lines(
-        {port: LineSettings(edge_detection=getattr(Edge, detect_edges),
-                            debounce_period=timedelta(milliseconds=debounce_ms))
-         for port in req.lines})
+        {
+            port: LineSettings(
+                edge_detection=getattr(Edge, detect_edges),
+                debounce_period=timedelta(milliseconds=debounce_ms),
+            )
+            for port in req.lines
+        }
+    )
+
 
 class GpioD:
-
     def __init__(self, pin: str, pull_mode: str = "gpio"):
         self._pin = pin
         self._gpiod_pin = PINS.get(pin, {"chip": 0, "line": 2})
@@ -49,8 +58,3 @@ class GpioD:
 
     def edge_detect(self, callback, bounce=0, edge=Edge.RISING):
         enable_edge_detect(self._line, edge=Edge.BOTH, debounce_ms=bounce)
-
-    
-
-    
-

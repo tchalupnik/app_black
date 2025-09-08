@@ -1,4 +1,5 @@
-# from typing import Literal
+from typing import Literal
+
 try:
     from Adafruit_BBIO.GPIO import BOTH, FALLING, HIGH, LOW, RISING
 except ModuleNotFoundError:
@@ -8,7 +9,6 @@ except ModuleNotFoundError:
     FALLING = "falling"
     RISING = "rising"
     pass
-from typing_extensions import Literal
 
 BONEIO = "boneio"
 NONE = "none"
@@ -46,7 +46,7 @@ MASK = "mask"
 MAC = "mac"
 NONE = "none"
 MODBUS = "modbus"
-MODBUS_SENSOR  = "modbus_sensor"
+MODBUS_SENSOR = "modbus_sensor"
 MODBUS_DEVICE = "modbus_device"
 UART = "uart"
 RX = "rx"
@@ -155,8 +155,8 @@ STOP = "stop"
 # TYPING
 ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
 OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
-Gpio_States = Literal[HIGH, LOW]
-Gpio_Edges = Literal[BOTH, FALLING]
+GpioStates = Literal[HIGH, LOW]
+GpioEdges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
 ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
 DEVICE_CLASS = "device_class"
@@ -171,8 +171,8 @@ cover_actions = {
     "TOGGLE_OPEN": "toggle_open",
     "TOGGLE_CLOSE": "toggle_close",
     "TILT": "set_tilt",
-    'TILT_OPEN': 'tilt_open',
-    'TILT_CLOSE': 'tilt_close',
+    "TILT_OPEN": "tilt_open",
+    "TILT_CLOSE": "tilt_close",
 }
 
 INA219 = "ina219"

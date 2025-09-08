@@ -20,7 +20,7 @@ class MCPRelay(BasicRelay):
         mcp_id: str,
         output_type: str = SWITCH,
         restored_state: bool = False,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = mcp.get_pin(pin)
@@ -47,7 +47,6 @@ class MCPRelay(BasicRelay):
                     )
                     restored_state = False
         self._pin.switch_to_output(value=restored_state)
-
 
     @property
     def expander_type(self) -> str:

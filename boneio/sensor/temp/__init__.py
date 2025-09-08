@@ -31,24 +31,28 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
     ):
         """Initialize Temp class."""
         self._loop = asyncio.get_event_loop()
-        
+
         # Debug log the kwargs
         _LOGGER.debug("TempSensor initialization kwargs: %s", kwargs)
-        
+
         # Initialize BasicMqtt first
         BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
-        
+
         # Get required parameters for AsyncUpdater
-        manager = kwargs.get('manager')
-        update_interval = kwargs.get('update_interval')
-        _LOGGER.debug("Initializing AsyncUpdater with manager: %s, update_interval: %s", manager, update_interval)
-        
+        manager = kwargs.get("manager")
+        update_interval = kwargs.get("update_interval")
+        _LOGGER.debug(
+            "Initializing AsyncUpdater with manager: %s, update_interval: %s",
+            manager,
+            update_interval,
+        )
+
         # Initialize AsyncUpdater next
         AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
-        
+
         # Initialize Filter
         Filter.__init__(self)
-        
+
         self._filters = filters
         self._unit_of_measurement = unit_of_measurement
         self._state: float | None = None
@@ -80,17 +84,19 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
             return
         self._state = _temp
         self._timestamp = timestamp
-        self.manager.event_bus.trigger_event({
-            "event_type": "sensor",
-            "entity_id": self.id,
-            "event_state": SensorState(
-                id=self.id,
-                name=self.name,
-                state=self.state,
-                unit=self.unit_of_measurement,
-                timestamp=self.last_timestamp,
-            ),
-        })
+        self.manager.event_bus.trigger_event(
+            {
+                "event_type": "sensor",
+                "entity_id": self.id,
+                "event_state": SensorState(
+                    id=self.id,
+                    name=self.name,
+                    state=self.state,
+                    unit=self.unit_of_measurement,
+                    timestamp=self.last_timestamp,
+                ),
+            }
+        )
         self._message_bus.send_message(
             topic=self._send_topic,
             payload={STATE: self._state},

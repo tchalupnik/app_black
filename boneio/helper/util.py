@@ -1,7 +1,8 @@
+from collections.abc import Callable
 import json
 import os
 import unicodedata
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
 CALLBACK_TYPE = Callable[[], None]
@@ -18,7 +19,7 @@ def is_callback(func: Callable[..., Any]) -> bool:
     return getattr(func, "_boneio_callback", False) is True
 
 
-def strip_accents(s):
+def strip_accents(s: str) -> str:
     """Remove accents and spaces from a string."""
     return "".join(
         c
@@ -44,11 +45,11 @@ def sanitize_mqtt_topic(name: str) -> str:
 
     original = name
     # Zamień spacje na podkreślenia
-    name = name.replace(' ', '_')
+    name = name.replace(" ", "_")
     # Usuń polskie znaki
     name = strip_accents(name)
     # Zostaw tylko dozwolone znaki
-    name = re.sub(r'[^a-zA-Z0-9_-]', '', name)
+    name = re.sub(r"[^a-zA-Z0-9_-]", "", name)
     _LOGGER.debug(f"Sanitized MQTT topic: '{original}' -> '{name}'")
     return name
 
@@ -60,7 +61,8 @@ def open_json(path: str, model: str) -> dict:
         datastore = json.load(db_file)
         return datastore
 
-def find_key_by_value(d, value):
+
+def find_key_by_value(d: dict, value: any) -> any:
     for k, v in d.items():
         if v == value:
             return k

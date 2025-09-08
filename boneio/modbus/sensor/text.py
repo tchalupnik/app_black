@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.config import ConfigHelper
@@ -14,7 +13,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ModbusTextSensor(BaseSensor):
-
     _ha_type_ = SENSOR
 
     def __init__(
@@ -32,7 +30,7 @@ class ModbusTextSensor(BaseSensor):
         message_bus: MessageBus,
         config_helper: ConfigHelper,
         value_mapping: dict = {},
-        user_filters: Optional[list] = [],
+        user_filters: list | None = [],
         ha_filter: str = "",
     ) -> None:
         """

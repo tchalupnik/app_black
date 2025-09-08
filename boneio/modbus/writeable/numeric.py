@@ -8,16 +8,20 @@ from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator
-from typing import Optional
 
 from boneio.modbus.sensor.numeric import ModbusNumericSensor
 
 
 class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
-
     _ha_type_ = SENSOR
 
-    def __init__(self, coordinator: ModbusCoordinator, write_address: Optional[int] = None, write_filters: Optional[list] = [], **kwargs):
+    def __init__(
+        self,
+        coordinator: ModbusCoordinator,
+        write_address: int | None = None,
+        write_filters: list | None = None,
+        **kwargs,
+    ):
         ModbusNumericSensor.__init__(self, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address
@@ -47,14 +51,13 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
-            device_type=SENSOR, #because we send everything to boneio/sensor from modbus.
+            device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
             **kwargs,
         )
         return msg
 
 
 class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
-
     _ha_type_ = NUMERIC
 
     def discovery_message(self):
@@ -64,7 +67,9 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             "entity_id": self.name,
             "mode": "box",
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
-            "command_template": '{"device": "' + self.decoded_name + '", "value": "{{ value }}"}',
+            "command_template": '{"device": "'
+            + self.decoded_name
+            + '", "value": "{{ value }}"}',
         }
         msg = modbus_numeric_availabilty_message(
             topic=self._config_helper.topic_prefix,
@@ -72,7 +77,7 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
-            device_type=SENSOR, #because we send everything to boneio/sensor from modbus.
+            device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
             **kwargs,
         )
         return msg
@@ -81,5 +86,3 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
         if self._write_filters:
             value = self._apply_filters(value=int(value), filters=self._write_filters)
         return int(value)
-
-        

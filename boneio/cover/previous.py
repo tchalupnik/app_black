@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
 import time
-from typing import Callable
 
 from boneio.const import (
     CLOSE,
@@ -78,7 +78,9 @@ class PreviousCover(BasicMqtt):
         self._close = RelayHelper(relay=close_relay, time=close_time)
         self._set_position = None
         self._current_operation = IDLE
-        self._position = float(restored_state.get("position", DEFAULT_RESTORED_STATE["position"]))
+        self._position = float(
+            restored_state.get("position", DEFAULT_RESTORED_STATE["position"])
+        )
         self._requested_closing = True
         self._event_bus = event_bus
         self._timer_handle = None
@@ -146,7 +148,9 @@ class PreviousCover(BasicMqtt):
             timestamp=self.last_timestamp,
             current_operation=self._current_operation,
         )
-        self._event_bus.trigger_event({"event_type": "cover", "entity_id": self.id, "event_state": event})
+        self._event_bus.trigger_event(
+            {"event_type": "cover", "entity_id": self.id, "event_state": event}
+        )
 
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
@@ -154,7 +158,9 @@ class PreviousCover(BasicMqtt):
             topic=f"{self._send_topic}/state", payload=self.state
         )
         pos = round(self._position, 0)
-        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload={ "position": str(pos) })
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/pos", payload={"position": str(pos)}
+        )
         self._state_save(value={"position": pos})
 
     def _stop_cover(self, on_exit=False) -> None:
@@ -192,20 +198,19 @@ class PreviousCover(BasicMqtt):
         if self._set_position:
             # Set position is only working for every 10%, so round to nearest 10.
             # Except for start moving time
-            if (
-                self._requested_closing and rounded_pos < 95
-            ) or rounded_pos > 5:
+            if (self._requested_closing and rounded_pos < 95) or rounded_pos > 5:
                 rounded_pos = round(self._position, -1)
         else:
             if rounded_pos > 100:
                 rounded_pos = 100
             elif rounded_pos < 0:
                 rounded_pos = 0
-        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)})
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)}
+        )
         asyncio.create_task(self.async_send_state())
         if rounded_pos == self._set_position or (
-            self._set_position is None
-            and (rounded_pos >= 100 or rounded_pos <= 0)
+            self._set_position is None and (rounded_pos >= 100 or rounded_pos <= 0)
         ):
             self._position = rounded_pos
             self._closed = self.current_cover_position <= 0
@@ -224,7 +229,9 @@ class PreviousCover(BasicMqtt):
         _LOGGER.info("Closing cover %s.", self._id)
 
         self._requested_closing = True
-        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/state", payload=CLOSING
+        )
         await self.run_cover(
             current_operation=CLOSING,
         )
@@ -239,7 +246,9 @@ class PreviousCover(BasicMqtt):
         _LOGGER.info("Opening cover %s.", self._id)
 
         self._requested_closing = False
-        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
+        self._message_bus.send_message(
+            topic=f"{self._send_topic}/state", payload=OPENING
+        )
         await self.run_cover(
             current_operation=OPENING,
         )
@@ -312,7 +321,7 @@ class PreviousCover(BasicMqtt):
     @property
     def kind(self) -> str:
         return "previous"
-    
+
     def update_config_times(self, config: dict) -> None:
         self._open_duration = config.get("open_duration", self._open_duration)
         self._close_duration = config.get("close_duration", self._close_duration)

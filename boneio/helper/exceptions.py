@@ -24,8 +24,10 @@ class OneWireError(BoneIOException):
 class ConfigurationException(BoneIOException):
     """Configuration yaml exception."""
 
+
 class CoverConfigurationException(BoneIOException):
     """Cover configuration exception."""
+
 
 class CoverRelayException(BoneIOException):
     """Cover configuration exception."""

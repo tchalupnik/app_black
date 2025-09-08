@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Optional
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
 from boneio.cover.cover import BaseCover, BaseVenetianCoverABC
@@ -55,11 +54,15 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         direction: str,
         duration: float,
         tilt_duration: float,
-        target_position: Optional[int] = None,
-        target_tilt_position: Optional[int] = None,
+        target_position: int | None = None,
+        target_tilt_position: int | None = None,
     ):
         """Moving cover in separate thread."""
-        tilt_delta = abs(self._initial_tilt_position - target_tilt_position) if target_tilt_position is not None else 0
+        tilt_delta = (
+            abs(self._initial_tilt_position - target_tilt_position)
+            if target_tilt_position is not None
+            else 0
+        )
         if direction == OPEN:
             relay = self._open_relay
             total_steps = 100 - self._position
@@ -99,7 +102,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         needed_tilt_duration = tilt_duration * (total_tilt_step / 100)
         if target_tilt_position is None:
             tilt_delta = 1.0
-            
 
         while not self._stop_event.is_set():
             current_time = (
@@ -109,7 +111,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                 current_time - start_time
             ) * 1000  # Konwersja na milisekundy
 
-           
             if elapsed_time < needed_tilt_duration:
                 tilt_progress = elapsed_time / needed_tilt_duration
                 progress = 0.0
@@ -123,10 +124,15 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
                 # Obliczanie _tilt_position dla kierunku OPEN
                 if target_tilt_position is not None:
-                    self._tilt_position = min(target_tilt_position, self._initial_tilt_position + tilt_progress * tilt_delta)
-                else: # Fallback jeśli nie ma target_tilt_position
                     self._tilt_position = min(
-                        100.0, self._initial_tilt_position + tilt_progress * (100 - self._initial_tilt_position)
+                        target_tilt_position,
+                        self._initial_tilt_position + tilt_progress * tilt_delta,
+                    )
+                else:  # Fallback jeśli nie ma target_tilt_position
+                    self._tilt_position = min(
+                        100.0,
+                        self._initial_tilt_position
+                        + tilt_progress * (100 - self._initial_tilt_position),
                     )
             elif direction == CLOSE:
                 # Obliczanie _position dla kierunku CLOSE
@@ -134,10 +140,15 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
                 # Obliczanie _tilt_position dla kierunku CLOSE
                 if target_tilt_position is not None:
-                    self._tilt_position = max(target_tilt_position, self._initial_tilt_position - tilt_progress * tilt_delta)
-                else: # Fallback jeśli nie ma target_tilt_position
                     self._tilt_position = max(
-                        0.0, self._initial_tilt_position - tilt_progress * self._initial_tilt_position
+                        target_tilt_position,
+                        self._initial_tilt_position - tilt_progress * tilt_delta,
+                    )
+                else:  # Fallback jeśli nie ma target_tilt_position
+                    self._tilt_position = max(
+                        0.0,
+                        self._initial_tilt_position
+                        - tilt_progress * self._initial_tilt_position,
                     )
 
             self._last_timestamp = current_time  # Użyj pobranego czasu
@@ -164,15 +175,16 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             if progress >= 1.0 or (target_tilt_position and tilt_progress >= 1.0):
                 break
 
-            if target_tilt_position is not None and abs(self._tilt_position - target_tilt_position) < 5:
+            if (
+                target_tilt_position is not None
+                and abs(self._tilt_position - target_tilt_position) < 5
+            ):
                 time.sleep(0.01)
             else:
                 time.sleep(0.05)
         relay.turn_off()
         self._current_operation = IDLE
-        self._loop.call_soon_threadsafe(
-            self.send_state_and_save, self.json_position
-        )
+        self._loop.call_soon_threadsafe(self.send_state_and_save, self.json_position)
         self._last_update_time = (
             time.monotonic()
         )  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
@@ -227,8 +239,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
     async def run_cover(
         self,
         current_operation: str,
-        target_position: Optional[int] = None,
-        target_tilt_position: Optional[int] = None,
+        target_position: int | None = None,
+        target_tilt_position: int | None = None,
     ) -> None:
         if self._movement_thread and self._movement_thread.is_alive():
             _LOGGER.warning("Cover movement is already in progress. Stopping first.")

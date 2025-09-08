@@ -52,9 +52,7 @@ class ModbusHelper:
         name = self._check_record.get("name")
         address = self._check_record.get("address", 1)
         value_type = self._check_record.get("value_type")
-        _LOGGER.info(
-            f"Checking connection {self._device_address}, address {address}."
-        )
+        _LOGGER.info(f"Checking connection {self._device_address}, address {address}.")
         count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
         value = await self._modbus.read_registers(
             unit=self._device_address,
@@ -76,9 +74,7 @@ class ModbusHelper:
                 if key in allowed_operations:
                     lamda_function = allowed_operations[key]
                     decoded_value = lamda_function(decoded_value, value)
-        _LOGGER.info(
-            f"Checked {name} with address {address} and value {decoded_value}"
-        )
+        _LOGGER.info(f"Checked {name} with address {address} and value {decoded_value}")
         if not decoded_value:
             return False
         return True
@@ -96,9 +92,7 @@ class ModbusHelper:
             _LOGGER.error("Operation failed.")
             return 1
         else:
-            _LOGGER.info(
-                "Operation succeeded. Now restart device by disconnecting it."
-            )
+            _LOGGER.info("Operation succeeded. Now restart device by disconnecting it.")
             return 0
 
     def set_new_address(self, new_address: int):
@@ -127,9 +121,7 @@ class ModbusHelper:
         if result.isError():
             _LOGGER.error("Operation failed.")
         else:
-            _LOGGER.info(
-                "Operation succeeded. Now restart device by disconnecting it."
-            )
+            _LOGGER.info("Operation succeeded. Now restart device by disconnecting it.")
 
 
 async def async_run_modbus_set(
@@ -230,9 +222,7 @@ async def async_run_modbus_search(
         else:
             _LOGGER.debug(f"No device found at address {unit_id}.")
     if units_found:
-        _LOGGER.info(
-            "Found devices: [%s]", ", ".join(str(x) for x in units_found)
-        )
+        _LOGGER.info("Found devices: [%s]", ", ".join(str(x) for x in units_found))
     else:
         _LOGGER.info("No devices found.")
     return 0
@@ -266,10 +256,10 @@ async def async_run_modbus_get(
 
     if register_range:
         try:
-            start, stop = map(int, register_range.split('-'))
+            start, stop = map(int, register_range.split("-"))
             if not (0 <= start <= stop <= 65535):
                 raise ValueError("Invalid register range")
-            
+
             success = False
             for addr in range(start, stop + 1):
                 try:
@@ -286,11 +276,13 @@ async def async_run_modbus_get(
                         success = True
                 except Exception as e:
                     _LOGGER.error(f"Error reading register {addr}: {str(e)}")
-            
+
             return 0 if success else 1
 
         except ValueError:
-            _LOGGER.error(f"Invalid register range format: {register_range}. Use format 'start-stop' (e.g., '1-230')")
+            _LOGGER.error(
+                f"Invalid register range format: {register_range}. Use format 'start-stop' (e.g., '1-230')"
+            )
             return 1
     else:
         value = await _modbus.read_registers(

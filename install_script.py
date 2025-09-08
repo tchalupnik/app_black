@@ -243,7 +243,11 @@ if __name__ == "__main__":
                     "MCP9808 temp sensor on Relay board 32x5A",
                     OFF,
                 ),
-                ("ADC", "ADC input sensors, don't use if nothing is connected to those inputs", OFF),
+                (
+                    "ADC",
+                    "ADC input sensors, don't use if nothing is connected to those inputs",
+                    OFF,
+                ),
             ],
         )
         mqtt_part = {
@@ -282,14 +286,18 @@ if __name__ == "__main__":
             output["lm75"] = [{"id": "temp", "address": "0x72"}]
         if "Event entities" and "Binary sensors" in _enabled_inputs:
             copyfile(f"{exampled_dir}event.yaml", f"{maindir}/event.yaml")
-            copyfile(f"{exampled_dir}binary_sensor.yaml", f"{maindir}/binary_sensor.yaml")
+            copyfile(
+                f"{exampled_dir}binary_sensor.yaml", f"{maindir}/binary_sensor.yaml"
+            )
             output["event"] = "!include event.yaml"
             output["binary_sensor"] = "!include binary_sensor.yaml"
         elif "Event entities" in _enabled_inputs:
             copyfile(f"{exampled_dir}event_all.yaml", f"{maindir}/event.yaml")
             output["event"] = "!include event.yaml"
         elif "Binary sensors" in _enabled_inputs:
-            copyfile(f"{exampled_dir}binary_sensor_all.yaml", f"{maindir}/binary_sensor.yaml")
+            copyfile(
+                f"{exampled_dir}binary_sensor_all.yaml", f"{maindir}/binary_sensor.yaml"
+            )
             output["binary_sensor"] = "!include binary_sensor.yaml"
 
         if "ADC" in _enabled_sensors:

@@ -1,10 +1,10 @@
 """OneWire base class for DS2482.
 Module by https://github.com/fgervais/ds2482
 """
+
 import adafruit_onewire.bus
 from onewireio import OneWire as OneWireIO
 from boneio.helper.onewire import DS2482
-from typing import List
 from adafruit_onewire.bus import OneWireAddress as AdafruitOneWireAddress
 
 
@@ -69,7 +69,7 @@ class OneWireBus(adafruit_onewire.bus.OneWireBus):
         self._writebit = self._ow.write_bit
         self._maximum_devices = adafruit_onewire.bus._MAX_DEV
 
-    def scan(self) -> List[OneWireAddress]:
+    def scan(self) -> list[OneWireAddress]:
         """Scan for devices on the bus and return a list of addresses."""
         devices = []
         diff = 65

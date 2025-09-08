@@ -36,13 +36,13 @@ class GpioEventButtonNew(GpioBaseClass):
             delay=TimePeriod(milliseconds=LONG_PRESS_DURATION_MS),
             action=lambda x: self.long_click_callback(x),
         )
-        
+
         # State tracking
-        self._double_click_possible = False  # True after first click until window expires
-        
-        edge_detect(
-            pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH
+        self._double_click_possible = (
+            False  # True after first click until window expires
         )
+
+        edge_detect(pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH)
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):
@@ -71,9 +71,9 @@ class GpioEventButtonNew(GpioBaseClass):
             # Ignore bounces
             if time_now - self.button_pressed_time < self._bounce_time:
                 return
-                
+
             self.button_pressed_time = time_now
-            
+
             if self._double_click_possible:
                 # Second press within window - trigger double click
                 self.double_click_callback()

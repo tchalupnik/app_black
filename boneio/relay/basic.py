@@ -1,4 +1,5 @@
 """Basic Relay module."""
+
 from __future__ import annotations
 
 import asyncio
@@ -18,8 +19,15 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class VirtualEnergySensor:
-
-    def __init__(self, message_bus: MessageBus, loop: asyncio.AbstractEventLoop, topic_prefix: str, parent: BasicRelay, virtual_power_usage: float | None = None, virtual_volume_flow_rate: float | None = None):
+    def __init__(
+        self,
+        message_bus: MessageBus,
+        loop: asyncio.AbstractEventLoop,
+        topic_prefix: str,
+        parent: BasicRelay,
+        virtual_power_usage: float | None = None,
+        virtual_volume_flow_rate: float | None = None,
+    ):
         self._loop = loop or asyncio.get_running_loop()
         self._message_bus = message_bus
         self._virtual_sensors_task = None
@@ -36,9 +44,14 @@ class VirtualEnergySensor:
     def start_virtual_sensors_task(self):
         """Start periodic task to update and send virtual energy state every 30 seconds."""
         self._last_on_timestamp = time.time()
-        if self._virtual_sensors_task is not None and not self._virtual_sensors_task.done():
+        if (
+            self._virtual_sensors_task is not None
+            and not self._virtual_sensors_task.done()
+        ):
             return  # Already running
-        self._virtual_sensors_task = self._loop.create_task(self._virtual_sensors_loop())
+        self._virtual_sensors_task = self._loop.create_task(
+            self._virtual_sensors_loop()
+        )
         _LOGGER.info(f"Started periodic virtual sensors task for {self._parent.id}")
 
     def stop_virtual_sensors_task(self):
@@ -73,10 +86,12 @@ class VirtualEnergySensor:
 
     def _update_virtual_sensors(self):
         """Update virtual sensors if virtual_power_usage is set."""
-        if self.virtual_power_usage is not None or self.virtual_volume_flow_rate is not None:
+        if (
+            self.virtual_power_usage is not None
+            or self.virtual_volume_flow_rate is not None
+        ):
             self._update_virtual_energy()
             self.send_virtual_energy_state()
-
 
     def _update_virtual_energy(self):
         """Update energy counter if virtual_power_usage is set."""
@@ -84,17 +99,26 @@ class VirtualEnergySensor:
         if self._parent.state == ON and self._last_on_timestamp is not None:
             elapsed = now - self._last_on_timestamp
             if self.virtual_power_usage is not None:
-                self._energy_consumed_Wh += (self.virtual_power_usage * elapsed) / 3600.0
-                _LOGGER.debug(f"Energy updated for {self._parent.id}: {self._energy_consumed_Wh:.4f} Wh")
+                self._energy_consumed_Wh += (
+                    self.virtual_power_usage * elapsed
+                ) / 3600.0
+                _LOGGER.debug(
+                    f"Energy updated for {self._parent.id}: {self._energy_consumed_Wh:.4f} Wh"
+                )
             if self.virtual_volume_flow_rate is not None:
-                self._water_consumed_L += (self.virtual_volume_flow_rate * elapsed) / 3600.0
-                _LOGGER.debug(f"Volume flow rate updated for {self._parent.id}: {self._water_consumed_L:.4f} L")
+                self._water_consumed_L += (
+                    self.virtual_volume_flow_rate * elapsed
+                ) / 3600.0
+                _LOGGER.debug(
+                    f"Volume flow rate updated for {self._parent.id}: {self._water_consumed_L:.4f} L"
+                )
             self._last_on_timestamp = now
 
     def _subscribe_restore_energy_state(self):
         """
         Subscribe to the retained MQTT topic for energy and restore state if available.
         """
+
         async def on_energy_message(_topic, payload):
             try:
                 payload = json.loads(payload)
@@ -102,22 +126,39 @@ class VirtualEnergySensor:
                     if "energy" in payload:
                         retained_energy_wh = float(payload["energy"])
                         self._energy_consumed_Wh = retained_energy_wh
-                        _LOGGER.info(f"Restored energy state for {self._parent.id} from MQTT: {self._energy_consumed_Wh:.4f} Wh")
+                        _LOGGER.info(
+                            f"Restored energy state for {self._parent.id} from MQTT: {self._energy_consumed_Wh:.4f} Wh"
+                        )
                     if "water" in payload:
                         retained_water_consumption_L = float(payload["water"])
                         self._water_consumed_L = retained_water_consumption_L
-                        _LOGGER.info(f"Restored water consumption state for {self._parent.id} from MQTT: {self._water_consumed_L:.4f} L")
+                        _LOGGER.info(
+                            f"Restored water consumption state for {self._parent.id} from MQTT: {self._water_consumed_L:.4f} L"
+                        )
                 else:
-                    _LOGGER.warning(f"Invalid retained payload for {self._parent.id}: {payload}")
+                    _LOGGER.warning(
+                        f"Invalid retained payload for {self._parent.id}: {payload}"
+                    )
             except Exception as e:
-                _LOGGER.warning(f"Failed to restore energy state for {self._parent.id} from MQTT: {e}")
+                _LOGGER.warning(
+                    f"Failed to restore energy state for {self._parent.id} from MQTT: {e}"
+                )
             finally:
-                await self._message_bus.unsubscribe_and_stop_listen(self._virtual_energy_topic)
+                await self._message_bus.unsubscribe_and_stop_listen(
+                    self._virtual_energy_topic
+                )
+
         # Subscribe (works for both LocalMessageBus and MQTTClient)
-        if hasattr(self, '_message_bus') and self._message_bus is not None:
-            asyncio.create_task(self._message_bus.subscribe_and_listen(self._virtual_energy_topic, on_energy_message))
+        if hasattr(self, "_message_bus") and self._message_bus is not None:
+            asyncio.create_task(
+                self._message_bus.subscribe_and_listen(
+                    self._virtual_energy_topic, on_energy_message
+                )
+            )
         else:
-            _LOGGER.warning(f"Message bus not available for {self._parent.id}, cannot subscribe for retained energy.")
+            _LOGGER.warning(
+                f"Message bus not available for {self._parent.id}, cannot subscribe for retained energy."
+            )
 
     def get_virtual_power(self) -> float:
         """Return current virtual power usage in W."""
@@ -177,7 +218,13 @@ class BasicRelay(BasicMqtt):
         virtual_power_usage = kwargs.pop("virtual_power_usage", None)
         virtual_volume_flow_rate = kwargs.pop("virtual_volume_flow_rate", None)
         # No parsing needed, Cerberus coerce handles conversion to watts.
-        super().__init__(id=id, name=name or id, topic_type=topic_type, topic_prefix=topic_prefix, **kwargs)
+        super().__init__(
+            id=id,
+            name=name or id,
+            topic_type=topic_type,
+            topic_prefix=topic_prefix,
+            **kwargs,
+        )
         self._output_type = output_type
         self._event_bus = event_bus
         self._interlock_manager = interlock_manager
@@ -190,7 +237,7 @@ class BasicRelay(BasicMqtt):
         self._momentary_action = None
         self._last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
-        
+
         # Subscribe to retained MQTT energy value
         self._virtual_energy_sensor = None
         if virtual_power_usage is not None or virtual_volume_flow_rate is not None:
@@ -204,10 +251,11 @@ class BasicRelay(BasicMqtt):
             )
             self._virtual_sensors_task = None
 
-    def set_interlock(self, interlock_manager: SoftwareInterlockManager, interlock_groups: list[str]):
+    def set_interlock(
+        self, interlock_manager: SoftwareInterlockManager, interlock_groups: list[str]
+    ):
         self._interlock_manager = interlock_manager
         self._interlock_groups = interlock_groups
-
 
     @property
     def is_mcp_type(self) -> bool:
@@ -216,11 +264,17 @@ class BasicRelay(BasicMqtt):
 
     @property
     def is_virtual_power(self) -> bool:
-        return self._virtual_energy_sensor is not None and self._virtual_energy_sensor.virtual_power_usage is not None
+        return (
+            self._virtual_energy_sensor is not None
+            and self._virtual_energy_sensor.virtual_power_usage is not None
+        )
 
     @property
     def is_virtual_volume_flow_rate(self) -> bool:
-        return self._virtual_energy_sensor is not None and self._virtual_energy_sensor.virtual_volume_flow_rate is not None
+        return (
+            self._virtual_energy_sensor is not None
+            and self._virtual_energy_sensor.virtual_volume_flow_rate is not None
+        )
 
     @property
     def output_type(self) -> str:
@@ -247,7 +301,6 @@ class BasicRelay(BasicMqtt):
     def state(self) -> str:
         """Is relay active."""
         return self._state
-    
 
     @property
     def last_timestamp(self) -> float:
@@ -286,15 +339,14 @@ class BasicRelay(BasicMqtt):
             timestamp=self.last_timestamp,
             expander_id=self.expander_id,
         )
-        self._event_bus.trigger_event({
-            "event_type": "output", 
-            "entity_id": self.id, 
-            "event_state": event
-        })
-        
+        self._event_bus.trigger_event(
+            {"event_type": "output", "entity_id": self.id, "event_state": event}
+        )
 
     def check_interlock(self) -> bool:
-        if getattr(self, "_interlock_manager", None) and getattr(self, "_interlock_groups", None):
+        if getattr(self, "_interlock_manager", None) and getattr(
+            self, "_interlock_groups", None
+        ):
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
@@ -305,17 +357,15 @@ class BasicRelay(BasicMqtt):
             await self._loop.run_in_executor(None, self.turn_on, timestamp)
         else:
             _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
-            #Workaround for HA is sendind state ON/OFF without physically changing the relay.
+            # Workaround for HA is sendind state ON/OFF without physically changing the relay.
             asyncio.create_task(self.async_send_state(optimized_value=ON))
             await asyncio.sleep(0.01)
         asyncio.create_task(self.async_send_state())
-        
 
     async def async_turn_off(self, timestamp=None) -> None:
         """Turn off the relay asynchronously."""
         await self._loop.run_in_executor(None, self.turn_off, timestamp)
         await self.async_send_state()
-
 
     async def async_toggle(self, timestamp=None) -> None:
         """Toggle relay."""
@@ -329,7 +379,7 @@ class BasicRelay(BasicMqtt):
     def turn_on(self, timestamp=None) -> None:
         """Call turn on action."""
         raise NotImplementedError
-    
+
     def turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         raise NotImplementedError
@@ -345,7 +395,11 @@ class BasicRelay(BasicMqtt):
             else (self.async_turn_on, self._momentary_turn_off)
         )
         if delayed_action:
-            _LOGGER.debug("Applying momentary action for %s in %s", self.name, delayed_action.as_timedelta)
+            _LOGGER.debug(
+                "Applying momentary action for %s in %s",
+                self.name,
+                delayed_action.as_timedelta,
+            )
             self._momentary_action = async_track_point_in_time(
                 loop=self._loop,
                 job=self._momentary_callback,

@@ -35,9 +35,6 @@ TASK_CANCELATION_TIMEOUT = 1
 _LOGGER = logging.getLogger(__name__)
 
 
-
-
-
 def get_arguments() -> argparse.Namespace:
     """Get parsed passed in arguments."""
 
@@ -207,9 +204,7 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(
-    config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""
-) -> int:
+def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "") -> int:
     """Run BoneIO."""
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)

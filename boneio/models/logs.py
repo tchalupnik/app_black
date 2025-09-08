@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 
@@ -8,5 +6,6 @@ class LogEntry(BaseModel):
     message: str
     level: str
 
+
 class LogsResponse(BaseModel):
-    logs: List[LogEntry]
+    logs: list[LogEntry]
