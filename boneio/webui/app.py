@@ -333,7 +333,7 @@ async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
         since,
     ]
     process = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.PIPE, stderr=asyncio.PIPE
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
 
     stdout, stderr = await process.communicate()
