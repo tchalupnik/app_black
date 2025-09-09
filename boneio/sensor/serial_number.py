@@ -1,13 +1,16 @@
 """Serial Number sensor."""
 
 import logging
+import typing
 
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.stats import get_network_info
 from boneio.helper.timeperiod import TimePeriod
-from boneio.manager import Manager
 from boneio.message_bus.basic import MessageBus
+
+if typing.TYPE_CHECKING:
+    from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
