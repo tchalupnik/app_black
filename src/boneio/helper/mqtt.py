@@ -43,7 +43,7 @@ class MqttBase(BaseModel):
     name: str
     topic_prefix: str
     topic_type: str
-    message_bus: MessageBus
+    # message_bus: MessageBus
 
     def send_topic(self) -> str:
         """Return the MQTT topic to send messages to."""
