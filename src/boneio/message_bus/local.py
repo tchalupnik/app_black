@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -66,4 +66,3 @@ class LocalMessageBus(MessageBus):
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
-        pass

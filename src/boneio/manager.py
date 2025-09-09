@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import json
 import logging
 import time
-from collections import deque
-from typing import Coroutine
 import typing
+from collections import deque
+from collections.abc import Callable, Coroutine
 
 from board import SCL, SDA
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
+from boneio.config import Config
 from boneio.const import (
     ACTIONS,
     ADDRESS,
@@ -92,7 +92,6 @@ from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
-from boneio.config import Config
 from boneio.sensor.temp import TempSensor
 
 if typing.TYPE_CHECKING:
@@ -118,22 +117,46 @@ class Manager:
         event_bus: EventBus,
         state_manager: StateManager,
         config_file_path: str,
-        event_pins: list = [],
-        binary_pins: list = [],
-        output_group: list = [],
-        sensors: dict = {},
-        modbus: dict = {},
-        modbus_devices: dict = {},
-        pca9685: list = [],
-        mcp23017: list = [],
-        pcf8575: list = [],
-        ds2482: list | None = [],
+        event_pins: list = None,
+        binary_pins: list = None,
+        output_group: list = None,
+        sensors: dict = None,
+        modbus: dict = None,
+        modbus_devices: dict = None,
+        pca9685: list = None,
+        mcp23017: list = None,
+        pcf8575: list = None,
+        ds2482: list | None = None,
         dallas: dict | None = None,
-        oled: dict = {},
+        oled: dict = None,
         adc: list | None = None,
-        cover: list = [],
+        cover: list = None,
     ) -> None:
         """Initialize the manager."""
+        if cover is None:
+            cover = []
+        if oled is None:
+            oled = {}
+        if ds2482 is None:
+            ds2482 = []
+        if pcf8575 is None:
+            pcf8575 = []
+        if mcp23017 is None:
+            mcp23017 = []
+        if pca9685 is None:
+            pca9685 = []
+        if modbus_devices is None:
+            modbus_devices = {}
+        if modbus is None:
+            modbus = {}
+        if sensors is None:
+            sensors = {}
+        if output_group is None:
+            output_group = []
+        if binary_pins is None:
+            binary_pins = []
+        if event_pins is None:
+            event_pins = []
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
@@ -634,7 +657,6 @@ class Manager:
                 )
             except KernelModuleLoadError as err:
                 _LOGGER.error("Can't configure Dallas W1 device %s", err)
-                pass
 
         for sensor in sensors or []:
             address = _one_wire_devices.get(sensor[ADDRESS])

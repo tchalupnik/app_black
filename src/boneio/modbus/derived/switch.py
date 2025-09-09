@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from boneio.config import Config
 from boneio.const import ID, MODEL, NAME, SENSOR, SWITCH
 from boneio.helper.ha_discovery import (
     modbus_availabilty_message,
@@ -9,7 +10,6 @@ from boneio.helper.ha_discovery import (
 from boneio.helper.util import find_key_by_value
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
-from boneio.config import Config
 
 _LOGGER = logging.getLogger(__name__)
 

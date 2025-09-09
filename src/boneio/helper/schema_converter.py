@@ -79,7 +79,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 field_schema.update(create_boolean_schema())
             else:
                 base_type = convert_type(schema["type"])
-                types = set(["string"])  # Always allow string for !include
+                types = {"string"}  # Always allow string for !include
                 if isinstance(base_type, list):
                     types.update(base_type)
                 else:
@@ -109,9 +109,10 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
         # Handle nested dictionaries and arrays
         if "schema" in schema and isinstance(schema["schema"], dict):
             if schema.get("type") == "dict":
-                types = set(
-                    ["string", "object"]
-                )  # Allow both string for !include and object
+                types = {
+                    "string",
+                    "object",
+                }  # Allow both string for !include and object
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
@@ -155,9 +156,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                     field_schema["required"] = nested_required
 
             elif schema.get("type") == "list":
-                types = set(
-                    ["string", "array"]
-                )  # Allow both string for !include and array
+                types = {"string", "array"}  # Allow both string for !include and array
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
@@ -194,12 +193,12 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 if schema.get("type") == "list":
                     if "items" not in field_schema:
                         field_schema["items"] = {}
-                    field_schema["items"]["enum"] = sorted(list(extended_values))
+                    field_schema["items"]["enum"] = sorted(extended_values)
                     field_schema["items"]["examples"] = (
                         [schema["allowed"][0]] if schema["allowed"] else []
                     )
                 else:
-                    field_schema["enum"] = sorted(list(extended_values))
+                    field_schema["enum"] = sorted(extended_values)
                     field_schema["examples"] = (
                         [schema["allowed"][0]] if schema["allowed"] else []
                     )
@@ -278,7 +277,6 @@ def main():
     main_schema_file = os.path.join(output_dir, "config.schema.json")
     with open(main_schema_file, "w") as f:
         json.dump(json_schema, f, indent=2)
-    print(f"Schema written to {main_schema_file}")
 
     # Generate and save section-specific schemas
     for section_name, section_schema in schema.items():
@@ -286,7 +284,6 @@ def main():
         section_schema_file = os.path.join(output_dir, f"{section_name}.schema.json")
         with open(section_schema_file, "w") as f:
             json.dump(section_json_schema, f, indent=2)
-        print(f"Section schema for {section_name} written to {section_schema_file}")
 
 
 if __name__ == "__main__":

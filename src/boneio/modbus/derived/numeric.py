@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import ast
 
+from boneio.config import Config
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
-from boneio.config import Config
 
 
 class ModbusDerivedNumericSensor(BaseSensor):
@@ -24,9 +24,11 @@ class ModbusDerivedNumericSensor(BaseSensor):
         config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
-        user_filters: list | None = [],
+        user_filters: list | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
+        if user_filters is None:
+            user_filters = []
         BaseSensor.__init__(
             self,
             name=name,

@@ -1,6 +1,6 @@
 from __future__ import annotations
-from struct import unpack
 
+from struct import unpack
 
 allowed_operations = {"multiply": lambda x, y: x * y if x else x}
 

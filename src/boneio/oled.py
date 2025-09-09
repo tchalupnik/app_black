@@ -91,7 +91,6 @@ class Oled:
                 self._input_groups = input_groups
             except ValueError:
                 _LOGGER.debug("No inputs configured. Omitting in screen.")
-                pass
 
         try:
             _ina219_screen = screen_order.index("ina219")

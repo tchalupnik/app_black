@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 import time
 
+from boneio.config import Config, MqttAutodiscoveryMessage
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
-from boneio.config import Config, MqttAutodiscoveryMessage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,10 +26,14 @@ class BaseSensor(Filter):
         device_class: str | None = None,
         value_type: str | None = None,
         return_type: str | None = None,
-        filters: list = [],
-        user_filters: list | None = [],
+        filters: list = None,
+        user_filters: list | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
+        if user_filters is None:
+            user_filters = []
+        if filters is None:
+            filters = []
         self._name = name
         self._parent = parent
         self._decoded_name = self._name.replace(" ", "")
@@ -161,7 +165,7 @@ class ModbusBaseSensor(BaseSensor):
         value_type: str | None = None,
         return_type: str | None = None,
         filters: list | None = None,
-        user_filters: list | None = [],
+        user_filters: list | None = None,
         ha_filter: str = "",
     ) -> None:
         """
@@ -178,6 +182,8 @@ class ModbusBaseSensor(BaseSensor):
         :param filters: list of filters
         :param send_ha_autodiscovery: function for sending HA autodiscovery
         """
+        if user_filters is None:
+            user_filters = []
         super().__init__(
             name=name,
             parent=parent,

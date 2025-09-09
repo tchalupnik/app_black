@@ -152,7 +152,6 @@ class Modbus:
                 await self._loop.run_in_executor(self._executor, self._client.close)
             except asyncio.CancelledError:
                 _LOGGER.warning("modbus communication closed")
-                pass
             except ModbusException as exception_error:
                 _LOGGER.error(exception_error)
             finally:
@@ -224,25 +223,20 @@ class Modbus:
 
         except ValueError as exception_error:
             _LOGGER.error("Error reading registers: %s", exception_error)
-            pass
         except (ModbusException, struct.error) as exception_error:
             _LOGGER.error("Error reading registers: %s", exception_error)
-            pass
         except asyncio.TimeoutError:
             _LOGGER.error("Timeout reading registers from device %s", unit)
-            pass
         except asyncio.CancelledError as err:
             _LOGGER.error(
                 "Operation cancelled reading registers from device %s with error %s",
                 unit,
                 err,
             )
-            pass
         except Exception as e:
             _LOGGER.error(
                 f"Unexpected error reading registers: {type(e).__name__} - {e}"
             )
-            pass
         finally:
             end_time = time.perf_counter()
             _LOGGER.debug(
@@ -283,27 +277,22 @@ class Modbus:
 
         except ValueError as exception_error:
             _LOGGER.error("ValueError: Error writing registers: %s", exception_error)
-            pass
         except (ModbusException, struct.error) as exception_error:
             _LOGGER.error(
                 "ModbusException: Error writing registers: %s", exception_error
             )
-            pass
         except asyncio.TimeoutError:
             _LOGGER.error("Timeout writing registers to device %s", unit)
-            pass
         except asyncio.CancelledError as err:
             _LOGGER.error(
                 "Operation cancelled writing registers to device %s with error %s",
                 unit,
                 err,
             )
-            pass
         except Exception as e:
             _LOGGER.error(
                 f"Unexpected error writing registers: {type(e).__name__} - {e}"
             )
-            pass
         finally:
             end_time = time.perf_counter()
             _LOGGER.debug(

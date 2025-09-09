@@ -4,9 +4,10 @@ import asyncio
 import logging
 import os
 import time
-from datetime import datetime
 import typing
+from datetime import datetime
 
+from boneio.config import Config
 from boneio.const import (
     ADDRESS,
     BASE,
@@ -47,7 +48,6 @@ from boneio.modbus.writeable.numeric import (
     ModbusNumericWriteableEntityDiscrete,
 )
 from boneio.models import SensorState
-from boneio.config import Config
 
 from .client import VALUE_TYPES, Modbus
 from .utils import CONVERT_METHODS, REGISTERS_BASE
@@ -74,9 +74,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         event_bus: EventBus,
         update_interval: TimePeriod = TimePeriod(seconds=60),
         id: str = DefaultName,
-        additional_data: dict = {},
+        additional_data: dict = None,
     ):
         """Initialize Modbus coordinator class."""
+        if additional_data is None:
+            additional_data = {}
         BasicMqtt.__init__(
             self,
             id=id or address,

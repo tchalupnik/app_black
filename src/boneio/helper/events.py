@@ -1,10 +1,10 @@
 import asyncio
-from collections.abc import Callable
 import datetime as dt
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from datetime import datetime
-from typing import Any, Coroutine
+from typing import Any
 
 from boneio.helper.util import callback
 
@@ -256,7 +256,7 @@ class EventBus:
         listener_id is typically group_id for group outputs or ws (websocket)
         """
         if not target:
-            return
+            return None
         if entity_id not in self._event_listeners[event_type]:
             self._event_listeners[event_type][entity_id] = {}
         if listener_id in self._event_listeners[event_type][entity_id]:

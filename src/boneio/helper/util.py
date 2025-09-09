@@ -1,7 +1,7 @@
-from collections.abc import Callable
 import json
 import os
 import unicodedata
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])

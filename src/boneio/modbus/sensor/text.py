@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 
+from boneio.config import Config
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
-from boneio.config import Config
 
 from .base import BaseSensor
 
@@ -29,8 +29,8 @@ class ModbusTextSensor(BaseSensor):
         filters: list,
         message_bus: MessageBus,
         config: Config,
-        value_mapping: dict = {},
-        user_filters: list | None = [],
+        value_mapping: dict = None,
+        user_filters: list | None = None,
         ha_filter: str = "",
     ) -> None:
         """
@@ -47,6 +47,10 @@ class ModbusTextSensor(BaseSensor):
         :param filters: list of filters
         :param send_ha_autodiscovery: function for sending HA autodiscovery
         """
+        if user_filters is None:
+            user_filters = []
+        if value_mapping is None:
+            value_mapping = {}
         super().__init__(
             name=name,
             parent=parent,

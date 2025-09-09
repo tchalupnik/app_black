@@ -8,7 +8,7 @@ import os
 import signal
 import warnings
 
-
+from boneio.config import Config
 from boneio.const import (
     ADC,
     BINARY_SENSOR,
@@ -28,7 +28,6 @@ from boneio.const import (
     PCF8575,
 )
 from boneio.helper import StateManager
-from boneio.config import Config
 from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
 from boneio.manager import Manager

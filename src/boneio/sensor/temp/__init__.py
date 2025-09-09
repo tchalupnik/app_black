@@ -25,11 +25,13 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         i2c,
         address: str,
         id: str = DefaultName,
-        filters: list = ["round(x, 2)"],
+        filters: list = None,
         unit_of_measurement: str = "°C",
         **kwargs,
     ):
         """Initialize Temp class."""
+        if filters is None:
+            filters = ["round(x, 2)"]
         self._loop = asyncio.get_event_loop()
 
         # Debug log the kwargs

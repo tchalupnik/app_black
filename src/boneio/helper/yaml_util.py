@@ -286,7 +286,7 @@ def merge_board_config(config: dict) -> dict:
                         f"Input mapping '{input['boneio_input']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
-                input.update({k: v for k, v in mapped_input.items()})
+                input.update(dict(mapped_input.items()))
 
         for input in config.get("binary_sensor", []):
             if "boneio_input" in input:
@@ -297,7 +297,7 @@ def merge_board_config(config: dict) -> dict:
                         f"Input mapping '{input['boneio_input']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
-                input.update({k: v for k, v in mapped_input.items()})
+                input.update(dict(mapped_input.items()))
     return config
 
 
@@ -425,10 +425,7 @@ class CustomValidator(Validator):
 
     def _normalize_coerce_version_to_str(self, value):
         """Convert value to string."""
-        print(value)
         _v = str(value)
-        print(type(_v))
-        print(_v)
         return _v
 
     def _normalize_coerce_actions_output(self, value):

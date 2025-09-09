@@ -1,5 +1,6 @@
 # Based on https://github.com/AlexandreFrolov/ina219/blob/main/ina_219_smbus.py
 from __future__ import annotations
+
 import smbus2
 
 

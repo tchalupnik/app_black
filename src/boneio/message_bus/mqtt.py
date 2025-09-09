@@ -6,12 +6,12 @@ Code based on cgarwood/python-openzwave-mqtt.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import json
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Awaitable
+from typing import TYPE_CHECKING
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
@@ -19,6 +19,7 @@ from aiomqtt import Message, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
+from boneio.config import Config
 from boneio.const import (
     OFFLINE,
     PAHO,
@@ -26,7 +27,6 @@ from boneio.const import (
 )
 from boneio.helper.events import GracefulExit
 from boneio.helper.queue import UniqueQueue
-from boneio.config import Config
 
 if TYPE_CHECKING:
     from boneio.manager import Manager

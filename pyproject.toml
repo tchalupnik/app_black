@@ -86,6 +86,38 @@ exclude = [
     "dist",
     "tests/fixtures",
 ]
+lint.select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "C",      # flake8-comprehensions
+    "T",      # Print.
+    "I",      # isort
+    "G",      # flake8-logging-format-g
+    "TID251", # banned-api (TID251)
+    "B012",   # break/continue/return in finally blocks.
+    "B018",   # useless-expression
+    "B006",     # mutable-argument-default
+    "ASYNC251", # Don't allow time.sleep in async functions.
+    "UP034",    # extraneous-parentheses
+    "UP035",    # deprecated-import
+    "RUF008",   # mutable-dataclass-default.
+    "RET501",   # better return None handling
+    "RET502",   # better return None handling
+    "SIM201",
+    "SIM202",   # simplify comparisons involving not
+    "PIE", # flake8-pie
+    "DTZ", # flake8-datetimez-dtz
+    "PT",  # flake8-pytest-style
+    "PTH", # flake8-use-pathlib
+    "YTT", # flake8-2020
+]
+lint.ignore = [
+    "E501", # Line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # Too complex
+    "B904", # Require 'raise ... from ...'
+]
 
 [tool.ty.src]
 include = ["src/boneio"]

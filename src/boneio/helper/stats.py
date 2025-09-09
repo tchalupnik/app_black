@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import logging
 import socket
 import time
+from collections.abc import Callable
 from math import floor
-
 from typing import TYPE_CHECKING
 
 import psutil

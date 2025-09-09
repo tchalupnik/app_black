@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import time
 from collections import namedtuple
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
+from busio import I2C
 
+from boneio.config import Config, OutputConfig
 from boneio.const import (
     ADDRESS,
     BINARY_SENSOR,
@@ -41,6 +43,13 @@ from boneio.const import (
     ExpanderTypes,
 )
 from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
+from boneio.gpio import (
+    GpioEventButtonNew,
+    GpioEventButtonOld,
+    GpioInputBinarySensorNew,
+    GpioInputBinarySensorOld,
+    GpioRelay,
+)
 from boneio.group import OutputGroup
 from boneio.helper import (
     CoverConfigurationException,
@@ -73,22 +82,10 @@ from boneio.helper.timeperiod import TimePeriod
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.config import Config, OutputConfig
-from boneio.sensor import DallasSensorDS2482
-from boneio.gpio import (
-    GpioRelay,
-    GpioInputBinarySensorNew,
-    GpioInputBinarySensorOld,
-    GpioEventButtonNew,
-    GpioEventButtonOld,
-)
+from boneio.relay import PWMPCA, MCPRelay, PCFRelay
+from boneio.sensor import DallasSensorDS2482, GpioADCSensor, initialize_adc
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
-
-from busio import I2C
-
-from boneio.relay import PWMPCA, MCPRelay, PCFRelay
-from boneio.sensor import GpioADCSensor, initialize_adc
 
 if TYPE_CHECKING:
     from ..manager import Manager
@@ -97,10 +94,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def create_adc(
-    manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = []
+    manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = None
 ):
     """Create ADC sensor."""
 
+    if adc_list is None:
+        adc_list = []
     initialize_adc()
 
     # TODO: find what exception can ADC gpio throw.
@@ -128,7 +127,6 @@ def create_adc(
                 )
         except I2CError as err:
             _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
-            pass
 
 
 def create_temp_sensor(
@@ -137,18 +135,20 @@ def create_temp_sensor(
     topic_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
-    config: dict = {},
+    config: dict = None,
 ):
     """Create LM sensor in manager."""
+    if config is None:
+        config = {}
     if sensor_type == LM75:
         from boneio.sensor import LM75Sensor as TempSensor
     elif sensor_type == MCP_TEMP_9808:
         from boneio.sensor import MCP9808Sensor as TempSensor
     else:
-        return
+        return None
     name = config.get(ID)
     if not name:
-        return
+        return None
     id = name.replace(" ", "")
     try:
         temp_sensor = TempSensor(
@@ -173,7 +173,6 @@ def create_temp_sensor(
         return temp_sensor
     except I2CError as err:
         _LOGGER.error("Can't configure Temp sensor. %s", err)
-        pass
 
 
 def create_serial_number_sensor(
@@ -226,7 +225,6 @@ def create_expander(
             grouped_outputs[id] = {}
         except TimeoutError as err:
             _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)
-            pass
     return grouped_outputs
 
 
@@ -266,7 +264,6 @@ def create_modbus_coordinators(
                 id,
                 err,
             )
-            pass
     return modbus_coordinators
 
 
@@ -424,7 +421,7 @@ def configure_relay(
         _LOGGER.error(
             "Output kind: %s is not configured", getattr(output, "output_kind")
         )
-        return
+        return None
 
     manager._interlock_manager.register(relay, output_config.interlock_group)
     manager.grouped_outputs_by_expander[expander_id][relay_id] = relay
@@ -492,9 +489,11 @@ def configure_event_sensor(
     | GpioInputBinarySensorOld
     | GpioInputBinarySensorNew
     | None = None,
-    actions: dict = {},
+    actions: dict = None,
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
+    if actions is None:
+        actions = {}
     try:
         gpioEventButtonClass = (
             GpioEventButtonNew
@@ -531,7 +530,6 @@ def configure_event_sensor(
         return input
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
-        pass
 
 
 def configure_binary_sensor(
@@ -545,9 +543,11 @@ def configure_binary_sensor(
     | GpioInputBinarySensorOld
     | GpioInputBinarySensorNew
     | None = None,
-    actions: dict = {},
+    actions: dict = None,
 ) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
     """Configure input sensor or button."""
+    if actions is None:
+        actions = {}
     try:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew
@@ -584,7 +584,6 @@ def configure_binary_sensor(
         return input
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
-        pass
 
 
 def configure_cover(
@@ -736,11 +735,13 @@ def create_ina219_sensor(
     manager: Manager,
     message_bus: MessageBus,
     topic_prefix: str,
-    config: dict = {},
+    config: dict = None,
 ):
     """Create INA219 sensor in manager."""
     from boneio.sensor import INA219
 
+    if config is None:
+        config = {}
     address = config[ADDRESS]
     id = config.get(ID, str(address)).replace(" ", "")
     try:
@@ -765,4 +766,3 @@ def create_ina219_sensor(
         return ina219
     except I2CError as err:
         _LOGGER.error("Can't configure Temp sensor. %s", err)
-        pass

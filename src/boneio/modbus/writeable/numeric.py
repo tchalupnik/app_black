@@ -3,9 +3,9 @@ from __future__ import annotations
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
 
+from boneio.config import Config
 from boneio.const import ID, MODEL, NAME, NUMERIC, SENSOR
 from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
-from boneio.config import Config
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator

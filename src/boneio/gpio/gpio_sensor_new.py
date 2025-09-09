@@ -5,7 +5,7 @@ import time
 
 from boneio.const import PRESSED, RELEASED
 
-from .base import GpioBase, add_event_callback, add_event_detect, BOTH
+from .base import BOTH, GpioBase, add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
 

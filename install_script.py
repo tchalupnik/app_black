@@ -30,7 +30,7 @@ def run_command(cmd):
         _LOGGER.info("Running command %s", cmd)
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         for line in p.stdout:
-            print(line.decode().strip())
+            pass
         out, err = p.communicate()
         # subprocess.run(
         #     cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True
@@ -69,7 +69,6 @@ class Whiptail:
         p = subprocess.Popen(cmd, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if self.auto_exit and p.returncode in exit_on:
-            print("User cancelled operation.")
             sys.exit(p.returncode)
         return Response(p.returncode, str(err, "utf-8", "ignore"))
 

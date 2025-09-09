@@ -3,9 +3,10 @@ Module by https://github.com/fgervais/ds2482
 """
 
 import adafruit_onewire.bus
-from onewireio import OneWire as OneWireIO
-from boneio.helper.onewire import DS2482
 from adafruit_onewire.bus import OneWireAddress as AdafruitOneWireAddress
+from onewireio import OneWire as OneWireIO
+
+from boneio.helper.onewire import DS2482
 
 
 def ds_address(rom: bytes) -> int:

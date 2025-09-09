@@ -1,28 +1,24 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import logging
+import subprocess
 import time
+from collections.abc import Awaitable, Callable
 
-from boneio.helper.events import EventBus
-from boneio.models import InputState
 from Adafruit_BBIO import GPIO  # type: ignore
-from Adafruit_BBIO.GPIO import (
-    OUT,
+from Adafruit_BBIO.GPIO import (  # type: ignore
+    BOTH,
+    FALLING,
+    HIGH,
     IN,
+    LOW,
+    OUT,
     PUD_DOWN,
     PUD_OFF,
     PUD_UP,
-    LOW,
-    HIGH,
     RISING,
-    FALLING,
-    BOTH,
-)  # type: ignore
-
-import subprocess
-from typing import Awaitable
+)
 
 from boneio.const import (
     CONFIG_PIN,
@@ -32,8 +28,10 @@ from boneio.const import (
     ClickTypes,
 )
 from boneio.const import GPIO as GPIO_STR
+from boneio.helper.events import EventBus
 from boneio.helper.exceptions import GPIOInputException
 from boneio.helper.timeperiod import TimePeriod
+from boneio.models import InputState
 
 _LOGGER = logging.getLogger(__name__)
 

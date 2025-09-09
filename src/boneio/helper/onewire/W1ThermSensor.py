@@ -1,6 +1,7 @@
 """Custom W1ThermSensor class to support hex addressing of W1 sensors."""
 
 from w1thermsensor import AsyncW1ThermSensor, Sensor
+
 from boneio.helper.onewire import OneWireAddress, reverse_dallas_id
 
 

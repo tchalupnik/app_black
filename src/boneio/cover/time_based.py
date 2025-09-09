@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import threading
 import time
+from collections.abc import Callable
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.cover.cover import BaseCover

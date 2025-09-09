@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import logging
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from boneio.const import (
     CLOSED,
@@ -45,37 +45,30 @@ class BaseCoverABC(ABC):
     @abstractmethod
     async def stop(self) -> None:
         """Stop cover."""
-        pass
 
     @abstractmethod
     async def open(self) -> None:
         """Open cover."""
-        pass
 
     @abstractmethod
     async def close(self) -> None:
         """Close cover."""
-        pass
 
     @abstractmethod
     async def toggle(self) -> None:
         """Toggle cover to open or close."""
-        pass
 
     @abstractmethod
     async def toggle_open(self) -> None:
         """Toggle cover to open or stop."""
-        pass
 
     @abstractmethod
     async def toggle_close(self) -> None:
         """Toggle cover to close or stop."""
-        pass
 
     @abstractmethod
     async def set_cover_position(self, position: int) -> None:
         """Set cover position."""
-        pass
 
     @property
     @abstractmethod
@@ -105,7 +98,6 @@ class BaseCoverABC(ABC):
         target_tilt: float | None = None,
     ) -> None:
         """This function is called to run cover after calling open, close, toggle, toggle_open, toggle_close, set_cover_position"""
-        pass
 
     @abstractmethod
     async def send_state(self, state: str, position: float) -> None:
@@ -131,17 +123,14 @@ class BaseVenetianCoverABC:
     @abstractmethod
     async def set_cover_tilt_position(self, position: int) -> None:
         """Set cover tilt position."""
-        pass
 
     @abstractmethod
     async def tilt_open(self) -> None:
         """Open cover tilt."""
-        pass
 
     @abstractmethod
     async def tilt_close(self) -> None:
         """Close cover tilt."""
-        pass
 
 
 class BaseCover(BaseCoverABC, BasicMqtt):

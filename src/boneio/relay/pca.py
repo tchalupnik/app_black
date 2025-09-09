@@ -1,10 +1,12 @@
 """PCA9685 PWM module."""
 
 from __future__ import annotations
+
 import logging
+
 from adafruit_pca9685 import PCA9685, PCAChannels
 
-from boneio.const import LED, OFF, ON, STATE, SWITCH, BRIGHTNESS, PCA
+from boneio.const import BRIGHTNESS, LED, OFF, ON, PCA, STATE, SWITCH
 from boneio.helper.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus

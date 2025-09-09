@@ -75,9 +75,11 @@ class INA219(AsyncUpdater):
     """Represent INA219 sensors."""
 
     def __init__(
-        self, address: int, id: str, sensors: list[dict] = [], **kwargs
+        self, address: int, id: str, sensors: list[dict] = None, **kwargs
     ) -> None:
         """Setup INA219 Sensor"""
+        if sensors is None:
+            sensors = []
         self._loop = asyncio.get_event_loop()
         self._ina_219 = INA219_I2C(address=address)
         self._sensors = {}

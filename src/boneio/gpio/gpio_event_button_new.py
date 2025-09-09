@@ -9,7 +9,7 @@ from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer
 from boneio.helper.timeperiod import TimePeriod
 
-from .base import edge_detect, GpioBase, BOTH
+from .base import BOTH, GpioBase, edge_detect
 
 _LOGGER = logging.getLogger(__name__)
 

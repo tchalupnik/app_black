@@ -12,6 +12,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import httpx
 from fastapi import (
     BackgroundTasks,
     Body,
@@ -24,7 +25,6 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import httpx
 from jose import jwt
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -33,6 +33,7 @@ from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
+from boneio.config import Config
 from boneio.const import COVER, NONE
 from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import ConfigurationException
@@ -49,7 +50,6 @@ from boneio.models import (
     StateUpdate,
 )
 from boneio.models.logs import LogEntry, LogsResponse
-from boneio.config import Config
 from boneio.version import __version__
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
@@ -1053,15 +1053,15 @@ async def websocket_endpoint(
                 # Send covers
                 for cover in boneio_manager.covers.values():
                     try:
-                        cover_state_kwargs = dict(
-                            id=cover.id,
-                            name=cover.name,
-                            state=cover.state,
-                            position=cover.position,
-                            kind=cover.kind,
-                            timestamp=cover.last_timestamp,
-                            current_operation=cover.current_operation,
-                        )
+                        cover_state_kwargs = {
+                            "id": cover.id,
+                            "name": cover.name,
+                            "state": cover.state,
+                            "position": cover.position,
+                            "kind": cover.kind,
+                            "timestamp": cover.last_timestamp,
+                            "current_operation": cover.current_operation,
+                        }
                         if getattr(cover, "kind", None) == "venetian":
                             cover_state_kwargs["tilt"] = getattr(cover, "tilt", 0)
                         cover_state = CoverState(**cover_state_kwargs)

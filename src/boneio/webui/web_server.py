@@ -9,8 +9,8 @@ from pathlib import Path
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
 
-from boneio.manager import Manager
 from boneio.config import Config
+from boneio.manager import Manager
 from boneio.webui.app import BoneIOApp, init_app
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class WebServer:
         try:
             if jwt_secret_file.exists():
                 # Read existing secret
-                with open(jwt_secret_file, "r") as f:
+                with Path.open(jwt_secret_file, "r") as f:
                     jwt_secret = f.read().strip()
                     if jwt_secret:  # Verify it's not empty
                         return jwt_secret
@@ -89,11 +89,11 @@ class WebServer:
             jwt_secret = secrets.token_hex(32)  # 256-bit random secret
 
             # Save the secret
-            with open(jwt_secret_file, "w") as f:
+            with Path.open(jwt_secret_file, "w") as f:
                 f.write(jwt_secret)
 
             # Secure the file permissions (read/write only for owner)
-            os.chmod(jwt_secret_file, 0o600)
+            Path.chmod(jwt_secret_file, 0o600)
 
         except Exception as e:
             # If we can't persist the secret, generate a temporary one

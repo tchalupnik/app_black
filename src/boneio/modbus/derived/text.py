@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from boneio.config import Config
 from boneio.const import ID, MODEL, NAME, TEXT_SENSOR
 from boneio.helper.ha_discovery import (
     modbus_sensor_availabilty_message,
 )
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
-from boneio.config import Config
 
 
 class ModbusDerivedTextSensor(BaseSensor):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from boneio.const import BINARY_SENSOR, ID, MODEL, NAME, SENSOR
 from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
 

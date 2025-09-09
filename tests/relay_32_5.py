@@ -1,9 +1,9 @@
 import asyncio
 import logging
 
+from boneio.const import LM75, MCP23017, MCP_TEMP_9808, OUTPUT
 from boneio.helper import load_config_from_file
 from boneio.manager import Manager
-from boneio.const import LM75, MCP23017, MCP_TEMP_9808, OUTPUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,11 +25,7 @@ async def test_32_5():
     )
     await asyncio.sleep(1)
     for key, value in manager.output.items():
-        print(
-            f"State of \33[42m{key} MCP {value.mcp_id} pin: {value.pin_id}\033[0m is {value.is_active}. Toggle it."
-        )
         value.toggle()
-        print("It should be on. Sleeping for 2 secs.")
         await asyncio.sleep(2)
 
 

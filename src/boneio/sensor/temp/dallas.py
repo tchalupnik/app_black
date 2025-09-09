@@ -54,10 +54,12 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
         self,
         address: OneWireAddress,
         id: str = DefaultName,
-        filters: list = ["round(x, 2)"],
+        filters: list = None,
         **kwargs,
     ):
         """Initialize Temp class."""
+        if filters is None:
+            filters = ["round(x, 2)"]
         self._loop = asyncio.get_event_loop()
         BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
         self._filters = filters
