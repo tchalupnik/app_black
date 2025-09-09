@@ -10,7 +10,7 @@ from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
 
 from boneio.manager import Manager
-from boneio.runner import Config
+from boneio.config import Config
 from boneio.webui.app import BoneIOApp, init_app
 
 _LOGGER = logging.getLogger(__name__)

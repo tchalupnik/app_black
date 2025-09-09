@@ -7,7 +7,7 @@ from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
-from boneio.runner import Config, MqttAutodiscoveryMessage
+from boneio.config import Config, MqttAutodiscoveryMessage
 
 _LOGGER = logging.getLogger(__name__)
 

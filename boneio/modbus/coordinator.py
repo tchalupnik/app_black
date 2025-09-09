@@ -47,7 +47,7 @@ from boneio.modbus.writeable.numeric import (
     ModbusNumericWriteableEntityDiscrete,
 )
 from boneio.models import SensorState
-from boneio.runner import Config
+from boneio.config import Config
 
 from .client import VALUE_TYPES, Modbus
 from .utils import CONVERT_METHODS, REGISTERS_BASE

@@ -93,7 +93,7 @@ from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
-from boneio.runner import Config
+from boneio.config import Config
 from boneio.sensor.temp import TempSensor
 
 _LOGGER = logging.getLogger(__name__)

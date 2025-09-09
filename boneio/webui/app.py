@@ -49,7 +49,7 @@ from boneio.models import (
     StateUpdate,
 )
 from boneio.models.logs import LogEntry, LogsResponse
-from boneio.runner import Config
+from boneio.config import Config
 from boneio.version import __version__
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager

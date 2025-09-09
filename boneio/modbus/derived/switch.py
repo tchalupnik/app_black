@@ -9,7 +9,7 @@ from boneio.helper.ha_discovery import (
 from boneio.helper.util import find_key_by_value
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
-from boneio.runner import Config
+from boneio.config import Config
 
 _LOGGER = logging.getLogger(__name__)
 

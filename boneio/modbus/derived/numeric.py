@@ -4,7 +4,7 @@ import ast
 
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
-from boneio.runner import Config
+from boneio.config import Config
 
 
 class ModbusDerivedNumericSensor(BaseSensor):

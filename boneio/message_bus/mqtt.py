@@ -26,7 +26,7 @@ from boneio.const import (
 )
 from boneio.helper.events import GracefulExit
 from boneio.helper.queue import UniqueQueue
-from boneio.runner import Config
+from boneio.config import Config
 
 if TYPE_CHECKING:
     from boneio.manager import Manager

@@ -76,7 +76,7 @@ from boneio.input import GpioEventButtonNew, GpioEventButtonOld
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.runner import Config
+from boneio.config import Config
 from boneio.sensor import (
     DallasSensorDS2482,
     GpioInputBinarySensorNew,
