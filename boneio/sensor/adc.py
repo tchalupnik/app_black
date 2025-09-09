@@ -1,6 +1,7 @@
 """ADC GPIO BBB sensor."""
 
 import logging
+import typing
 
 import Adafruit_BBIO.ADC as ADC
 
@@ -8,8 +9,10 @@ from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
 from boneio.helper.timeperiod import TimePeriod
-from boneio.manager import Manager
 from boneio.message_bus.basic import MessageBus
+
+if typing.TYPE_CHECKING:
+    from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
