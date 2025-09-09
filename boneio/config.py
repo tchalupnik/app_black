@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -48,7 +48,7 @@ AutodiscoveryType = Literal[
 class MqttAutodiscoveryMessages(
     RootModel[dict[AutodiscoveryType, MqttAutodiscoveryMessage]]
 ):
-    def model_post_init(self) -> None:
+    def model_post_init(self, __context: Any) -> None:
         for type in (
             SWITCH,
             LIGHT,
@@ -81,7 +81,9 @@ class MqttConfig(BaseModel):
     password: str = "boneio123"
     topic_prefix: str = "boneio"
     ha_discovery: MqttHADiscoveryConfig = MqttHADiscoveryConfig()
-    autodiscovery_messages: MqttAutodiscoveryMessages = MqttAutodiscoveryMessages()
+    autodiscovery_messages: MqttAutodiscoveryMessages = Field(
+        default_factory=lambda: MqttAutodiscoveryMessages(root={})
+    )
 
     def is_topic_in_autodiscovery(self, topic: str) -> bool:
         topic_parts_raw = topic[len(f"{self.ha_discovery.topic_prefix}/") :].split("/")
@@ -120,7 +122,7 @@ class OledConfig(BaseModel):
             "web",
         ]
     ] = Field(
-        default_factory=[
+        default_factory=lambda: [
             "uptime",
             "network",
             "ina219",
