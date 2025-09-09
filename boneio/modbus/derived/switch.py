@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 
 from boneio.const import ID, MODEL, NAME, SENSOR, SWITCH
-from boneio.helper.config import ConfigHelper
 from boneio.helper.ha_discovery import (
     modbus_availabilty_message,
 )
 from boneio.helper.util import find_key_by_value
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
+from boneio.runner import Config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class ModbusDerivedSwitch(BaseSensor):
         parent: dict,
         message_bus: MessageBus,
         context_config: dict,
-        config_helper: ConfigHelper,
+        config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
         value_mapping: dict,
@@ -38,7 +38,7 @@ class ModbusDerivedSwitch(BaseSensor):
             return_type=None,
             filters=[],
             message_bus=message_bus,
-            config_helper=config_helper,
+            config=config,
             user_filters=[],
             ha_filter="",
         )
@@ -66,7 +66,7 @@ class ModbusDerivedSwitch(BaseSensor):
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
             "entity_id": self.name,
-            "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
+            "command_topic": f"{self.config.mqtt.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "'
             + self.decoded_name
             + '", "value": "{{ value }}"}',
@@ -74,7 +74,7 @@ class ModbusDerivedSwitch(BaseSensor):
             "payload_on": self._payload_on,
         }
         msg = modbus_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

@@ -130,7 +130,8 @@ class HostSensor(AsyncUpdater):
         static_data: dict | None,
         id: str,
         type: str,
-        **kwargs,
+        manager: Manager,
+        update_interval: TimePeriod = TimePeriod(seconds=60),
     ) -> None:
         self._update_function = update_function
         self._static_data = static_data
@@ -139,7 +140,7 @@ class HostSensor(AsyncUpdater):
         self._event_bus = event_bus
         self._loop = asyncio.get_event_loop()
         self.id = id
-        super().__init__(**kwargs)
+        super().__init__(manager=manager, update_interval=update_interval)
         self._loop.create_task(self.async_update(time.time()))
 
     async def async_update(self, timestamp: float) -> None:
@@ -311,11 +312,11 @@ class HostData:
 
     @property
     def web_url(self) -> str | None:
-        if not self._manager.is_web_on:
+        if self._manager.config.web is None:
             return None
         network_state = self._data[NETWORK].state
         if IP in network_state:
-            return f"http://{network_state[IP]}:{self._manager.web_bind_port}"
+            return f"http://{network_state[IP]}:{self._manager.config.web.port}"
         return None
 
     def get(self, type: str) -> dict:

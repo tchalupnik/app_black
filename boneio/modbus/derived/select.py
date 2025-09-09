@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from boneio.const import ID, MODEL, NAME, SELECT, SENSOR
-from boneio.helper.config import ConfigHelper
 from boneio.helper.ha_discovery import (
     modbus_select_availabilty_message,
 )
 from boneio.helper.util import find_key_by_value
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
+from boneio.runner import Config
 
 
 class ModbusDerivedSelect(BaseSensor):
@@ -19,7 +19,7 @@ class ModbusDerivedSelect(BaseSensor):
         parent: dict,
         message_bus: MessageBus,
         context_config: dict,
-        config_helper: ConfigHelper,
+        config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
         value_mapping: dict,
@@ -32,7 +32,7 @@ class ModbusDerivedSelect(BaseSensor):
             return_type=None,
             filters=[],
             message_bus=message_bus,
-            config_helper=config_helper,
+            config=config,
             user_filters=[],
             ha_filter="",
         )
@@ -59,13 +59,13 @@ class ModbusDerivedSelect(BaseSensor):
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
             "entity_id": self.name,
             "options": [*self._value_mapping.values()],
-            "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
+            "command_topic": f"{self.config.mqtt.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "'
             + self.decoded_name
             + '", "value": "{{ value }}"}',
         }
         msg = modbus_select_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

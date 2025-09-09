@@ -24,6 +24,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import httpx
 from jose import jwt
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -33,7 +34,6 @@ from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
 from boneio.const import COVER, NONE
-from boneio.helper.config import ConfigHelper
 from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.yaml_util import (
@@ -49,6 +49,7 @@ from boneio.models import (
     StateUpdate,
 )
 from boneio.models.logs import LogEntry, LogsResponse
+from boneio.runner import Config
 from boneio.version import __version__
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
@@ -136,7 +137,6 @@ app = BoneIOApp(
 JWT_SECRET = os.getenv(
     "JWT_SECRET", secrets.token_hex(32)
 )  # Use environment variable or generate temporary
-_auth_config = {}
 
 
 # Dependency to get manager instance
@@ -145,24 +145,17 @@ def get_manager():
     return app.state.manager
 
 
-def get_config_helper():
-    """Get config helper instance."""
-    return app.state.config_helper
+def get_config() -> Config:
+    """Get config instance."""
+    return app.state.config
 
 
 # Add auth required endpoint
 @app.get("/api/auth/required")
-async def auth_required():
+async def auth_required(config: Config = Depends(get_config)):
     """Check if authentication is required."""
-    try:
-        auth_required = bool(
-            _auth_config.get("username") and _auth_config.get("password")
-        )
-        return {"required": auth_required}
-    except Exception as e:
-        logging.error(f"Error checking auth requirement: {e}")
-        # Default to requiring auth if there's an error
-        return {"required": True}
+    assert config.web is not None, "Web config must be provided"
+    return {"required": config.web.is_auth_required()}
 
 
 # Configure CORS
@@ -184,9 +177,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
             or request.url.path == "/api/auth/required"
             or request.url.path == "/api/version"
         ):
-            return await call_next(request)
-
-        if not _auth_config:
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization")
@@ -227,14 +217,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 @app.post("/api/login")
-async def login(username: str = Body(...), password: str = Body(...)):
-    if not _auth_config:
+async def login(
+    username: str = Body(...),
+    password: str = Body(...),
+    config: Config = Depends(get_config),
+):
+    assert config.web is not None, "Web config must be provided"
+    if not config.web.is_auth_required():
         token = create_token({"sub": "default"})
         return {"token": token}
 
-    if username == _auth_config.get("username") and password == _auth_config.get(
-        "password"
-    ):
+    if username == config.web.username and password == config.web.password:
         token = create_token({"sub": username})
         return {"token": token}
     raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -570,7 +563,6 @@ async def restart_service(background_tasks: BackgroundTasks):
 @app.get("/api/check_update")
 async def check_update():
     """Check if there is a newer version of BoneIO available from GitHub releases."""
-    import requests
     from packaging import version
 
     from boneio.version import __version__ as current_version
@@ -581,7 +573,8 @@ async def check_update():
 
         # Get releases from GitHub API
         api_url = f"https://api.github.com/repos/{repo}/releases"
-        response = requests.get(api_url)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(api_url)
 
         if response.status_code != 200:
             return {
@@ -701,9 +694,9 @@ async def get_version():
 
 
 @app.get("/api/name")
-async def get_name(config_helper: ConfigHelper = Depends(get_config_helper)):
-    """Get application version."""
-    return {"name": config_helper.name}
+async def get_name(config: Config = Depends(get_config)) -> dict[str, str]:
+    """Get application name."""
+    return {"name": config.boneio.name}
 
 
 @app.get("/api/check_configuration")
@@ -878,37 +871,27 @@ async def modbus_device_state_changed(event: SensorState):
 def init_app(
     manager: Manager,
     yaml_config_file: str,
-    config_helper: ConfigHelper,
-    auth_config: dict = {},
+    config: Config,
     jwt_secret: str | None = None,
     web_server=None,
 ) -> BoneIOApp:
     """Initialize the FastAPI application with manager."""
-    global _auth_config, JWT_SECRET
+    assert config.web is not None, "Web config must be provided"
+    global JWT_SECRET
 
-    # Set JWT secret
-    if jwt_secret:
+    if jwt_secret is not None:
         JWT_SECRET = jwt_secret
-    else:
-        JWT_SECRET = secrets.token_hex(32)  # Fallback to temporary secret
 
     app.state.manager = manager
-    app.state.auth_config = auth_config
     app.state.yaml_config_file = yaml_config_file
     app.state.web_server = web_server
-    app.state.config_helper = config_helper
+    app.state.config = config
     app.state.websocket_manager = WebSocketManager(
-        jwt_secret=jwt_secret, auth_required=bool(auth_config)
+        jwt_secret=jwt_secret, auth_required=config.web.is_auth_required()
     )
 
-    if auth_config:
-        username = auth_config.get("username")
-        password = auth_config.get("password")
-        if not username or not password:
-            _LOGGER.error("Missing username or password in config!")
-        else:
-            _auth_config = auth_config
-            app.add_middleware(AuthMiddleware)
+    if config.web.is_auth_required():
+        app.add_middleware(AuthMiddleware)
 
     app.add_middleware(
         CORSMiddleware,

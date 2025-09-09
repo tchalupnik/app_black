@@ -11,7 +11,7 @@ import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, Awaitable
+from typing import TYPE_CHECKING, Awaitable
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
@@ -19,10 +19,14 @@ from aiomqtt import Message, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
-from boneio.const import OFFLINE, PAHO, STATE
-from boneio.helper.config import ConfigHelper
+from boneio.const import (
+    OFFLINE,
+    PAHO,
+    STATE,
+)
 from boneio.helper.events import GracefulExit
 from boneio.helper.queue import UniqueQueue
+from boneio.runner import Config
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
@@ -34,22 +38,10 @@ _LOGGER = logging.getLogger(__name__)
 class MQTTClient(MessageBus):
     """Represent an MQTT client."""
 
-    def __init__(
-        self,
-        host: str,
-        config_helper: ConfigHelper,
-        port: int = 1883,
-        **client_options: Any,
-    ) -> None:
+    def __init__(self, config: Config) -> None:
         """Set up client."""
         self._manager: Manager = None
-        self.host = host
-        self.port = port
-        self._config_helper = config_helper
-        client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
-        client_options["logger"] = logging.getLogger(PAHO)
-        client_options["clean_session"] = True
-        self.client_options = client_options
+        self.config = config
         self.asyncio_client: AsyncioClient = None
         self.create_client()
         self.reconnect_interval = 1
@@ -60,14 +52,14 @@ class MQTTClient(MessageBus):
         ] = {}
         self._discovery_topics = (
             [
-                f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/#"
-                for ha_type in self._config_helper.ha_types
+                f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{self.config.mqtt.topic_prefix}/#"
+                for ha_type in self.config.mqtt.autodiscovery_messages
             ]
-            if self._config_helper.ha_discovery
+            if self.config.mqtt.ha_discovery.enabled
             else []
         )
         self._topics = [
-            self._config_helper.subscribe_topic,
+            self.config.mqtt.subscribe_topic(),
             "homeassistant/status",
         ]
         self._running = True
@@ -75,17 +67,21 @@ class MQTTClient(MessageBus):
 
     def create_client(self) -> None:
         """Create the asyncio client."""
-        _LOGGER.debug("Creating client %s:%s", self.host, self.port)
+        _LOGGER.debug(
+            "Creating client %s:%s", self.config.mqtt.host, self.config.mqtt.port
+        )
         self.asyncio_client = AsyncioClient(
-            self.host,
-            self.port,
+            self.config.mqtt.host,
+            self.config.mqtt.port,
             will=Will(
-                topic=f"{self._config_helper.topic_prefix}/{STATE}",
+                topic=f"{self.config.mqtt.topic_prefix}/{STATE}",
                 payload=OFFLINE,
                 qos=0,
                 retain=False,
             ),
-            **self.client_options,
+            client_id=mqtt.base62(uuid.uuid4().int, padding=22),
+            logger=logging.getLogger(PAHO),
+            clean_session=True,
         )
 
     async def publish(  # pylint:disable=too-many-arguments
@@ -184,7 +180,7 @@ class MQTTClient(MessageBus):
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
         await self.publish(
-            topic=f"{self._config_helper.topic_prefix}/{STATE}",
+            topic=f"{self.config.mqtt.topic_prefix}/{STATE}",
             payload=OFFLINE,
             retain=True,
         )
@@ -276,12 +272,12 @@ class MQTTClient(MessageBus):
                     topic = str(message.topic)
                     if (
                         message.payload
-                        and not self._config_helper.is_topic_in_autodiscovery(topic)
+                        and not self.config.mqtt.is_topic_in_autodiscovery(topic)
                     ):
                         _LOGGER.info("Removing unused discovery entity %s", topic)
                         self.send_message(topic=topic, payload=None, retain=True)
                     break
-            if message.topic.matches(f"{self._config_helper.topic_prefix}/energy/#"):
+            if message.topic.matches(f"{self.config.mqtt.topic_prefix}/energy/#"):
                 for topic, listener_callback in self._mqtt_energy_listeners.items():
                     if message.topic.matches(topic):
                         callback_start = False

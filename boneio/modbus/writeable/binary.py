@@ -51,7 +51,7 @@ class ModbusBinaryWriteableEntityDiscrete(ModbusBaseSensor):
             "payload_on": self._payload_on,
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

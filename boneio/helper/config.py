@@ -45,7 +45,6 @@ class ConfigHelper:
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._device_type = device_type
-        self._fetch_old_discovery = None
         self._autodiscovery_messages = {
             SWITCH: {},
             LIGHT: {},
@@ -61,15 +60,10 @@ class ConfigHelper:
         }
         self.manager_ready: bool = False
         self._network_info = network_info
-        self._is_web_active = is_web_active
 
     @property
     def network_info(self) -> dict:
         return self._network_info
-
-    @property
-    def is_web_active(self) -> bool:
-        return self._is_web_active
 
     @property
     def topic_prefix(self) -> str:
@@ -91,27 +85,6 @@ class ConfigHelper:
     def device_type(self) -> str:
         return self._device_type
 
-    @property
-    def cmd_topic_prefix(self) -> str:
-        return f"{self.topic_prefix}/cmd/"
-
-    @property
-    def subscribe_topic(self) -> str:
-        return f"{self.cmd_topic_prefix}+/+/#"
-
-    def add_autodiscovery_msg(
-        self, ha_type: str, topic: str, payload: str | dict | None
-    ):
-        """Add autodiscovery message."""
-        self._autodiscovery_messages[ha_type][topic] = {
-            "topic": topic,
-            "payload": payload,
-        }
-
-    @property
-    def ha_types(self) -> list[str]:
-        return list(self._autodiscovery_messages.keys())
-
     def is_topic_in_autodiscovery(self, topic: str) -> bool:
         topic_parts_raw = topic[len(f"{self._ha_discovery_prefix}/") :].split("/")
         ha_type = topic_parts_raw[0]
@@ -119,9 +92,6 @@ class ConfigHelper:
             if topic in self._autodiscovery_messages[ha_type]:
                 return True
         return False
-
-    def clear_autodiscovery_type(self, ha_type: str):
-        self._autodiscovery_messages[ha_type] = {}
 
     @property
     def autodiscovery_msgs(self) -> dict_values:

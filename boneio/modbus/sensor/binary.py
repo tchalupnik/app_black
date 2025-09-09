@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import logging
 
 from boneio.const import BINARY_SENSOR, ID, MODEL, NAME, SENSOR
 from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
 
 from .base import ModbusBaseSensor
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ModbusBinarySensor(ModbusBaseSensor):
@@ -36,7 +33,7 @@ class ModbusBinarySensor(ModbusBaseSensor):
             "payload_on": self._payload_on,
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

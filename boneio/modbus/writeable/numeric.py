@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from boneio.const import ID, MODEL, NAME, NUMERIC, SENSOR
 from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
+from boneio.runner import Config
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator
@@ -18,11 +19,12 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
     def __init__(
         self,
         coordinator: ModbusCoordinator,
+        config: Config,
         write_address: int | None = None,
         write_filters: list | None = None,
         **kwargs,
     ):
-        ModbusNumericSensor.__init__(self, **kwargs)
+        ModbusNumericSensor.__init__(self, config=config, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address
         self._write_filters = write_filters
@@ -46,7 +48,7 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
             "entity_id": self.name,
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
@@ -66,13 +68,13 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             "value_template": value_template,
             "entity_id": self.name,
             "mode": "box",
-            "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
+            "command_topic": f"{self.config.mqtt.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "'
             + self.decoded_name
             + '", "value": "{{ value }}"}',
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

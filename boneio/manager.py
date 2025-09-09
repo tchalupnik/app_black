@@ -68,7 +68,6 @@ from boneio.helper import (
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
 )
-from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
 from boneio.helper.gpio import GpioBaseClass
@@ -86,6 +85,7 @@ from boneio.helper.loader import (
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
+from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.message_bus import MessageBus
@@ -93,6 +93,7 @@ from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
+from boneio.runner import Config
 from boneio.sensor.temp import TempSensor
 
 _LOGGER = logging.getLogger(__name__)
@@ -110,10 +111,10 @@ class Manager:
 
     def __init__(
         self,
+        config: Config,
         message_bus: MessageBus,
         event_bus: EventBus,
         state_manager: StateManager,
-        config_helper: ConfigHelper,
         config_file_path: str,
         relay_pins: list = [],
         event_pins: list = [],
@@ -130,21 +131,16 @@ class Manager:
         oled: dict = {},
         adc: list | None = None,
         cover: list = [],
-        web_active: bool = False,
-        web_port: int = 8090,
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
-
-        self._config_helper: ConfigHelper = config_helper
+        self.config = config
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = event_bus
-        self._is_web_on = web_active
-        self._web_bind_port = web_port
 
         self._message_bus: MessageBus = message_bus
 
@@ -215,7 +211,7 @@ class Manager:
                 manager=self,
                 message_bus=message_bus,
                 state_manager=self._state_manager,
-                topic_prefix=self._config_helper.topic_prefix,
+                topic_prefix=self.config.mqtt.topic_prefix,
                 name=_name,
                 restore_state=restore_state,
                 relay_id=_id,
@@ -255,7 +251,7 @@ class Manager:
         self._serial_number_sensor = create_serial_number_sensor(
             manager=self,
             message_bus=self._message_bus,
-            topic_prefix=self._config_helper.topic_prefix,
+            topic_prefix=self.config.mqtt.topic_prefix,
         )
         self._modbus_coordinators = self._configure_modbus_coordinators(
             devices=modbus_devices
@@ -292,18 +288,6 @@ class Manager:
                     self._oled.render_display()
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
-
-    def set_web_server_status(self, status: bool, bind: int):
-        self._is_web_on = status
-        self._web_bind_port = bind
-
-    @property
-    def is_web_on(self) -> bool:
-        return self._is_web_on
-
-    @property
-    def web_bind_port(self) -> int | None:
-        return self._web_bind_port
 
     @property
     def mqtt_state(self) -> bool:
@@ -355,7 +339,7 @@ class Manager:
                 config=group,
                 message_bus=self._message_bus,
                 state_manager=self._state_manager,
-                topic_prefix=self._config_helper.topic_prefix,
+                topic_prefix=self.config.mqtt.topic_prefix,
                 relay_id=group[ID].replace(" ", ""),
                 event_bus=self._event_bus,
                 members=members,
@@ -386,7 +370,7 @@ class Manager:
         if reload_config:
             config = load_config_from_file(self._config_file_path)
             self._config_covers = config.get(COVER, [])
-            self._config_helper.clear_autodiscovery_type(ha_type=COVER)
+            self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
         for _config in self._config_covers:
             _id = strip_accents(_config[ID])
             open_relay = self._outputs.get(_config.get("open_relay"))
@@ -429,7 +413,7 @@ class Manager:
                     tilt_duration=_config.get("tilt_duration"),
                     event_bus=self._event_bus,
                     send_ha_autodiscovery=self.send_ha_autodiscovery,
-                    topic_prefix=self._config_helper.topic_prefix,
+                    topic_prefix=self.config.mqtt.topic_prefix,
                 )
 
             except CoverConfigurationException as err:
@@ -576,8 +560,8 @@ class Manager:
             if config:
                 self._event_pins = config.get(EVENT_ENTITY, [])
                 self._binary_pins = config.get(BINARY_SENSOR, [])
-                self._config_helper.clear_autodiscovery_type(ha_type=EVENT_ENTITY)
-                self._config_helper.clear_autodiscovery_type(ha_type=BINARY_SENSOR)
+                self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
+                self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
         for gpio in self._event_pins:
             configure_single_input(
                 configure_sensor_func=configure_event_sensor, gpio=gpio
@@ -618,7 +602,7 @@ class Manager:
         _one_wire_devices = {}
         _ds_onewire_bus = {}
 
-        for _single_ds in ds2482:
+        for _single_ds in ds2482 or []:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds[ADDRESS])
             from boneio.helper.loader import (
                 configure_ds2482,
@@ -656,7 +640,7 @@ class Manager:
                 _LOGGER.error("Can't configure Dallas W1 device %s", err)
                 pass
 
-        for sensor in sensors:
+        for sensor in sensors or []:
             address = _one_wire_devices.get(sensor[ADDRESS])
             if not address:
                 continue
@@ -674,7 +658,7 @@ class Manager:
                     manager=self,
                     message_bus=self._message_bus,
                     address=address,
-                    topic_prefix=self._config_helper.topic_prefix,
+                    topic_prefix=self.config.mqtt.topic_prefix,
                     config=sensor,
                     **kwargs,
                 )
@@ -687,7 +671,7 @@ class Manager:
             create_adc(
                 manager=self,
                 message_bus=self._message_bus,
-                topic_prefix=self._config_helper.topic_prefix,
+                topic_prefix=self.config.mqtt.topic_prefix,
                 adc_list=adc_list,
             )
 
@@ -717,7 +701,7 @@ class Manager:
                     temp_sensor = create_temp_sensor(
                         manager=self,
                         message_bus=self._message_bus,
-                        topic_prefix=self._config_helper.topic_prefix,
+                        topic_prefix=self.config.mqtt.topic_prefix,
                         sensor_type=sensor_type,
                         config=temp_def,
                         i2cbusio=self._i2cbusio,
@@ -731,7 +715,7 @@ class Manager:
 
             for sensor_config in sensors[INA219]:
                 ina219 = create_ina219_sensor(
-                    topic_prefix=self._config_helper.topic_prefix,
+                    topic_prefix=self.config.mqtt.topic_prefix,
                     manager=self,
                     message_bus=self._message_bus,
                     config=sensor_config,
@@ -749,14 +733,14 @@ class Manager:
                 event_bus=self._event_bus,
                 entries=devices,
                 modbus=self._modbus,
-                config_helper=self._config_helper,
+                config=self.config,
             )
         return {}
 
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
-        topic = f"{self._config_helper.topic_prefix}/{STATE}"
+        topic = f"{self.config.mqtt.topic_prefix}/{STATE}"
         self.send_message(topic=topic, payload=ONLINE, retain=True)
 
     @property
@@ -847,7 +831,7 @@ class Manager:
         If relay input map is provided also toggle action on relay or cover or mqtt.
         """
         actions = gpio.get_actions_of_click(click_type=x)
-        topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
+        topic = f"{self.config.mqtt.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
         def generate_payload():
             if gpio.input_type == INPUT:
@@ -873,11 +857,14 @@ class Manager:
                     entity_id, self._configured_output_groups.get(entity_id)
                 )
                 action_to_execute = action_definition.get("action_to_execute")
+                duration = None
+                if start_time is not None:
+                    duration = time.time() - start_time
                 _LOGGER.debug(
                     "Executing action %s for output %s. Duration: %s",
                     action_to_execute,
                     output.name,
-                    time.time() - start_time,
+                    duration,
                 )
                 _f = getattr(output, action_to_execute)
                 await _f()
@@ -885,11 +872,14 @@ class Manager:
                 cover = self._covers.get(entity_id)
                 action_to_execute = action_definition.get("action_to_execute")
                 extra_data = action_definition.get("extra_data", {})
+                duration = None
+                if start_time is not None:
+                    duration = time.time() - start_time
                 _LOGGER.debug(
                     "Executing action %s for cover %s. Duration: %s",
                     action_to_execute,
                     cover.name,
-                    time.time() - start_time,
+                    duration,
                 )
                 _f = getattr(cover, action_to_execute)
                 await _f(**extra_data)
@@ -932,17 +922,17 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        if topic.startswith(f"{self._config_helper.ha_discovery_prefix}/status"):
+        if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
             if message == ONLINE:
                 self.resend_autodiscovery()
                 self._event_bus.signal_ha_online()
             return
         try:
-            assert topic.startswith(self._config_helper.cmd_topic_prefix)
+            assert topic.startswith(self.config.mqtt.cmd_topic_prefix())
         except AssertionError as err:
             _LOGGER.error("Wrong topic %s. Error %s", topic, err)
             return
-        topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix) :].split("/")
+        topic_parts_raw = topic[len(self.config.mqtt.cmd_topic_prefix()) :].split("/")
         topic_parts = deque(topic_parts_raw)
         try:
             msg_type = topic_parts.popleft()
@@ -1085,38 +1075,36 @@ class Manager:
         name: str,
         ha_type: str,
         availability_msg_func: Callable,
-        topic_prefix: str = None,
+        topic_prefix: str | None = None,
         **kwargs,
     ) -> None:
         """Send HA autodiscovery information for each relay."""
-        if not self._config_helper.ha_discovery:
+        if not self.config.mqtt.ha_discovery.enabled:
             return
-        topic_prefix = topic_prefix or self._config_helper.topic_prefix
+        topic_prefix = topic_prefix or self.config.mqtt.topic_prefix
         web_url = None
-        if self._config_helper.is_web_active:
+        if self.config.web is not None:
+            network_state = get_network_info()
             if self._host_data:
                 web_url = self._host_data.web_url
-            elif (
-                self._config_helper.network_info
-                and IP in self._config_helper.network_info
-            ):
-                web_url = f"http://{self._config_helper.network_info[IP]}:{self._web_bind_port}"
+            elif network_state and IP in network_state:
+                web_url = f"http://{network_state[IP]}:{self.config.web.port}"
         payload = availability_msg_func(
             topic=topic_prefix,
             id=id,
             name=name,
-            model=self._config_helper.device_type.title(),
-            device_name=self._config_helper.name,
+            model=self.config.boneio.device_type.title(),
+            device_name=self.config.boneio.name,
             web_url=web_url,
             **kwargs,
         )
-        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
+        topic = f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
-        self._config_helper.add_autodiscovery_msg(
+        self.config.mqtt.autodiscovery_messages.add_message(
             topic=topic, ha_type=ha_type, payload=payload
         )
         self.send_message(topic=topic, payload=payload, retain=True)
 
     def resend_autodiscovery(self) -> None:
-        for msg in self._config_helper.autodiscovery_msgs:
-            self.send_message(**msg, retain=True)
+        for msg in self.config.mqtt.autodiscovery_messages.root.values():
+            self.send_message(**msg.model_dump(), retain=True)

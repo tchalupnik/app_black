@@ -7,6 +7,9 @@ import Adafruit_BBIO.ADC as ADC
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
+from boneio.helper.timeperiod import TimePeriod
+from boneio.manager import Manager
+from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,13 +21,31 @@ def initialize_adc():
 class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
     """Represent Gpio ADC sensor."""
 
-    def __init__(self, pin: str, filters: list, **kwargs) -> None:
+    def __init__(
+        self,
+        pin: str,
+        filters: list,
+        manager: Manager,
+        update_interval: TimePeriod,
+        id: str,
+        name: str,
+        message_bus: MessageBus,
+        topic_prefix: str,
+    ) -> None:
         """Setup GPIO ADC Sensor"""
-        super().__init__(topic_type=SENSOR, **kwargs)
+        super().__init__(
+            topic_type=SENSOR,
+            manager=manager,
+            update_interval=update_interval,
+            id=id,
+            name=name,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+        )
         self._pin = pin
         self._state = None
         self._filters = filters
-        AsyncUpdater.__init__(self, **kwargs)
+        AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
 
     @property

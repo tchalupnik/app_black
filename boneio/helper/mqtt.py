@@ -16,7 +16,6 @@ class BasicMqtt:
         name: str,
         message_bus: MessageBus,
         topic_type: str,
-        **kwargs,
     ):
         """Initialize module."""
         self._id = id.replace(" ", "")

@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 
 from boneio.const import ID, MODEL, NAME, SENSOR
-from boneio.helper.config import ConfigHelper
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
+from boneio.runner import Config
 
 from .base import BaseSensor
 
@@ -28,7 +28,7 @@ class ModbusTextSensor(BaseSensor):
         return_type: str,
         filters: list,
         message_bus: MessageBus,
-        config_helper: ConfigHelper,
+        config: Config,
         value_mapping: dict = {},
         user_filters: list | None = [],
         ha_filter: str = "",
@@ -57,9 +57,9 @@ class ModbusTextSensor(BaseSensor):
             return_type=return_type,
             filters=filters,
             message_bus=message_bus,
-            config_helper=config_helper,
+            config=config,
             user_filters=user_filters,
-            ha_filter=None,
+            ha_filter=ha_filter,
         )
         self._register_address = register_address
         self._base_address = base_address
@@ -88,7 +88,7 @@ class ModbusTextSensor(BaseSensor):
             "sensor_id": self.name,
         }
         return modbus_sensor_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

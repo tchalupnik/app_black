@@ -12,7 +12,7 @@ from boneio.helper.timeperiod import TimePeriod
 
 
 class AsyncUpdater:
-    def __init__(self, manager: Manager, update_interval: TimePeriod, **kwargs):
+    def __init__(self, manager: Manager, update_interval: TimePeriod) -> None:
         self.manager = manager
         self._update_interval = update_interval or TimePeriod(seconds=60)
         self.manager.append_task(coro=self._refresh, name=self.id)

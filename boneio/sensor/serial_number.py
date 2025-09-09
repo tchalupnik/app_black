@@ -6,6 +6,8 @@ from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.stats import get_network_info
 from boneio.helper.timeperiod import TimePeriod
+from boneio.manager import Manager
+from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -13,11 +15,26 @@ _LOGGER = logging.getLogger(__name__)
 class SerialNumberSensor(BasicMqtt, AsyncUpdater):
     """Represent Serial Number sensor."""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        manager: Manager,
+        message_bus: MessageBus,
+        topic_prefix: str,
+    ) -> None:
         """Setup GPIO ADC Sensor"""
-        super().__init__(topic_type=SENSOR, **kwargs)
+        super().__init__(
+            topic_type=SENSOR,
+            id=id,
+            name=name,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+        )
         self._state = None
-        AsyncUpdater.__init__(self, **kwargs, update_interval=TimePeriod(minutes=60))
+        AsyncUpdater.__init__(
+            self, manager=manager, update_interval=TimePeriod(minutes=60)
+        )
         _LOGGER.debug("Configured serial number sensor")
 
     @property

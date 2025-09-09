@@ -7,10 +7,10 @@ import secrets
 from pathlib import Path
 
 from hypercorn.asyncio import serve
-from hypercorn.config import Config
+from hypercorn.config import Config as HypercornConfig
 
-from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
+from boneio.runner import Config
 from boneio.webui.app import BoneIOApp, init_app
 
 _LOGGER = logging.getLogger(__name__)
@@ -19,20 +19,16 @@ _LOGGER = logging.getLogger(__name__)
 class WebServer:
     def __init__(
         self,
+        config: Config,
         config_file: str,
-        config_helper: ConfigHelper,
         manager: Manager,
-        port: int = 8080,
-        auth: dict = {},
-        logger: dict = {},
-        debug_level: int = 0,
     ) -> None:
         """Initialize the web server."""
+        self.config = config
+        assert self.config.web is not None, "Web config must be provided"
         self.config_file = config_file
-        self.config_helper = config_helper
         self.manager = manager
         self._shutdown_event = asyncio.Event()
-        self._port = port
 
         # Get yaml config file path
         self._yaml_config_file = os.path.abspath(
@@ -46,15 +42,14 @@ class WebServer:
         self.app: BoneIOApp = init_app(
             manager=self.manager,
             yaml_config_file=self._yaml_config_file,
-            auth_config=auth,
             jwt_secret=self.jwt_secret,
-            config_helper=self.config_helper,
+            config=self.config,
             web_server=self,
         )
 
         # Configure hypercorn with shared logging config
-        self._hypercorn_config = Config()
-        self._hypercorn_config.bind = [f"0.0.0.0:{port}"]
+        self._hypercorn_config = HypercornConfig()
+        self._hypercorn_config.bind = [f"0.0.0.0:{self.config.web.port}"]
         self._hypercorn_config.use_reloader = False
         self._hypercorn_config.worker_class = "asyncio"
 
@@ -118,7 +113,6 @@ class WebServer:
         server_task = asyncio.create_task(
             serve(self.app, self._hypercorn_config, shutdown_trigger=shutdown_trigger)
         )
-        self.manager.set_web_server_status(status=True, bind=self._port)
         try:
             await server_task
         except asyncio.CancelledError:

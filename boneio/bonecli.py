@@ -204,7 +204,12 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "") -> int:
+def run(
+    config: str,
+    debug: int,
+    mqttusername: str | None = None,
+    mqttpassword: str | None = None,
+) -> int:
     """Run BoneIO."""
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)

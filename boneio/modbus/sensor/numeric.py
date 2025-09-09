@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import logging
 
-from boneio.helper.config import ConfigHelper
 from boneio.message_bus.basic import MessageBus
+from boneio.runner import Config
 
 from .base import ModbusBaseSensor
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ModbusNumericSensor(ModbusBaseSensor):
@@ -24,7 +21,7 @@ class ModbusNumericSensor(ModbusBaseSensor):
         return_type: str,
         filters: list,
         message_bus: MessageBus,
-        config_helper: ConfigHelper,
+        config: Config,
         user_filters: list | None = [],
         ha_filter: str = "round(2)",
     ) -> None:
@@ -52,7 +49,7 @@ class ModbusNumericSensor(ModbusBaseSensor):
             return_type=return_type,
             filters=filters,
             message_bus=message_bus,
-            config_helper=config_helper,
+            config=config,
             user_filters=user_filters,
             ha_filter=ha_filter,
             register_address=register_address,

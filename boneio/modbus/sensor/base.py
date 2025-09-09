@@ -4,10 +4,10 @@ import logging
 import time
 
 from boneio.const import ID, MODEL, NAME, SENSOR
-from boneio.helper.config import ConfigHelper
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
+from boneio.runner import Config, MqttAutodiscoveryMessage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class BaseSensor(Filter):
         name: str,
         parent: dict,
         message_bus: MessageBus,
-        config_helper: ConfigHelper,
+        config: Config,
         unit_of_measurement: str | None = None,
         state_class: str | None = None,
         device_class: str | None = None,
@@ -38,7 +38,7 @@ class BaseSensor(Filter):
         self._state_class = state_class
         self._device_class = device_class
         self._message_bus = message_bus
-        self._config_helper = config_helper
+        self.config = config
         self._user_filters = user_filters
         self._filters = filters
         self._value = None
@@ -47,7 +47,7 @@ class BaseSensor(Filter):
         self._ha_filter = ha_filter
         self._timestamp = time.time()
         self._topic = (
-            f"{self._config_helper.ha_discovery_prefix}/{self._ha_type_}/{self._config_helper.topic_prefix}{self._parent[ID]}"
+            f"{self.config.mqtt.ha_discovery.topic_prefix}/{self._ha_type_}/{self.config.mqtt.topic_prefix}{self._parent[ID]}"
             f"/{self._parent[ID]}{self._decoded_name_low.replace('_', '')}/config"
         )
 
@@ -112,8 +112,9 @@ class BaseSensor(Filter):
             self._name,
             self._parent[ID],
         )
-        self._config_helper.add_autodiscovery_msg(
-            topic=self._topic, payload=payload, ha_type=self._ha_type_
+        self.config.mqtt.autodiscovery_messages.add_message(
+            message=MqttAutodiscoveryMessage(payload=payload, topic=self._topic),
+            type=self._ha_type_,
         )
         self._message_bus.send_message(topic=self._topic, payload=payload)
 
@@ -133,7 +134,7 @@ class BaseSensor(Filter):
         if self._device_class:
             kwargs["device_class"] = self._device_class
         return modbus_sensor_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            topic=self.config.mqtt.topic_prefix,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
@@ -153,7 +154,7 @@ class ModbusBaseSensor(BaseSensor):
         register_address: int,
         base_address: int,
         message_bus: MessageBus,
-        config_helper: ConfigHelper,
+        config: Config,
         unit_of_measurement: str | None = None,
         state_class: str | None = None,
         device_class: str | None = None,
@@ -187,7 +188,7 @@ class ModbusBaseSensor(BaseSensor):
             return_type=return_type,
             filters=filters,
             message_bus=message_bus,
-            config_helper=config_helper,
+            config=config,
             user_filters=user_filters,
             ha_filter=ha_filter,
         )

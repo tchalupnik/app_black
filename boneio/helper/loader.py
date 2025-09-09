@@ -74,7 +74,9 @@ from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input import GpioEventButtonNew, GpioEventButtonOld
 from boneio.message_bus.basic import MessageBus
+from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
+from boneio.runner import Config
 from boneio.sensor import (
     DallasSensorDS2482,
     GpioInputBinarySensorNew,
@@ -230,7 +232,12 @@ def create_expander(
 
 
 def create_modbus_coordinators(
-    manager: Manager, message_bus: MessageBus, entries, **kwargs
+    manager: Manager,
+    message_bus: MessageBus,
+    event_bus: EventBus,
+    entries: dict,
+    modbus: Modbus,
+    config: Config,
 ) -> dict[str, ModbusCoordinator]:
     """Create Modbus sensor for each device."""
 
@@ -250,7 +257,9 @@ def create_modbus_coordinators(
                 update_interval=entry.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
                 sensors_filters=entry.get("sensors_filters", {}),
                 additional_data=additional_data,
-                **kwargs,
+                modbus=modbus,
+                event_bus=event_bus,
+                config=config,
             )
         except FileNotFoundError as err:
             _LOGGER.error(
