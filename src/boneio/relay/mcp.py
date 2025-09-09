@@ -38,6 +38,7 @@ class MCPRelay(BasicRelay):
             restored_state = False
         super().__init__(
             id=id,
+            pin_id=pin,
             name=name,
             topic_prefix=topic_prefix,
             event_bus=event_bus,
@@ -47,7 +48,6 @@ class MCPRelay(BasicRelay):
             output_type=output_type,
             restored_state=restored_state,
         )
-        self._pin_id = pin
         self._expander_id = mcp_id
 
         self.init_with_check_if_can_restore_state(restored_state=restored_state)
@@ -55,10 +55,10 @@ class MCPRelay(BasicRelay):
 
     def init_with_check_if_can_restore_state(self, restored_state: bool) -> None:
         if restored_state:
-            interlock_manager = getattr(self, "_interlock_manager", None)
-            interlock_groups = getattr(self, "_interlock_groups", None)
-            if self._interlock_manager and self._interlock_groups:
-                if not interlock_manager.can_turn_on(self, interlock_groups):
+            if self._interlock_manager is not None and self._interlock_groups:
+                if not self._interlock_manager.can_turn_on(
+                    self, self._interlock_groups
+                ):
                     _LOGGER.warning(
                         f"Interlock active: cannot restore ON state for {self._pin_id} at startup"
                     )
@@ -69,11 +69,6 @@ class MCPRelay(BasicRelay):
     def expander_type(self) -> str:
         """Check expander type."""
         return MCP
-
-    @property
-    def pin_id(self) -> int:
-        """Return PIN id."""
-        return self._pin_id
 
     @property
     def is_active(self) -> bool:

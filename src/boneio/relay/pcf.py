@@ -5,7 +5,10 @@ import logging
 from adafruit_pcf8575 import DigitalInOut
 
 from boneio.const import NONE, OFF, ON, PCF, SWITCH
+from boneio.helper.events import EventBus
+from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.pcf8575 import PCF8575
+from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -19,9 +22,15 @@ class PCFRelay(BasicRelay):
         pin: int,
         expander: PCF8575,
         expander_id: str,
+        message_bus: MessageBus,
+        name: str,
+        event_bus: EventBus,
+        topic_prefix: str,
+        id: str,
+        interlock_manager: SoftwareInterlockManager,
+        interlock_groups: list[str],
         output_type: str = SWITCH,
         restored_state: bool = False,
-        **kwargs,
     ) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = expander.get_pin(pin)
@@ -30,9 +39,16 @@ class PCFRelay(BasicRelay):
             restored_state = False
         self._pin.switch_to_output(value=restored_state)
         super().__init__(
-            **kwargs, output_type=output_type, restored_state=restored_state
+            id=id,
+            name=name,
+            topic_prefix=topic_prefix,
+            event_bus=event_bus,
+            message_bus=message_bus,
+            interlock_manager=interlock_manager,
+            interlock_groups=interlock_groups,
+            output_type=output_type,
+            restored_state=restored_state,
         )
-        self._pin_id = pin
         self._expander_id = expander_id
         self._active_state = False
         _LOGGER.debug("Setup PCF with pin %s", self._pin_id)
@@ -53,7 +69,7 @@ class PCFRelay(BasicRelay):
         return self.pin.value == self._active_state
 
     @property
-    def pin(self) -> str:
+    def pin(self) -> DigitalInOut:
         """PIN of the relay"""
         return self._pin
 
@@ -61,12 +77,8 @@ class PCFRelay(BasicRelay):
         """Call turn on action."""
         self.pin.value = self._active_state
         self._execute_momentary_turn(momentary_type=ON)
-        self._loop.call_soon_threadsafe(self.send_state)
-        self._loop.call_soon_threadsafe(self._callback)
 
     def turn_off(self) -> None:
         """Call turn off action."""
         self.pin.value = not self._active_state
         self._execute_momentary_turn(momentary_type=OFF)
-        self._loop.call_soon_threadsafe(self.send_state)
-        self._loop.call_soon_threadsafe(self._callback)

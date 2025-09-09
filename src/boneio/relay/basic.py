@@ -216,6 +216,7 @@ class BasicRelay(BasicMqtt):
         self,
         # callback: Callable[[OutputState], Awaitable[None]],
         id: str,
+        pin_id: int,
         event_bus: EventBus,
         topic_prefix: str,
         message_bus: MessageBus,
@@ -224,7 +225,7 @@ class BasicRelay(BasicMqtt):
         restored_state: bool = False,
         topic_type: str = RELAY,
         interlock_manager: SoftwareInterlockManager | None = None,
-        interlock_groups: list[str] = [],
+        interlock_groups: list[str] | None = None,
         momentary_turn_on: str | None = None,
         momentary_turn_off: str | None = None,
         virtual_power_usage: float | None = None,
@@ -241,17 +242,17 @@ class BasicRelay(BasicMqtt):
             topic_prefix=topic_prefix,
             message_bus=message_bus,
         )
+        self._pin_id = pin_id
         self._momentary_turn_off = momentary_turn_off
         self._momentary_turn_on = momentary_turn_on
         self._output_type = output_type
         self._event_bus = event_bus
         self._interlock_manager = interlock_manager
-        self._interlock_groups = interlock_groups
+        self._interlock_groups = [] if interlock_groups is None else interlock_groups
         if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
         self._state = ON if restored_state else OFF
-        # self._callback = callback
         self._momentary_action = None
         self._last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
@@ -353,7 +354,7 @@ class BasicRelay(BasicMqtt):
             name=self.name,
             state=state,
             type=self.output_type,
-            pin=self.pin_id,
+            pin=self._pin_id,
             timestamp=self.last_timestamp,
             expander_id=self.expander_id,
         )

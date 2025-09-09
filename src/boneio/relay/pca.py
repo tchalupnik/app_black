@@ -5,6 +5,9 @@ import logging
 from adafruit_pca9685 import PCA9685, PCAChannels
 
 from boneio.const import LED, OFF, ON, STATE, SWITCH, BRIGHTNESS, PCA
+from boneio.helper.events import EventBus
+from boneio.helper.interlock import SoftwareInterlockManager
+from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,19 +21,33 @@ class PWMPCA(BasicRelay):
         pin: int,
         pca: PCA9685,
         percentage_default_brightness: int,
-        output_type=SWITCH,
+        message_bus: MessageBus,
+        topic_prefix: str,
+        id: str,
+        interlock_manager: SoftwareInterlockManager,
+        interlock_groups: list[str],
+        name: str,
+        event_bus: EventBus,
+        output_type: str = SWITCH,
         restored_state: bool = False,
         restored_brightness: int = 0,
-        **kwargs,
     ) -> None:
         """Initialize PWMPCA."""
         self._pin: PCAChannels = pca.channels[pin]
         super().__init__(
-            **kwargs, output_type=output_type, restored_state=restored_state
+            id=id,
+            pin_id=pin,
+            name=name,
+            topic_prefix=topic_prefix,
+            event_bus=event_bus,
+            message_bus=message_bus,
+            interlock_manager=interlock_manager,
+            interlock_groups=interlock_groups,
+            output_type=output_type,
+            restored_state=restored_state,
         )
         self._percentage_default_brightness = percentage_default_brightness
         self._brightness = restored_brightness if restored_state else 0
-        self._pin_id = pin
         _LOGGER.debug("Setup PCA with pin %s", self._pin_id)
 
     @property
@@ -54,7 +71,7 @@ class PWMPCA(BasicRelay):
             _LOGGER.error("Cant read value form driver on pin %s", self._pin_id)
             return 0
 
-    def set_brightness(self, value: int):
+    def set_brightness(self, value: int) -> None:
         try:
             """Set brightness in 0-65535 vale"""
             _LOGGER.debug("Set brightness relay %s.", value)
@@ -73,16 +90,12 @@ class PWMPCA(BasicRelay):
         if self.brightness == 0:
             self.set_brightness(int(65535 / 100 * self._percentage_default_brightness))
         self._execute_momentary_turn(momentary_type=ON)
-        self._loop.call_soon_threadsafe(self.send_state)
-        self._loop.call_soon_threadsafe(self._callback)
 
     def turn_off(self) -> None:
         """Call turn off action."""
         _LOGGER.debug("Turn off relay.")
         self._pin.duty_cycle = 0
         self._execute_momentary_turn(momentary_type=OFF)
-        self._loop.call_soon_threadsafe(self.send_state)
-        self._loop.call_soon_threadsafe(self._callback)
 
     def payload(self) -> dict:
         return {BRIGHTNESS: self.brightness, STATE: self.state}
