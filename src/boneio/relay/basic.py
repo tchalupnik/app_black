@@ -11,6 +11,7 @@ from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
+from boneio.helper.mqtt import MqttBase
 from boneio.helper.util import callback
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
@@ -193,6 +194,21 @@ class VirtualEnergySensor:
         _LOGGER.info(f"Sent virtual energy state for {self._parent.id}: {payload}")
 
 
+class RelayBase(MqttBase):
+    # TODO: finish later
+    event_bus: EventBus
+    topic_type: str = RELAY
+
+    output_type: str = SWITCH
+    interlock_manager: SoftwareInterlockManager | None = None
+    interlock_groups: list[str] = []
+    restored_state: bool = False
+    momentary_turn_on: str | None = None
+    momentary_turn_off: str | None = None
+    virtual_power_usage: float | None = None
+    virtual_volume_flow_rate: float | None = None
+
+
 class BasicRelay(BasicMqtt):
     """Basic relay class."""
 
@@ -209,15 +225,14 @@ class BasicRelay(BasicMqtt):
         topic_type: str = RELAY,
         interlock_manager: SoftwareInterlockManager | None = None,
         interlock_groups: list[str] = [],
-        **kwargs,
+        momentary_turn_on: str | None = None,
+        momentary_turn_off: str | None = None,
+        virtual_power_usage: float | None = None,
+        virtual_volume_flow_rate: float | None = None,
     ) -> None:
         """Initialize Basic relay.
         Supports virtual_power_usage for energy monitoring.
         """
-        self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
-        self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
-        virtual_power_usage = kwargs.pop("virtual_power_usage", None)
-        virtual_volume_flow_rate = kwargs.pop("virtual_volume_flow_rate", None)
         # No parsing needed, Cerberus coerce handles conversion to watts.
         super().__init__(
             id=id,
@@ -226,6 +241,8 @@ class BasicRelay(BasicMqtt):
             topic_prefix=topic_prefix,
             message_bus=message_bus,
         )
+        self._momentary_turn_off = momentary_turn_off
+        self._momentary_turn_on = momentary_turn_on
         self._output_type = output_type
         self._event_bus = event_bus
         self._interlock_manager = interlock_manager
@@ -345,9 +362,7 @@ class BasicRelay(BasicMqtt):
         )
 
     def check_interlock(self) -> bool:
-        if getattr(self, "_interlock_manager", None) and getattr(
-            self, "_interlock_groups", None
-        ):
+        if self._interlock_manager is not None and self._interlock_groups:
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
