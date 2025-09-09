@@ -8,7 +8,6 @@ import typing
 from collections import deque
 from collections.abc import Callable, Coroutine
 
-from board import SCL, SDA
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
@@ -173,6 +172,8 @@ class Manager:
         self._event_pins = event_pins
         self._inputs = {}
         self._binary_pins = binary_pins
+        from board import SCL, SDA
+
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
         self._pcf = {}

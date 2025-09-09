@@ -211,11 +211,11 @@ class VirtualEnergySensor:
 
 class RelayBase(MqttBase):
     # TODO: finish later
-    event_bus: EventBus
+    # event_bus: EventBus
     topic_type: str = RELAY
 
     output_type: str = SWITCH
-    interlock_manager: SoftwareInterlockManager | None = None
+    # interlock_manager: SoftwareInterlockManager | None = None
     interlock_groups: list[str] = []
     restored_state: bool = False
     momentary_turn_on: str | None = None
