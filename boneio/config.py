@@ -44,6 +44,58 @@ AutodiscoveryType = Literal[
     "numeric",
 ]
 
+BoneIOInput = Literal[
+    "IN_01",
+    "IN_02",
+    "IN_03",
+    "IN_04",
+    "IN_05",
+    "IN_06",
+    "IN_07",
+    "IN_08",
+    "IN_09",
+    "IN_10",
+    "IN_11",
+    "IN_12",
+    "IN_13",
+    "IN_14",
+    "IN_15",
+    "IN_16",
+    "IN_17",
+    "IN_18",
+    "IN_19",
+    "IN_20",
+    "IN_21",
+    "IN_22",
+    "IN_23",
+    "IN_24",
+    "IN_25",
+    "IN_26",
+    "IN_27",
+    "IN_28",
+    "IN_29",
+    "IN_30",
+    "IN_31",
+    "IN_32",
+    "IN_33",
+    "IN_34",
+    "IN_35",
+    "IN_36",
+    "IN_37",
+    "IN_38",
+    "IN_39",
+    "IN_40",
+    "IN_41",
+    "IN_42",
+    "IN_43",
+    "IN_44",
+    "IN_45",
+    "IN_46",
+    "IN_47",
+    "IN_48",
+    "IN_49",
+]
+
 
 class MqttAutodiscoveryMessages(
     RootModel[dict[AutodiscoveryType, MqttAutodiscoveryMessage]]
@@ -190,58 +242,10 @@ class EventActionConfig(BaseModel):
 class EventConfig(BaseModel):
     id: str
     pin: str
-    boneio_input: Literal[
-        "IN_01",
-        "IN_02",
-        "IN_03",
-        "IN_04",
-        "IN_05",
-        "IN_06",
-        "IN_07",
-        "IN_08",
-        "IN_09",
-        "IN_10",
-        "IN_11",
-        "IN_12",
-        "IN_13",
-        "IN_14",
-        "IN_15",
-        "IN_16",
-        "IN_17",
-        "IN_18",
-        "IN_19",
-        "IN_20",
-        "IN_21",
-        "IN_22",
-        "IN_23",
-        "IN_24",
-        "IN_25",
-        "IN_26",
-        "IN_27",
-        "IN_28",
-        "IN_29",
-        "IN_30",
-        "IN_31",
-        "IN_32",
-        "IN_33",
-        "IN_34",
-        "IN_35",
-        "IN_36",
-        "IN_37",
-        "IN_38",
-        "IN_39",
-        "IN_40",
-        "IN_41",
-        "IN_42",
-        "IN_43",
-        "IN_44",
-        "IN_45",
-        "IN_46",
-        "IN_47",
-        "IN_48",
-        "IN_49",
+    boneio_input: BoneIOInput
+    action: RootModel[
+        dict[Literal["single", "double", "long"], list[EventActionConfig]]
     ]
-    action: RootModel[dict[Literal["single", "double", "long"], EventActionConfig]]
     device_class: Literal["button", "doorbell", "motion"]
     show_in_ha: bool = True
     inverted: bool = False
@@ -254,12 +258,79 @@ class EventConfig(BaseModel):
 EventsConfig = RootModel[list[EventConfig]]
 
 
+class BinarySensorAction(BaseModel):
+    action: Literal[
+        "mqtt",
+        "output",
+        "output_over_mqtt",
+        "cover",
+        "cover_over_mqtt",
+    ]
+    action_mqtt_msg: str
+    pin: str
+    topic: str
+    action_cover: Literal[
+        "toggle", "open", "close", "stop", "tilt", "tilt_open", "tilt_close"
+    ] = "toggle"
+    boneio_id: str | None = None
+    action_output: Literal["toggle", "on", "off"] = "toggle"
+
+
 class BinarySensorConfig(BaseModel):
-    pass
+    id: str
+    pin: str
+    boneio_input: BoneIOInput
+    device_class: Literal[
+        "battery",
+        "cold",
+        "connectivity",
+        "door",
+        "garage_door",
+        "gas",
+        "heat",
+        "light",
+        "lock",
+        "moisture",
+        "motion",
+        "occupancy",
+        "opening",
+        "plug",
+        "power",
+        "presence",
+        "safety",
+        "smoke",
+        "sound",
+        "vibration",
+        "window",
+    ]
+    action: (
+        RootModel[dict[Literal["pressed", "released"], list[BinarySensorAction]]] | None
+    ) = None
+    show_in_ha: bool = True
+    inverted: bool = False
+    gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"
+    detection_type: Literal["new", "old"] = "new"
+    clear_message: bool = False
+    bounce_time: str = "120ms"
+    initial_send: bool = False
 
 
 class OutputConfig(BaseModel):
-    pass
+    id: str
+    output_type: Literal["cover", "light", "switch", "valve", "none"]
+    kind: Literal["gpio", "mcp", "pca", "pcf"] | None = None
+    boneio_output: str | None = None
+    pin: str | None = None
+    momentary_turn_on: str | None = None
+    momentary_turn_off: str | None = None
+    virtual_power_usage: str | None = None
+    virtual_volume_flow_rate: str | None = None
+    restore_state: bool | None = None
+    interlock_group: str | None = None
+    percentage_default_brightness: int | None = None
+    mcp_id: str | None = None
+    pca_id: str | None = None
+    pcf_id: str | None = None
 
 
 class SensorConfig(BaseModel):
@@ -304,8 +375,8 @@ class Config(BaseModel):
     mcp9808: list[TemperatureConfig] | None = None
     ina219: list[Ina219Config] | None = None
     sensors: list[SensorConfig] | None = None
-    binary_sensor: BinarySensorConfig | None = None
+    binary_sensor: list[BinarySensorConfig] | None = None
     event: EventsConfig | None = None
-    output: OutputConfig | None = None
+    output: list[OutputConfig] | None = None
     web: WebConfig | None = None
     adc: AdcConfig | None = None
