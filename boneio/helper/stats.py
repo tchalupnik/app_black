@@ -33,11 +33,11 @@ from boneio.models import HostSensorState
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
+    from boneio.sensor import INA219 as INA219Class
+    from boneio.sensor import LM75Sensor, MCP9808Sensor
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.helper.timeperiod import TimePeriod
-from boneio.sensor import INA219 as INA219Class
-from boneio.sensor import LM75Sensor, MCP9808Sensor
 from boneio.version import __version__
 
 _LOGGER = logging.getLogger(__name__)

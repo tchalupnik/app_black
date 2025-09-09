@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 import time
 
-from boneio.const import BOTH, DOUBLE, LONG, SINGLE
+from Adafruit_BBIO.GPIO import BOTH
+
+from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer, GpioBaseClass
 from boneio.helper.gpio import edge_detect
 from boneio.helper.timeperiod import TimePeriod
