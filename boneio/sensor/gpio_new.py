@@ -3,7 +3,9 @@
 import logging
 import time
 
-from boneio.const import BOTH, PRESSED, RELEASED
+from Adafruit_BBIO.GPIO import BOTH
+
+from boneio.const import PRESSED, RELEASED
 from boneio.helper import GpioBaseClass
 from boneio.helper.gpio import add_event_callback, add_event_detect
 
