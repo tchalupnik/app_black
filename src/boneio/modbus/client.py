@@ -20,7 +20,7 @@ from pymodbus.pdu import ModbusResponse
 from pymodbus.register_read_message import ReadInputRegistersResponse
 
 from boneio.const import ID, REGISTERS, RX, TX, UART
-from boneio.helper import configure_pin
+from boneio.gpio import configure_pin
 from boneio.helper.exceptions import ModbusUartException
 
 _LOGGER = logging.getLogger(__name__)

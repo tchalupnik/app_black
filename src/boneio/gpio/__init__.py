@@ -11,6 +11,7 @@ from .base import (
     setup_input,
     setup_output,
     write_output,
+    configure_pin,
 )
 
 
@@ -25,4 +26,5 @@ __all__ = [
     "setup_input",
     "setup_output",
     "write_output",
+    "configure_pin",
 ]

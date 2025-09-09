@@ -5,13 +5,11 @@ from __future__ import annotations
 import logging
 import time
 
-from Adafruit_BBIO.GPIO import BOTH
-
 from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer
 from boneio.helper.timeperiod import TimePeriod
 
-from .base import edge_detect, GpioBase
+from .base import edge_detect, GpioBase, BOTH
 
 _LOGGER = logging.getLogger(__name__)
 

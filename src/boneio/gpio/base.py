@@ -7,7 +7,19 @@ import time
 
 from boneio.helper.events import EventBus
 from boneio.models import InputState
-from Adafruit_BBIO import GPIO
+from Adafruit_BBIO import GPIO  # type: ignore
+from Adafruit_BBIO.GPIO import (
+    OUT,
+    IN,
+    PUD_DOWN,
+    PUD_OFF,
+    PUD_UP,
+    LOW,
+    HIGH,
+    RISING,
+    FALLING,
+    BOTH,
+)  # type: ignore
 
 import subprocess
 from typing import Awaitable
@@ -25,6 +37,21 @@ from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 
+__all__ = [
+    "add_event_callback",
+    "add_event_detect",
+    "OUT",
+    "IN",
+    "PUD_DOWN",
+    "PUD_OFF",
+    "PUD_UP",
+    "LOW",
+    "HIGH",
+    "RISING",
+    "FALLING",
+    "BOTH",
+]
+
 
 def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
     pin = f"{pin[0:3]}0{pin[3]}" if len(pin) == 4 else pin
@@ -39,22 +66,19 @@ def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
 
 def setup_output(pin: str) -> None:
     """Set up a GPIO as output."""
-    GPIO.setup(pin, GPIO.OUT, pull_up_down=GPIO.PUD_DOWN)
-
-
-gpio_modes = {
-    "gpio": GPIO.PUD_OFF,
-    "gpio_pu": GPIO.PUD_UP,
-    "gpio_pd": GPIO.PUD_DOWN,
-    "gpio_input": GPIO.PUD_OFF,
-}
+    GPIO.setup(pin, OUT, pull_up_down=PUD_DOWN)
 
 
 def setup_input(pin: str, pull_mode: str = "gpio") -> None:
     """Set up a GPIO as input."""
-    gpio_mode = gpio_modes.get(pull_mode, GPIO.PUD_OFF)
+    gpio_mode = {
+        "gpio": PUD_OFF,
+        "gpio_pu": PUD_UP,
+        "gpio_pd": PUD_DOWN,
+        "gpio_input": PUD_OFF,
+    }.get(pull_mode, PUD_OFF)
     try:
-        GPIO.setup(pin, GPIO.IN, gpio_mode)
+        GPIO.setup(pin, IN, gpio_mode)
     except (ValueError, SystemError) as err:
         raise GPIOInputException(err)
 
@@ -64,7 +88,7 @@ def write_output(pin: str, value: str) -> None:
     GPIO.output(pin, value)
 
 
-def read_input(pin: str, on_state: GPIO.LOW | GPIO.HIGH = GPIO.LOW) -> bool:
+def read_input(pin: str, on_state: LOW | HIGH = LOW) -> bool:
     """Read a value from a GPIO."""
     return GPIO.input(pin) is on_state
 
@@ -73,7 +97,7 @@ def edge_detect(
     pin: str,
     callback: Callable,
     bounce: int = 0,
-    edge: GPIO.FALLING | GPIO.RISING = GPIO.FALLING,
+    edge: FALLING | RISING = FALLING,
 ) -> None:
     """Add detection for RISING and FALLING events."""
     try:
@@ -82,7 +106,7 @@ def edge_detect(
         raise GPIOInputException(err)
 
 
-def add_event_detect(pin: str, edge: GPIO.FALLING | GPIO.RISING = GPIO.FALLING) -> None:
+def add_event_detect(pin: str, edge: FALLING | RISING = FALLING) -> None:
     """Add detection for RISING and FALLING events."""
     try:
         GPIO.add_event_detect(gpio=pin, edge=edge)
@@ -158,12 +182,14 @@ class GpioBase:
         start_time: float | None = None,
     ):
         """Handle press event with a lock to ensure sequential execution."""
-        now = time.time()
+        dur = None
+        if start_time is not None:
+            dur = time.time() - start_time
         _LOGGER.debug(
             "[%s] Attempting to acquire lock for event '%s'. Duration: %s",
             self.name,
             click_type,
-            now - start_time,
+            dur,
         )
         async with self._event_lock:
             _LOGGER.debug(

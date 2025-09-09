@@ -5,14 +5,14 @@ Created just in case.
 
 import logging
 
-from Adafruit_BBIO.GPIO import HIGH, LOW
-
 from boneio.const import SWITCH
 from boneio.gpio import read_input, setup_output, write_output
 from boneio.helper.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay
+
+from .base import HIGH, LOW
 
 _LOGGER = logging.getLogger(__name__)
 
