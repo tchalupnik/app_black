@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class StateManager:
     def load_states(self) -> dict:
         """Load state file."""
         try:
-            with open(self._file, "r") as state_file:
+            with Path(self._file).open("r") as state_file:
                 datastore = json.load(state_file)
                 return datastore
         except FileNotFoundError:
@@ -63,7 +64,7 @@ class StateManager:
         return self._state
 
     def _save_state(self) -> None:
-        with open(self._file, "w+", encoding="utf-8") as f:
+        with Path(self._file).open("w+", encoding="utf-8") as f:
             json.dump(self._state, f, indent=2)
 
     async def save_state(self) -> None:

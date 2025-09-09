@@ -60,7 +60,8 @@ class MCPRelay(BasicRelay):
                     self, self._interlock_groups
                 ):
                     _LOGGER.warning(
-                        f"Interlock active: cannot restore ON state for {self._pin_id} at startup"
+                        "Interlock active: cannot restore ON state for %s at startup",
+                        self._pin_id,
                     )
                     restored_state = False
         self._pin.switch_to_output(value=restored_state)

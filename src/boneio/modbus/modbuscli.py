@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 
 from boneio.const import REGISTERS, UARTS
 
@@ -52,7 +52,9 @@ class ModbusHelper:
         name = self._check_record.get("name")
         address = self._check_record.get("address", 1)
         value_type = self._check_record.get("value_type")
-        _LOGGER.info(f"Checking connection {self._device_address}, address {address}.")
+        _LOGGER.info(
+            "Checking connection %s, address %s.", self._device_address, address
+        )
         count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
         value = await self._modbus.read_registers(
             unit=self._device_address,
@@ -74,7 +76,9 @@ class ModbusHelper:
                 if key in allowed_operations:
                     lamda_function = allowed_operations[key]
                     decoded_value = lamda_function(decoded_value, value)
-        _LOGGER.info(f"Checked {name} with address {address} and value {decoded_value}")
+        _LOGGER.info(
+            "Checked %s with address %s and value %s", name, address, decoded_value
+        )
         if not decoded_value:
             return False
         return True
@@ -143,14 +147,19 @@ async def async_run_modbus_set(
     custom_cmd = True if device == "custom" else False
     set_base = {}
     if not custom_cmd:
-        _db = open_json(path=os.path.dirname(__file__), model=device)
+        _db = open_json(path=Path(__file__).parent, model=device)
         set_base = _db.get(SET_BASE, {})
         first_reg_base = _db.get(REGISTERS_BASE, [])[0]
         if not first_reg_base:
             return False
         first_record = first_reg_base.get(REGISTERS, [])[0]
         _LOGGER.debug(
-            f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+            "Connecting with params uart: %s, baudrate: %s, stopbits: %s, bytesize: %s, parity: %s.",
+            uart,
+            baudrate,
+            stopbits,
+            bytesize,
+            parity,
         )
     else:
         first_record = {}
@@ -209,7 +218,7 @@ async def async_run_modbus_search(
     )
     units_found = []
     for unit_id in range(1, 248):  # Modbus RTU address range is 1 to 247
-        _LOGGER.debug(f"Searching device at address {unit_id}.")
+        _LOGGER.debug("Searching device at address %s.", unit_id)
         value = await _modbus.read_registers(
             unit=unit_id,
             address=register_address,
@@ -218,9 +227,9 @@ async def async_run_modbus_search(
         )
         if value:
             units_found.append(unit_id)
-            _LOGGER.info(f"Found device at address {unit_id}.")
+            _LOGGER.info("Found device at address %s.", unit_id)
         else:
-            _LOGGER.debug(f"No device found at address {unit_id}.")
+            _LOGGER.debug("No device found at address %s.", unit_id)
     if units_found:
         _LOGGER.info("Found devices: [%s]", ", ".join(str(x) for x in units_found))
     else:
@@ -242,7 +251,12 @@ async def async_run_modbus_get(
 ):
     """Run Modbus Get Function."""
     _LOGGER.debug(
-        f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+        "Connecting with params uart: %s, baudrate: %s, stopbits: %s, bytesize: %s, parity: %s.",
+        uart,
+        baudrate,
+        stopbits,
+        bytesize,
+        parity,
     )
     _modbus = Modbus(
         uart=UARTS[uart],
@@ -272,16 +286,17 @@ async def async_run_modbus_get(
                     if value:
                         payload = value.registers[0:value_size]
                         decoded_value = _modbus.decode_value(payload, value_type)
-                        _LOGGER.info(f"Register {addr}: {decoded_value}")
+                        _LOGGER.info("Register %s: %s", addr, decoded_value)
                         success = True
                 except Exception as e:
-                    _LOGGER.error(f"Error reading register {addr}: {str(e)}")
+                    _LOGGER.error("Error reading register %s: %s", addr, str(e))
 
             return 0 if success else 1
 
         except ValueError:
             _LOGGER.error(
-                f"Invalid register range format: {register_range}. Use format 'start-stop' (e.g., '1-230')"
+                "Invalid register range format: %s. Use format 'start-stop' (e.g., '1-230')",
+                register_range,
             )
             return 1
     else:

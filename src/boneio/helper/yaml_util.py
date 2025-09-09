@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 from cerberus import TypeDefinition, Validator
@@ -12,7 +13,7 @@ from boneio.const import ID, OUTPUT
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.timeperiod import TimePeriod
 
-schema_file = os.path.join(os.path.dirname(__file__), "../schema/schema.yaml")
+schema_file = Path(__file__).parent / "../schema/schema.yaml"
 _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
@@ -23,18 +24,18 @@ class BoneIOLoader(SafeLoader):
     """Loader which support for include in yaml files."""
 
     def __init__(self, stream):
-        self._root = os.path.split(stream.name)[0]
+        self._root = Path(stream.name).parent
 
         super(BoneIOLoader, self).__init__(stream)
 
     def include(self, node):
-        filename = os.path.join(self._root, self.construct_scalar(node))
+        filename = self._root / self.construct_scalar(node)
 
-        with open(filename, "r") as f:
+        with filename.open() as f:
             return load(f, BoneIOLoader)
 
     def _rel_path(self, *args):
-        return os.path.join(self._root, *args)
+        return self._root / Path(*args)
 
     def construct_secret(self, node):
         secrets = load_yaml_file(self._rel_path(SECRET_YAML))
@@ -64,7 +65,7 @@ class BoneIOLoader(SafeLoader):
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         mapping = OrderedDict()
         for fname in files:
-            filename = os.path.splitext(os.path.basename(fname))[0]
+            filename = Path(fname).stem
             mapping[filename] = load_yaml_file(fname)
         return mapping
 
@@ -78,7 +79,7 @@ class BoneIOLoader(SafeLoader):
         return mapping
 
     def construct_include_files(self, node):
-        files = os.path.join(self._root, self.construct_scalar(node)).split()
+        files = str(self._root / self.construct_scalar(node)).split()
         merged_list = []
         for fname in files:
             loaded_yaml = load_yaml_file(fname.strip())
@@ -109,9 +110,9 @@ def filter_yaml_files(files):
         f
         for f in files
         if (
-            os.path.splitext(f)[1] in (".yaml", ".yml")
-            and os.path.basename(f) not in ("secrets.yaml", "secrets.yml")
-            and not os.path.basename(f).startswith(".")
+            Path(f).suffix in (".yaml", ".yml")
+            and Path(f).name not in ("secrets.yaml", "secrets.yml")
+            and not Path(f).name.startswith(".")
         )
     ]
 
@@ -127,12 +128,12 @@ def _find_files(directory, pattern):
         dirs[:] = [d for d in dirs if _is_file_valid(d)]
         for basename in files:
             if _is_file_valid(basename) and fnmatch.fnmatch(basename, pattern):
-                filename = os.path.join(root, basename)
+                filename = Path(root) / basename
                 yield filename
 
 
 def load_yaml_file(filename: str) -> Any:
-    with open(filename, "r") as stream:
+    with Path(filename).open("r") as stream:
         try:
             return load(stream, Loader=BoneIOLoader) or OrderedDict()
         except YAMLError as exception:
@@ -155,17 +156,17 @@ def load_yaml_file(filename: str) -> Any:
 
 def get_board_config_path(board_name: str, version: str) -> str:
     """Get the appropriate board configuration file path based on version."""
-    base_dir = os.path.join(os.path.dirname(__file__), "../boards")
-    version_dir = os.path.join(base_dir, version)
-    version_specific_file = os.path.join(version_dir, f"{board_name}.yaml")
+    base_dir = Path(__file__).parent / "../boards"
+    version_dir = base_dir / version
+    version_specific_file = version_dir / f"{board_name}.yaml"
 
-    if not os.path.exists(version_dir):
+    if not version_dir.exists():
         raise ConfigurationException(
             f"Board configurations for version {version} not found. "
             f"Expected directory: {version_dir}"
         )
 
-    if os.path.exists(version_specific_file):
+    if version_specific_file.exists():
         return version_specific_file
 
     raise ConfigurationException(
@@ -247,7 +248,7 @@ def merge_board_config(config: dict) -> dict:
         raise ConfigurationException(
             f"Board configuration for {board_name} version {version} not found"
         )
-    _LOGGER.debug(f"Loaded board configuration: {board_name}")
+    _LOGGER.debug("Loaded board configuration: %s", board_name)
 
     # Copy MCP configuration if not already defined
     if "mcp23017" not in config and "mcp23017" in board_config:
@@ -462,7 +463,7 @@ class CustomValidator(Validator):
         else:
             raise ValueError(f"Unknown unit for length value: {unit}")
         result = num * multiplier
-        _LOGGER.debug(f"Parsed length value '{value}' as {result} m")
+        _LOGGER.debug("Parsed length value '%s' as %s m", value, result)
         return result
 
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
@@ -570,7 +571,7 @@ class CustomValidator(Validator):
         pattern = r"^([-+]?[0-9]*\.?[0-9]+)([a-z]*)$"
         match = re.match(pattern, value)
         if not match:
-            _LOGGER.warning(f"Could not parse power value: {value}")
+            _LOGGER.warning("Could not parse power value: %s", value)
             raise ValueError(f"Could not parse power value: {value}")
         num, unit = match.groups()
         num = float(num)
@@ -609,10 +610,10 @@ class CustomValidator(Validator):
         elif unit == "mw":
             multiplier = 1_000_000.0
         else:
-            _LOGGER.warning(f"Unknown unit for power value: {unit}")
+            _LOGGER.warning("Unknown unit for power value: %s", unit)
             raise ValueError(f"Unknown unit for power value: {unit}")
         result = num * multiplier
-        _LOGGER.debug(f"Parsed power value '{value}' as {result} W")
+        _LOGGER.debug("Parsed power value '%s' as %s W", value, result)
         return result
 
     def _normalize_coerce_volume_flow_rate_to_lph(self, value):
@@ -639,7 +640,7 @@ class CustomValidator(Validator):
         pattern = r"^([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z/]*)$"
         match = re.match(pattern, value)
         if not match:
-            _LOGGER.warning(f"Could not parse volume flow rate value: {value}")
+            _LOGGER.warning("Could not parse volume flow rate value: %s", value)
             raise ValueError(f"Could not parse volume flow rate value: {value}")
         num, unit = match.groups()
         num = float(num)
@@ -649,10 +650,10 @@ class CustomValidator(Validator):
         elif unit in ("lpm", "l/min"):
             multiplier = 60.0
         else:
-            _LOGGER.warning(f"Unknown unit for volume flow rate value: {unit}")
+            _LOGGER.warning("Unknown unit for volume flow rate value: %s", unit)
             raise ValueError(f"Unknown unit for volume flow rate value: {unit}")
         result = num * multiplier
-        _LOGGER.debug(f"Parsed volume flow rate value '{value}' as {result} L/h")
+        _LOGGER.debug("Parsed volume flow rate value '%s' as %s L/h", value, result)
         return result
 
 
@@ -711,12 +712,11 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
     Returns:
         dict: Status response with success/error message
     """
-    import os
     from pathlib import Path
 
     config_dir = Path(config_file).parent
 
-    _LOGGER.info(f"Updating section '{section}' with data: {data}")
+    _LOGGER.info("Updating section '%s' with data: %s", section, data)
 
     # Custom YAML loader that preserves !include tags
     class IncludeLoader(SafeLoader):
@@ -733,7 +733,7 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
 
     try:
         # Read current config.yaml with custom loader
-        with open(config_file, "r", encoding="utf-8") as f:
+        with Path(config_file).open("r", encoding="utf-8") as f:
             config_content = load(f, Loader=IncludeLoader)
 
         if config_content is None:
@@ -747,29 +747,33 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
             if hasattr(section_value, "tag") and section_value.tag == "!include":
                 # It's an !include - update the included file
                 include_filename = section_value.filename
-                include_file_path = os.path.join(config_dir, include_filename)
+                include_file_path = config_dir / include_filename
 
                 _LOGGER.info(
-                    f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}"
+                    "Section uses !include '%s', updating %s",
+                    include_filename,
+                    include_file_path,
                 )
 
                 # Save data to the included file
                 content = dump(
                     data, default_flow_style=False, allow_unicode=True, sort_keys=False
                 )
-                with open(include_file_path, "w", encoding="utf-8") as f:
+                with include_file_path.open("w", encoding="utf-8") as f:
                     f.write(content)
 
-                _LOGGER.info(f"Successfully updated included file: {include_file_path}")
+                _LOGGER.info(
+                    "Successfully updated included file: %s", include_file_path
+                )
 
             else:
                 # It's a regular section - replace in config.yaml
-                _LOGGER.info(f"Section '{section}' is inline, updating in config.yaml")
+                _LOGGER.info("Section '%s' is inline, updating in config.yaml", section)
                 config_content[section] = data
 
                 # Save updated config.yaml (need to handle !include when saving)
                 # Read original file as text to preserve !include syntax
-                with open(config_file, "r", encoding="utf-8") as f:
+                with Path(config_file).open("r", encoding="utf-8") as f:
                     original_lines = f.readlines()
 
                 # Find and replace the section in the original text
@@ -810,14 +814,14 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
                     else:
                         updated_lines.append(line)
 
-                # Write updated config
-                with open(config_file, "w", encoding="utf-8") as f:
+                # Write updated config.yaml
+                with Path(config_file).open("w", encoding="utf-8") as f:
                     f.writelines(updated_lines)
 
-                _LOGGER.info(f"Successfully updated section '{section}' in config.yaml")
+                _LOGGER.info("Successfully updated section in config.yaml", section)
         else:
             # Section doesn't exist - add it to config.yaml
-            _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
+            _LOGGER.info("Section '%s' doesn't exist, adding to config.yaml", section)
 
             # Append new section to the end of the file
             section_yaml = dump(
@@ -826,10 +830,10 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
                 allow_unicode=True,
                 sort_keys=False,
             )
-            with open(config_file, "a", encoding="utf-8") as f:
+            with Path(config_file).open("a", encoding="utf-8") as f:
                 f.write("\n" + section_yaml)
 
-            _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
+            _LOGGER.info("Successfully added new section '%s' to config.yaml", section)
 
         return {
             "status": "success",
@@ -837,5 +841,5 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
         }
 
     except Exception as e:
-        _LOGGER.error(f"Error saving section '{section}': {str(e)}")
+        _LOGGER.error("Error saving section '%s': %s", section, str(e))
         return {"status": "error", "message": f"Error saving section: {str(e)}"}

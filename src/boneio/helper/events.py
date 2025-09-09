@@ -3,7 +3,7 @@ import datetime as dt
 import logging
 import time
 from collections.abc import Callable, Coroutine
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from boneio.helper.util import callback
@@ -133,7 +133,7 @@ class EventBus:
             try:
                 await self._handle_event(event)
             except Exception as exc:
-                _LOGGER.error(f"Error handling event: {exc}")
+                _LOGGER.error("Error handling event: %s", exc)
             finally:
                 self._event_queue.task_done()
 
@@ -146,10 +146,10 @@ class EventBus:
         event_state = event.get("event_state")
         entity_id = event.get("entity_id")
         if not event_type or event_type not in self._event_listeners:
-            _LOGGER.warning(f"Unknown event_type: {event_type}")
+            _LOGGER.warning("Unknown event_type: %s", event_type)
             return
         if not entity_id:
-            _LOGGER.warning(f"Unknown entity_id: {entity_id}")
+            _LOGGER.warning("Unknown entity_id: %s", entity_id)
             return
         entity_id_listeners = self._event_listeners.get(event_type, {}).get(
             entity_id, {}
@@ -158,7 +158,7 @@ class EventBus:
             try:
                 await listener.target(event_state)
             except Exception as exc:
-                _LOGGER.error(f"Listener error: {exc}")
+                _LOGGER.error("Listener error: %s", exc)
 
     def trigger_event(self, event):
         """
@@ -201,7 +201,7 @@ class EventBus:
 
     def _timer_handle(self):
         """Handle timer event."""
-        time = datetime.now()
+        time = datetime.now(tz=timezone.utc)
         for listener in self._every_second_listeners.values():
             self._loop.call_soon(listener.target, time)
 
@@ -233,7 +233,7 @@ class EventBus:
                 await asyncio.sleep(2)
                 await self.ask_stop()
             except Exception as e:
-                _LOGGER.error(f"Error during cleanup: {e}")
+                _LOGGER.error("Error during cleanup: %s", e)
 
         # Create and run the cleanup task
         exit_task = self._loop.create_task(cleanup_and_exit())

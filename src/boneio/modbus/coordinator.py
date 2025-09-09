@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 import typing
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 
 from boneio.config import Config
 from boneio.const import (
@@ -87,7 +87,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         )
         self.config = config
         self._modbus = modbus
-        self._db = open_json(path=os.path.dirname(__file__), model=model)
+        self._db = open_json(path=Path(__file__).parent, model=model)
         self._model = self._db[MODEL]
         self._address = address
         self._discovery_sent = False
@@ -425,7 +425,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         for sensors in self._additional_sensors:
             for sensor in sensors.values():
                 sensor.send_ha_discovery()
-        return datetime.now()
+        return datetime.now(timezone.utc)
 
     async def write_register(self, value: str | float | int, entity: str) -> None:
         _LOGGER.debug("Writing register %s for %s", value, entity)
@@ -500,7 +500,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """Get first register and check if it's available."""
         if (
             not self._discovery_sent
-            or (datetime.now() - self._discovery_sent).seconds > 3600
+            or (datetime.now(timezone.utc) - self._discovery_sent).seconds > 3600
         ) and self.config.mqtt.topic_prefix:
             self._discovery_sent = False
             first_register_base = self._db[REGISTERS_BASE][0]

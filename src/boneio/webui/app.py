@@ -244,7 +244,7 @@ def create_token(data: dict):
 def is_running_as_service():
     """Check if running as a systemd service."""
     try:
-        with open("/proc/1/comm", "r") as f:
+        with Path("/proc/1/comm").open("r") as f:
             return "systemd" in f.read()
     except Exception:
         return False
@@ -264,7 +264,7 @@ def _decode_ascii_list(ascii_list: list) -> str:
         # Remove ANSI escape sequences
         return _clean_ansi(text)
     except Exception as e:
-        _LOGGER.error(f"Error decoding ASCII list: {e}")
+        _LOGGER.error("Error decoding ASCII list: %s", e)
         return str(ascii_list)
 
 
@@ -287,11 +287,11 @@ def _parse_systemd_log_entry(entry: dict) -> dict:
                 # Not a JSON string, use the decoded message as is
                 entry["MESSAGE"] = decoded_msg
             except Exception as e:
-                _LOGGER.debug(f"Error parsing nested message: {e}")
+                _LOGGER.debug("Error parsing nested message: %s", e)
                 entry["MESSAGE"] = decoded_msg
 
         except Exception as e:
-            _LOGGER.error(f"Error parsing message: {e}")
+            _LOGGER.error("Error parsing message: %s", e)
             entry["MESSAGE"] = "Can't decode message"
 
     # Convert timestamps if present
@@ -331,7 +331,7 @@ async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
 
     stdout, stderr = await process.communicate()
     if stderr:
-        _LOGGER.error(f"Error getting systemd logs: {stderr.decode()}")
+        _LOGGER.error("Error getting systemd logs: %s", stderr.decode())
     if not stdout.strip():
         # _LOGGER.warning("No logs found")
         return []
@@ -380,7 +380,7 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
             amount = int(since[:-1])
             unit = since[-1]
             delta = timedelta(hours=amount) if unit == "h" else timedelta(days=amount)
-            since_time = datetime.now() - delta
+            since_time = datetime.now(tz=timezone.utc) - delta
         else:
             try:
                 since_time = datetime.fromisoformat(since)
@@ -391,7 +391,7 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
 
     log_entries = []
     try:
-        with open(log_file, "r") as f:
+        with Path(log_file).open("r") as f:
             # Read from the end of file
             lines = f.readlines()[-limit:]
             for line in lines:
@@ -417,7 +417,7 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
                             try:
                                 log_time = datetime.strptime(
                                     timestamp_str, "%Y-%m-%d %H:%M:%S"
-                                )
+                                ).replace(tzinfo=timezone.utc)
                                 if log_time < since_time:
                                     continue
                             except ValueError:
@@ -433,7 +433,7 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
                 except (IndexError, ValueError):
                     continue
     except Exception as e:
-        _LOGGER.warning(f"Error reading log file: {e}")
+        _LOGGER.warning("Error reading log file: %s", e)
         return []
 
     return log_entries
@@ -460,7 +460,7 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
         return LogsResponse(
             logs=[
                 LogEntry(
-                    timestamp=datetime.now().isoformat(),
+                    timestamp=datetime.now(tz=timezone.utc).isoformat(),
                     message="No logs available. Please check if logging is properly configured.",
                     level="4",
                 )
@@ -468,7 +468,7 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
         )
 
     except Exception as e:
-        _LOGGER.warning(f"Error fetching logs: {str(e)}")
+        _LOGGER.warning("Error fetching logs: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -653,12 +653,12 @@ async def update_boneio(background_tasks: BackgroundTasks):
             await asyncio.sleep(0.5)
 
             # Get the virtual environment path
-            venv_path = os.path.expanduser("~/boneio/venv")
-            pip_path = os.path.join(venv_path, "bin", "pip")
+            venv_path = Path("~/boneio/venv").expanduser()
+            pip_path = venv_path / "bin" / "pip"
 
             # Check if the virtual environment exists
-            if not os.path.exists(pip_path):
-                _LOGGER.error(f"Virtual environment not found at {venv_path}")
+            if not pip_path.exists():
+                _LOGGER.error("Virtual environment not found at %s", venv_path)
                 return
 
             # Run pip install --upgrade boneio
@@ -672,16 +672,16 @@ async def update_boneio(background_tasks: BackgroundTasks):
             )
 
             if result.returncode != 0:
-                _LOGGER.error(f"Update failed: {result.stderr}")
+                _LOGGER.error("Update failed: %s", result.stderr)
                 return
 
-            _LOGGER.info(f"Update successful: {result.stdout}")
+            _LOGGER.info("Update successful: %s", result.stdout)
 
             # Terminate the process to trigger systemd restart
             _LOGGER.info("Restarting BoneIO service...")
             os._exit(0)
         except Exception as e:
-            _LOGGER.error(f"Error during update process: {e}")
+            _LOGGER.error("Error during update process: %s", e)
 
     background_tasks.add_task(update_and_restart)
     return {"status": "success", "message": "Update process started"}
@@ -722,7 +722,7 @@ async def get_parsed_config():
         return {"config": config_data}
 
     except Exception as e:
-        _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
+        _LOGGER.error("Error loading parsed configuration: %s", str(e))
         raise HTTPException(
             status_code=500, detail=f"Error loading configuration: {str(e)}"
         )
@@ -734,10 +734,10 @@ async def list_files(path: str | None = None):
     config_dir = Path(app.state.yaml_config_file).parent
     base_dir = config_dir / path if path else config_dir
 
-    if not os.path.exists(base_dir):
+    if not base_dir.exists():
         raise HTTPException(status_code=404, detail="Path not found")
 
-    if not os.path.isdir(base_dir):
+    if not base_dir.is_dir():
         raise HTTPException(status_code=400, detail="Path is not a directory")
 
     def scan_directory(directory: Path):
@@ -745,7 +745,7 @@ async def list_files(path: str | None = None):
         for entry in os.scandir(directory):
             if entry.name == ".git" or entry.name.startswith("venv"):
                 continue
-            relative_path = os.path.relpath(entry.path, config_dir)
+            relative_path = Path(entry.path).relative_to(config_dir)
             if entry.is_dir():
                 children = scan_directory(Path(entry.path))
                 if children:  # Only include directories that have yaml files in them
@@ -782,19 +782,19 @@ async def list_files(path: str | None = None):
 async def get_file_content(file_path: str):
     """Get content of a file."""
     config_dir = Path(app.state.yaml_config_file).parent
-    full_path = os.path.join(config_dir, file_path)
+    full_path = config_dir / file_path
 
-    if not os.path.exists(full_path):
+    if not full_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
-    if not os.path.isfile(full_path):
+    if not full_path.is_file():
         raise HTTPException(status_code=400, detail="Path is not a file")
 
-    if not full_path.endswith((".yaml", ".yml", ".json")):
+    if not str(full_path).endswith((".yaml", ".yml", ".json")):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     try:
-        with open(full_path, "r") as f:
+        with full_path.open("r") as f:
             content = f.read()
         return {"content": content}
     except Exception as e:
@@ -805,19 +805,19 @@ async def get_file_content(file_path: str):
 async def update_file_content(file_path: str, content: dict = Body(...)):
     """Update content of a file."""
     config_dir = Path(app.state.yaml_config_file).parent
-    full_path = os.path.join(config_dir, file_path)
+    full_path = config_dir / file_path
 
-    if not os.path.exists(full_path):
+    if not full_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
-    if not os.path.isfile(full_path):
+    if not full_path.is_file():
         raise HTTPException(status_code=400, detail="Path is not a file")
 
-    if not full_path.endswith((".yaml", ".yml", ".json")):
+    if full_path.suffix not in (".yaml", ".yml", ".json"):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     try:
-        with open(full_path, "w") as f:
+        with full_path.open("w") as f:
             f.write(content["content"])
         return {"status": "success"}
     except Exception as e:
@@ -835,7 +835,7 @@ async def update_section_content(section: str, data: dict = Body(...)):
         return result
 
     except Exception as e:
-        _LOGGER.error(f"Error saving section '{section}': {str(e)}")
+        _LOGGER.error("Error saving section '%s': %s", section, e)
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
 
@@ -1003,7 +1003,7 @@ async def websocket_endpoint(
                         return True
                 except Exception as e:
                     _LOGGER.error(
-                        f"Error sending state update: {type(e).__name__} - {e}"
+                        "Error sending state update: %s - %s", type(e).__name__, e
                     )
                 return False
 
@@ -1026,7 +1026,7 @@ async def websocket_endpoint(
 
                     except Exception as e:
                         _LOGGER.error(
-                            f"Error preparing input state: {type(e).__name__} - {e}"
+                            "Error preparing input state: %s - %s", type(e).__name__, e
                         )
 
                 # Send outputs
@@ -1047,7 +1047,9 @@ async def websocket_endpoint(
 
                     except Exception as e:
                         _LOGGER.error(
-                            f"Error preparing output state: {type(e).__name__} - {e}"
+                            "Error preparing output state: %s - %s",
+                            type(e).__name__,
+                            e,
                         )
 
                 # Send covers
@@ -1071,7 +1073,9 @@ async def websocket_endpoint(
 
                     except Exception as e:
                         _LOGGER.error(
-                            f"Error preparing cover state: {type(e).__name__} - {e}"
+                            "Error preparing cover state: %s - %s",
+                            type(e).__name__,
+                            e,
                         )
 
                 # Send modbus sensor states
@@ -1096,7 +1100,9 @@ async def websocket_endpoint(
 
                             except Exception as e:
                                 _LOGGER.error(
-                                    f"Error preparing modbus sensor state: {type(e).__name__} - {e}"
+                                    "Error preparing modbus sensor state: %s - %s",
+                                    type(e).__name__,
+                                    e,
                                 )
 
                 # Send INA219 sensor states
@@ -1116,7 +1122,9 @@ async def websocket_endpoint(
 
                         except Exception as e:
                             _LOGGER.error(
-                                f"Error preparing INA219 sensor state: {type(e).__name__} - {e}"
+                                "Error preparing INA219 sensor state: %s - %s",
+                                type(e).__name__,
+                                e,
                             )
 
                 # Send temperature sensor states
@@ -1135,14 +1143,18 @@ async def websocket_endpoint(
 
                     except Exception as e:
                         _LOGGER.error(
-                            f"Error preparing temperature sensor state: {type(e).__name__} - {e}"
+                            "Error preparing temperature sensor state: %s - %s",
+                            type(e).__name__,
+                            e,
                         )
 
             except WebSocketDisconnect:
                 _LOGGER.info("WebSocket disconnected while sending initial states")
                 return
             except Exception as e:
-                _LOGGER.error(f"Error sending initial states: {type(e).__name__} - {e}")
+                _LOGGER.error(
+                    "Error sending initial states: %s - %s", type(e).__name__, e
+                )
                 return
 
             if websocket.application_state == WebSocketState.CONNECTED:
@@ -1167,7 +1179,9 @@ async def websocket_endpoint(
         _LOGGER.info("WebSocket connection interrupted by user.")
     except Exception as e:
         _LOGGER.error(
-            f"Unexpected error in WebSocket handler: {type(e).__name__} - {e}"
+            "Unexpected error in WebSocket handler: %s - %s",
+            type(e).__name__,
+            e,
         )
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")

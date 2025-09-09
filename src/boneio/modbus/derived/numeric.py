@@ -93,7 +93,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
             tree = ast.parse(formula, mode="eval")
             return self._evaluate_ast_node(tree.body, context)
         except Exception as e:
-            logging.error(f"Failed to evaluate formula '{formula}': {e}")
+            logging.error("Failed to evaluate formula '%s': %s", formula, e)
             # Return the original sensor value if evaluation fails
             return context.get("X", 0.0)
 
@@ -179,7 +179,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
             # If evaluation fails, log the error and use the original value
             import logging
 
-            logging.error(f"Formula evaluation failed for {self.name}: {e}")
+            logging.error("Formula evaluation failed for %s: %s", self.name, e)
             value = source_sensor_value
 
         self.set_value(value, timestamp)

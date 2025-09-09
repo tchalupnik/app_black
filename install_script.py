@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import sys
 from collections import namedtuple
+from pathlib import Path
 from shutil import copyfile
 
 import yaml
@@ -130,13 +131,13 @@ def read_os_release():
         k.lower(): v.strip("'\"")
         for k, v in (
             line.strip().split("=", 1)
-            for line in open("/etc/os-release").read().strip().split("\n")
+            for line in Path.open("/etc/os-release").read().strip().split("\n")
         )
     }
 
 
 def check_os():
-    if os.path.isfile("/etc/debian_version"):
+    if Path("/etc/debian_version").is_file():
         os_data = read_os_release()
         if os_data["id"] == "debian" and int(os_data["version_id"]) == 10:
             return True
@@ -261,7 +262,7 @@ if __name__ == "__main__":
             f"{maindir}/venv/lib/python{py_version.major}.{py_version.minor}"
             "/site-packages/boneio/example_config/"
         )
-        os.makedirs(maindir, exist_ok=True)
+        Path(maindir).mkdir(parents=True, exist_ok=True)
         if _oled_enabled:
             output["oled"] = {"enabled": True}
         if "RB24" in _enabled_outputs:
@@ -303,7 +304,7 @@ if __name__ == "__main__":
             copyfile(f"{exampled_dir}adc.yaml", f"{maindir}/adc.yaml")
             output["adc"] = "!include adc.yaml"
 
-        with open(f"{maindir}/config.yaml", "w+") as file:
+        with Path(f"{maindir}/config.yaml").open("w+") as file:
             result = re.sub(
                 r"(.*): (')(.+)(')",
                 "\\1: \\3",
@@ -321,7 +322,7 @@ if __name__ == "__main__":
         msg="Would you like to create startup script for you?"
     )
     if _configure:
-        with open(f"{maindir}/boneio.service", "w+") as file:
+        with Path(f"{maindir}/boneio.service").open("w+") as file:
             file.write(
                 f"""[Unit]
 Description=boneIO

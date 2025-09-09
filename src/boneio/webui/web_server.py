@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import secrets
 from pathlib import Path
 
@@ -31,9 +30,8 @@ class WebServer:
         self._shutdown_event = asyncio.Event()
 
         # Get yaml config file path
-        self._yaml_config_file = os.path.abspath(
-            os.path.join(os.path.split(self.config_file)[0], "config.yaml")
-        )
+        config_path = Path(self.config_file)
+        self._yaml_config_file = (config_path.parent / "config.yaml").resolve()
 
         # Set up JWT secret
         self.jwt_secret = self._get_jwt_secret_or_generate()
@@ -97,7 +95,7 @@ class WebServer:
 
         except Exception as e:
             # If we can't persist the secret, generate a temporary one
-            _LOGGER.error(f"Failed to handle JWT secret file: {e}")
+            _LOGGER.error("Failed to handle JWT secret file: %s", e)
             jwt_secret = secrets.token_hex(32)
         return jwt_secret
 

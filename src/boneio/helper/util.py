@@ -1,7 +1,7 @@
 import json
-import os
 import unicodedata
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, TypeVar
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
@@ -56,8 +56,8 @@ def sanitize_mqtt_topic(name: str) -> str:
 
 def open_json(path: str, model: str) -> dict:
     """Open json file."""
-    file = f"{os.path.join(path)}/{model}.json"
-    with open(file, "r") as db_file:
+    file_path = Path(path) / f"{model}.json"
+    with file_path.open("r") as db_file:
         datastore = json.load(db_file)
         return datastore
 

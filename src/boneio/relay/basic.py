@@ -53,7 +53,7 @@ class VirtualEnergySensor:
         self._virtual_sensors_task = self._loop.create_task(
             self._virtual_sensors_loop()
         )
-        _LOGGER.info(f"Started periodic virtual sensors task for {self._parent.id}")
+        _LOGGER.info("Started periodic virtual sensors task for %s", self._parent.id)
 
     def stop_virtual_sensors_task(self):
         """Stop periodic virtual energy update task."""
@@ -62,7 +62,9 @@ class VirtualEnergySensor:
             self._virtual_sensors_task.cancel()
             self._virtual_sensors_task = None
             self._update_virtual_sensors()
-            _LOGGER.info(f"Stopped periodic virtual sensors task for {self._parent.id}")
+            _LOGGER.info(
+                "Stopped periodic virtual sensors task for %s", self._parent.id
+            )
 
     @property
     def last_on_timestamp(self) -> float | None:
@@ -104,14 +106,18 @@ class VirtualEnergySensor:
                     self.virtual_power_usage * elapsed
                 ) / 3600.0
                 _LOGGER.debug(
-                    f"Energy updated for {self._parent.id}: {self._energy_consumed_Wh:.4f} Wh"
+                    "Energy updated for %s: %.4f Wh",
+                    self._parent.id,
+                    self._energy_consumed_Wh,
                 )
             if self.virtual_volume_flow_rate is not None:
                 self._water_consumed_L += (
                     self.virtual_volume_flow_rate * elapsed
                 ) / 3600.0
                 _LOGGER.debug(
-                    f"Volume flow rate updated for {self._parent.id}: {self._water_consumed_L:.4f} L"
+                    "Volume flow rate updated for %s: %.4f L",
+                    self._parent.id,
+                    self._water_consumed_L,
                 )
             self._last_on_timestamp = now
 
@@ -128,21 +134,29 @@ class VirtualEnergySensor:
                         retained_energy_wh = float(payload["energy"])
                         self._energy_consumed_Wh = retained_energy_wh
                         _LOGGER.info(
-                            f"Restored energy state for {self._parent.id} from MQTT: {self._energy_consumed_Wh:.4f} Wh"
+                            "Restored energy state for %s from MQTT: %.4f Wh",
+                            self._parent.id,
+                            self._energy_consumed_Wh,
                         )
                     if "water" in payload:
                         retained_water_consumption_L = float(payload["water"])
                         self._water_consumed_L = retained_water_consumption_L
                         _LOGGER.info(
-                            f"Restored water consumption state for {self._parent.id} from MQTT: {self._water_consumed_L:.4f} L"
+                            "Restored water consumption state for %s from MQTT: %.4f L",
+                            self._parent.id,
+                            self._water_consumed_L,
                         )
                 else:
                     _LOGGER.warning(
-                        f"Invalid retained payload for {self._parent.id}: {payload}"
+                        "Invalid retained payload for %s: %s",
+                        self._parent.id,
+                        payload,
                     )
             except Exception as e:
                 _LOGGER.warning(
-                    f"Failed to restore energy state for {self._parent.id} from MQTT: {e}"
+                    "Failed to restore energy state for %s from MQTT: %s",
+                    self._parent.id,
+                    e,
                 )
             finally:
                 await self._message_bus.unsubscribe_and_stop_listen(
@@ -158,7 +172,8 @@ class VirtualEnergySensor:
             )
         else:
             _LOGGER.warning(
-                f"Message bus not available for {self._parent.id}, cannot subscribe for retained energy."
+                "Message bus not available for %s, cannot subscribe for retained energy.",
+                self._parent.id,
             )
 
     def get_virtual_power(self) -> float:
@@ -191,7 +206,7 @@ class VirtualEnergySensor:
             payload=payload,
             retain=True,
         )
-        _LOGGER.info(f"Sent virtual energy state for {self._parent.id}: {payload}")
+        _LOGGER.info("Sent virtual energy state for %s: %s", self._parent.id, payload)
 
 
 class RelayBase(MqttBase):
@@ -373,7 +388,7 @@ class BasicRelay(BasicMqtt):
         if can_turn_on:
             await self._loop.run_in_executor(None, self.turn_on, timestamp)
         else:
-            _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
+            _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             # Workaround for HA is sendind state ON/OFF without physically changing the relay.
             asyncio.create_task(self.async_send_state(optimized_value=ON))
             await asyncio.sleep(0.01)

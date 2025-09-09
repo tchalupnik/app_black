@@ -53,7 +53,7 @@ __all__ = [
 
 def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
     pin = f"{pin[0:3]}0{pin[3]}" if len(pin) == 4 else pin
-    _LOGGER.debug(f"Configuring pin {pin} for mode {mode}.")
+    _LOGGER.debug("Configuring pin %s for mode %s.", pin, mode)
     subprocess.run(
         [CONFIG_PIN, pin, mode],
         stdout=subprocess.DEVNULL,

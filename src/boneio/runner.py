@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import signal
 import warnings
+from pathlib import Path
 
 from boneio.config import Config
 from boneio.const import (
@@ -109,9 +109,7 @@ async def async_run(
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),
         config_file_path=config_file,
-        state_manager=StateManager(
-            state_file=f"{os.path.split(config_file)[0]}state.json"
-        ),
+        state_manager=StateManager(state_file=f"{Path(config_file).parent}state.json"),
         sensors={
             LM75: configuration.lm75 or [],
             INA219: configuration.ina219 or [],
@@ -171,9 +169,9 @@ async def async_run(
     except (RestartRequestException, GracefulExit):
         _LOGGER.info("Restart or graceful exit requested")
     except Exception as e:
-        _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
+        _LOGGER.error("Unexpected error: %s - %s", type(e).__name__, e)
     except BaseException as e:
-        _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}")
+        _LOGGER.error("Unexpected BaseException: %s - %s", type(e).__name__, e)
     finally:
         _LOGGER.info("Cleaning up resources...")
 
@@ -183,7 +181,7 @@ async def async_run(
                 _LOGGER.info("Requesting web server shutdown...")
                 await web_server.trigger_shutdown()
             except Exception as e:
-                _LOGGER.error(f"Error triggering web server shutdown: {e}")
+                _LOGGER.error("Error triggering web server shutdown: %s", e)
 
         # Stop the event bus
         event_bus.request_stop()
@@ -196,7 +194,8 @@ async def async_run(
             for task in remaining_tasks:
                 if not task.done():
                     _LOGGER.debug(
-                        f"Cancelling task: {task.get_name() if hasattr(task, 'get_name') else task}"
+                        "Cancelling task: %s",
+                        task.get_name() if hasattr(task, "get_name") else task,
                     )
                     task.cancel()
 
@@ -204,7 +203,7 @@ async def async_run(
             try:
                 await asyncio.gather(*remaining_tasks, return_exceptions=True)
             except Exception as e:
-                _LOGGER.error(f"Error during cleanup: {type(e).__name__} - {e}")
+                _LOGGER.error("Error during cleanup: %s - %s", type(e).__name__, e)
 
         _LOGGER.info("Shutdown complete")
-        return 0
+    return 0

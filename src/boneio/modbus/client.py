@@ -107,7 +107,12 @@ class Modbus:
         if not tx or not rx:
             raise ModbusUartException
         _LOGGER.debug(
-            f"Setting UART for modbus communication: {uart} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
+            "Setting UART for modbus communication: %s with baudrate %s, parity %s, stopbits %s, bytesize %s",
+            uart,
+            baudrate,
+            parity,
+            stopbits,
+            bytesize,
         )
         configure_pin(pin=rx, mode=UART)
         configure_pin(pin=tx, mode=UART)
@@ -165,7 +170,7 @@ class Modbus:
         try:
             return self._client.connect()  # type: ignore[union-attr]
         except ModbusException as exception_error:
-            _LOGGER.error(f"No connection to Modbus: {exception_error}")
+            _LOGGER.error("No connection to Modbus: %s", exception_error)
             return False
 
     async def read_and_decode(
@@ -235,7 +240,7 @@ class Modbus:
             )
         except Exception as e:
             _LOGGER.error(
-                f"Unexpected error reading registers: {type(e).__name__} - {e}"
+                "Unexpected error reading registers: %s - %s", type(e).__name__, e
             )
         finally:
             end_time = time.perf_counter()
@@ -244,7 +249,7 @@ class Modbus:
                 end_time - start_time,
                 result.registers if hasattr(result, REGISTERS) else None,
             )
-            return result
+        return result
 
     def write_register_blocking(
         self, unit: int | str, address: int, value: int | float
@@ -291,7 +296,7 @@ class Modbus:
             )
         except Exception as e:
             _LOGGER.error(
-                f"Unexpected error writing registers: {type(e).__name__} - {e}"
+                "Unexpected error writing registers: %s - %s", type(e).__name__, e
             )
         finally:
             end_time = time.perf_counter()
@@ -299,7 +304,7 @@ class Modbus:
                 "Write completed in %.3f seconds.",
                 end_time - start_time,
             )
-            return result
+        return result
 
     async def read_registers(
         self,

@@ -65,7 +65,7 @@ class WebSocketManager:
                 _LOGGER.debug("Invalid token")
                 return False
         except Exception as e:
-            _LOGGER.error(f"WebSocket authentication error: {e}")
+            _LOGGER.error("WebSocket authentication error: %s", e)
             return False
 
     async def connect(self, websocket: WebSocket) -> bool:
@@ -92,7 +92,7 @@ class WebSocketManager:
             return True
 
         except Exception as e:
-            _LOGGER.error(f"Failed to establish WebSocket connection: {e}")
+            _LOGGER.error("Failed to establish WebSocket connection: %s", e)
             try:
                 await websocket.close(code=4000, reason="Connection failed")
             except Exception:
@@ -108,11 +108,11 @@ class WebSocketManager:
                     try:
                         await websocket.close(code=1000)
                     except Exception as e:
-                        _LOGGER.error(f"Error closing WebSocket: {e}")
+                        _LOGGER.error("Error closing WebSocket: %s", e)
         except ValueError:
             pass
         except Exception as e:
-            _LOGGER.error(f"Error during WebSocket disconnect: {e}")
+            _LOGGER.error("Error during WebSocket disconnect: %s", e)
 
     async def close_all(self):
         """Close all active connections."""
@@ -144,7 +144,7 @@ class WebSocketManager:
                 except WebSocketDisconnect:
                     dead_connections.append(connection)
                 except Exception as e:
-                    _LOGGER.error(f"Error sending message to WebSocket: {e}")
+                    _LOGGER.error("Error sending message to WebSocket: %s", e)
                     dead_connections.append(connection)
 
             # Clean up dead connections

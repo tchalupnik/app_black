@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -13,13 +13,13 @@ class BoneIOLoader(SafeLoader):
     """Custom YAML loader with !include constructor."""
 
     def __init__(self, stream):
-        self._root = os.path.split(stream.name)[0]
+        self._root = Path(stream.name).parent
         super().__init__(stream)
 
     def include(self, node):
         """Include file referenced at node."""
-        filename = os.path.join(self._root, self.construct_scalar(node))
-        with open(filename, "r") as f:
+        filename = Path(self._root) / self.construct_scalar(node)
+        with filename.open("r") as f:
             return load(f, BoneIOLoader)
 
 
@@ -261,28 +261,28 @@ def generate_section_schema(
 
 def main():
     """Main function to convert schema."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    schema_file = os.path.join(script_dir, "..", "schema", "schema.yaml")
-    output_dir = os.path.join(script_dir, "..", "webui", "schema")
+    script_dir = Path(__file__).resolve().parent
+    schema_file = script_dir / ".." / "schema" / "schema.yaml"
+    output_dir = script_dir / ".." / "webui" / "schema"
 
     # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load the schema
-    with open(schema_file, "r") as f:
+    with schema_file.open("r") as f:
         schema = yaml.load(f, Loader=BoneIOLoader)
 
     # Convert and save the main schema
     json_schema = convert_cerberus_to_json_schema(schema)
-    main_schema_file = os.path.join(output_dir, "config.schema.json")
-    with open(main_schema_file, "w") as f:
+    main_schema_file = output_dir / "config.schema.json"
+    with main_schema_file.open("w") as f:
         json.dump(json_schema, f, indent=2)
 
     # Generate and save section-specific schemas
     for section_name, section_schema in schema.items():
         section_json_schema = generate_section_schema(section_name, section_schema)
-        section_schema_file = os.path.join(output_dir, f"{section_name}.schema.json")
-        with open(section_schema_file, "w") as f:
+        section_schema_file = output_dir / f"{section_name}.schema.json"
+        with section_schema_file.open("w") as f:
             json.dump(section_json_schema, f, indent=2)
 
 
