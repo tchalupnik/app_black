@@ -5,6 +5,7 @@ import logging
 import os
 import time
 from datetime import datetime
+import typing
 
 from boneio.const import (
     ADDRESS,
@@ -29,7 +30,6 @@ from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
 from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.util import open_json
-from boneio.manager import Manager
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
@@ -51,6 +51,9 @@ from boneio.config import Config
 
 from .client import VALUE_TYPES, Modbus
 from .utils import CONVERT_METHODS, REGISTERS_BASE
+
+if typing.TYPE_CHECKING:
+    from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
