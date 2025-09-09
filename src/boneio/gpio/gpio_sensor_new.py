@@ -6,13 +6,13 @@ import time
 from Adafruit_BBIO.GPIO import BOTH
 
 from boneio.const import PRESSED, RELEASED
-from boneio.helper import GpioBaseClass
-from boneio.helper.gpio import add_event_callback, add_event_detect
+
+from .base import GpioBase, add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioInputBinarySensorNew(GpioBaseClass):
+class GpioInputBinarySensorNew(GpioBase):
     """Represent Gpio sensor on input boards."""
 
     def __init__(self, **kwargs) -> None:

@@ -8,9 +8,10 @@ import time
 from Adafruit_BBIO.GPIO import BOTH
 
 from boneio.const import DOUBLE, LONG, SINGLE
-from boneio.helper import ClickTimer, GpioBaseClass
-from boneio.helper.gpio import edge_detect
+from boneio.helper import ClickTimer
 from boneio.helper.timeperiod import TimePeriod
+
+from .base import edge_detect, GpioBase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ DOUBLE_CLICK_DURATION_MS = 220
 LONG_PRESS_DURATION_MS = 400
 
 
-class GpioEventButtonNew(GpioBaseClass):
+class GpioEventButtonNew(GpioBase):
     """Represent Gpio input switch."""
 
     def __init__(self, **kwargs) -> None:

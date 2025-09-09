@@ -4,12 +4,13 @@ import asyncio
 import logging
 
 from boneio.const import PRESSED, RELEASED
-from boneio.helper import GpioBaseClass
+
+from .base import GpioBase
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioInputBinarySensor(GpioBaseClass):
+class GpioInputBinarySensor(GpioBase):
     """Represent Gpio sensor on input boards."""
 
     def __init__(self, **kwargs) -> None:

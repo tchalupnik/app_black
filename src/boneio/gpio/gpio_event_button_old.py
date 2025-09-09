@@ -6,7 +6,9 @@ import asyncio
 import logging
 
 from boneio.const import DOUBLE, LONG, SINGLE
-from boneio.helper import ClickTimer, GpioBaseClass, TimePeriod
+from boneio.helper import ClickTimer, TimePeriod
+
+from .base import GpioBase
 
 # TIMINGS FOR BUTTONS
 
@@ -16,7 +18,7 @@ LONG_PRESS_DURATION_MS = 600
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioEventButton(GpioBaseClass):
+class GpioEventButton(GpioBase):
     """Represent Gpio input switch."""
 
     def __init__(self, **kwargs) -> None:

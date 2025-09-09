@@ -7,7 +7,7 @@ import logging
 
 from Adafruit_BBIO.GPIO import HIGH, LOW
 
-from boneio.helper import read_input, setup_output, write_output
+from boneio.gpio import read_input, setup_output, write_output
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)

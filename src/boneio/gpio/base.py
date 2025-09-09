@@ -98,14 +98,14 @@ def add_event_callback(pin: str, callback: Callable) -> None:
         raise GPIOInputException(err)
 
 
-class GpioBaseClass:
+class GpioBase:
     """Base class for initialize GPIO"""
 
     def __init__(
         self,
         pin: str,
         manager_press_callback: Callable[
-            [ClickTypes, GpioBaseClass, str, bool, float | None],
+            [ClickTypes, GpioBase, str, bool, float | None],
             Awaitable[None],
         ],
         name: str,

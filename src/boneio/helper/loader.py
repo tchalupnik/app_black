@@ -21,14 +21,12 @@ from boneio.const import (
     INIT_SLEEP,
     INPUT,
     INPUT_SENSOR,
-    KIND,
     LM75,
     MCP,
     MCP_ID,
     MCP_TEMP_9808,
     MODEL,
     NONE,
-    OUTPUT_TYPE,
     PCA,
     PCA_ID,
     PCF,
@@ -72,27 +70,28 @@ from boneio.helper.onewire import (
 )
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
-from boneio.input import GpioEventButtonNew, GpioEventButtonOld
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.config import Config
-from boneio.sensor import (
-    DallasSensorDS2482,
+from boneio.config import Config, OutputConfig
+from boneio.sensor import DallasSensorDS2482
+from boneio.gpio import (
+    GpioRelay,
     GpioInputBinarySensorNew,
     GpioInputBinarySensorOld,
+    GpioEventButtonNew,
+    GpioEventButtonOld,
 )
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
-# Typing imports that create a circular dependency
-if TYPE_CHECKING:
-    from ..manager import Manager
-
 from busio import I2C
 
-from boneio.relay import PWMPCA, GpioRelay, MCPRelay, PCFRelay
+from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.sensor import GpioADCSensor, initialize_adc
+
+if TYPE_CHECKING:
+    from ..manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -318,87 +317,116 @@ def configure_relay(
     topic_prefix: str,
     relay_id: str,
     name: str,
-    config: dict,
+    output_config: OutputConfig,
+    event_bus: EventBus,
     restore_state: bool = False,
-    **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
-    output_type = config.pop(OUTPUT_TYPE)
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
         if restore_state
         else False
     )
-    if output_type == NONE and state_manager.get(attr_type=RELAY, attr=relay_id):
+    if output_config.output_type == NONE and state_manager.get(
+        attr_type=RELAY, attr=relay_id
+    ):
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
-    output = output_chooser(output_kind=config.pop(KIND), config=config)
-    output_kind = getattr(output, "output_kind")
-    expander_id = getattr(output, "expander_id")
+    output = output_chooser(output_kind=output_config.kind, config=output_config)
 
-    if output_kind == MCP:
-        mcp = manager.mcp.get(expander_id)
+    if isinstance(output_config.interlock_group, str):
+        output_config.interlock_group = [output_config.interlock_group]
+
+    if output_config.kind == "gpio":
+        expander_id = "gpio"
+        if GPIO not in manager.grouped_outputs_by_expander:
+            manager.grouped_outputs_by_expander[GPIO] = {}
+        relay = GpioRelay(
+            pin=int(output_config.pin),
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+            id=relay_id,
+            restored_state=restored_state,
+            interlock_manager=manager._interlock_manager,
+            interlock_groups=output_config.interlock_group,
+            name=name,
+            event_bus=event_bus,
+        )
+    elif output_config.kind == "mcp":
+        expander_id = "mcp_id"
+        if output_config.mcp_id is None:
+            _LOGGER.error("No MCP id configured!")
+            return None
+        mcp = manager.mcp.get(output_config.mcp_id)
         if not mcp:
             _LOGGER.error("No such MCP configured!")
             return None
-        extra_args = {
-            "pin": int(config.pop(PIN)),
-            "mcp": mcp,
-            "mcp_id": expander_id,
-            "output_type": output_type,
-        }
-    elif output_kind == PCA:
-        pca = manager.pca.get(expander_id)
+        relay = MCPRelay(
+            pin=int(output_config.pin),
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+            id=relay_id,
+            restored_state=restored_state,
+            interlock_manager=manager._interlock_manager,
+            interlock_groups=output_config.interlock_group,
+            name=name,
+            event_bus=event_bus,
+            mcp=mcp,
+            mcp_id=output_config.mcp_id,
+            output_type=output_config.output_type,
+        )
+    elif output_config.kind == "pca":
+        expander_id = "pca_id"
+        if output_config.pca_id is None:
+            _LOGGER.error("No PCA id configured!")
+            return None
+        pca = manager.pca.get(output_config.pca_id)
         if not pca:
             _LOGGER.error("No such PCA configured!")
             return None
-        extra_args = {
-            "pin": int(config.pop(PIN)),
-            "pca": pca,
-            "pca_id": expander_id,
-            "output_type": output_type,
-        }
-    elif output_kind == PCF:
-        expander = manager.pcf.get(expander_id)
+        relay = PWMPCA(
+            pin=int(output_config.pin),
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+            id=relay_id,
+            restored_state=restored_state,
+            interlock_manager=manager._interlock_manager,
+            interlock_groups=output_config.interlock_group,
+            name=name,
+            event_bus=event_bus,
+            pca=pca,
+            pca_id=output_config.pca_id,
+            output_type=output_config.output_type,
+        )
+    elif output_config.kind == "pcf":
+        expander_id = "pcf_id"
+        if output_config.pcf_id is None:
+            _LOGGER.error("No PCF id configured!")
+            return None
+        expander = manager.pcf.get(output_config.pcf_id)
         if not expander:
             _LOGGER.error("No such PCF configured!")
             return None
-        extra_args = {
-            "pin": int(config.pop(PIN)),
-            "expander": expander,
-            "expander_id": expander_id,
-            "output_type": output_type,
-        }
-    elif output_kind == GPIO:
-        if GPIO not in manager.grouped_outputs_by_expander:
-            manager.grouped_outputs_by_expander[GPIO] = {}
-        extra_args = {
-            "pin": config.pop(PIN),
-        }
+        relay = PCFRelay(
+            pin=int(output_config.pin),
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+            id=relay_id,
+            restored_state=restored_state,
+            interlock_manager=manager._interlock_manager,
+            interlock_groups=output_config.interlock_group,
+            name=name,
+            event_bus=event_bus,
+            output_type=output_config.output_type,
+        )
     else:
         _LOGGER.error(
             "Output kind: %s is not configured", getattr(output, "output_kind")
         )
         return
 
-    interlock_groups = config.get("interlock_group", [])
-    if isinstance(interlock_groups, str):
-        interlock_groups = [interlock_groups]
-
-    relay = getattr(output, "OutputClass")(
-        message_bus=message_bus,
-        topic_prefix=topic_prefix,
-        id=relay_id,
-        restored_state=restored_state,
-        interlock_manager=manager._interlock_manager,
-        interlock_groups=interlock_groups,
-        name=name,
-        **config,
-        **kwargs,
-        **extra_args,
-    )
-    manager._interlock_manager.register(relay, interlock_groups)
+    manager._interlock_manager.register(relay, output_config.interlock_group)
     manager.grouped_outputs_by_expander[expander_id][relay_id] = relay
     if relay.is_virtual_power:
         manager.send_ha_autodiscovery(

@@ -202,8 +202,9 @@ class BasicRelay(BasicMqtt):
         id: str,
         event_bus: EventBus,
         topic_prefix: str,
+        message_bus: MessageBus,
         name: str | None = None,
-        output_type=SWITCH,
+        output_type: str = SWITCH,
         restored_state: bool = False,
         topic_type: str = RELAY,
         interlock_manager: SoftwareInterlockManager | None = None,
@@ -223,7 +224,7 @@ class BasicRelay(BasicMqtt):
             name=name or id,
             topic_type=topic_type,
             topic_prefix=topic_prefix,
-            **kwargs,
+            message_bus=message_bus,
         )
         self._output_type = output_type
         self._event_bus = event_bus

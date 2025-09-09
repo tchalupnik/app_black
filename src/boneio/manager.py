@@ -7,6 +7,7 @@ import logging
 import time
 from collections import deque
 from typing import Coroutine
+import typing
 
 from board import SCL, SDA
 from busio import I2C
@@ -44,7 +45,6 @@ from boneio.const import (
     PCF,
     PIN,
     RELAY,
-    RESTORE_STATE,
     SET_BRIGHTNESS,
     STATE,
     STOP,
@@ -70,7 +70,6 @@ from boneio.helper import (
 )
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
-from boneio.helper.gpio import GpioBaseClass
 from boneio.helper.ha_discovery import ha_valve_availabilty_message
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
@@ -96,6 +95,9 @@ from boneio.relay.basic import BasicRelay
 from boneio.config import Config
 from boneio.sensor.temp import TempSensor
 
+if typing.TYPE_CHECKING:
+    from boneio.gpio.base import GpioBase
+
 _LOGGER = logging.getLogger(__name__)
 
 AVAILABILITY_FUNCTION_CHOOSER = {
@@ -116,7 +118,6 @@ class Manager:
         event_bus: EventBus,
         state_manager: StateManager,
         config_file_path: str,
-        relay_pins: list = [],
         event_pins: list = [],
         binary_pins: list = [],
         output_group: list = [],
@@ -202,25 +203,23 @@ class Manager:
 
         self._configure_adc(adc_list=adc)
 
-        for _config in relay_pins:
-            _name = _config.pop(ID)
-            restore_state = _config.pop(RESTORE_STATE, False)
-            _id = strip_accents(_name)
+        for output in config.output:
+            _id = strip_accents(output.id)
             _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.
                 manager=self,
+                output_config=output,
                 message_bus=message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
-                name=_name,
-                restore_state=restore_state,
+                name=output.id,
+                restore_state=output.restore_state,
                 relay_id=_id,
-                config=_config,
                 event_bus=self._event_bus,
             )
             if not out:
                 continue
-            if restore_state:
+            if output.restore_state:
                 self._event_bus.add_event_listener(
                     event_type="output",
                     entity_id=out.id,
@@ -257,21 +256,18 @@ class Manager:
             devices=modbus_devices
         )
 
-        if oled.get("enabled", False):
+        if config.oled.enabled:
             from boneio.oled import Oled
-
-            self._screens = oled.get("screens", [])
-            extra_sensors = oled.get("extra_screen_sensors", [])
 
             self._host_data = HostData(
                 manager=self,
                 event_bus=self._event_bus,
-                enabled_screens=self._screens,
+                enabled_screens=config.oled.screens,
                 output=self.grouped_outputs_by_expander,
                 inputs=self._inputs,
                 temp_sensor=(self._temp_sensors[0] if self._temp_sensors else None),
                 ina219=(self._ina219_sensors[0] if self._ina219_sensors else None),
-                extra_sensors=extra_sensors,
+                extra_sensors=config.oled.extra_screen_sensors,
             )
             try:
                 self._oled = Oled(
@@ -581,7 +577,7 @@ class Manager:
         return task
 
     @property
-    def inputs(self) -> list[GpioBaseClass]:
+    def inputs(self) -> list[GpioBase]:
         return list(self._inputs.values())
 
     def _configure_sensors(
@@ -822,7 +818,7 @@ class Manager:
     async def press_callback(
         self,
         x: ClickTypes,
-        gpio: GpioBaseClass,
+        gpio: GpioBase,
         empty_message_after: bool = False,
         duration: float | None = None,
         start_time: float | None = None,

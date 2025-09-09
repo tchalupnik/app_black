@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import psutil
 
+from boneio.config import OledExtraScreenSensorConfig, OledScreens
 from boneio.const import (
     CPU,
     DISK,
@@ -28,10 +29,10 @@ from boneio.const import (
     UPTIME,
 )
 from boneio.helper.events import EventBus
-from boneio.helper.gpio import GpioBaseClass
 from boneio.models import HostSensorState
 
 if TYPE_CHECKING:
+    from boneio.gpio.base import GpioBase
     from boneio.manager import Manager
     from boneio.sensor import INA219 as INA219Class
     from boneio.sensor import LM75Sensor, MCP9808Sensor
@@ -168,13 +169,13 @@ class HostData:
     def __init__(
         self,
         output: dict,
-        inputs: dict[str, GpioBaseClass],
+        inputs: dict[str, GpioBase],
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
         ina219: INA219Class | None,
         manager: Manager,
         event_bus: EventBus,
-        enabled_screens: list[str],
-        extra_sensors: list[dict],
+        enabled_screens: list[OledScreens],
+        extra_sensors: list[OledExtraScreenSensorConfig],
     ) -> None:
         """Initialize HostData."""
         self._manager = manager

@@ -5,6 +5,9 @@ import logging
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
 
 from boneio.const import COVER, MCP, OFF, ON, SWITCH
+from boneio.helper.events import EventBus
+from boneio.helper.interlock import SoftwareInterlockManager
+from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,9 +21,15 @@ class MCPRelay(BasicRelay):
         pin: int,
         mcp: MCP23017,
         mcp_id: str,
+        message_bus: MessageBus,
+        topic_prefix: str,
+        id: str,
+        interlock_manager: SoftwareInterlockManager,
+        interlock_groups: list[str],
+        name: str,
+        event_bus: EventBus,
         output_type: str = SWITCH,
         restored_state: bool = False,
-        **kwargs,
     ) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = mcp.get_pin(pin)
@@ -28,7 +37,15 @@ class MCPRelay(BasicRelay):
             """Just in case to not restore state of covers etc."""
             restored_state = False
         super().__init__(
-            **kwargs, output_type=output_type, restored_state=restored_state
+            id=id,
+            name=name,
+            topic_prefix=topic_prefix,
+            event_bus=event_bus,
+            message_bus=message_bus,
+            interlock_manager=interlock_manager,
+            interlock_groups=interlock_groups,
+            output_type=output_type,
+            restored_state=restored_state,
         )
         self._pin_id = pin
         self._expander_id = mcp_id

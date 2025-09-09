@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 from adafruit_pcf8575 import PCF8575 as AdafruitPCF8575
-
-try:
-    from busio import I2C
-except ImportError:
-    pass
+from busio import I2C
 
 
 class PCF8575(AdafruitPCF8575):

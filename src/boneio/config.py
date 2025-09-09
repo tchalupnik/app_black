@@ -157,23 +157,24 @@ class OledExtraScreenSensorConfig(BaseModel):
     modbus_id: str | None = None
 
 
+OledScreens = Literal[
+    "uptime",
+    "network",
+    "ina219",
+    "cpu",
+    "disk",
+    "memory",
+    "swap",
+    "outputs",
+    "inputs",
+    "extra_sensors",
+    "web",
+]
+
+
 class OledConfig(BaseModel):
     enabled: bool = False
-    screens: list[
-        Literal[
-            "uptime",
-            "network",
-            "ina219",
-            "cpu",
-            "disk",
-            "memory",
-            "swap",
-            "outputs",
-            "inputs",
-            "extra_sensors",
-            "web",
-        ]
-    ] = Field(
+    screens: list[OledScreens] = Field(
         default_factory=lambda: [
             "uptime",
             "network",
@@ -326,7 +327,7 @@ class OutputConfig(BaseModel):
     virtual_power_usage: str | None = None
     virtual_volume_flow_rate: str | None = None
     restore_state: bool | None = None
-    interlock_group: str | None = None
+    interlock_group: str | list[str] = Field(default_factory=list)
     percentage_default_brightness: int | None = None
     mcp_id: str | None = None
     pca_id: str | None = None

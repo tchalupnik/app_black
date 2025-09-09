@@ -11,13 +11,12 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
 from boneio.const import OLED_PIN, UPTIME, WHITE
+from boneio.gpio import edge_detect, setup_input
 from boneio.helper import (
     HostData,
     I2CError,
     TimePeriod,
-    edge_detect,
     make_font,
-    setup_input,
 )
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.models import InputState, OutputState, SensorState

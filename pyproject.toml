@@ -48,6 +48,7 @@ dev = [
   "ty>=0.0.1a20",
   "pre-commit>=3.8.0",
   "bandit>=1.7.5",
+  "pytest>=8.4.2",
 ]
 
 [project.urls]
@@ -64,7 +65,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "boneio/version.py"
+path = "src/boneio/version.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -87,4 +88,4 @@ exclude = [
 ]
 
 [tool.ty.src]
-include = ["boneio/"]
+include = ["src/boneio"]
