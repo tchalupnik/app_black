@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import typing
 
 from adafruit_ds18x20 import DS18X20
 from w1thermsensor import (
@@ -18,11 +19,14 @@ from boneio.helper.onewire import (
     OneWireAddress,
     OneWireBus,
 )
-from boneio.helper.timeperiod import TimePeriod
-from boneio.manager import Manager
-from boneio.message_bus.basic import MessageBus
 
 from . import TempSensor
+
+if typing.TYPE_CHECKING:
+    from boneio.helper.timeperiod import TimePeriod
+    from boneio.manager import Manager
+    from boneio.message_bus.basic import MessageBus
+
 
 _LOGGER = logging.getLogger(__name__)
 
