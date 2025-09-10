@@ -11,7 +11,13 @@ from collections.abc import Callable, Coroutine
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
-from boneio.config import Config, Ina219Config, SensorConfig, TemperatureConfig
+from boneio.config import (
+    Config,
+    Ina219Config,
+    MqttAutodiscoveryMessage,
+    SensorConfig,
+    TemperatureConfig,
+)
 from boneio.const import (
     ACTIONS,
     ADC,
@@ -1088,7 +1094,8 @@ class Manager:
         topic = f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
         self.config.mqtt.autodiscovery_messages.add_message(
-            ha_type=ha_type, payload=payload
+            message=MqttAutodiscoveryMessage(topic=topic, payload=payload),
+            type=ha_type,
         )
         self.send_message(topic=topic, payload=payload, retain=True)
 
