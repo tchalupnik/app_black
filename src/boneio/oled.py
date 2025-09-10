@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import timedelta
 from itertools import cycle
 from typing import Any
 
@@ -15,7 +16,6 @@ from boneio.gpio import edge_detect, setup_input
 from boneio.helper import (
     HostData,
     I2CError,
-    TimePeriod,
     make_font,
 )
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
@@ -54,7 +54,7 @@ class Oled:
         self,
         host_data: HostData,
         grouped_outputs_by_expander: list[str],
-        sleep_timeout: TimePeriod,
+        sleep_timeout: timedelta,
         screen_order: list[str],
         event_bus: EventBus,
     ) -> None:
@@ -253,11 +253,11 @@ class Oled:
                         )
         else:
             self._handle_press(pin=None)
-        if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds > 0:
+        if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds() > 0:
             self._cancel_sleep_handle = async_track_point_in_time(
                 loop=self._loop,
                 job=lambda x: self._sleeptime(),
-                point_in_time=utcnow() + self._sleep_timeout.as_timedelta,
+                point_in_time=utcnow() + self._sleep_timeout,
             )
 
     async def _output_callback(self, event: OutputState):

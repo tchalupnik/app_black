@@ -5,6 +5,7 @@ import logging
 import subprocess
 import time
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 
 from Adafruit_BBIO import GPIO  # type: ignore
 from Adafruit_BBIO.GPIO import (  # type: ignore
@@ -30,7 +31,6 @@ from boneio.const import (
 from boneio.const import GPIO as GPIO_STR
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import GPIOInputException
-from boneio.helper.timeperiod import TimePeriod
 from boneio.models import InputState
 
 _LOGGER = logging.getLogger(__name__)
@@ -141,8 +141,8 @@ class GpioBase:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        bounce_time: TimePeriod = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
-        self._bounce_time = bounce_time.total_in_seconds
+        bounce_time: timedelta = kwargs.get("bounce_time", timedelta(milliseconds=50))
+        self._bounce_time = bounce_time.total_seconds()
         self._loop = asyncio.get_running_loop()
         self._manager_press_callback = manager_press_callback
         self._name = name

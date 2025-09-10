@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from collections import OrderedDict
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,6 @@ from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
 from boneio.const import ID, OUTPUT
 from boneio.helper.exceptions import ConfigurationException
-from boneio.helper.timeperiod import TimePeriod
 
 schema_file = Path(__file__).parent / "../schema/schema.yaml"
 _LOGGER = logging.getLogger(__name__)
@@ -328,14 +328,14 @@ def one_of(*values, **kwargs):
     return validator
 
 
-timeperiod_type = TypeDefinition("timeperiod", (TimePeriod,), ())
+timedelta_type = TypeDefinition("timedelta", (timedelta,), ())
 
 
 class CustomValidator(Validator):
     """Custom validator of cerberus"""
 
     types_mapping = Validator.types_mapping.copy()
-    types_mapping["timeperiod"] = timeperiod_type
+    types_mapping["timedelta"] = timedelta_type
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -466,14 +466,14 @@ class CustomValidator(Validator):
         _LOGGER.debug("Parsed length value '%s' as %s m", value, result)
         return result
 
-    def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
+    def _normalize_coerce_positive_time_period(self, value) -> timedelta:
         """Validate and transform time period with time unit and integer value."""
         if isinstance(value, int):
             raise ConfigurationException(
                 f"Don't know what '{value}' means as it has no time *unit*! Did you mean '{value}s'?"
             )
-        if isinstance(value, TimePeriod):
-            value = str(value)
+        if isinstance(value, timedelta):
+            return value
         if not isinstance(value, str):
             raise ConfigurationException("Expected string for time period with unit.")
 
@@ -498,8 +498,19 @@ class CustomValidator(Validator):
         match = re.match(r"^([-+]?[0-9]*\.?[0-9]*)\s*(\w*)$", value)
         if match is None:
             raise ConfigurationException(f"Expected time period with unit, got {value}")
-        kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
-        return TimePeriod(**{kwarg: float(match.group(1))})
+
+        unit = match.group(2)
+        if unit not in unit_to_kwarg:
+            raise ConfigurationException(
+                f"Unknown time unit '{unit}', valid options are {', '.join(unit_to_kwarg.keys())}"
+            )
+
+        kwarg = unit_to_kwarg[unit]
+        value_num = float(match.group(1))
+
+        # Create timedelta with the appropriate keyword argument
+        kwargs = {kwarg: value_num}
+        return timedelta(**kwargs)
 
     def _lookup_field(self, path: str) -> tuple:
         """

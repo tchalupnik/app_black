@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import typing
+from datetime import timedelta
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
@@ -13,7 +14,6 @@ from boneio.helper.filter import Filter
 from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
-    from boneio.helper.timeperiod import TimePeriod
     from boneio.manager import Manager
     from boneio.message_bus.basic import MessageBus
 
@@ -34,7 +34,7 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         message_bus: MessageBus,
         topic_prefix: str,
         name: str,
-        update_interval: TimePeriod,
+        update_interval: timedelta,
         id: str = DefaultName,
         filters: list = None,
         unit_of_measurement: str = "°C",

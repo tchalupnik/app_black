@@ -4,6 +4,7 @@ import logging
 import time
 import typing
 from collections.abc import Callable
+from datetime import timedelta
 
 from boneio.const import PRESSED, RELEASED
 
@@ -11,7 +12,6 @@ from .base import BOTH, GpioBase, add_event_callback, add_event_detect
 
 if typing.TYPE_CHECKING:
     from boneio.helper.events import EventBus
-    from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class GpioInputBinarySensorNew(GpioBase):
         boneio_input: str = "",
         inverted: bool = False,
         initial_send: bool = False,
-        bounce_time: TimePeriod | None = None,
+        bounce_time: timedelta | None = None,
         gpio_mode: str = "gpio",
     ) -> None:
         """Setup GPIO Input Button"""

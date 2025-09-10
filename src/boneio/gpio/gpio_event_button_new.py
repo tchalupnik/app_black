@@ -6,10 +6,10 @@ import logging
 import time
 import typing
 from collections.abc import Callable
+from datetime import timedelta
 
 from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer
-from boneio.helper.timeperiod import TimePeriod
 
 from .base import BOTH, GpioBase, edge_detect
 
@@ -36,7 +36,7 @@ class GpioEventButtonNew(GpioBase):
         empty_message_after: bool,
         event_bus: EventBus,
         boneio_input: str = "",
-        bounce_time: TimePeriod | None = None,
+        bounce_time: timedelta | None = None,
         gpio_mode: str = "gpio",
     ) -> None:
         """Setup GPIO Input Button"""
@@ -49,7 +49,7 @@ class GpioEventButtonNew(GpioBase):
             empty_message_after=empty_message_after,
             event_bus=event_bus,
             boneio_input=boneio_input,
-            bounce_time=bounce_time or TimePeriod(milliseconds=50),
+            bounce_time=bounce_time or timedelta(milliseconds=50),
             gpio_mode=gpio_mode,
         )
         self._state = self.is_pressed
@@ -58,11 +58,11 @@ class GpioEventButtonNew(GpioBase):
 
         # Initialize timers
         self._timer_double = ClickTimer(
-            delay=TimePeriod(milliseconds=DOUBLE_CLICK_DURATION_MS),
+            delay=timedelta(milliseconds=DOUBLE_CLICK_DURATION_MS),
             action=lambda x: self.single_click_callback(),
         )
         self._timer_long = ClickTimer(
-            delay=TimePeriod(milliseconds=LONG_PRESS_DURATION_MS),
+            delay=timedelta(milliseconds=LONG_PRESS_DURATION_MS),
             action=lambda x: self.long_click_callback(x),
         )
 

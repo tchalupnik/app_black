@@ -5,6 +5,7 @@ import logging
 import socket
 import time
 from collections.abc import Callable
+from datetime import timedelta
 from math import floor
 from typing import TYPE_CHECKING
 
@@ -37,7 +38,6 @@ if TYPE_CHECKING:
     from boneio.sensor import LM75Sensor, MCP9808Sensor
 
 from boneio.helper.async_updater import AsyncUpdater
-from boneio.helper.timeperiod import TimePeriod
 from boneio.version import __version__
 
 _LOGGER = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class HostSensor(AsyncUpdater):
         id: str,
         type: str,
         manager: Manager,
-        update_interval: TimePeriod = TimePeriod(seconds=60),
+        update_interval: timedelta = timedelta(seconds=60),
     ) -> None:
         self._update_function = update_function
         self._static_data = static_data
@@ -183,20 +183,20 @@ class HostData:
         host_stats = {
             NETWORK: {
                 "f": get_network_info,
-                "update_interval": TimePeriod(seconds=60),
+                "update_interval": timedelta(seconds=60),
             },
-            CPU: {"f": get_cpu_info, "update_interval": TimePeriod(seconds=5)},
+            CPU: {"f": get_cpu_info, "update_interval": timedelta(seconds=5)},
             DISK: {
                 "f": get_disk_info,
-                "update_interval": TimePeriod(seconds=60),
+                "update_interval": timedelta(seconds=60),
             },
             MEMORY: {
                 "f": get_memory_info,
-                "update_interval": TimePeriod(seconds=10),
+                "update_interval": timedelta(seconds=10),
             },
             SWAP: {
                 "f": get_swap_info,
-                "update_interval": TimePeriod(seconds=60),
+                "update_interval": timedelta(seconds=60),
             },
             UPTIME: {
                 "f": lambda: (
@@ -244,7 +244,7 @@ class HostData:
                         "col": 3,
                     },
                 },
-                "update_interval": TimePeriod(seconds=30),
+                "update_interval": timedelta(seconds=30),
             },
         }
         if ina219 is not None:
@@ -257,7 +257,7 @@ class HostData:
 
             host_stats[INA219] = {
                 "f": get_ina_values,
-                "update_interval": TimePeriod(seconds=60),
+                "update_interval": timedelta(seconds=60),
             }
         if extra_sensors:
 
@@ -288,7 +288,7 @@ class HostData:
 
             host_stats["extra_sensors"] = {
                 "f": get_extra_sensors_values,
-                "update_interval": TimePeriod(seconds=60),
+                "update_interval": timedelta(seconds=60),
             }
         self._data = {}
         for k, _v in host_stats.items():

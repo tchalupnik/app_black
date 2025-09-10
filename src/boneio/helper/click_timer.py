@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-
-from boneio.helper.timeperiod import TimePeriod
+from datetime import timedelta
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -12,11 +11,11 @@ _LOGGER = logging.getLogger(__name__)
 class ClickTimer:
     """Represent async call later function with variable to check if timing is ON."""
 
-    def __init__(self, delay: TimePeriod, action) -> None:
+    def __init__(self, delay: timedelta, action) -> None:
         """Initialize Click timer."""
         self._loop = asyncio.get_running_loop()
         self._remove_listener = None
-        self._delay: float = delay.total_in_seconds
+        self._delay: float = delay.total_seconds()
         self._action = action
 
     def is_waiting(self) -> bool:

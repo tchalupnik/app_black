@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from datetime import timedelta
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
@@ -218,8 +219,8 @@ class RelayBase(MqttBase):
     # interlock_manager: SoftwareInterlockManager | None = None
     interlock_groups: list[str] = []
     restored_state: bool = False
-    momentary_turn_on: str | None = None
-    momentary_turn_off: str | None = None
+    momentary_turn_on: timedelta | None = None
+    momentary_turn_off: timedelta | None = None
     virtual_power_usage: float | None = None
     virtual_volume_flow_rate: float | None = None
 
@@ -229,7 +230,6 @@ class BasicRelay(BasicMqtt):
 
     def __init__(
         self,
-        # callback: Callable[[OutputState], Awaitable[None]],
         id: str,
         pin_id: int,
         event_bus: EventBus,
@@ -241,8 +241,8 @@ class BasicRelay(BasicMqtt):
         topic_type: str = RELAY,
         interlock_manager: SoftwareInterlockManager | None = None,
         interlock_groups: list[str] | None = None,
-        momentary_turn_on: str | None = None,
-        momentary_turn_off: str | None = None,
+        momentary_turn_on: timedelta | None = None,
+        momentary_turn_off: timedelta | None = None,
         virtual_power_usage: float | None = None,
         virtual_volume_flow_rate: float | None = None,
     ) -> None:
@@ -430,12 +430,12 @@ class BasicRelay(BasicMqtt):
             _LOGGER.debug(
                 "Applying momentary action for %s in %s",
                 self.name,
-                delayed_action.as_timedelta,
+                delayed_action,
             )
             self._momentary_action = async_track_point_in_time(
                 loop=self._loop,
                 job=self._momentary_callback,
-                point_in_time=utcnow() + delayed_action.as_timedelta,
+                point_in_time=utcnow() + delayed_action,
                 action=action,
             )
 

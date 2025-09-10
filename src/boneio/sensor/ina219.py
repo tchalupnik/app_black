@@ -6,8 +6,9 @@ import asyncio
 import logging
 import time
 import typing
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from boneio.config import Ina219DeviceClass, Ina219SensorConfig
 from boneio.const import SENSOR, STATE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
@@ -15,7 +16,6 @@ from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
-    from boneio.helper.timeperiod import TimePeriod
     from boneio.manager import Manager
     from boneio.message_bus.basic import MessageBus
 
@@ -29,7 +29,7 @@ class INA219Sensor(BasicMqtt, Filter):
 
     def __init__(
         self,
-        device_class: str,
+        device_class: Ina219DeviceClass,
         filters: list,
         state: float | None,
         id: str,
@@ -66,7 +66,7 @@ class INA219Sensor(BasicMqtt, Filter):
         return self._state
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> Ina219DeviceClass:
         return self._device_class
 
     @property
@@ -98,24 +98,22 @@ class INA219(AsyncUpdater):
         address: int,
         id: str,
         manager: Manager,
-        update_interval: TimePeriod,
+        update_interval: timedelta,
         message_bus: MessageBus,
         topic_prefix: str,
-        sensors: list[dict] = None,
+        sensors: list[Ina219SensorConfig],
     ) -> None:
         """Setup INA219 Sensor"""
-        if sensors is None:
-            sensors = []
         self._loop = asyncio.get_event_loop()
         self._ina_219 = INA219_I2C(address=address)
-        self._sensors = {}
+        self._sensors: dict[Ina219DeviceClass, INA219Sensor] = {}
         self._id = id
         for sensor in sensors:
-            _name = sensor["id"]
+            _name = sensor.id
             _id = f"{id}{_name.replace(' ', '')}"
-            self._sensors[sensor["device_class"]] = INA219Sensor(
-                device_class=sensor["device_class"],
-                filters=sensor.get("filters", []),
+            self._sensors[sensor.device_class] = INA219Sensor(
+                device_class=sensor.device_class,
+                filters=sensor.filters,
                 state=None,
                 name=_name,
                 id=_id,
@@ -130,7 +128,7 @@ class INA219(AsyncUpdater):
         return self._id
 
     @property
-    def sensors(self) -> dict:
+    def sensors(self) -> dict[Ina219DeviceClass, INA219Sensor]:
         return self._sensors
 
     async def async_update(self, timestamp: datetime) -> None:

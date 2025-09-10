@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 import typing
+from datetime import timedelta
 
 import Adafruit_BBIO.ADC as ADC
 
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
-from boneio.helper.timeperiod import TimePeriod
 from boneio.message_bus.basic import MessageBus
 
 if typing.TYPE_CHECKING:
@@ -31,7 +31,7 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
         pin: str,
         filters: list,
         manager: Manager,
-        update_interval: TimePeriod,
+        update_interval: timedelta,
         id: str,
         name: str,
         message_bus: MessageBus,

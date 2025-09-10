@@ -5,10 +5,10 @@ import threading
 import time
 import typing
 from collections.abc import Callable
+from datetime import timedelta
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
 from boneio.cover.cover import BaseCover, BaseVenetianCoverABC
-from boneio.helper.timeperiod import TimePeriod
 from boneio.models import PositionDict
 
 if typing.TYPE_CHECKING:
@@ -32,17 +32,17 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
-        open_time: TimePeriod,
-        close_time: TimePeriod,
+        open_time: timedelta,
+        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
-        tilt_duration: TimePeriod,  # ms
+        tilt_duration: timedelta,  # ms
         restored_state: dict = DEFAULT_RESTORED_STATE,
         position: int = 100,
     ) -> None:
         self._tilt_duration = (
-            tilt_duration.total_milliseconds
+            tilt_duration.total_seconds() * 1000
         )  # Czas trwania ruchu lameli
         self._initial_tilt_position = None
 

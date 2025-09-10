@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 import typing
+from datetime import timedelta
 
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.stats import get_network_info
-from boneio.helper.timeperiod import TimePeriod
 from boneio.message_bus.basic import MessageBus
 
 if typing.TYPE_CHECKING:
@@ -38,7 +38,7 @@ class SerialNumberSensor(BasicMqtt, AsyncUpdater):
         )
         self._state = None
         AsyncUpdater.__init__(
-            self, manager=manager, update_interval=TimePeriod(minutes=60)
+            self, manager=manager, update_interval=timedelta(minutes=60)
         )
         _LOGGER.debug("Configured serial number sensor")
 

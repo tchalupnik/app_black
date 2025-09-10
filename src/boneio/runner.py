@@ -9,24 +9,6 @@ import warnings
 from pathlib import Path
 
 from boneio.config import Config
-from boneio.const import (
-    ADC,
-    BINARY_SENSOR,
-    COVER,
-    DALLAS,
-    DS2482,
-    EVENT_ENTITY,
-    INA219,
-    LM75,
-    MCP23017,
-    MCP_TEMP_9808,
-    MODBUS,
-    OLED,
-    ONEWIRE,
-    OUTPUT_GROUP,
-    PCA9685,
-    PCF8575,
-)
 from boneio.helper import StateManager
 from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
@@ -38,19 +20,6 @@ from boneio.webui.web_server import WebServer
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="cryptography")
 
 _LOGGER = logging.getLogger(__name__)
-
-config_modules = [
-    {"name": MCP23017, "default": []},
-    {"name": PCF8575, "default": []},
-    {"name": PCA9685, "default": []},
-    {"name": DS2482, "default": []},
-    {"name": ADC, "default": []},
-    {"name": COVER, "default": []},
-    {"name": MODBUS, "default": {}},
-    {"name": OLED, "default": {}},
-    {"name": DALLAS, "default": None},
-    {"name": OUTPUT_GROUP, "default": []},
-]
 
 
 async def async_run(
@@ -97,27 +66,13 @@ async def async_run(
 
         message_bus = LocalMessageBus()
 
-    manager_kwargs = {
-        item["name"]: config.get(item["name"], item["default"])
-        for item in config_modules
-    }
-
     manager = Manager(
         config=configuration,
         message_bus=message_bus,
         event_bus=event_bus,
-        event_pins=config.get(EVENT_ENTITY, []),
-        binary_pins=config.get(BINARY_SENSOR, []),
+        state_manager=StateManager(state_file=Path(config_file).parent / "state.json"),
         config_file_path=config_file,
-        state_manager=StateManager(state_file=f"{Path(config_file).parent}state.json"),
-        sensors={
-            LM75: configuration.lm75 or [],
-            INA219: configuration.ina219 or [],
-            MCP_TEMP_9808: configuration.mcp9808 or [],
-            ONEWIRE: configuration.sensors or [],
-        },
-        modbus_devices=config.get("modbus_devices", {}),
-        **manager_kwargs,
+        old_config=config,
     )
     # Convert coroutines to Tasks
     message_bus.set_manager(manager=manager)

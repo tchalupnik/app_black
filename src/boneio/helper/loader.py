@@ -4,13 +4,20 @@ import logging
 import time
 from collections import namedtuple
 from collections.abc import Callable
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
 from busio import I2C
 
-from boneio.config import Config, OutputConfig
+from boneio.config import (
+    Config,
+    Ina219Config,
+    OutputConfig,
+    SensorConfig,
+    TemperatureConfig,
+)
 from boneio.const import (
     ADDRESS,
     BINARY_SENSOR,
@@ -78,7 +85,6 @@ from boneio.helper.onewire import (
     OneWireBus,
 )
 from boneio.helper.pcf8575 import PCF8575
-from boneio.helper.timeperiod import TimePeriod
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -116,7 +122,7 @@ def create_adc(
                 manager=manager,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                update_interval=gpio.get(UPDATE_INTERVAL, timedelta(seconds=60)),
                 filters=gpio.get(FILTERS, []),
             )
             if gpio.get(SHOW_HA, True):
@@ -136,19 +142,17 @@ def create_temp_sensor(
     topic_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
-    config: dict = None,
+    config: TemperatureConfig,
 ):
     """Create LM sensor in manager."""
-    if config is None:
-        config = {}
     if sensor_type == LM75:
         from boneio.sensor import LM75Sensor as TempSensor
     elif sensor_type == MCP_TEMP_9808:
         from boneio.sensor import MCP9808Sensor as TempSensor
     else:
         return None
-    name = config.get(ID)
-    if not name:
+    name = config.id
+    if name is None:
         return None
     id = name.replace(" ", "")
     try:
@@ -156,13 +160,13 @@ def create_temp_sensor(
             id=id,
             name=name,
             i2c=i2cbusio,
-            address=config[ADDRESS],
+            address=config.address,
             manager=manager,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
-            update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
-            filters=config.get(FILTERS, []),
-            unit_of_measurement=config.get("unit_of_measurement", "°C"),
+            update_interval=config.update_interval,
+            filters=config.filters,
+            unit_of_measurement=config.unit_of_measurement,
         )
         manager.send_ha_autodiscovery(
             id=id,
@@ -215,15 +219,15 @@ def create_expander(
             expander_dict[id] = expander_class[exp_type](
                 i2c=i2cbusio, address=expander[ADDRESS], reset=False
             )
-            sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
-            if sleep_time.total_seconds > 0:
+            sleep_time = expander.get(INIT_SLEEP, timedelta(seconds=0))
+            if sleep_time.total_seconds() > 0:
                 _LOGGER.debug(
                     "Sleeping for %s while %s %s is initializing.",
-                    sleep_time.total_seconds,
+                    sleep_time.total_seconds(),
                     exp_type,
                     id,
                 )
-                time.sleep(sleep_time.total_seconds)
+                time.sleep(sleep_time.total_seconds())
             else:
                 _LOGGER.debug("%%s %s is initializing.", exp_type, id)
             grouped_outputs[id] = {}
@@ -255,7 +259,7 @@ def create_modbus_coordinators(
                 manager=manager,
                 model=entry[MODEL],
                 message_bus=message_bus,
-                update_interval=entry.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                update_interval=entry.get(UPDATE_INTERVAL, timedelta(seconds=60)),
                 sensors_filters=entry.get("sensors_filters", {}),
                 additional_data=additional_data,
                 modbus=modbus,
@@ -596,7 +600,7 @@ def configure_cover(
     state_manager: StateManager,
     send_ha_autodiscovery: Callable,
     config: dict,
-    tilt_duration: TimePeriod | None,
+    tilt_duration: timedelta | None,
     open_relay: BasicRelay,
     close_relay: BasicRelay,
     open_time: int,
@@ -634,7 +638,7 @@ def configure_cover(
             restored_state=restored_state,
             tilt_duration=tilt_duration,
             actuator_activation_duration=config.get(
-                "actuator_activation_duration", TimePeriod(milliseconds=0)
+                "actuator_activation_duration", timedelta(milliseconds=0)
             ),
             open_relay=open_relay,
             close_relay=close_relay,
@@ -727,11 +731,11 @@ def create_dallas_sensor(
     manager: Manager,
     message_bus: MessageBus,
     address: OneWireAddress,
-    config: dict,
+    config: SensorConfig,
     topic_prefix: str,
     bus: OneWireBus | None = None,
 ) -> DallasSensorDS2482 | DallasSensorW1:
-    name = config.get(ID) or hex(address)
+    name = config.id or hex(address)
     id = name.replace(" ", "")
     cls = DallasSensorDS2482 if bus else DallasSensorW1
     sensor = cls(
@@ -740,18 +744,18 @@ def create_dallas_sensor(
         address=address,
         id=id,
         name=name,
-        update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
-        filters=config.get(FILTERS, []),
+        update_interval=config.update_interval,
+        filters=config.filters,
         topic_prefix=topic_prefix,
         bus=bus,
     )
-    if config.get(SHOW_HA, True):
+    if config.show_in_ha:
         manager.send_ha_autodiscovery(
             id=sensor.id,
             name=sensor.name,
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
-            unit_of_measurement=config.get("unit_of_measurement", "°C"),
+            unit_of_measurement=config.unit_of_measurement,
         )
     return sensor
 
@@ -760,24 +764,22 @@ def create_ina219_sensor(
     manager: Manager,
     message_bus: MessageBus,
     topic_prefix: str,
-    config: dict = None,
+    config: Ina219Config,
 ):
     """Create INA219 sensor in manager."""
     from boneio.sensor import INA219
 
-    if config is None:
-        config = {}
-    address = config[ADDRESS]
-    id = config.get(ID, str(address)).replace(" ", "")
+    address = config.address
+    id = (config.id or address).replace(" ", "")
     try:
         ina219 = INA219(
             id=id,
             address=address,
-            sensors=config.get("sensors", []),
+            sensors=config.sensors,
             manager=manager,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
-            update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            update_interval=config.update_interval,
         )
         for sensor in ina219.sensors.values():
             manager.send_ha_autodiscovery(

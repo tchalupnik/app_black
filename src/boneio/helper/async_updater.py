@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import timedelta
 
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..manager import Manager
-from boneio.helper.timeperiod import TimePeriod
 
 
 class AsyncUpdater:
-    def __init__(self, manager: Manager, update_interval: TimePeriod) -> None:
+    def __init__(
+        self, manager: Manager, update_interval: timedelta = timedelta(seconds=60)
+    ) -> None:
         self.manager = manager
-        self._update_interval = update_interval or TimePeriod(seconds=60)
+        self._update_interval = update_interval
         self.manager.append_task(coro=self._refresh, name=self.id)
         self._timestamp = time.time()
 
@@ -24,12 +26,12 @@ class AsyncUpdater:
                 if hasattr(self, "async_update"):
                     update_interval = (
                         await self.async_update(timestamp=time.time())
-                        or self._update_interval.total_in_seconds
+                        or self._update_interval.total_seconds()
                     )
                 else:
                     update_interval = (
                         self.update(timestamp=time.time())
-                        or self._update_interval.total_in_seconds
+                        or self._update_interval.total_seconds()
                     )
                 await asyncio.sleep(update_interval)
         except asyncio.CancelledError:

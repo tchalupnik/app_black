@@ -7,6 +7,7 @@ import time
 import typing
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from datetime import timedelta
 
 from boneio.const import (
     CLOSED,
@@ -18,7 +19,6 @@ from boneio.const import (
 )
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
-from boneio.helper.timeperiod import TimePeriod
 from boneio.models import CoverState, PositionDict
 from boneio.relay import MCPRelay
 
@@ -38,8 +38,8 @@ class BaseCoverABC(ABC):
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
-        open_time: TimePeriod,
-        close_time: TimePeriod,
+        open_time: timedelta,
+        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
@@ -145,8 +145,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
-        open_time: TimePeriod,
-        close_time: TimePeriod,
+        open_time: timedelta,
+        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
@@ -166,8 +166,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._close_relay = close_relay
         self._state_save = state_save
         self._event_bus = event_bus
-        self._open_time = open_time.total_milliseconds
-        self._close_time = close_time.total_milliseconds
+        self._open_time = open_time.total_seconds() * 1000
+        self._close_time = close_time.total_seconds() * 1000
         self._position = position
         self._initial_position = None
         self._current_operation = IDLE

@@ -5,11 +5,11 @@ import threading
 import time
 import typing
 from collections.abc import Callable
+from datetime import timedelta
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.cover.cover import BaseCover
 from boneio.helper.events import EventBus
-from boneio.helper.timeperiod import TimePeriod
 from boneio.relay import MCPRelay
 
 if typing.TYPE_CHECKING:
@@ -28,8 +28,8 @@ class TimeBasedCover(BaseCover):
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
-        open_time: TimePeriod,
-        close_time: TimePeriod,
+        open_time: timedelta,
+        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,

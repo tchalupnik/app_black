@@ -11,9 +11,10 @@ from collections.abc import Callable, Coroutine
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
-from boneio.config import Config
+from boneio.config import Config, Ina219Config, SensorConfig, TemperatureConfig
 from boneio.const import (
     ACTIONS,
+    ADC,
     ADDRESS,
     BINARY_SENSOR,
     BUTTON,
@@ -24,24 +25,25 @@ from boneio.const import (
     DS2482,
     EVENT_ENTITY,
     ID,
-    INA219,
     INPUT,
     IP,
     LED,
     LIGHT,
-    LM75,
     MCP,
-    MCP_TEMP_9808,
+    MCP23017,
+    MODBUS,
     MQTT,
     NONE,
     ON,
-    ONEWIRE,
     ONLINE,
     OPEN,
     OUTPUT,
+    OUTPUT_GROUP,
     OUTPUT_OVER_MQTT,
     PCA,
+    PCA9685,
     PCF,
+    PCF8575,
     PIN,
     RELAY,
     SET_BRIGHTNESS,
@@ -116,46 +118,20 @@ class Manager:
         event_bus: EventBus,
         state_manager: StateManager,
         config_file_path: str,
-        event_pins: list = None,
-        binary_pins: list = None,
-        output_group: list = None,
-        sensors: dict = None,
-        modbus: dict = None,
-        modbus_devices: dict = None,
-        pca9685: list = None,
-        mcp23017: list = None,
-        pcf8575: list = None,
-        ds2482: list | None = None,
-        dallas: dict | None = None,
-        oled: dict = None,
-        adc: list | None = None,
-        cover: list = None,
+        old_config: dict,
     ) -> None:
-        """Initialize the manager."""
-        if cover is None:
-            cover = []
-        if oled is None:
-            oled = {}
-        if ds2482 is None:
-            ds2482 = []
-        if pcf8575 is None:
-            pcf8575 = []
-        if mcp23017 is None:
-            mcp23017 = []
-        if pca9685 is None:
-            pca9685 = []
-        if modbus_devices is None:
-            modbus_devices = {}
-        if modbus is None:
-            modbus = {}
-        if sensors is None:
-            sensors = {}
-        if output_group is None:
-            output_group = []
-        if binary_pins is None:
-            binary_pins = []
-        if event_pins is None:
-            event_pins = []
+        self._event_pins = old_config.get(EVENT_ENTITY, [])
+        binary_pins = old_config.get(BINARY_SENSOR, [])
+        modbus_devices = old_config.get("modbus_devices", {})
+        mcp23017 = old_config.get(MCP23017, [])
+        pcf8575 = old_config.get(PCF8575, [])
+        pca9685 = old_config.get(PCA9685, [])
+        ds2482 = old_config.get(DS2482, [])
+        adc = old_config.get(ADC, [])
+        cover = old_config.get(COVER, [])
+        modbus = old_config.get(MODBUS, {})
+        dallas = old_config.get(DALLAS, None)
+        output_group = old_config.get(OUTPUT_GROUP, [])
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
@@ -169,7 +145,6 @@ class Manager:
 
         self.send_message = message_bus.send_message
         self._mqtt_state = message_bus.state
-        self._event_pins = event_pins
         self._inputs = {}
         self._binary_pins = binary_pins
         from board import SCL, SDA
@@ -194,13 +169,15 @@ class Manager:
 
         self._configure_modbus(modbus=modbus)
 
-        self._configure_temp_sensors(sensors=sensors)
+        if config.lm75 is not None:
+            self._configure_temp_sensors(sensor_type="lm75", sensors=config.lm75)
+        if config.mcp9808 is not None:
+            self._configure_temp_sensors(sensor_type="mcp9808", sensors=config.mcp9808)
 
         self._modbus_coordinators = {}
-        self._configure_ina219_sensors(sensors=sensors)
-        self._configure_sensors(
-            dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
-        )
+        if config.ina219 is not None:
+            self._configure_ina219_sensors(sensors=config.ina219)
+        self._configure_sensors(dallas=dallas, ds2482=ds2482, sensors=config.sensors)
 
         self.grouped_outputs_by_expander = create_expander(
             expander_dict=self._mcp,
@@ -298,7 +275,7 @@ class Manager:
                     host_data=self._host_data,
                     screen_order=self._screens,
                     grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
-                    sleep_timeout=oled.get("screensaver_timeout", 60),
+                    sleep_timeout=config.oled.screensaver_timeout,
                     event_bus=self._event_bus,
                 )
             except (GPIOInputException, I2CError) as err:
@@ -606,7 +583,7 @@ class Manager:
         self,
         dallas: dict | None,
         ds2482: list | None,
-        sensors: list | None,
+        sensors: list[SensorConfig],
     ):
         """
         Configure Dallas sensors via GPIO PIN bus or DS2482 bus.
@@ -655,14 +632,13 @@ class Manager:
             except KernelModuleLoadError as err:
                 _LOGGER.error("Can't configure Dallas W1 device %s", err)
 
-        for sensor in sensors or []:
-            address = _one_wire_devices.get(sensor[ADDRESS])
+        for sensor in sensors:
+            address = _one_wire_devices.get(sensor.address)
             if not address:
                 continue
-            ds2482_bus_id = sensor.get("bus_id")
             bus = None
-            if ds2482_bus_id and ds2482_bus_id in _ds_onewire_bus:
-                bus = _ds_onewire_bus[ds2482_bus_id]
+            if sensor.bus_id and sensor.bus_id in _ds_onewire_bus:
+                bus = _ds_onewire_bus[sensor.bus_id]
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
             self._temp_sensors.append(
                 create_dallas_sensor(
@@ -704,35 +680,35 @@ class Manager:
                 )
                 self._modbus = None
 
-    def _configure_temp_sensors(self, sensors: dict) -> None:
-        for sensor_type in (LM75, MCP_TEMP_9808):
-            sensor = sensors.get(sensor_type)
-            if sensor:
-                for temp_def in sensor:
-                    temp_sensor = create_temp_sensor(
-                        manager=self,
-                        message_bus=self._message_bus,
-                        topic_prefix=self.config.mqtt.topic_prefix,
-                        sensor_type=sensor_type,
-                        config=temp_def,
-                        i2cbusio=self._i2cbusio,
-                    )
-                    if temp_sensor:
-                        self._temp_sensors.append(temp_sensor)
+    def _configure_temp_sensors(
+        self,
+        sensor_type: typing.Literal["lm75", "mcp9808"],
+        sensors: list[TemperatureConfig],
+    ) -> None:
+        for sensor in sensors:
+            temp_sensor = create_temp_sensor(
+                manager=self,
+                message_bus=self._message_bus,
+                topic_prefix=self.config.mqtt.topic_prefix,
+                sensor_type=sensor_type,
+                config=sensor,
+                i2cbusio=self._i2cbusio,
+            )
+            if temp_sensor:
+                self._temp_sensors.append(temp_sensor)
 
-    def _configure_ina219_sensors(self, sensors: dict) -> None:
-        if sensors.get(INA219):
-            from boneio.helper.loader import create_ina219_sensor
+    def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
+        from boneio.helper.loader import create_ina219_sensor
 
-            for sensor_config in sensors[INA219]:
-                ina219 = create_ina219_sensor(
-                    topic_prefix=self.config.mqtt.topic_prefix,
-                    manager=self,
-                    message_bus=self._message_bus,
-                    config=sensor_config,
-                )
-                if ina219:
-                    self._ina219_sensors.append(ina219)
+        for sensor_config in sensors:
+            ina219 = create_ina219_sensor(
+                topic_prefix=self.config.mqtt.topic_prefix,
+                manager=self,
+                message_bus=self._message_bus,
+                config=sensor_config,
+            )
+            if ina219:
+                self._ina219_sensors.append(ina219)
 
     def _configure_modbus_coordinators(self, devices: dict) -> dict:
         if devices and self._modbus:

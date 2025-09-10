@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, RootModel
@@ -189,27 +190,31 @@ class OledConfig(BaseModel):
     extra_screen_sensors: list[OledExtraScreenSensorConfig] = Field(
         default_factory=list
     )
-    screensaver_timeout: str = "60s"
+    screensaver_timeout: timedelta = Field(default_factory=lambda: timedelta(minutes=1))
 
 
 class TemperatureConfig(BaseModel):
     address: str
     id: str | None = None
-    update_interval: str = "60s"
+    update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
     filters: list[str] = Field(default_factory=list)
     unit_of_measurement: Literal["°C", "°F"] = "°C"
 
 
+Ina219DeviceClass = Literal["voltage", "current", "power"]
+
+
 class Ina219SensorConfig(BaseModel):
     id: str
-    device_class: Literal["voltage", "current", "power"]
+    device_class: Ina219DeviceClass
     filters: list[str] = Field(default_factory=list)
 
 
 class Ina219Config(BaseModel):
-    address: str
+    address: int
     id: str | None = None
     sensors: list[Ina219SensorConfig] = Field(default_factory=list)
+    update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
 
 
 class EventActionDataConfig(BaseModel):
@@ -253,7 +258,7 @@ class EventConfig(BaseModel):
     gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"
     detection_type: Literal["new", "old"] = "new"
     clear_message: bool = False
-    bounce_time: str = "30ms"
+    bounce_time: timedelta = timedelta(milliseconds=30)
 
 
 EventsConfig = RootModel[list[EventConfig]]
@@ -312,7 +317,7 @@ class BinarySensorConfig(BaseModel):
     gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"
     detection_type: Literal["new", "old"] = "new"
     clear_message: bool = False
-    bounce_time: str = "120ms"
+    bounce_time: timedelta = timedelta(milliseconds=120)
     initial_send: bool = False
 
 
@@ -322,8 +327,8 @@ class OutputConfig(BaseModel):
     kind: Literal["gpio", "mcp", "pca", "pcf"] | None = None
     boneio_output: str | None = None
     pin: str | None = None
-    momentary_turn_on: str | None = None
-    momentary_turn_off: str | None = None
+    momentary_turn_on: timedelta | None = None
+    momentary_turn_off: timedelta | None = None
     virtual_power_usage: str | None = None
     virtual_volume_flow_rate: str | None = None
     restore_state: bool | None = None
@@ -336,7 +341,7 @@ class OutputConfig(BaseModel):
 
 class SensorConfig(BaseModel):
     address: str
-    update_interval: str = "60s"
+    update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
     filters: list[str] = Field(default_factory=list)
     unit_of_measurement: Literal["°C", "°F"] = "°C"
     id: str | None = None
@@ -363,7 +368,7 @@ class WebConfig(BaseModel):
 class AdcConfig(BaseModel):
     pin: Literal["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
     id: str | None = None
-    update_interval: str = "60s"
+    update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
     show_in_ha: bool = True
     filters: list[str] = Field(default_factory=list)
 
@@ -375,7 +380,7 @@ class Config(BaseModel):
     lm75: list[TemperatureConfig] | None = None
     mcp9808: list[TemperatureConfig] | None = None
     ina219: list[Ina219Config] | None = None
-    sensors: list[SensorConfig] | None = None
+    sensors: list[SensorConfig] = Field(default_factory=list)
     binary_sensor: list[BinarySensorConfig] | None = None
     event: EventsConfig | None = None
     output: list[OutputConfig] | None = None

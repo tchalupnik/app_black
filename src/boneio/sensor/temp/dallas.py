@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import typing
+from datetime import timedelta
 
 from adafruit_ds18x20 import DS18X20
 from w1thermsensor import (
@@ -24,7 +25,6 @@ from boneio.helper.onewire import (
 from . import TempSensor
 
 if typing.TYPE_CHECKING:
-    from boneio.helper.timeperiod import TimePeriod
     from boneio.manager import Manager
     from boneio.message_bus.basic import MessageBus
 
@@ -43,7 +43,7 @@ class DallasSensorDS2482(TempSensor):
         manager: Manager,
         message_bus: MessageBus,
         name: str,
-        update_interval: TimePeriod,
+        update_interval: timedelta,
         topic_prefix: str,
         id: str = DefaultName,
     ):
@@ -77,7 +77,7 @@ class DallasSensorW1(TempSensor):
         manager: Manager,
         message_bus: MessageBus,
         name: str,
-        update_interval: TimePeriod,
+        update_interval: timedelta,
         topic_prefix: str,
         id: str = DefaultName,
         filters: list = None,

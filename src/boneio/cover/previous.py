@@ -7,6 +7,7 @@ import logging
 import time
 import typing
 from collections.abc import Callable
+from datetime import timedelta
 
 from boneio.const import (
     CLOSE,
@@ -20,7 +21,6 @@ from boneio.const import (
 )
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
-from boneio.helper.timeperiod import TimePeriod
 from boneio.models import CoverState
 from boneio.relay import MCPRelay
 
@@ -41,10 +41,10 @@ COVER_COMMANDS = {
 class RelayHelper:
     """Relay helper for cover either open/close."""
 
-    def __init__(self, relay: MCPRelay, time: TimePeriod) -> None:
+    def __init__(self, relay: MCPRelay, time: timedelta) -> None:
         """Initialize helper."""
         self._relay = relay
-        self._steps = 100 / time.total_seconds
+        self._steps = 100 / time.total_seconds()
 
     @property
     def relay(self) -> MCPRelay:
@@ -66,8 +66,8 @@ class PreviousCover(BasicMqtt):
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
-        open_time: TimePeriod,
-        close_time: TimePeriod,
+        open_time: timedelta,
+        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,

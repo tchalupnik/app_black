@@ -25,7 +25,6 @@ from boneio.helper.oled import make_font
 from boneio.helper.queue import UniqueQueue
 from boneio.helper.state_manager import StateManager
 from boneio.helper.stats import HostData
-from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.yaml_util import (
     CustomValidator,
     load_config_from_file,
@@ -60,7 +59,7 @@ __all__ = [
     "schema_file",
     "load_config_from_string",
     "load_config_from_file",
-    "TimePeriod",
+    "",
     "callback",
     "is_callback",
     "ClickTimer",

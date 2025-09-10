@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 import typing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from boneio.config import Config
@@ -29,7 +29,6 @@ from boneio.const import (
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
-from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.util import open_json
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
@@ -72,7 +71,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         sensors_filters: dict,
         config: Config,
         event_bus: EventBus,
-        update_interval: TimePeriod = TimePeriod(seconds=60),
+        update_interval: timedelta,
         id: str = DefaultName,
         additional_data: dict = None,
     ):
@@ -527,7 +526,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     async def async_update(self, timestamp: float) -> float | None:
         """Fetch state periodically and send to MQTT."""
-        update_interval = self._update_interval.total_in_seconds
+        update_interval = self._update_interval.total_seconds()
         await self.check_availability()
         for index, data in enumerate(self._db[REGISTERS_BASE]):
             values = await self._modbus.read_registers(
@@ -561,8 +560,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     update_interval,
                 )
                 return update_interval
-            elif update_interval != self._update_interval.total_in_seconds:
-                update_interval = self._update_interval.total_in_seconds
+            elif update_interval != self._update_interval.total_seconds():
+                update_interval = self._update_interval.total_seconds()
             output = {}
             current_modbus_entities = self._modbus_entities[index]
             for sensor in current_modbus_entities.values():

@@ -14,20 +14,20 @@ _LOGGER = logging.getLogger(__name__)
 class StateManager:
     """StateManager to load and save states to file."""
 
-    def __init__(self, state_file: str) -> None:
+    def __init__(self, state_file: Path) -> None:
         """Initialize disk StateManager."""
         self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
         self._file = state_file
         self._state = self.load_states()
-        _LOGGER.info("Loaded state file from %s", self._file)
+        _LOGGER.info("Loaded state file from %s", str(self._file))
         self._file_uptodate = False
         self._save_attributes_callback = None
 
     def load_states(self) -> dict:
         """Load state file."""
         try:
-            with Path(self._file).open("r") as state_file:
+            with self._file.open("r") as state_file:
                 datastore = json.load(state_file)
                 return datastore
         except FileNotFoundError:
