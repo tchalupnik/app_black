@@ -13,8 +13,7 @@ from w1thermsensor import (
     W1ThermSensorError,
 )
 
-from boneio.const import SENSOR, STATE, TEMPERATURE
-from boneio.helper import AsyncUpdater, BasicMqtt
+from boneio.const import STATE, TEMPERATURE
 from boneio.helper.exceptions import OneWireError
 from boneio.helper.onewire import (
     AsyncBoneIOW1ThermSensor,
@@ -33,7 +32,7 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class DallasSensorDS2482(TempSensor, AsyncUpdater):
+class DallasSensorDS2482(TempSensor):
     DefaultName = TEMPERATURE
     SensorClass = DS18X20
 
@@ -50,27 +49,25 @@ class DallasSensorDS2482(TempSensor, AsyncUpdater):
     ):
         """Initialize Temp class."""
         self._loop = asyncio.get_event_loop()
-        BasicMqtt.__init__(
-            self,
-            id=id,
-            topic_type=SENSOR,
+        # Use a dummy i2c and address since DS2482 doesn't use I2C
+        super().__init__(
+            i2c=None,
+            address="",
+            manager=manager,
             message_bus=message_bus,
             name=name,
+            update_interval=update_interval,
             topic_prefix=topic_prefix,
+            id=id,
         )
         try:
             self._pct = DS18X20(bus=bus, address=address)
             self._state = None
         except ValueError as err:
             raise OneWireError(err)
-        AsyncUpdater.__init__(
-            self,
-            manager=manager,
-            update_interval=update_interval,
-        )
 
 
-class DallasSensorW1(TempSensor, AsyncUpdater):
+class DallasSensorW1(TempSensor):
     DefaultName = TEMPERATURE
     SensorClass = AsyncBoneIOW1ThermSensor
 
@@ -89,25 +86,22 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
         if filters is None:
             filters = ["round(x, 2)"]
         self._loop = asyncio.get_event_loop()
-        BasicMqtt.__init__(
-            self,
-            id=id,
-            topic_type=SENSOR,
+        # Use a dummy i2c and address since W1 doesn't use I2C
+        super().__init__(
+            i2c=None,
+            address="",
+            manager=manager,
             message_bus=message_bus,
             name=name,
+            update_interval=update_interval,
             topic_prefix=topic_prefix,
+            id=id,
+            filters=filters,
         )
-        self._filters = filters
-        self._state = None
         try:
             self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
         except ValueError as err:
             raise OneWireError(err)
-        AsyncUpdater.__init__(
-            self,
-            manager=manager,
-            update_interval=update_interval,
-        )
 
     async def async_update(self, timestamp: float) -> None:
         try:

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import logging
 import time
+import typing
+from collections.abc import Callable
 
 from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer
 from boneio.helper.timeperiod import TimePeriod
 
 from .base import BOTH, GpioBase, edge_detect
+
+if typing.TYPE_CHECKING:
+    from boneio.helper.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,9 +26,32 @@ LONG_PRESS_DURATION_MS = 400
 class GpioEventButtonNew(GpioBase):
     """Represent Gpio input switch."""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        pin: str,
+        manager_press_callback: Callable,
+        name: str,
+        actions: dict,
+        input_type: str,
+        empty_message_after: bool,
+        event_bus: EventBus,
+        boneio_input: str = "",
+        bounce_time: TimePeriod | None = None,
+        gpio_mode: str = "gpio",
+    ) -> None:
         """Setup GPIO Input Button"""
-        super().__init__(**kwargs)
+        super().__init__(
+            pin=pin,
+            manager_press_callback=manager_press_callback,
+            name=name,
+            actions=actions,
+            input_type=input_type,
+            empty_message_after=empty_message_after,
+            event_bus=event_bus,
+            boneio_input=boneio_input,
+            bounce_time=bounce_time or TimePeriod(milliseconds=50),
+            gpio_mode=gpio_mode,
+        )
         self._state = self.is_pressed
         self.button_pressed_time = 0.0
         self.last_click_time = 0.0

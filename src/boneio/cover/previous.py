@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import typing
 from collections.abc import Callable
 
 from boneio.const import (
@@ -22,6 +23,9 @@ from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.timeperiod import TimePeriod
 from boneio.models import CoverState
 from boneio.relay import MCPRelay
+
+if typing.TYPE_CHECKING:
+    from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}
@@ -65,13 +69,20 @@ class PreviousCover(BasicMqtt):
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
+        message_bus: MessageBus,
+        topic_prefix: str,
         restored_state: dict = DEFAULT_RESTORED_STATE,
-        **kwargs,
     ) -> None:
         """Initialize cover class."""
         self._loop = asyncio.get_event_loop()
         self._id = id
-        super().__init__(id=id, name=id, topic_type=COVER, **kwargs)
+        super().__init__(
+            id=id,
+            name=id,
+            topic_type=COVER,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+        )
         self._lock = asyncio.Lock()
         self._state_save = state_save
         self._open = RelayHelper(relay=open_relay, time=open_time)

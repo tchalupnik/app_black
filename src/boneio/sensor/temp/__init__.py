@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import typing
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import I2CError
 from boneio.helper.filter import Filter
 from boneio.models import SensorState
+
+if typing.TYPE_CHECKING:
+    from boneio.helper.timeperiod import TimePeriod
+    from boneio.manager import Manager
+    from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,29 +30,28 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         self,
         i2c,
         address: str,
+        manager: Manager,
+        message_bus: MessageBus,
+        topic_prefix: str,
+        name: str,
+        update_interval: TimePeriod,
         id: str = DefaultName,
         filters: list = None,
         unit_of_measurement: str = "°C",
-        **kwargs,
     ):
         """Initialize Temp class."""
         if filters is None:
             filters = ["round(x, 2)"]
         self._loop = asyncio.get_event_loop()
 
-        # Debug log the kwargs
-        _LOGGER.debug("TempSensor initialization kwargs: %s", kwargs)
-
         # Initialize BasicMqtt first
-        BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
-
-        # Get required parameters for AsyncUpdater
-        manager = kwargs.get("manager")
-        update_interval = kwargs.get("update_interval")
-        _LOGGER.debug(
-            "Initializing AsyncUpdater with manager: %s, update_interval: %s",
-            manager,
-            update_interval,
+        BasicMqtt.__init__(
+            self,
+            id=id,
+            topic_prefix=topic_prefix,
+            name=name,
+            message_bus=message_bus,
+            topic_type=SENSOR,
         )
 
         # Initialize AsyncUpdater next

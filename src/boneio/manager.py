@@ -591,12 +591,10 @@ class Manager:
                 configure_sensor_func=configure_binary_sensor, gpio=gpio
             )
 
-    def append_task(
-        self, coro: Coroutine, name: str = "Unknown", **kwargs
-    ) -> asyncio.Task:
+    def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Task:
         """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
-        task: asyncio.Task = asyncio.create_task(coro(**kwargs))
+        task: asyncio.Task = asyncio.create_task(coro)
         self._tasks.append(task)
         return task
 

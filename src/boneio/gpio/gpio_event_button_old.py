@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import typing
+from collections.abc import Callable
 
 from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer, TimePeriod
 
 from .base import GpioBase
+
+if typing.TYPE_CHECKING:
+    from boneio.helper.events import EventBus
 
 # TIMINGS FOR BUTTONS
 
@@ -21,9 +26,32 @@ _LOGGER = logging.getLogger(__name__)
 class GpioEventButton(GpioBase):
     """Represent Gpio input switch."""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        pin: str,
+        manager_press_callback: Callable,
+        name: str,
+        actions: dict,
+        input_type: str,
+        empty_message_after: bool,
+        event_bus: EventBus,
+        boneio_input: str = "",
+        bounce_time: TimePeriod | None = None,
+        gpio_mode: str = "gpio",
+    ) -> None:
         """Setup GPIO Input Button"""
-        super().__init__(**kwargs)
+        super().__init__(
+            pin=pin,
+            manager_press_callback=manager_press_callback,
+            name=name,
+            actions=actions,
+            input_type=input_type,
+            empty_message_after=empty_message_after,
+            event_bus=event_bus,
+            boneio_input=boneio_input,
+            bounce_time=bounce_time or TimePeriod(milliseconds=50),
+            gpio_mode=gpio_mode,
+        )
         self._state = self.is_pressed
         _LOGGER.debug("Configured stable listening for input pin %s", self._pin)
         self._timer_double = ClickTimer(

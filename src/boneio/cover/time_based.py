@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import typing
 from collections.abc import Callable
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
@@ -10,6 +11,9 @@ from boneio.cover.cover import BaseCover
 from boneio.helper.events import EventBus
 from boneio.helper.timeperiod import TimePeriod
 from boneio.relay import MCPRelay
+
+if typing.TYPE_CHECKING:
+    from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}
@@ -20,27 +24,32 @@ class TimeBasedCover(BaseCover):
 
     def __init__(
         self,
+        id: str,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
+        message_bus: MessageBus,
+        topic_prefix: str,
         restored_state: dict = DEFAULT_RESTORED_STATE,
-        **kwargs,
+        position: int = 100,
     ) -> None:
         position = int(
             restored_state.get("position", DEFAULT_RESTORED_STATE["position"])
         )
         super().__init__(
+            id=id,
             open_relay=open_relay,
             close_relay=close_relay,
             state_save=state_save,
             open_time=open_time,
             close_time=close_time,
             event_bus=event_bus,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
             position=position,
-            **kwargs,
         )
 
     def _move_cover(

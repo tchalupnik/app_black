@@ -4,6 +4,7 @@ import asyncio
 import logging
 import threading
 import time
+import typing
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
@@ -21,6 +22,9 @@ from boneio.helper.timeperiod import TimePeriod
 from boneio.models import CoverState, PositionDict
 from boneio.relay import MCPRelay
 
+if typing.TYPE_CHECKING:
+    from boneio.message_bus.basic import MessageBus
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -37,8 +41,9 @@ class BaseCoverABC(ABC):
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
+        message_bus: MessageBus,
+        topic_prefix: str,
         position: int = 100,
-        **kwargs,
     ) -> None:
         pass
 
@@ -143,10 +148,18 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
+        message_bus: MessageBus,
+        topic_prefix: str,
         position: int = 100,
-        **kwargs,
     ) -> None:
-        BasicMqtt.__init__(self, id=id, name=id, topic_type=COVER, **kwargs)
+        BasicMqtt.__init__(
+            self,
+            id=id,
+            name=id,
+            topic_type=COVER,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+        )
         self._loop = asyncio.get_event_loop()
         self._id = id
         self._open_relay = open_relay

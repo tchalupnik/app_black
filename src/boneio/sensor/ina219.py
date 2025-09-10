@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import typing
 from datetime import datetime
 
 from boneio.const import SENSOR, STATE
@@ -12,6 +13,11 @@ from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.models import SensorState
+
+if typing.TYPE_CHECKING:
+    from boneio.helper.timeperiod import TimePeriod
+    from boneio.manager import Manager
+    from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,9 +28,22 @@ class INA219Sensor(BasicMqtt, Filter):
     """Represent single value from INA219 as sensor."""
 
     def __init__(
-        self, device_class: str, filters: list, state: float | None, **kwargs
+        self,
+        device_class: str,
+        filters: list,
+        state: float | None,
+        id: str,
+        name: str,
+        message_bus: MessageBus,
+        topic_prefix: str,
     ) -> None:
-        super().__init__(topic_type=SENSOR, **kwargs)
+        super().__init__(
+            id=id,
+            name=name,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+            topic_type=SENSOR,
+        )
         self._unit_of_measurement = unit_converter[device_class]
         self._device_class = device_class
         self._filters = filters
@@ -75,7 +94,14 @@ class INA219(AsyncUpdater):
     """Represent INA219 sensors."""
 
     def __init__(
-        self, address: int, id: str, sensors: list[dict] = None, **kwargs
+        self,
+        address: int,
+        id: str,
+        manager: Manager,
+        update_interval: TimePeriod,
+        message_bus: MessageBus,
+        topic_prefix: str,
+        sensors: list[dict] = None,
     ) -> None:
         """Setup INA219 Sensor"""
         if sensors is None:
@@ -93,9 +119,10 @@ class INA219(AsyncUpdater):
                 state=None,
                 name=_name,
                 id=_id,
-                **kwargs,
+                message_bus=message_bus,
+                topic_prefix=topic_prefix,
             )
-        AsyncUpdater.__init__(self, **kwargs)
+        AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
         _LOGGER.debug("Configured INA219 on address %s", address)
 
     @property

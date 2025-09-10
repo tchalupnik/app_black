@@ -3,11 +3,18 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import typing
+from collections.abc import Callable
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
 from boneio.cover.cover import BaseCover, BaseVenetianCoverABC
 from boneio.helper.timeperiod import TimePeriod
 from boneio.models import PositionDict
+
+if typing.TYPE_CHECKING:
+    from boneio.helper.events import EventBus
+    from boneio.message_bus.basic import MessageBus
+    from boneio.relay import MCPRelay
 
 _LOGGER = logging.getLogger(__name__)
 COVER_MOVE_UPDATE_INTERVAL = 50  # ms
@@ -21,10 +28,18 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
     def __init__(
         self,
+        id: str,
+        open_relay: MCPRelay,
+        close_relay: MCPRelay,
+        state_save: Callable,
+        open_time: TimePeriod,
+        close_time: TimePeriod,
+        event_bus: EventBus,
+        message_bus: MessageBus,
+        topic_prefix: str,
         tilt_duration: TimePeriod,  # ms
-        actuator_activation_duration: TimePeriod,  # ms
         restored_state: dict = DEFAULT_RESTORED_STATE,
-        **kwargs,
+        position: int = 100,
     ) -> None:
         self._tilt_duration = (
             tilt_duration.total_milliseconds
@@ -39,14 +54,19 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             restored_state.get("tilt", DEFAULT_RESTORED_STATE["tilt"])
         )
 
-        # self._actuator_activation_duration = (
-        #     actuator_activation_duration.total_milliseconds
-        # )  # ms
         self._last_tilt_update = 0.0
 
         super().__init__(
+            id=id,
+            open_relay=open_relay,
+            close_relay=close_relay,
+            state_save=state_save,
+            open_time=open_time,
+            close_time=close_time,
+            event_bus=event_bus,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
             position=position,
-            **kwargs,
         )
 
     def _move_cover(
