@@ -14,9 +14,7 @@ BOTH = Literal["BOTH"]
 FALLING = Literal["FALLING"]
 RISING = Literal["RISING"]
 HIGH = Literal["HIGH"]
-IN = Literal["IN"]
 LOW = Literal["LOW"]
-OUT = Literal["OUT"]
 
 
 @dataclass
@@ -43,27 +41,30 @@ class GpioManager:
     def _setup_output(self, pin: str, initial: HIGH | LOW = LOW) -> None:
         chip, line_offset = self._get_chip_and_offset_by_pin(pin)
         request = chip.request_lines(
-            config={line_offset: gpiod.LineSettings(direction=gpiod.Direction.OUTPUT)},
+            config={
+                line_offset: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
+            },
         )
         request.set_value(
-            line_offset, gpiod.Value.ACTIVE if initial == HIGH else gpiod.Value.INACTIVE
+            line_offset,
+            gpiod.line.Value.ACTIVE if initial == HIGH else gpiod.line.Value.INACTIVE,
         )
         self._line_requests[pin] = request
 
     def setup_input(self, pin: str, pull_mode: str = "gpio") -> None:
         """Set up a GPIO as input."""
         gpio_mode = {
-            "gpio": gpiod.BIAS.DISABLED,
-            "gpio_pu": gpiod.BIAS.PULL_UP,
-            "gpio_pd": gpiod.BIAS.PULL_DOWN,
-            "gpio_input": gpiod.BIAS.DISABLED,
+            "gpio": gpiod.line.BIAS.DISABLED,
+            "gpio_pu": gpiod.line.BIAS.PULL_UP,
+            "gpio_pd": gpiod.line.BIAS.PULL_DOWN,
+            "gpio_input": gpiod.line.BIAS.DISABLED,
         }.get(pull_mode)
 
         chip, line_offset = self._get_chip_and_offset_by_pin(pin)
         request = chip.request_lines(
             config={
                 line_offset: gpiod.LineSettings(
-                    direction=gpiod.Direction.INPUT, bias=gpio_mode
+                    direction=gpiod.line.Direction.INPUT, bias=gpio_mode
                 )
             },
         )
@@ -74,7 +75,8 @@ class GpioManager:
         if pin in self._line_requests:
             request = self._line_requests[pin]
             request.set_value(
-                pin, gpiod.Value.ACTIVE if value == HIGH else gpiod.Value.INACTIVE
+                pin,
+                gpiod.line.Value.ACTIVE if value == HIGH else gpiod.line.Value.INACTIVE,
             )
             return
         self._setup_output(pin, value)
@@ -85,7 +87,7 @@ class GpioManager:
             raise ValueError(f"Pin '{pin}' not set up.")
         request = self._line_requests[pin]
         value = request.get_values()[0]
-        return value == gpiod.Value.ACTIVE
+        return value == gpiod.line.Value.ACTIVE
 
     def add_event_callback(
         self,
@@ -111,9 +113,9 @@ class GpioManager:
         chip, line_offset = self._get_chip_and_offset_by_pin(pin)
 
         gpiod_edge = {
-            FALLING: gpiod.EDGE_FALLING,
-            RISING: gpiod.EDGE_RISING,
-            BOTH: gpiod.EDGE_BOTH,
+            FALLING: gpiod.line.Edge.FALLING,
+            RISING: gpiod.line.Edge.RISING,
+            BOTH: gpiod.line.Edge.BOTH,
         }[edge]
 
         request = chip.request_lines(
