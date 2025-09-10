@@ -505,7 +505,7 @@ def configure_event_sensor(
     try:
         gpioEventButtonClass = (
             GpioEventButtonNew
-            if gpio.get("detection_type", "new") == "new"
+            if gpio.pop("detection_type", "new") == "new"
             else GpioEventButtonOld
         )
         name = gpio.pop(ID, pin)
@@ -559,7 +559,7 @@ def configure_binary_sensor(
     try:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew
-            if gpio.get("detection_type", "new") == "new"
+            if gpio.pop("detection_type", "new") == "new"
             else GpioInputBinarySensorOld
         )
         name = gpio.pop(ID, pin)
