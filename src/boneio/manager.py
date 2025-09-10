@@ -169,7 +169,6 @@ class Manager:
         self._ina219_sensors = []
         self._modbus_coordinators = {}
         self._modbus = None
-        self._screens = []
 
         self._configure_modbus(modbus=modbus)
 
@@ -277,7 +276,7 @@ class Manager:
             try:
                 self._oled = Oled(
                     host_data=self._host_data,
-                    screen_order=self._screens,
+                    screen_order=config.oled.screens,
                     grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
                     sleep_timeout=config.oled.screensaver_timeout,
                     event_bus=self._event_bus,
