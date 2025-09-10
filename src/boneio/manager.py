@@ -627,7 +627,6 @@ class Manager:
             from boneio.helper.loader import (
                 configure_ds2482,
             )
-            from boneio.sensor import DallasSensorDS2482
 
             _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
                 i2cbusio=self._i2cbusio, address=_single_ds[ADDRESS]
@@ -647,7 +646,6 @@ class Manager:
                 from w1thermsensor.kernel import load_kernel_modules
 
                 load_kernel_modules()
-                from boneio.sensor.temp.dallas import DallasSensorW1
 
                 _one_wire_devices.update(
                     find_onewire_devices(
@@ -664,13 +662,9 @@ class Manager:
             if not address:
                 continue
             ds2482_bus_id = sensor.get("bus_id")
+            bus = None
             if ds2482_bus_id and ds2482_bus_id in _ds_onewire_bus:
-                kwargs = {
-                    "bus": _ds_onewire_bus[ds2482_bus_id],
-                    "cls": DallasSensorDS2482,
-                }
-            else:
-                kwargs = {"cls": DallasSensorW1}
+                bus = _ds_onewire_bus[ds2482_bus_id]
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
             self._temp_sensors.append(
                 create_dallas_sensor(
@@ -679,7 +673,7 @@ class Manager:
                     address=address,
                     topic_prefix=self.config.mqtt.topic_prefix,
                     config=sensor,
-                    **kwargs,
+                    bus=bus,
                 )
             )
 

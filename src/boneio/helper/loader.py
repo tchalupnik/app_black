@@ -728,11 +728,11 @@ def create_dallas_sensor(
     message_bus: MessageBus,
     address: OneWireAddress,
     config: dict,
-    **kwargs,
+    topic_prefix: str,
+    bus: OneWireBus | None = None,
 ) -> DallasSensorDS2482 | DallasSensorW1:
     name = config.get(ID) or hex(address)
     id = name.replace(" ", "")
-    bus: OneWireBus = kwargs.get("bus")
     cls = DallasSensorDS2482 if bus else DallasSensorW1
     sensor = cls(
         manager=manager,
@@ -742,7 +742,8 @@ def create_dallas_sensor(
         name=name,
         update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
         filters=config.get(FILTERS, []),
-        **kwargs,
+        topic_prefix=topic_prefix,
+        bus=bus,
     )
     if config.get(SHOW_HA, True):
         manager.send_ha_autodiscovery(
