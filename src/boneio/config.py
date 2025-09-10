@@ -28,7 +28,7 @@ class MqttHADiscoveryConfig(BaseModel):
 
 class MqttAutodiscoveryMessage(BaseModel):
     topic: str
-    payload: str
+    payload: str | dict[str, Any]
 
 
 AutodiscoveryType = Literal[
