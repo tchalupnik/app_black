@@ -397,12 +397,12 @@ class Config(BaseModel):
     boneio: BoneIOConfig
     mqtt: MqttConfig | None = None
     oled: OledConfig | None = None
-    lm75: list[TemperatureConfig] | None = None
-    mcp9808: list[TemperatureConfig] | None = None
-    ina219: list[Ina219Config] | None = None
+    lm75: list[TemperatureConfig] = Field(default_factory=list)
+    mcp9808: list[TemperatureConfig] = Field(default_factory=list)
+    ina219: list[Ina219Config] = Field(default_factory=list)
     sensors: list[SensorConfig] = Field(default_factory=list)
-    binary_sensors: list[BinarySensorConfig] | None = None
+    binary_sensors: list[BinarySensorConfig] = Field(default_factory=list)
     events: EventsConfig | None = None
-    outputs: list[OutputConfig] | None = None
+    outputs: list[OutputConfig] = Field(default_factory=list)
     web: WebConfig | None = None
     adc: AdcConfig | None = None
