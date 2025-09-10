@@ -17,7 +17,7 @@ class AsyncUpdater:
     ) -> None:
         self.manager = manager
         self._update_interval = update_interval
-        self.manager.append_task(coro=self._refresh, name=self.id)
+        self.manager.append_task(coro=self._refresh(), name=self.id)
         self._timestamp = time.time()
 
     async def _refresh(self) -> None:
