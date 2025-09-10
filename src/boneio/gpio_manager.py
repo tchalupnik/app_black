@@ -92,8 +92,8 @@ class GpioManager:
     def add_event_callback(
         self,
         pin: str,
-        edge: FALLING | RISING | BOTH,
         callback: Callable[[], None],
+        edge: FALLING | RISING | BOTH = BOTH,
         debounce_period: timedelta = timedelta(milliseconds=100),
     ) -> None:
         asyncio.create_task(

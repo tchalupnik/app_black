@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from boneio.config import BinarySensorActionTypes, BinarySensorConfig, EventActionTypes
 from boneio.const import PRESSED, RELEASED
-from boneio.gpio_manager import BOTH, GpioManager
+from boneio.gpio_manager import GpioManager
 
 from .base import GpioBase
 
@@ -62,7 +62,6 @@ class GpioInputBinarySensorNew(GpioBase):
             pin=self._pin,
             callback=self.check_state,
             debounce_period=gpio.bounce_time,
-            edge=BOTH,
         )
         self._loop.call_soon_threadsafe(self.check_state, self._initial_send)
 

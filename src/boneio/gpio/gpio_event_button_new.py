@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from boneio.config import BinarySensorActionTypes, EventActionTypes
 from boneio.const import DOUBLE, LONG, SINGLE
-from boneio.gpio_manager import BOTH, GpioManager
+from boneio.gpio_manager import GpioManager
 from boneio.helper import ClickTimer
 
 from .base import GpioBase
@@ -75,9 +75,7 @@ class GpioEventButtonNew(GpioBase):
             False  # True after first click until window expires
         )
 
-        self.gpio_manager.add_event_callback(
-            pin=self._pin, callback=self.check_state, edge=BOTH
-        )
+        self.gpio_manager.add_event_callback(pin=self._pin, callback=self.check_state)
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):
