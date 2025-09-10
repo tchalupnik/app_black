@@ -73,6 +73,8 @@ class MQTTClient(MessageBus):
         self.asyncio_client = AsyncioClient(
             self.config.mqtt.host,
             self.config.mqtt.port,
+            username=self.config.mqtt.username,
+            password=self.config.mqtt.password,
             will=Will(
                 topic=f"{self.config.mqtt.topic_prefix}/{STATE}",
                 payload=OFFLINE,
