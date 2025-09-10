@@ -14,6 +14,7 @@ from w1thermsensor import (
     W1ThermSensorError,
 )
 
+from boneio.config import Filters
 from boneio.const import STATE, TEMPERATURE
 from boneio.helper.exceptions import OneWireError
 from boneio.helper.onewire import (
@@ -45,6 +46,7 @@ class DallasSensorDS2482(TempSensor):
         name: str,
         update_interval: timedelta,
         topic_prefix: str,
+        filters: list[dict[Filters, float]],
         id: str = DefaultName,
     ):
         """Initialize Temp class."""
@@ -59,6 +61,7 @@ class DallasSensorDS2482(TempSensor):
             update_interval=update_interval,
             topic_prefix=topic_prefix,
             id=id,
+            filters=filters,
         )
         try:
             self._pct = DS18X20(bus=bus, address=address)
@@ -79,12 +82,12 @@ class DallasSensorW1(TempSensor):
         name: str,
         update_interval: timedelta,
         topic_prefix: str,
+        filters: list[dict[Filters, float]],
         id: str = DefaultName,
-        filters: list = None,
     ):
         """Initialize Temp class."""
-        if filters is None:
-            filters = ["round(x, 2)"]
+        if not filters:
+            filters = [{"round": 2}]
         self._loop = asyncio.get_event_loop()
         # Use a dummy i2c and address since W1 doesn't use I2C
         super().__init__(

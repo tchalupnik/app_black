@@ -7,6 +7,7 @@ import logging
 import typing
 from datetime import timedelta
 
+from boneio.config import Filters
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import I2CError
@@ -35,13 +36,13 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         topic_prefix: str,
         name: str,
         update_interval: timedelta,
+        filters: list[dict[Filters, float]],
         id: str = DefaultName,
-        filters: list = None,
         unit_of_measurement: str = "°C",
     ):
         """Initialize Temp class."""
-        if filters is None:
-            filters = ["round(x, 2)"]
+        if not filters:
+            filters = [{"round": 2}]
         self._loop = asyncio.get_event_loop()
 
         # Initialize BasicMqtt first

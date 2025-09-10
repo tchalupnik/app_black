@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from boneio.config import Filters
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ class Filter:
     _filters = []
 
     def _apply_filters(
-        self, value: float | None, filters: list | None = None
+        self, value: float | None, filters: list[dict[Filters, float]] | None = None
     ) -> float | None:
         filters = filters if filters is not None else self._filters
         for filter in filters:
