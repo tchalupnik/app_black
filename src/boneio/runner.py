@@ -65,7 +65,7 @@ async def async_run(
 
         message_bus = LocalMessageBus()
 
-    with GpioManager() as gpio_manager:
+    with GpioManager.create() as gpio_manager:
         manager = Manager(
             config=configuration,
             message_bus=message_bus,
