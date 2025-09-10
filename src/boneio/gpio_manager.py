@@ -129,18 +129,18 @@ class GpioManager:
                 },
             )
 
-        fut = self.loop.create_future()
+        fut = self._loop.create_future()
 
         def c():
             events = request.read_edge_events()
             fut.set_result(events)
 
-        self.loop.add_reader(request.fd, c)
+        self._loop.add_reader(request.fd, c)
 
         while True:
             await fut
             events = fut.result()
-            fut = self.loop.create_future()
+            fut = self._loop.create_future()
             for _ in events:
                 callback()
 
