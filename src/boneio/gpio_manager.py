@@ -118,14 +118,16 @@ class GpioManager:
             BOTH: gpiod.line.Edge.BOTH,
         }[edge]
 
-        request = chip.request_lines(
-            config={
-                line_offset: gpiod.LineSettings(
-                    edge_detection=gpiod_edge,
-                    debounce_period=debounce_period,
-                )
-            },
-        )
+        request = self._line_requests.get(pin)
+        if request is None:
+            request = chip.request_lines(
+                config={
+                    line_offset: gpiod.LineSettings(
+                        edge_detection=gpiod_edge,
+                        debounce_period=debounce_period,
+                    )
+                },
+            )
 
         fut = self.loop.create_future()
 
