@@ -4,7 +4,7 @@ import asyncio
 import os
 from collections.abc import AsyncGenerator, Callable, Generator
 from contextlib import contextmanager
-from dataclasses import Field, dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Literal
 
@@ -21,9 +21,9 @@ OUT = Literal["OUT"]
 
 @dataclass
 class GpioManager:
-    _loop: asyncio.AbstractEventLoop = Field(default_factory=asyncio.get_event_loop)
-    _chips: list[gpiod.Chip] = Field(default_factory=list)
-    _line_requests: dict[str, gpiod.LineRequest] = Field(default_factory=dict)
+    _loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.get_event_loop)
+    _chips: list[gpiod.Chip] = field(default_factory=list)
+    _line_requests: dict[str, gpiod.LineRequest] = field(default_factory=dict)
 
     @classmethod
     @contextmanager
