@@ -83,6 +83,7 @@ from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
+from boneio.relay.basic import BasicRelay
 from boneio.sensor import DallasSensorDS2482, GpioADCSensor, initialize_adc
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
@@ -320,7 +321,7 @@ def configure_relay(
     output_config: OutputConfig,
     event_bus: EventBus,
     restore_state: bool = False,
-) -> Any:
+) -> BasicRelay:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
@@ -596,7 +597,12 @@ def configure_cover(
     send_ha_autodiscovery: Callable,
     config: dict,
     tilt_duration: TimePeriod | None,
-    **kwargs,
+    open_relay: BasicRelay,
+    close_relay: BasicRelay,
+    open_time: int,
+    close_time: int,
+    event_bus: EventBus,
+    topic_prefix: str,
 ) -> PreviousCover | TimeBasedCover:
     platform = config.get("platform", "previous")
 
@@ -630,7 +636,12 @@ def configure_cover(
             actuator_activation_duration=config.get(
                 "actuator_activation_duration", TimePeriod(milliseconds=0)
             ),
-            **kwargs,
+            open_relay=open_relay,
+            close_relay=close_relay,
+            open_time=open_time,
+            close_time=close_time,
+            event_bus=event_bus,
+            topic_prefix=topic_prefix,
         )
         availability_msg_func = ha_cover_with_tilt_availabilty_message
     elif platform == "time_based":
@@ -645,7 +656,12 @@ def configure_cover(
             state_save=state_save,
             message_bus=message_bus,
             restored_state=restored_state,
-            **kwargs,
+            open_relay=open_relay,
+            close_relay=close_relay,
+            open_time=open_time,
+            close_time=close_time,
+            event_bus=event_bus,
+            topic_prefix=topic_prefix,
         )
         availability_msg_func = ha_cover_availabilty_message
     else:
@@ -660,7 +676,12 @@ def configure_cover(
             state_save=state_save,
             message_bus=message_bus,
             restored_state=restored_state,
-            **kwargs,
+            open_relay=open_relay,
+            close_relay=close_relay,
+            open_time=open_time,
+            close_time=close_time,
+            event_bus=event_bus,
+            topic_prefix=topic_prefix,
         )
         availability_msg_func = ha_cover_availabilty_message
     if config.get(SHOW_HA, True):
