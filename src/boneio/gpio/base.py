@@ -4,6 +4,7 @@ import asyncio
 import logging
 import subprocess
 import time
+import typing
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 
@@ -21,6 +22,7 @@ from Adafruit_BBIO.GPIO import (  # type: ignore
     RISING,
 )
 
+from boneio.config import BinarySensorActionTypes, EventActionTypes
 from boneio.const import (
     CONFIG_PIN,
     GPIO_MODE,
@@ -131,7 +133,9 @@ class GpioBase:
             Awaitable[None],
         ],
         name: str,
-        actions: dict,
+        actions: dict[
+            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+        ],
         input_type,
         empty_message_after: bool,
         event_bus: EventBus,
@@ -224,10 +228,17 @@ class GpioBase:
             )
         _LOGGER.debug("[%s] Released lock for event '%s'", self.name, click_type)
 
-    def set_actions(self, actions: dict) -> None:
+    def set_actions(
+        self,
+        actions: dict[
+            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+        ],
+    ) -> None:
         self._actions = actions
 
-    def get_actions_of_click(self, click_type: ClickTypes) -> dict:
+    def get_actions_of_click(
+        self, click_type: EventActionTypes | BinarySensorActionTypes
+    ) -> list[dict[str, typing.Any]]:
         return self._actions.get(click_type, [])
 
     @property

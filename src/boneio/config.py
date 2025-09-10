@@ -255,13 +255,16 @@ class EventActionConfig(BaseModel):
     action_output: Literal["toggle", "on", "off"] = "toggle"
 
 
+EventActionTypes = Literal["single", "double", "long"]
+
+
 class EventConfig(BaseModel):
     id: str
     pin: str
     boneio_input: BoneIOInput
-    actions: RootModel[
-        dict[Literal["single", "double", "long"], list[EventActionConfig]]
-    ] = Field(default_factory=lambda: RootModel(root={}))
+    actions: dict[EventActionTypes, list[EventActionConfig]] = Field(
+        default_factory=dict
+    )
     device_class: Literal["button", "doorbell", "motion"]
     show_in_ha: bool = True
     inverted: bool = False
@@ -294,6 +297,9 @@ class BinarySensorAction(BaseModel):
     action_output: Literal["toggle", "on", "off"] = "toggle"
 
 
+BinarySensorActionTypes = Literal["pressed", "released"]
+
+
 class BinarySensorConfig(BaseModel):
     id: str
     pin: str
@@ -321,9 +327,9 @@ class BinarySensorConfig(BaseModel):
         "vibration",
         "window",
     ]
-    actions: RootModel[
-        dict[Literal["pressed", "released"], list[BinarySensorAction]]
-    ] = Field(default_factory=lambda: RootModel(root={}))
+    actions: dict[BinarySensorActionTypes, list[BinarySensorAction]] = Field(
+        default_factory=dict
+    )
     show_in_ha: bool = True
     inverted: bool = False
     gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"

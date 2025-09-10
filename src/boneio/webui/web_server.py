@@ -19,7 +19,7 @@ class WebServer:
     def __init__(
         self,
         config: Config,
-        config_file: str,
+        config_file: Path,
         manager: Manager,
     ) -> None:
         """Initialize the web server."""
@@ -30,8 +30,7 @@ class WebServer:
         self._shutdown_event = asyncio.Event()
 
         # Get yaml config file path
-        config_path = Path(self.config_file)
-        self._yaml_config_file = (config_path.parent / "config.yaml").resolve()
+        self._yaml_config_file = (config_file.parent / "config.yaml").resolve()
 
         # Set up JWT secret
         self.jwt_secret = self._get_jwt_secret_or_generate()

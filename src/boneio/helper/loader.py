@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+import typing
 from collections import namedtuple
 from collections.abc import Callable
 from datetime import timedelta
@@ -13,8 +14,10 @@ from busio import I2C
 
 from boneio.config import (
     AdcConfig,
+    BinarySensorActionTypes,
     BinarySensorConfig,
     Config,
+    EventActionTypes,
     EventConfig,
     Ina219Config,
     OutputConfig,
@@ -492,16 +495,16 @@ def configure_event_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
+    actions: dict[
+        EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+    ],
     input: GpioEventButtonOld
     | GpioEventButtonNew
     | GpioInputBinarySensorOld
     | GpioInputBinarySensorNew
     | None = None,
-    actions: dict = None,
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
-    if actions is None:
-        actions = {}
     try:
         gpioEventButtonClass = (
             GpioEventButtonNew if gpio.detection_type == "new" else GpioEventButtonOld
@@ -543,16 +546,16 @@ def configure_binary_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
+    actions: dict[
+        EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+    ],
     input: GpioEventButtonOld
     | GpioEventButtonNew
     | GpioInputBinarySensorOld
     | GpioInputBinarySensorNew
     | None = None,
-    actions: dict = None,
 ) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
     """Configure input sensor or button."""
-    if actions is None:
-        actions = {}
     try:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew

@@ -7,7 +7,7 @@ import time
 import typing
 from collections.abc import Callable
 
-from boneio.config import BinarySensorConfig
+from boneio.config import BinarySensorActionTypes, BinarySensorConfig, EventActionTypes
 from boneio.const import PRESSED, RELEASED
 
 from .base import BOTH, GpioBase, add_event_callback, add_event_detect
@@ -26,7 +26,9 @@ class GpioInputBinarySensorNew(GpioBase):
         pin: str,
         manager_press_callback: Callable,
         name: str,
-        actions: dict,
+        actions: dict[
+            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+        ],
         input_type: str,
         empty_message_after: bool,
         event_bus: EventBus,

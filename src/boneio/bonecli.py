@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
@@ -205,7 +206,7 @@ def get_arguments() -> argparse.Namespace:
 
 
 def run(
-    config: str,
+    config_file: Path,
     debug: int,
     mqttusername: str | None = None,
     mqttpassword: str | None = None,
@@ -214,7 +215,7 @@ def run(
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
-        _config = load_config_from_file(config_file=config)
+        _config = load_config_from_file(config_file=config_file)
         if not _config:
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
@@ -222,7 +223,7 @@ def run(
         ret = asyncio.run(
             async_run(
                 config=_config,
-                config_file=config,
+                config_file=config_file,
                 mqttusername=mqttusername,
                 mqttpassword=mqttpassword,
                 debug=debug,
@@ -312,7 +313,7 @@ def main() -> int:
     exit_code = 0
     if args.action == "run":
         exit_code = run(
-            config=args.config,
+            config_file=Path(args.config),
             mqttusername=args.mqttusername,
             mqttpassword=args.mqttpassword,
             debug=debug,

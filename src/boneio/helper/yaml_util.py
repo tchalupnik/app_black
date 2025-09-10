@@ -65,7 +65,7 @@ class BoneIOLoader(SafeLoader):
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         mapping = OrderedDict()
         for fname in files:
-            filename = Path(fname).stem
+            filename = fname.stem
             mapping[filename] = load_yaml_file(fname)
         return mapping
 
@@ -132,8 +132,8 @@ def _find_files(directory, pattern):
                 yield filename
 
 
-def load_yaml_file(filename: str) -> Any:
-    with Path(filename).open("r") as stream:
+def load_yaml_file(filename: Path) -> Any:
+    with filename.open("r") as stream:
         try:
             return load(stream, Loader=BoneIOLoader) or OrderedDict()
         except YAMLError as exception:
@@ -700,7 +700,7 @@ def load_config_from_string(config_str: str) -> dict:
     return merged_doc
 
 
-def load_config_from_file(config_file: str):
+def load_config_from_file(config_file: Path):
     try:
         config_yaml = load_yaml_file(config_file)
     except FileNotFoundError as err:
@@ -711,7 +711,7 @@ def load_config_from_file(config_file: str):
     return load_config_from_string(config_yaml)
 
 
-def update_config_section(config_file: str, section: str, data: dict) -> dict:
+def update_config_section(config_file: Path, section: str, data: dict) -> dict:
     """
     Update content of a configuration section with intelligent !include handling.
 
@@ -723,10 +723,6 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
     Returns:
         dict: Status response with success/error message
     """
-    from pathlib import Path
-
-    config_dir = Path(config_file).parent
-
     _LOGGER.info("Updating section '%s' with data: %s", section, data)
 
     # Custom YAML loader that preserves !include tags
@@ -758,7 +754,7 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
             if hasattr(section_value, "tag") and section_value.tag == "!include":
                 # It's an !include - update the included file
                 include_filename = section_value.filename
-                include_file_path = config_dir / include_filename
+                include_file_path = config_file.parent / include_filename
 
                 _LOGGER.info(
                     "Section uses !include '%s', updating %s",

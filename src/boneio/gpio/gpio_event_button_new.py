@@ -8,6 +8,7 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
+from boneio.config import BinarySensorActionTypes, EventActionTypes
 from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer
 
@@ -31,7 +32,9 @@ class GpioEventButtonNew(GpioBase):
         pin: str,
         manager_press_callback: Callable,
         name: str,
-        actions: dict,
+        actions: dict[
+            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+        ],
         input_type: str,
         empty_message_after: bool,
         event_bus: EventBus,

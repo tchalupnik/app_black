@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_run(
     config: dict,
-    config_file: str,
+    config_file: Path,
     mqttusername: str | None = None,
     mqttpassword: str | None = None,
     debug: int = 0,
@@ -68,7 +68,7 @@ async def async_run(
         config=configuration,
         message_bus=message_bus,
         event_bus=event_bus,
-        state_manager=StateManager(state_file=Path(config_file).parent / "state.json"),
+        state_manager=StateManager(state_file=config_file.parent / "state.json"),
         config_file_path=config_file,
         old_config=config,
     )

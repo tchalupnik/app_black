@@ -5,16 +5,21 @@ import json
 import logging
 import time
 import typing
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
     AdcConfig,
+    BinarySensorAction,
+    BinarySensorActionTypes,
     BinarySensorConfig,
     Config,
+    EventActionConfig,
+    EventActionTypes,
     EventConfig,
     Ina219Config,
     MqttAutodiscoveryMessage,
@@ -60,7 +65,6 @@ from boneio.const import (
     UART,
     UARTS,
     VALVE,
-    ClickTypes,
     cover_actions,
     relay_actions,
 )
@@ -124,7 +128,7 @@ class Manager:
         message_bus: MessageBus,
         event_bus: EventBus,
         state_manager: StateManager,
-        config_file_path: str,
+        config_file_path: Path,
         old_config: dict,
     ) -> None:
         self._event_pins = old_config.get(EVENT_ENTITY, [])
@@ -265,7 +269,7 @@ class Manager:
             devices=modbus_devices
         )
 
-        if config.oled.enabled:
+        if config.oled is not None and config.oled.enabled:
             from boneio.oled import Oled
 
             self._host_data = HostData(
@@ -425,18 +429,23 @@ class Manager:
                 _LOGGER.error("Can't configure cover %s. %s", _id, err)
                 continue
 
-    def parse_actions(self, pin: str, actions: dict) -> dict:
+    def parse_actions(
+        self,
+        pin: str,
+        actions: dict[EventActionTypes, list[EventActionConfig]]
+        | dict[BinarySensorActionTypes, list[BinarySensorAction]],
+    ) -> dict[EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]]:
         """Parse actions from config."""
-        parsed_actions = {}
-        for click_type in actions:
-            if click_type not in parsed_actions:
-                parsed_actions[click_type] = []
-            for action_definition in actions.get(click_type, []):
-                action = action_definition.get("action")
-                if action == OUTPUT:
-                    entity_id = action_definition.get("pin")
+        parsed_actions: dict[
+            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
+        ] = defaultdict(list)
+
+        for click_type, action_definitions in actions.items():
+            for action_definition in action_definitions:
+                if action_definition.action == OUTPUT:
+                    entity_id = action_definition.pin
                     stripped_entity_id = strip_accents(entity_id)
-                    action_output = action_definition.get("action_output")
+                    action_output = action_definition.action_output
                     output = self._outputs.get(
                         stripped_entity_id,
                         self._configured_output_groups.get(stripped_entity_id),
@@ -447,7 +456,7 @@ class Manager:
                         if _f:
                             parsed_actions[click_type].append(
                                 {
-                                    "action": action,
+                                    "action": action_definition.action,
                                     "pin": stripped_entity_id,
                                     "action_to_execute": action_to_execute,
                                 }
@@ -458,11 +467,11 @@ class Manager:
                         entity_id,
                         pin,
                     )
-                elif action == COVER:
-                    entity_id = action_definition.get("pin")
+                elif action_definition.action == COVER:
+                    entity_id = action_definition.pin
                     stripped_entity_id = strip_accents(entity_id)
-                    action_cover = action_definition.get("action_cover")
-                    extra_data = action_definition.get("data", {})
+                    action_cover = action_definition.action_cover
+                    extra_data = action_definition.data
                     cover = self._covers.get(stripped_entity_id)
                     action_to_execute = cover_actions.get(action_cover)
                     if cover and action_to_execute:
@@ -470,7 +479,7 @@ class Manager:
                         if _f:
                             parsed_actions[click_type].append(
                                 {
-                                    "action": action,
+                                    "action": action_definition.action,
                                     "action_to_execute": action_to_execute,
                                     "extra_data": extra_data,
                                 }
@@ -479,13 +488,13 @@ class Manager:
                     _LOGGER.warning(
                         "Device %s for action not found. Omitting.", entity_id
                     )
-                elif action == MQTT:
-                    action_mqtt_msg = action_definition.get("action_mqtt_msg")
-                    action_topic = action_definition.get(TOPIC)
+                elif action_definition.action == MQTT:
+                    action_mqtt_msg = action_definition.action_mqtt_msg
+                    action_topic = action_definition.topic
                     if action_topic and action_mqtt_msg:
                         parsed_actions[click_type].append(
                             {
-                                "action": action,
+                                "action": action_definition.action,
                                 "action_mqtt_msg": action_mqtt_msg,
                                 "action_topic": action_topic,
                             }
@@ -494,14 +503,14 @@ class Manager:
                     _LOGGER.warning(
                         "Device %s for action not found. Omitting.", entity_id
                     )
-                elif action == OUTPUT_OVER_MQTT:
-                    boneio_id = action_definition.get("boneio_id")
-                    action_output = action_definition.get("action_output")
+                elif action_definition.action == OUTPUT_OVER_MQTT:
+                    boneio_id = action_definition.boneio_id
+                    action_output = action_definition.action_output
                     action_to_execute = relay_actions.get(action_output.upper())
                     if boneio_id and action_to_execute:
                         parsed_actions[click_type].append(
                             {
-                                "action": action,
+                                "action": action_definition.action,
                                 "boneio_id": boneio_id,
                                 "action_output": action_output,
                             }
@@ -510,14 +519,14 @@ class Manager:
                     _LOGGER.warning(
                         "Device %s for action not found. Omitting.", entity_id
                     )
-                elif action == COVER_OVER_MQTT:
-                    boneio_id = action_definition.get("boneio_id")
-                    action_cover = action_definition.get("action_cover")
+                elif action_definition.action == COVER_OVER_MQTT:
+                    boneio_id = action_definition.boneio_id
+                    action_cover = action_definition.action_cover
                     action_to_execute = cover_actions.get(action_cover.upper())
                     if boneio_id and action_to_execute:
                         parsed_actions[click_type].append(
                             {
-                                "action": action,
+                                "action": action_definition.action,
                                 "boneio_id": boneio_id,
                                 "action_cover": action_cover,
                             }
@@ -810,7 +819,7 @@ class Manager:
 
     async def press_callback(
         self,
-        x: ClickTypes,
+        x: EventActionTypes | BinarySensorActionTypes,
         gpio: GpioBase,
         empty_message_after: bool = False,
         duration: float | None = None,
