@@ -254,7 +254,6 @@ modbus_devices:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         default: 30s
@@ -394,7 +393,6 @@ mcp23017:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         default: 0s
@@ -420,7 +418,6 @@ pcf8575:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         default: 0s
@@ -446,7 +443,6 @@ pca9685:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         default: 0s
@@ -503,7 +499,6 @@ output:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: False
         meta:
@@ -513,7 +508,6 @@ output:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: False
         meta:
@@ -638,7 +632,6 @@ binary_sensor:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         default: '120ms'
@@ -754,7 +747,6 @@ event:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         default: '30ms'
@@ -862,7 +854,6 @@ cover:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         meta:
@@ -872,7 +863,6 @@ cover:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: True
         meta:
@@ -882,7 +872,6 @@ cover:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: False
         meta:
@@ -892,7 +881,6 @@ cover:
           - string
           - timedelta
         coerce:
-          - str
           - positive_time_period
         required: False
         meta:

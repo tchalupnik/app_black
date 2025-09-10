@@ -2,7 +2,6 @@ type:
   - string
   - timedelta
 coerce:
-  - str
   - positive_time_period
 required: True
 default: 60s
