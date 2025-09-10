@@ -9,6 +9,7 @@ import warnings
 from pathlib import Path
 
 from boneio.config import Config
+from boneio.gpio_manager import GpioManager
 from boneio.helper import StateManager
 from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
@@ -64,99 +65,101 @@ async def async_run(
 
         message_bus = LocalMessageBus()
 
-    manager = Manager(
-        config=configuration,
-        message_bus=message_bus,
-        event_bus=event_bus,
-        state_manager=StateManager(state_file=config_file.parent / "state.json"),
-        config_file_path=config_file,
-        old_config=config,
-    )
-    # Convert coroutines to Tasks
-    message_bus.set_manager(manager=manager)
-    tasks.update(manager.get_tasks())
-
-    message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
-    _LOGGER.info("Starting message bus %s.", message_bus_type)
-    message_bus_task = asyncio.create_task(message_bus.start_client())
-    tasks.add(message_bus_task)
-    message_bus_task.add_done_callback(tasks.discard)
-
-    # Start web server if configured
-    if configuration.web is not None:
-        _LOGGER.info("Starting Web server.")
-        web_server = WebServer(
+    with GpioManager() as gpio_manager:
+        manager = Manager(
             config=configuration,
-            config_file=config_file,
-            manager=manager,
+            message_bus=message_bus,
+            event_bus=event_bus,
+            state_manager=StateManager(state_file=config_file.parent / "state.json"),
+            config_file_path=config_file,
+            old_config=config,
+            gpio_manager=gpio_manager,
         )
-        web_server_task = asyncio.create_task(web_server.start_webserver())
-        tasks.add(web_server_task)
-        web_server_task.add_done_callback(tasks.discard)
-    else:
-        _LOGGER.info("Web server not configured.")
+        # Convert coroutines to Tasks
+        message_bus.set_manager(manager=manager)
+        tasks.update(manager.get_tasks())
 
-    try:
-        # Convert tasks set to list for main gather
-        task_list = list(tasks)
-        main_gather = asyncio.gather(*task_list)
+        message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
+        _LOGGER.info("Starting message bus %s.", message_bus_type)
+        message_bus_task = asyncio.create_task(message_bus.start_client())
+        tasks.add(message_bus_task)
+        message_bus_task.add_done_callback(tasks.discard)
 
-        # Wait for either shutdown signal or main task completion
-        await asyncio.wait(
-            [main_gather, asyncio.create_task(shutdown_event.wait())],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+        # Start web server if configured
+        if configuration.web is not None:
+            _LOGGER.info("Starting Web server.")
+            web_server = WebServer(
+                config=configuration,
+                config_file=config_file,
+                manager=manager,
+            )
+            web_server_task = asyncio.create_task(web_server.start_webserver())
+            tasks.add(web_server_task)
+            web_server_task.add_done_callback(tasks.discard)
+        else:
+            _LOGGER.info("Web server not configured.")
 
-        if shutdown_event.is_set():
-            _LOGGER.info("Starting graceful shutdown...")
-            await message_bus.announce_offline()
-            main_gather.cancel()
-            try:
-                await main_gather
-            except asyncio.CancelledError:
-                pass
+        try:
+            # Convert tasks set to list for main gather
+            task_list = list(tasks)
+            main_gather = asyncio.gather(*task_list)
 
-        return 0
-    except asyncio.CancelledError:
-        _LOGGER.info("Main task cancelled")
-    except (RestartRequestException, GracefulExit):
-        _LOGGER.info("Restart or graceful exit requested")
-    except Exception as e:
-        _LOGGER.error("Unexpected error: %s - %s", type(e).__name__, e)
-    except BaseException as e:
-        _LOGGER.error("Unexpected BaseException: %s - %s", type(e).__name__, e)
-    finally:
-        _LOGGER.info("Cleaning up resources...")
+            # Wait for either shutdown signal or main task completion
+            await asyncio.wait(
+                [main_gather, asyncio.create_task(shutdown_event.wait())],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
 
-        # Trigger web server shutdown if it's running
-        if web_server and hasattr(web_server, "trigger_shutdown"):
-            try:
-                _LOGGER.info("Requesting web server shutdown...")
-                await web_server.trigger_shutdown()
-            except Exception as e:
-                _LOGGER.error("Error triggering web server shutdown: %s", e)
+            if shutdown_event.is_set():
+                _LOGGER.info("Starting graceful shutdown...")
+                await message_bus.announce_offline()
+                main_gather.cancel()
+                try:
+                    await main_gather
+                except asyncio.CancelledError:
+                    pass
 
-        # Stop the event bus
-        event_bus.request_stop()
+            return 0
+        except asyncio.CancelledError:
+            _LOGGER.info("Main task cancelled")
+        except (RestartRequestException, GracefulExit):
+            _LOGGER.info("Restart or graceful exit requested")
+        except Exception as e:
+            _LOGGER.error("Unexpected error: %s - %s", type(e).__name__, e)
+        except BaseException as e:
+            _LOGGER.error("Unexpected BaseException: %s - %s", type(e).__name__, e)
+        finally:
+            _LOGGER.info("Cleaning up resources...")
 
-        # Create a copy of tasks set to avoid modification during iteration
-        remaining_tasks = list(tasks)
-        if remaining_tasks:
-            # Cancel and wait for all remaining tasks
-            # Web server task will be cancelled here if it hasn't finished after trigger_shutdown
-            for task in remaining_tasks:
-                if not task.done():
-                    _LOGGER.debug(
-                        "Cancelling task: %s",
-                        task.get_name() if hasattr(task, "get_name") else task,
-                    )
-                    task.cancel()
+            # Trigger web server shutdown if it's running
+            if web_server and hasattr(web_server, "trigger_shutdown"):
+                try:
+                    _LOGGER.info("Requesting web server shutdown...")
+                    await web_server.trigger_shutdown()
+                except Exception as e:
+                    _LOGGER.error("Error triggering web server shutdown: %s", e)
 
-            # Wait for all tasks to complete
-            try:
-                await asyncio.gather(*remaining_tasks, return_exceptions=True)
-            except Exception as e:
-                _LOGGER.error("Error during cleanup: %s - %s", type(e).__name__, e)
+            # Stop the event bus
+            event_bus.request_stop()
 
-        _LOGGER.info("Shutdown complete")
+            # Create a copy of tasks set to avoid modification during iteration
+            remaining_tasks = list(tasks)
+            if remaining_tasks:
+                # Cancel and wait for all remaining tasks
+                # Web server task will be cancelled here if it hasn't finished after trigger_shutdown
+                for task in remaining_tasks:
+                    if not task.done():
+                        _LOGGER.debug(
+                            "Cancelling task: %s",
+                            task.get_name() if hasattr(task, "get_name") else task,
+                        )
+                        task.cancel()
+
+                # Wait for all tasks to complete
+                try:
+                    await asyncio.gather(*remaining_tasks, return_exceptions=True)
+                except Exception as e:
+                    _LOGGER.error("Error during cleanup: %s - %s", type(e).__name__, e)
+
+            _LOGGER.info("Shutdown complete")
     return 0

@@ -9,6 +9,7 @@ from collections.abc import Callable
 
 from boneio.config import BinarySensorActionTypes, BinarySensorConfig, EventActionTypes
 from boneio.const import PRESSED, RELEASED
+from boneio.gpio_manager import GpioManager
 
 from .base import GpioBase
 
@@ -33,6 +34,7 @@ class GpioInputBinarySensor(GpioBase):
         empty_message_after: bool,
         event_bus: EventBus,
         gpio: BinarySensorConfig,
+        gpio_manager: GpioManager,
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
@@ -46,6 +48,7 @@ class GpioInputBinarySensor(GpioBase):
             boneio_input=gpio.boneio_input,
             bounce_time=gpio.bounce_time,
             gpio_mode=gpio.gpio_mode,
+            gpio_manager=gpio_manager,
         )
         self._state = self.is_pressed
         self._click_type = (RELEASED, PRESSED) if gpio.inverted else (PRESSED, RELEASED)

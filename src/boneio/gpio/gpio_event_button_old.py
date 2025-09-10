@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from boneio.config import BinarySensorActionTypes, EventActionTypes
 from boneio.const import DOUBLE, LONG, SINGLE
+from boneio.gpio_manager import GpioManager
 from boneio.helper import ClickTimer
 
 from .base import GpioBase
@@ -39,8 +40,8 @@ class GpioEventButton(GpioBase):
         input_type: str,
         empty_message_after: bool,
         event_bus: EventBus,
+        gpio_manager: GpioManager,
         boneio_input: str = "",
-        bounce_time: timedelta | None = None,
         gpio_mode: str = "gpio",
     ) -> None:
         """Setup GPIO Input Button"""
@@ -53,8 +54,8 @@ class GpioEventButton(GpioBase):
             empty_message_after=empty_message_after,
             event_bus=event_bus,
             boneio_input=boneio_input,
-            bounce_time=bounce_time or timedelta(milliseconds=50),
             gpio_mode=gpio_mode,
+            gpio_manager=gpio_manager,
         )
         self._state = self.is_pressed
         _LOGGER.debug("Configured stable listening for input pin %s", self._pin)

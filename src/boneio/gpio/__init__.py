@@ -1,13 +1,6 @@
 """Input classes."""
 
-from .base import (
-    configure_pin,
-    edge_detect,
-    read_input,
-    setup_input,
-    setup_output,
-    write_output,
-)
+from .base import configure_pin
 from .gpio_event_button_new import GpioEventButtonNew
 from .gpio_event_button_old import GpioEventButton as GpioEventButtonOld
 from .gpio_relay import GpioRelay
@@ -20,10 +13,5 @@ __all__ = [
     "GpioRelay",
     "GpioInputBinarySensorOld",
     "GpioInputBinarySensorNew",
-    "edge_detect",
-    "read_input",
-    "setup_input",
-    "setup_output",
-    "write_output",
     "configure_pin",
 ]

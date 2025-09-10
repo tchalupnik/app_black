@@ -2,7 +2,6 @@ import asyncio
 import logging
 from datetime import timedelta
 from itertools import cycle
-from typing import Any
 
 import qrcode
 from luma.core.error import DeviceNotFoundError
@@ -12,7 +11,7 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
 from boneio.const import OLED_PIN, UPTIME, WHITE
-from boneio.gpio import edge_detect, setup_input
+from boneio.gpio_manager import GpioManager
 from boneio.helper import (
     HostData,
     I2CError,
@@ -57,11 +56,13 @@ class Oled:
         sleep_timeout: timedelta,
         screen_order: list[str],
         event_bus: EventBus,
+        gpio_manager: GpioManager,
     ) -> None:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
         self._event_bus = event_bus
         self.grouped_outputs_by_expander = None
+        self.gpio_manager = gpio_manager
         self._input_groups = []
         self._host_data = host_data
 
@@ -110,8 +111,12 @@ class Oled:
         self._sleep = False
         self._cancel_sleep_handle = None
         self._sleep_timeout = sleep_timeout
-        setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
-        edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=240)
+        self.gpio_manager.setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
+        self.gpio_manager.add_event_callback(
+            pin=OLED_PIN,
+            callback=self._handle_press,
+            bounce=timedelta(milliseconds=240),
+        )
         try:
             serial = i2c(port=2, address=0x3C)
             self._device = sh1106(serial)
@@ -286,7 +291,7 @@ class Oled:
         ) and not self._sleep:
             self.render_display()
 
-    def _handle_press(self, pin: Any) -> None:
+    def _handle_press(self) -> None:
         """Handle press of PIN for OLED display."""
         if self._cancel_sleep_handle:
             self._cancel_sleep_handle()

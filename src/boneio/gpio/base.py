@@ -4,53 +4,23 @@ import asyncio
 import logging
 import subprocess
 import time
-import typing
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-
-from Adafruit_BBIO import GPIO  # type: ignore
-from Adafruit_BBIO.GPIO import (  # type: ignore
-    BOTH,
-    FALLING,
-    HIGH,
-    IN,
-    LOW,
-    OUT,
-    PUD_DOWN,
-    PUD_OFF,
-    PUD_UP,
-    RISING,
-)
+from typing import Any
 
 from boneio.config import BinarySensorActionTypes, EventActionTypes
 from boneio.const import (
     CONFIG_PIN,
-    GPIO_MODE,
     PRESSED,
     RELEASED,
     ClickTypes,
 )
 from boneio.const import GPIO as GPIO_STR
+from boneio.gpio_manager import GpioManager
 from boneio.helper.events import EventBus
-from boneio.helper.exceptions import GPIOInputException
 from boneio.models import InputState
 
 _LOGGER = logging.getLogger(__name__)
-
-__all__ = [
-    "add_event_callback",
-    "add_event_detect",
-    "OUT",
-    "IN",
-    "PUD_DOWN",
-    "PUD_OFF",
-    "PUD_UP",
-    "LOW",
-    "HIGH",
-    "RISING",
-    "FALLING",
-    "BOTH",
-]
 
 
 def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
@@ -64,107 +34,44 @@ def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
     )
 
 
-def setup_output(pin: str) -> None:
-    """Set up a GPIO as output."""
-    GPIO.setup(pin, OUT, pull_up_down=PUD_DOWN)
-
-
-def setup_input(pin: str, pull_mode: str = "gpio") -> None:
-    """Set up a GPIO as input."""
-    gpio_mode = {
-        "gpio": PUD_OFF,
-        "gpio_pu": PUD_UP,
-        "gpio_pd": PUD_DOWN,
-        "gpio_input": PUD_OFF,
-    }.get(pull_mode, PUD_OFF)
-    try:
-        GPIO.setup(pin, IN, gpio_mode)
-    except (ValueError, SystemError) as err:
-        raise GPIOInputException(err)
-
-
-def write_output(pin: str, value: str) -> None:
-    """Write a value to a GPIO."""
-    GPIO.output(pin, value)
-
-
-def read_input(pin: str, on_state: LOW | HIGH = LOW) -> bool:
-    """Read a value from a GPIO."""
-    return GPIO.input(pin) is on_state
-
-
-def edge_detect(
-    pin: str,
-    callback: Callable,
-    bounce: int = 0,
-    edge: FALLING | RISING = FALLING,
-) -> None:
-    """Add detection for RISING and FALLING events."""
-    try:
-        GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
-    except RuntimeError as err:
-        raise GPIOInputException(err)
-
-
-def add_event_detect(pin: str, edge: FALLING | RISING = FALLING) -> None:
-    """Add detection for RISING and FALLING events."""
-    try:
-        GPIO.add_event_detect(gpio=pin, edge=edge)
-    except RuntimeError as err:
-        raise GPIOInputException(err)
-
-
-def add_event_callback(pin: str, callback: Callable) -> None:
-    """Add detection for RISING and FALLING events."""
-    try:
-        GPIO.add_event_callback(gpio=pin, callback=callback)
-    except RuntimeError as err:
-        raise GPIOInputException(err)
-
-
 class GpioBase:
     """Base class for initialize GPIO"""
 
     def __init__(
         self,
+        gpio_manager: GpioManager,
         pin: str,
         manager_press_callback: Callable[
             [ClickTypes, GpioBase, str, bool, float | None],
             Awaitable[None],
         ],
         name: str,
-        actions: dict[
-            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-        ],
+        actions: dict[EventActionTypes | BinarySensorActionTypes, list[dict[str, Any]]],
         input_type,
         empty_message_after: bool,
         event_bus: EventBus,
+        gpio_mode: str = "gpio",
+        bounce_time: timedelta = timedelta(milliseconds=50),
         boneio_input: str = "",
-        **kwargs,
     ) -> None:
         """Setup GPIO Input Button"""
         self._pin = pin
-        gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        bounce_time: timedelta = kwargs.get("bounce_time", timedelta(milliseconds=50))
         self._bounce_time = bounce_time.total_seconds()
         self._loop = asyncio.get_running_loop()
         self._manager_press_callback = manager_press_callback
         self._name = name
-        setup_input(pin=self._pin, pull_mode=gpio_mode)
         self._actions = actions
         self._input_type = input_type
         self._empty_message_after = empty_message_after
-        self._boneio_input = boneio_input
+        self.boneio_input = boneio_input
         self._click_type = (PRESSED, RELEASED)
         self._state = self.is_pressed
         self._last_state = "Unknown"
         self._last_timestamp = 0.0
         self._event_bus = event_bus
         self._event_lock = asyncio.Lock()
-
-    @property
-    def boneio_input(self) -> str:
-        return self._boneio_input or ""
+        self.gpio_manager = gpio_manager
+        self.gpio_manager.setup_input(pin=self._pin, pull_mode=gpio_mode)
 
     def press_callback(
         self,
@@ -230,21 +137,19 @@ class GpioBase:
 
     def set_actions(
         self,
-        actions: dict[
-            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-        ],
+        actions: dict[EventActionTypes | BinarySensorActionTypes, list[dict[str, Any]]],
     ) -> None:
         self._actions = actions
 
     def get_actions_of_click(
         self, click_type: EventActionTypes | BinarySensorActionTypes
-    ) -> list[dict[str, typing.Any]]:
+    ) -> list[dict[str, Any]]:
         return self._actions.get(click_type, [])
 
     @property
     def is_pressed(self) -> bool:
         """Is button pressed."""
-        return read_input(self._pin)
+        return self.gpio_manager.read(self._pin)
 
     @property
     def pressed_state(self) -> str:

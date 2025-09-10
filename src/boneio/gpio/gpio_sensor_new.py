@@ -9,8 +9,9 @@ from collections.abc import Callable
 
 from boneio.config import BinarySensorActionTypes, BinarySensorConfig, EventActionTypes
 from boneio.const import PRESSED, RELEASED
+from boneio.gpio_manager import BOTH, GpioManager
 
-from .base import BOTH, GpioBase, add_event_callback, add_event_detect
+from .base import GpioBase
 
 if typing.TYPE_CHECKING:
     from boneio.helper.events import EventBus
@@ -33,6 +34,7 @@ class GpioInputBinarySensorNew(GpioBase):
         empty_message_after: bool,
         event_bus: EventBus,
         gpio: BinarySensorConfig,
+        gpio_manager: GpioManager,
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
@@ -46,6 +48,7 @@ class GpioInputBinarySensorNew(GpioBase):
             boneio_input=gpio.boneio_input,
             bounce_time=gpio.bounce_time,
             gpio_mode=gpio.gpio_mode,
+            gpio_manager=gpio_manager,
         )
         self._state = self.is_pressed
         self.button_pressed_time = 0.0
@@ -55,8 +58,9 @@ class GpioInputBinarySensorNew(GpioBase):
         )
         self._initial_send = gpio.initial_send
         _LOGGER.debug("Configured sensor pin %s", self._pin)
-        add_event_detect(pin=self._pin, edge=BOTH)
-        add_event_callback(pin=self._pin, callback=self.check_state)
+        self.gpio_manager.add_event_callback(
+            pin=self._pin, callback=self.check_state, bounce=gpio.bounce_time, edge=BOTH
+        )
         self._loop.call_soon_threadsafe(self.check_state, self._initial_send)
 
     def check_state(self, initial_send: bool = False) -> None:

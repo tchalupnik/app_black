@@ -10,9 +10,10 @@ from datetime import timedelta
 
 from boneio.config import BinarySensorActionTypes, EventActionTypes
 from boneio.const import DOUBLE, LONG, SINGLE
+from boneio.gpio_manager import BOTH, GpioManager
 from boneio.helper import ClickTimer
 
-from .base import BOTH, GpioBase, edge_detect
+from .base import GpioBase
 
 if typing.TYPE_CHECKING:
     from boneio.helper.events import EventBus
@@ -29,6 +30,7 @@ class GpioEventButtonNew(GpioBase):
 
     def __init__(
         self,
+        gpio_manager: GpioManager,
         pin: str,
         manager_press_callback: Callable,
         name: str,
@@ -39,7 +41,6 @@ class GpioEventButtonNew(GpioBase):
         empty_message_after: bool,
         event_bus: EventBus,
         boneio_input: str = "",
-        bounce_time: timedelta | None = None,
         gpio_mode: str = "gpio",
     ) -> None:
         """Setup GPIO Input Button"""
@@ -52,8 +53,8 @@ class GpioEventButtonNew(GpioBase):
             empty_message_after=empty_message_after,
             event_bus=event_bus,
             boneio_input=boneio_input,
-            bounce_time=bounce_time or timedelta(milliseconds=50),
             gpio_mode=gpio_mode,
+            gpio_manager=gpio_manager,
         )
         self._state = self.is_pressed
         self.button_pressed_time = 0.0
@@ -74,7 +75,9 @@ class GpioEventButtonNew(GpioBase):
             False  # True after first click until window expires
         )
 
-        edge_detect(pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH)
+        self.gpio_manager.add_event_callback(
+            pin=self._pin, callback=self.check_state, edge=BOTH
+        )
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):

@@ -69,6 +69,7 @@ from boneio.const import (
     relay_actions,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
+from boneio.gpio_manager import GpioManager
 from boneio.helper import (
     GPIOInputException,
     HostData,
@@ -130,7 +131,9 @@ class Manager:
         state_manager: StateManager,
         config_file_path: Path,
         old_config: dict,
+        gpio_manager: GpioManager,
     ) -> None:
+        self.gpio_manager = gpio_manager
         self._event_pins = old_config.get(EVENT_ENTITY, [])
         modbus_devices = old_config.get("modbus_devices", {})
         mcp23017 = old_config.get(MCP23017, [])
@@ -289,6 +292,7 @@ class Manager:
                     grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
                     sleep_timeout=config.oled.screensaver_timeout,
                     event_bus=self._event_bus,
+                    gpio_manager=self.gpio_manager,
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
@@ -550,7 +554,9 @@ class Manager:
             return False
 
         def configure_single_input(
-            configure_sensor_func, gpio: BinarySensorConfig | EventConfig
+            configure_sensor_func,
+            gpio: BinarySensorConfig | EventConfig,
+            gpio_manager: GpioManager,
         ) -> None:
             if check_if_pin_configured(pin=gpio.pin):
                 return
@@ -561,6 +567,7 @@ class Manager:
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self._inputs.get(gpio.pin, None),  # for reload actions.
                 actions=self.parse_actions(gpio.pin, gpio.actions),
+                gpio_manager=gpio_manager,
             )
             if input:
                 self._inputs[input.pin] = input
@@ -575,11 +582,15 @@ class Manager:
                 self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
         for gpio in self.config.events:
             configure_single_input(
-                configure_sensor_func=configure_event_sensor, gpio=gpio
+                configure_sensor_func=configure_event_sensor,
+                gpio=gpio,
+                gpio_manager=self.gpio_manager,
             )
         for gpio in self.config.binary_sensors:
             configure_single_input(
-                configure_sensor_func=configure_binary_sensor, gpio=gpio
+                configure_sensor_func=configure_binary_sensor,
+                gpio=gpio,
+                gpio_manager=self.gpio_manager,
             )
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Task:

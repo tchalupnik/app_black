@@ -61,6 +61,7 @@ from boneio.gpio import (
     GpioInputBinarySensorOld,
     GpioRelay,
 )
+from boneio.gpio_manager import GpioManager
 from boneio.group import OutputGroup
 from boneio.helper import (
     CoverConfigurationException,
@@ -492,6 +493,7 @@ def configure_relay(
 
 def configure_event_sensor(
     gpio: EventConfig,
+    gpio_manager: GpioManager,
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
@@ -527,6 +529,7 @@ def configure_event_sensor(
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 gpio=gpio,
+                gpio_manager=gpio_manager,
             )
         if gpio.show_in_ha:
             send_ha_autodiscovery(
