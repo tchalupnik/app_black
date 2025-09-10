@@ -204,7 +204,7 @@ class Manager:
 
         self._configure_adc(adc_list=adc)
 
-        for output in config.output:
+        for output in config.outputs:
             _id = strip_accents(output.id)
             _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.

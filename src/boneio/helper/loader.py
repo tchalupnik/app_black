@@ -348,7 +348,7 @@ def configure_relay(
         if GPIO not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[GPIO] = {}
         relay = GpioRelay(
-            pin=int(output_config.pin),
+            pin=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,
@@ -368,7 +368,7 @@ def configure_relay(
             _LOGGER.error("No such MCP configured!")
             return None
         relay = MCPRelay(
-            pin=int(output_config.pin),
+            pin=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,
@@ -391,7 +391,7 @@ def configure_relay(
             _LOGGER.error("No such PCA configured!")
             return None
         relay = PWMPCA(
-            pin=int(output_config.pin),
+            pin=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,
@@ -414,7 +414,7 @@ def configure_relay(
             _LOGGER.error("No such PCF configured!")
             return None
         relay = PCFRelay(
-            pin=int(output_config.pin),
+            pin=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,

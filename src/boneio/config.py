@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field, RootModel, field_validator
 
 from boneio.const import (
     BINARY_SENSOR,
@@ -193,11 +193,21 @@ class OledConfig(BaseModel):
     screensaver_timeout: timedelta = Field(default_factory=lambda: timedelta(minutes=1))
 
 
+Filters = Literal[
+    "offset",
+    "round",
+    "multiply",
+    "filter_out",
+    "filter_out_greater",
+    "filter_out_lower",
+]
+
+
 class TemperatureConfig(BaseModel):
-    address: str
+    address: int
     id: str | None = None
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
-    filters: list[str] = Field(default_factory=list)
+    filters: list[dict[Filters, float]] = Field(default_factory=list)
     unit_of_measurement: Literal["°C", "°F"] = "°C"
 
 
@@ -207,7 +217,7 @@ Ina219DeviceClass = Literal["voltage", "current", "power"]
 class Ina219SensorConfig(BaseModel):
     id: str
     device_class: Ina219DeviceClass
-    filters: list[str] = Field(default_factory=list)
+    filters: list[dict[Filters, float]] = Field(default_factory=list)
 
 
 class Ina219Config(BaseModel):
@@ -259,6 +269,11 @@ class EventConfig(BaseModel):
     detection_type: Literal["new", "old"] = "new"
     clear_message: bool = False
     bounce_time: timedelta = timedelta(milliseconds=30)
+
+    @field_validator("boneio_input", mode="before")
+    @classmethod
+    def validate_boneio_input(cls, v: str) -> str:
+        return v.lower()
 
 
 EventsConfig = RootModel[list[EventConfig]]
@@ -320,13 +335,18 @@ class BinarySensorConfig(BaseModel):
     bounce_time: timedelta = timedelta(milliseconds=120)
     initial_send: bool = False
 
+    @field_validator("boneio_input", mode="before")
+    @classmethod
+    def validate_boneio_input(cls, v: str) -> str:
+        return v.lower()
+
 
 class OutputConfig(BaseModel):
     id: str
     output_type: Literal["cover", "light", "switch", "valve", "none"]
     kind: Literal["gpio", "mcp", "pca", "pcf"] | None = None
     boneio_output: str | None = None
-    pin: str | None = None
+    pin: int | None = None
     momentary_turn_on: timedelta | None = None
     momentary_turn_off: timedelta | None = None
     virtual_power_usage: str | None = None
@@ -340,9 +360,9 @@ class OutputConfig(BaseModel):
 
 
 class SensorConfig(BaseModel):
-    address: str
+    address: int
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
-    filters: list[str] = Field(default_factory=list)
+    filters: list[dict[Filters, float]] = Field(default_factory=list)
     unit_of_measurement: Literal["°C", "°F"] = "°C"
     id: str | None = None
     show_in_ha: bool = True
@@ -370,7 +390,7 @@ class AdcConfig(BaseModel):
     id: str | None = None
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
     show_in_ha: bool = True
-    filters: list[str] = Field(default_factory=list)
+    filters: list[dict[Filters, float]] = Field(default_factory=list)
 
 
 class Config(BaseModel):
@@ -381,8 +401,8 @@ class Config(BaseModel):
     mcp9808: list[TemperatureConfig] | None = None
     ina219: list[Ina219Config] | None = None
     sensors: list[SensorConfig] = Field(default_factory=list)
-    binary_sensor: list[BinarySensorConfig] | None = None
-    event: EventsConfig | None = None
-    output: list[OutputConfig] | None = None
+    binary_sensors: list[BinarySensorConfig] | None = None
+    events: EventsConfig | None = None
+    outputs: list[OutputConfig] | None = None
     web: WebConfig | None = None
     adc: AdcConfig | None = None
