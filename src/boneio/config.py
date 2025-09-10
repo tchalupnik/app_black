@@ -259,9 +259,9 @@ class EventConfig(BaseModel):
     id: str
     pin: str
     boneio_input: BoneIOInput
-    action: RootModel[
+    actions: RootModel[
         dict[Literal["single", "double", "long"], list[EventActionConfig]]
-    ]
+    ] = Field(default_factory=lambda: RootModel(root={}))
     device_class: Literal["button", "doorbell", "motion"]
     show_in_ha: bool = True
     inverted: bool = False
@@ -274,9 +274,6 @@ class EventConfig(BaseModel):
     @classmethod
     def validate_boneio_input(cls, v: str) -> str:
         return v.lower()
-
-
-EventsConfig = RootModel[list[EventConfig]]
 
 
 class BinarySensorAction(BaseModel):
@@ -324,9 +321,9 @@ class BinarySensorConfig(BaseModel):
         "vibration",
         "window",
     ]
-    action: (
-        RootModel[dict[Literal["pressed", "released"], list[BinarySensorAction]]] | None
-    ) = None
+    actions: RootModel[
+        dict[Literal["pressed", "released"], list[BinarySensorAction]]
+    ] = Field(default_factory=lambda: RootModel(root={}))
     show_in_ha: bool = True
     inverted: bool = False
     gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"
@@ -402,7 +399,7 @@ class Config(BaseModel):
     ina219: list[Ina219Config] = Field(default_factory=list)
     sensors: list[SensorConfig] = Field(default_factory=list)
     binary_sensors: list[BinarySensorConfig] = Field(default_factory=list)
-    events: EventsConfig | None = None
+    events: list[EventConfig] = Field(default_factory=list)
     outputs: list[OutputConfig] = Field(default_factory=list)
     web: WebConfig | None = None
     adc: AdcConfig | None = None

@@ -6,8 +6,8 @@ import logging
 import time
 import typing
 from collections.abc import Callable
-from datetime import timedelta
 
+from boneio.config import BinarySensorConfig
 from boneio.const import PRESSED, RELEASED
 
 from .base import BOTH, GpioBase, add_event_callback, add_event_detect
@@ -30,11 +30,7 @@ class GpioInputBinarySensorNew(GpioBase):
         input_type: str,
         empty_message_after: bool,
         event_bus: EventBus,
-        boneio_input: str = "",
-        inverted: bool = False,
-        initial_send: bool = False,
-        bounce_time: timedelta | None = None,
-        gpio_mode: str = "gpio",
+        gpio: BinarySensorConfig,
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
@@ -45,17 +41,17 @@ class GpioInputBinarySensorNew(GpioBase):
             input_type=input_type,
             empty_message_after=empty_message_after,
             event_bus=event_bus,
-            boneio_input=boneio_input,
-            bounce_time=bounce_time,
-            gpio_mode=gpio_mode,
+            boneio_input=gpio.boneio_input,
+            bounce_time=gpio.bounce_time,
+            gpio_mode=gpio.gpio_mode,
         )
         self._state = self.is_pressed
         self.button_pressed_time = 0.0
-        self._click_type = (RELEASED, PRESSED) if inverted else (PRESSED, RELEASED)
+        self._click_type = (RELEASED, PRESSED) if gpio.inverted else (PRESSED, RELEASED)
         self._pressed_state = (
             self._click_type[0] if self._state else self._click_type[1]
         )
-        self._initial_send = initial_send
+        self._initial_send = gpio.initial_send
         _LOGGER.debug("Configured sensor pin %s", self._pin)
         add_event_detect(pin=self._pin, edge=BOTH)
         add_event_callback(pin=self._pin, callback=self.check_state)

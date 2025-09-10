@@ -6,8 +6,8 @@ import asyncio
 import logging
 import typing
 from collections.abc import Callable
-from datetime import timedelta
 
+from boneio.config import BinarySensorConfig
 from boneio.const import PRESSED, RELEASED
 
 from .base import GpioBase
@@ -30,10 +30,7 @@ class GpioInputBinarySensor(GpioBase):
         input_type: str,
         empty_message_after: bool,
         event_bus: EventBus,
-        boneio_input: str = "",
-        inverted: bool = False,
-        bounce_time: timedelta | None = None,
-        gpio_mode: str = "gpio",
+        gpio: BinarySensorConfig,
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
@@ -44,12 +41,12 @@ class GpioInputBinarySensor(GpioBase):
             input_type=input_type,
             empty_message_after=empty_message_after,
             event_bus=event_bus,
-            boneio_input=boneio_input,
-            bounce_time=bounce_time,
-            gpio_mode=gpio_mode,
+            boneio_input=gpio.boneio_input,
+            bounce_time=gpio.bounce_time,
+            gpio_mode=gpio.gpio_mode,
         )
         self._state = self.is_pressed
-        self._click_type = (RELEASED, PRESSED) if inverted else (PRESSED, RELEASED)
+        self._click_type = (RELEASED, PRESSED) if gpio.inverted else (PRESSED, RELEASED)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
         asyncio.create_task(self._run())
 

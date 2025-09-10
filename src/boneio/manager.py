@@ -12,14 +12,15 @@ from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
+    BinarySensorConfig,
     Config,
+    EventConfig,
     Ina219Config,
     MqttAutodiscoveryMessage,
     SensorConfig,
     TemperatureConfig,
 )
 from boneio.const import (
-    ACTIONS,
     ADC,
     ADDRESS,
     BINARY_SENSOR,
@@ -50,7 +51,6 @@ from boneio.const import (
     PCA9685,
     PCF,
     PCF8575,
-    PIN,
     RELAY,
     SET_BRIGHTNESS,
     STATE,
@@ -127,7 +127,6 @@ class Manager:
         old_config: dict,
     ) -> None:
         self._event_pins = old_config.get(EVENT_ENTITY, [])
-        binary_pins = old_config.get(BINARY_SENSOR, [])
         modbus_devices = old_config.get("modbus_devices", {})
         mcp23017 = old_config.get(MCP23017, [])
         pcf8575 = old_config.get(PCF8575, [])
@@ -152,7 +151,6 @@ class Manager:
         self.send_message = message_bus.send_message
         self._mqtt_state = message_bus.state
         self._inputs = {}
-        self._binary_pins = binary_pins
         from board import SCL, SDA
 
         self._i2cbusio = I2C(SCL, SDA)
@@ -538,38 +536,35 @@ class Manager:
                     return True
             return False
 
-        def configure_single_input(configure_sensor_func, gpio) -> None:
-            try:
-                pin = gpio.pop(PIN)
-            except AttributeError as err:
-                _LOGGER.error("Wrong config. Can't configure %s. Error %s", gpio, err)
-                return
-            if check_if_pin_configured(pin=pin):
+        def configure_single_input(
+            configure_sensor_func, gpio: BinarySensorConfig | EventConfig
+        ) -> None:
+            if check_if_pin_configured(pin=gpio.pin):
                 return
             input = configure_sensor_func(
                 gpio=gpio,
-                pin=pin,
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self._inputs.get(pin, None),  # for reload actions.
-                actions=self.parse_actions(pin, gpio.pop(ACTIONS, {})),
+                input=self._inputs.get(gpio.pin, None),  # for reload actions.
+                actions=self.parse_actions(gpio.pin, gpio.actions),
             )
             if input:
                 self._inputs[input.pin] = input
 
         if reload_config:
-            config = load_config_from_file(self._config_file_path)
-            if config:
-                self._event_pins = config.get(EVENT_ENTITY, [])
-                self._binary_pins = config.get(BINARY_SENSOR, [])
+            config_dict = load_config_from_file(self._config_file_path)
+            if config_dict is not None:
+                new_config = Config.model_validate(config_dict)
+                self.config.events = new_config.events
+                self.config.binary_sensors = new_config.binary_sensors
                 self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
                 self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
-        for gpio in self._event_pins:
+        for gpio in self.config.events:
             configure_single_input(
                 configure_sensor_func=configure_event_sensor, gpio=gpio
             )
-        for gpio in self._binary_pins:
+        for gpio in self.config.binary_sensors:
             configure_single_input(
                 configure_sensor_func=configure_binary_sensor, gpio=gpio
             )

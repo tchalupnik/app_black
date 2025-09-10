@@ -12,7 +12,9 @@ from adafruit_pca9685 import PCA9685
 from busio import I2C
 
 from boneio.config import (
+    BinarySensorConfig,
     Config,
+    EventConfig,
     Ina219Config,
     OutputConfig,
     SensorConfig,
@@ -487,8 +489,7 @@ def configure_relay(
 
 
 def configure_event_sensor(
-    gpio: dict,
-    pin: str,
+    gpio: EventConfig,
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
@@ -504,11 +505,9 @@ def configure_event_sensor(
         actions = {}
     try:
         gpioEventButtonClass = (
-            GpioEventButtonNew
-            if gpio.pop("detection_type", "new") == "new"
-            else GpioEventButtonOld
+            GpioEventButtonNew if gpio.detection_type == "new" else GpioEventButtonOld
         )
-        name = gpio.pop(ID, pin)
+        name = gpio.id or gpio.pin
         if input:
             if not isinstance(input, gpioEventButtonClass):
                 _LOGGER.warning(
@@ -518,31 +517,30 @@ def configure_event_sensor(
             input.set_actions(actions=actions)
         else:
             input = gpioEventButtonClass(
-                pin=pin,
+                pin=gpio.pin,
                 name=name,
                 input_type=INPUT,
-                empty_message_after=gpio.pop("clear_message", False),
+                empty_message_after=gpio.clear_message,
                 actions=actions,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
-                **gpio,
+                gpio=gpio,
             )
-        if gpio.get(SHOW_HA, True):
+        if gpio.show_in_ha:
             send_ha_autodiscovery(
-                id=pin,
+                id=gpio.pin,
                 name=name,
                 ha_type=EVENT_ENTITY,
-                device_class=gpio.get(DEVICE_CLASS, None),
+                device_class=gpio.device_class,
                 availability_msg_func=ha_event_availabilty_message,
             )
         return input
     except GPIOInputException as err:
-        _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
+        _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
 
 
 def configure_binary_sensor(
-    gpio: dict,
-    pin: str,
+    gpio: BinarySensorConfig,
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
@@ -559,10 +557,10 @@ def configure_binary_sensor(
     try:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew
-            if gpio.pop("detection_type", "new") == "new"
+            if gpio.detection_type == "new"
             else GpioInputBinarySensorOld
         )
-        name = gpio.pop(ID, pin)
+        name = gpio.id or gpio.pin
         if input:
             if not isinstance(input, GpioInputBinarySensorClass):
                 _LOGGER.warning(
@@ -572,26 +570,26 @@ def configure_binary_sensor(
             input.set_actions(actions=actions)
         else:
             input = GpioInputBinarySensorClass(
-                pin=pin,
+                pin=gpio.pin,
                 name=name,
                 actions=actions,
                 input_type=INPUT_SENSOR,
-                empty_message_after=gpio.pop("clear_message", False),
+                empty_message_after=gpio.clear_message,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
-                **gpio,
+                gpio=gpio,
             )
-        if gpio.get(SHOW_HA, True):
+        if gpio.show_in_ha:
             send_ha_autodiscovery(
-                id=pin,
+                id=gpio.pin,
                 name=name,
                 ha_type=BINARY_SENSOR,
-                device_class=gpio.get(DEVICE_CLASS),
+                device_class=gpio.device_class,
                 availability_msg_func=ha_binary_sensor_availabilty_message,
             )
         return input
     except GPIOInputException as err:
-        _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
+        _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
 
 
 def configure_cover(
