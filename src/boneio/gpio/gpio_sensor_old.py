@@ -1,5 +1,7 @@
 """GpioInputBinarySensor to receive signals."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import typing
