@@ -1088,7 +1088,7 @@ class Manager:
         topic = f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
         self.config.mqtt.autodiscovery_messages.add_message(
-            topic=topic, ha_type=ha_type, payload=payload
+            ha_type=ha_type, payload=payload
         )
         self.send_message(topic=topic, payload=payload, retain=True)
 
