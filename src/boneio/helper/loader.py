@@ -12,6 +12,7 @@ from adafruit_pca9685 import PCA9685
 from busio import I2C
 
 from boneio.config import (
+    AdcConfig,
     BinarySensorConfig,
     Config,
     EventConfig,
@@ -26,7 +27,6 @@ from boneio.const import (
     COVER,
     DEVICE_CLASS,
     EVENT_ENTITY,
-    FILTERS,
     GPIO,
     ID,
     INIT_SLEEP,
@@ -42,7 +42,6 @@ from boneio.const import (
     PCA_ID,
     PCF,
     PCF_ID,
-    PIN,
     RELAY,
     RESTORE_STATE,
     SENSOR,
@@ -103,34 +102,34 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def create_adc(
-    manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = None
+    manager: Manager,
+    message_bus: MessageBus,
+    topic_prefix: str,
+    adc: list[AdcConfig],
 ):
     """Create ADC sensor."""
 
-    if adc_list is None:
-        adc_list = []
-    initialize_adc()
+    if adc:
+        initialize_adc()
 
     # TODO: find what exception can ADC gpio throw.
-    for gpio in adc_list:
-        name = gpio.get(ID)
-        id = name.replace(" ", "")
-        pin = gpio[PIN]
+    for gpio in adc:
+        id = gpio.id.replace(" ", "")
         try:
             GpioADCSensor(
                 id=id,
-                pin=pin,
-                name=name,
+                pin=gpio.pin,
+                name=gpio.id,
                 manager=manager,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.get(UPDATE_INTERVAL, timedelta(seconds=60)),
-                filters=gpio.get(FILTERS, []),
+                update_interval=gpio.update_interval,
+                filters=gpio.filters,
             )
-            if gpio.get(SHOW_HA, True):
+            if gpio.show_in_ha:
                 manager.send_ha_autodiscovery(
                     id=id,
-                    name=name,
+                    name=gpio.id,
                     ha_type=SENSOR,
                     availability_msg_func=ha_adc_sensor_availabilty_message,
                 )

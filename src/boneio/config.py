@@ -401,5 +401,5 @@ class Config(BaseModel):
     binary_sensors: list[BinarySensorConfig] = Field(default_factory=list)
     events: list[EventConfig] = Field(default_factory=list)
     outputs: list[OutputConfig] = Field(default_factory=list)
+    adc: list[AdcConfig] = Field(default_factory=list)
     web: WebConfig | None = None
-    adc: AdcConfig | None = None

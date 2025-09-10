@@ -12,6 +12,7 @@ from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
+    AdcConfig,
     BinarySensorConfig,
     Config,
     EventConfig,
@@ -21,7 +22,6 @@ from boneio.config import (
     TemperatureConfig,
 )
 from boneio.const import (
-    ADC,
     ADDRESS,
     BINARY_SENSOR,
     BUTTON,
@@ -85,6 +85,7 @@ from boneio.helper.loader import (
     configure_event_sensor,
     configure_output_group,
     configure_relay,
+    create_adc,
     create_dallas_sensor,
     create_expander,
     create_serial_number_sensor,
@@ -132,7 +133,6 @@ class Manager:
         pcf8575 = old_config.get(PCF8575, [])
         pca9685 = old_config.get(PCA9685, [])
         ds2482 = old_config.get(DS2482, [])
-        adc = old_config.get(ADC, [])
         cover = old_config.get(COVER, [])
         modbus = old_config.get(MODBUS, {})
         dallas = old_config.get(DALLAS, None)
@@ -205,7 +205,12 @@ class Manager:
             )
         )
 
-        self._configure_adc(adc_list=adc)
+        create_adc(
+            manager=self,
+            message_bus=self._message_bus,
+            topic_prefix=self.config.mqtt.topic_prefix,
+            adc=self.config.adc,
+        )
 
         for output in config.outputs:
             _id = strip_accents(output.id)
@@ -651,16 +656,13 @@ class Manager:
                 )
             )
 
-    def _configure_adc(self, adc_list: list | None) -> None:
-        if adc_list:
-            from boneio.helper.loader import create_adc
-
-            create_adc(
-                manager=self,
-                message_bus=self._message_bus,
-                topic_prefix=self.config.mqtt.topic_prefix,
-                adc_list=adc_list,
-            )
+    def _configure_adc(self, adc: list[AdcConfig]) -> None:
+        create_adc(
+            manager=self,
+            message_bus=self._message_bus,
+            topic_prefix=self.config.mqtt.topic_prefix,
+            adc=adc,
+        )
 
     def _configure_modbus(self, modbus: dict) -> None:
         uart = modbus.get(UART)
