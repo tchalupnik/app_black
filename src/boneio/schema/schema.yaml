@@ -170,7 +170,6 @@ oled:
         - string
         - timedelta
       coerce:
-        - str
         - positive_time_period
       default: 60s
       meta:
