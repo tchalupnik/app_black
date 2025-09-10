@@ -54,10 +54,10 @@ class GpioManager:
     def setup_input(self, pin: str, pull_mode: str = "gpio") -> None:
         """Set up a GPIO as input."""
         gpio_mode = {
-            "gpio": gpiod.line.BIAS.DISABLED,
-            "gpio_pu": gpiod.line.BIAS.PULL_UP,
-            "gpio_pd": gpiod.line.BIAS.PULL_DOWN,
-            "gpio_input": gpiod.line.BIAS.DISABLED,
+            "gpio": gpiod.line.Bias.DISABLED,
+            "gpio_pu": gpiod.line.Bias.PULL_UP,
+            "gpio_pd": gpiod.line.Bias.PULL_DOWN,
+            "gpio_input": gpiod.line.Bias.DISABLED,
         }.get(pull_mode)
 
         chip, line_offset = self._get_chip_and_offset_by_pin(pin)
