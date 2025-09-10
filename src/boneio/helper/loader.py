@@ -231,7 +231,7 @@ def create_expander(
                 )
                 time.sleep(sleep_time.total_seconds())
             else:
-                _LOGGER.debug("%%s %s is initializing.", exp_type, id)
+                _LOGGER.debug("%s %s is initializing.", exp_type, id)
             grouped_outputs[id] = {}
         except TimeoutError as err:
             _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)

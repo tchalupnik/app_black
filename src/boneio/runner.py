@@ -58,9 +58,7 @@ async def async_run(
             configuration.mqtt.username = mqttusername
         if mqttpassword is not None:
             configuration.mqtt.password = mqttpassword
-        message_bus = MQTTClient(
-            config=configuration,
-        )
+        message_bus = MQTTClient(config=configuration)
     else:
         from boneio.message_bus import LocalMessageBus
 
