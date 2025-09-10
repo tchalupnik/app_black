@@ -59,7 +59,10 @@ class GpioInputBinarySensorNew(GpioBase):
         self._initial_send = gpio.initial_send
         _LOGGER.debug("Configured sensor pin %s", self._pin)
         self.gpio_manager.add_event_callback(
-            pin=self._pin, callback=self.check_state, bounce=gpio.bounce_time, edge=BOTH
+            pin=self._pin,
+            callback=self.check_state,
+            debounce_period=gpio.bounce_time,
+            edge=BOTH,
         )
         self._loop.call_soon_threadsafe(self.check_state, self._initial_send)
 

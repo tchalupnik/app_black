@@ -115,7 +115,7 @@ class Oled:
         self.gpio_manager.add_event_callback(
             pin=OLED_PIN,
             callback=self._handle_press,
-            bounce=timedelta(milliseconds=240),
+            debounce_period=timedelta(milliseconds=240),
         )
         try:
             serial = i2c(port=2, address=0x3C)
