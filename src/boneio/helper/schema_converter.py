@@ -37,7 +37,7 @@ def convert_type(cerberus_type: str | list[str]) -> str | list[str]:
         "boolean": "boolean",
         "dict": "object",
         "list": "array",
-        "timeperiod": "number",  # timeperiod as number (milliseconds) for ConfigEditor2
+        "timedelta": "number",  # timedelta as number (milliseconds) for ConfigEditor2
     }
     if isinstance(cerberus_type, list):
         return [type_map.get(type, "string") for type in cerberus_type]

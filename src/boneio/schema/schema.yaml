@@ -168,7 +168,7 @@ oled:
     screensaver_timeout:
       type:
         - string
-        - timeperiod
+        - timedelta
       coerce:
         - str
         - positive_time_period
@@ -252,7 +252,7 @@ modbus_devices:
       update_interval:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -392,7 +392,7 @@ mcp23017:
       init_sleep:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -418,7 +418,7 @@ pcf8575:
       init_sleep:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -444,7 +444,7 @@ pca9685:
       init_sleep:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -501,7 +501,7 @@ output:
       momentary_turn_on:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -511,7 +511,7 @@ output:
       momentary_turn_off:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -636,7 +636,7 @@ binary_sensor:
       bounce_time:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -752,7 +752,7 @@ event:
       bounce_time:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -860,7 +860,7 @@ cover:
       open_time:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -870,7 +870,7 @@ cover:
       close_time:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -880,7 +880,7 @@ cover:
       tilt_duration:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period
@@ -890,7 +890,7 @@ cover:
       actuator_activation_duration:
         type:
           - string
-          - timeperiod
+          - timedelta
         coerce:
           - str
           - positive_time_period

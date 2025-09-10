@@ -1,6 +1,6 @@
 type:
   - string
-  - timeperiod
+  - timedelta
 coerce:
   - str
   - positive_time_period
