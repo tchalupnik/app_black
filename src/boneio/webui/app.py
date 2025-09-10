@@ -1055,18 +1055,19 @@ async def websocket_endpoint(
                 # Send covers
                 for cover in boneio_manager.covers.values():
                     try:
-                        cover_state_kwargs = {
-                            "id": cover.id,
-                            "name": cover.name,
-                            "state": cover.state,
-                            "position": cover.position,
-                            "kind": cover.kind,
-                            "timestamp": cover.last_timestamp,
-                            "current_operation": cover.current_operation,
-                        }
+                        cover_state_kwargs = {}
                         if getattr(cover, "kind", None) == "venetian":
                             cover_state_kwargs["tilt"] = getattr(cover, "tilt", 0)
-                        cover_state = CoverState(**cover_state_kwargs)
+                        cover_state = CoverState(
+                            id=cover.id,
+                            name=cover.name,
+                            state=cover.state,
+                            position=cover.position,
+                            kind=cover.kind,
+                            timestamp=cover.last_timestamp,
+                            current_operation=cover.current_operation,
+                            **cover_state_kwargs,
+                        )
                         update = StateUpdate(type="cover", data=cover_state)
                         if not await send_state_update(update):
                             return

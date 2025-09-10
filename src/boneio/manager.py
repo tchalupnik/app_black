@@ -145,7 +145,7 @@ class Manager:
 
         self._loop = asyncio.get_event_loop()
         self.config = config
-        self._host_data = None
+        self._host_data: HostData | None = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = event_bus
@@ -1083,9 +1083,9 @@ class Manager:
         web_url = None
         if self.config.web is not None:
             network_state = get_network_info()
-            if self._host_data:
+            if self._host_data is not None:
                 web_url = self._host_data.web_url
-            elif network_state and IP in network_state:
+            elif IP in network_state:
                 web_url = f"http://{network_state[IP]}:{self.config.web.port}"
         payload = availability_msg_func(
             topic=topic_prefix,
