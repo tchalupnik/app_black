@@ -205,6 +205,8 @@ class Oled:
 
     def render_display(self) -> None:
         """Render display."""
+        if self._current_screen is None:
+            return
         data = self._host_data.get(self._current_screen)
         if data:
             if self._current_screen == "web":

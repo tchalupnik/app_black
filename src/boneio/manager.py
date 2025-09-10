@@ -285,7 +285,7 @@ class Manager:
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
             finally:
-                if self._oled:
+                if self._oled is not None:
                     self._oled.render_display()
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")

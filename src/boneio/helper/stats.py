@@ -7,16 +7,16 @@ import time
 from collections.abc import Callable
 from datetime import timedelta
 from math import floor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import psutil
+from pydantic import BaseModel, Field
 
 from boneio.config import OledExtraScreenSensorConfig, OledScreens
 from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
-    HOST,
     INA219,
     IP,
     MAC,
@@ -125,26 +125,23 @@ class HostSensor(AsyncUpdater):
 
     def __init__(
         self,
+        host_stat: HostStat,
         event_bus: EventBus,
-        update_function: Callable,
-        static_data: dict | None,
         id: str,
         type: str,
         manager: Manager,
-        update_interval: timedelta = timedelta(seconds=60),
     ) -> None:
-        self._update_function = update_function
-        self._static_data = static_data
         self._state = {}
+        self.host_stat = host_stat
         self._type = type
         self._event_bus = event_bus
         self._loop = asyncio.get_event_loop()
         self.id = id
-        super().__init__(manager=manager, update_interval=update_interval)
+        super().__init__(manager=manager, update_interval=host_stat.update_interval)
         self._loop.create_task(self.async_update(time.time()))
 
     async def async_update(self, timestamp: float) -> None:
-        self._state = self._update_function()
+        self._state = self.host_stat.f()
         sensor_state = HostSensorState(
             id=self.id,
             name=self._type,
@@ -156,10 +153,26 @@ class HostSensor(AsyncUpdater):
         )
 
     @property
-    def state(self) -> dict:
-        if self._static_data:
-            return {**self._static_data, **self._state}
+    def state(self) -> dict[str, str]:
+        if self.host_stat.static:
+            return {
+                **{k: v.model_dump() for k, v in self.host_stat.static.items()},
+                **self._state,
+            }
         return self._state
+
+
+class FontSizeStatic(BaseModel):
+    data: str
+    fontSize: Literal["small", "medium", "large"]
+    row: int
+    col: int
+
+
+class HostStat(BaseModel):
+    f: Callable[[], dict[str, str]]
+    update_interval: timedelta = Field(default=timedelta(seconds=60))
+    static: dict[Literal["host", "ver"], FontSizeStatic] | None = None
 
 
 class HostData:
@@ -180,26 +193,14 @@ class HostData:
         self._manager = manager
         self._hostname = socket.gethostname()
         self._temp_sensor = temp_sensor
-        host_stats = {
-            NETWORK: {
-                "f": get_network_info,
-                "update_interval": timedelta(seconds=60),
-            },
-            CPU: {"f": get_cpu_info, "update_interval": timedelta(seconds=5)},
-            DISK: {
-                "f": get_disk_info,
-                "update_interval": timedelta(seconds=60),
-            },
-            MEMORY: {
-                "f": get_memory_info,
-                "update_interval": timedelta(seconds=10),
-            },
-            SWAP: {
-                "f": get_swap_info,
-                "update_interval": timedelta(seconds=60),
-            },
-            UPTIME: {
-                "f": lambda: (
+        host_stats: dict[str, HostStat] = {
+            NETWORK: HostStat(f=get_network_info),
+            CPU: HostStat(f=get_cpu_info, update_interval=timedelta(seconds=5)),
+            DISK: HostStat(f=get_disk_info),
+            MEMORY: HostStat(f=get_memory_info, update_interval=timedelta(seconds=10)),
+            SWAP: HostStat(f=get_swap_info),
+            UPTIME: HostStat(
+                f=lambda: (
                     {
                         "uptime": {
                             "data": get_uptime(),
@@ -230,22 +231,22 @@ class HostData:
                         }
                     }
                 ),
-                "static": {
-                    HOST: {
-                        "data": self._hostname,
-                        "fontSize": "small",
-                        "row": 0,
-                        "col": 3,
-                    },
-                    "ver": {
-                        "data": __version__,
-                        "fontSize": "small",
-                        "row": 1,
-                        "col": 3,
-                    },
+                static={
+                    "host": FontSizeStatic(
+                        data=self._hostname,
+                        fontSize="small",
+                        row=0,
+                        col=3,
+                    ),
+                    "ver": FontSizeStatic(
+                        data=__version__,
+                        fontSize="small",
+                        row=1,
+                        col=3,
+                    ),
                 },
-                "update_interval": timedelta(seconds=30),
-            },
+                update_interval=timedelta(seconds=30),
+            ),
         }
         if ina219 is not None:
 
@@ -263,45 +264,48 @@ class HostData:
 
             def get_extra_sensors_values():
                 output = {}
-                for sensor in extra_sensors[:3]:
-                    sensor_type = sensor.get("sensor_type")
-                    sensor_id = sensor.get("sensor_id")
-                    if sensor_type == "modbus":
-                        modbus_id = sensor.get("modbus_id")
-                        _modbus_coordinator = manager.modbus_coordinators.get(modbus_id)
+                for sensor in extra_sensors:
+                    if sensor.sensor_type == "modbus":
+                        _modbus_coordinator = manager.modbus_coordinators.get(
+                            sensor.modbus_id
+                        )
                         if _modbus_coordinator:
-                            entity = _modbus_coordinator.get_entity_by_name(sensor_id)
+                            entity = _modbus_coordinator.get_entity_by_name(
+                                sensor.sensor_id
+                            )
                             if not entity:
-                                _LOGGER.warning("Sensor %s not found", sensor_id)
+                                _LOGGER.warning("Sensor %s not found", sensor.sensor_id)
                                 continue
                             short_name = "".join([x[:3] for x in entity.name.split()])
                             output[short_name] = (
                                 f"{round(entity.state, 2)} {entity.unit_of_measurement}"
                             )
-                    elif sensor_type == "dallas":
+                    elif sensor.sensor_type == "dallas":
                         for single_sensor in manager.temp_sensors:
-                            if sensor_id == single_sensor.id.lower():
+                            if sensor.sensor_id == single_sensor.id.lower():
                                 output[single_sensor.name] = (
                                     f"{round(single_sensor.state, 2)} C"
                                 )
+                    else:
+                        _LOGGER.warning(
+                            "Sensor type %s not supported", sensor.sensor_type
+                        )
                 return output
 
             host_stats["extra_sensors"] = {
                 "f": get_extra_sensors_values,
                 "update_interval": timedelta(seconds=60),
             }
-        self._data = {}
+        self._data: dict[str, HostSensor] = {}
         for k, _v in host_stats.items():
             if k not in enabled_screens:
                 continue
             self._data[k] = HostSensor(
-                update_function=_v["f"],
-                static_data=_v.get("static"),
+                host_stat=_v,
                 event_bus=event_bus,
                 manager=manager,
                 id=f"{k}_hoststats",
                 type=k,
-                update_interval=_v["update_interval"],
             )
         self._output = output
         self._inputs = {
