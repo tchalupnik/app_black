@@ -56,6 +56,8 @@ class GpioBase:
     ) -> None:
         """Setup GPIO Input Button"""
         self._pin = pin
+        self.gpio_manager = gpio_manager
+        self.gpio_manager.setup_input(pin=self._pin, pull_mode=gpio_mode)
         self._bounce_time = bounce_time.total_seconds()
         self._loop = asyncio.get_running_loop()
         self._manager_press_callback = manager_press_callback
@@ -70,8 +72,6 @@ class GpioBase:
         self._last_timestamp = 0.0
         self._event_bus = event_bus
         self._event_lock = asyncio.Lock()
-        self.gpio_manager = gpio_manager
-        self.gpio_manager.setup_input(pin=self._pin, pull_mode=gpio_mode)
 
     def press_callback(
         self,
