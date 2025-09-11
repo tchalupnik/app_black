@@ -46,55 +46,55 @@ AutodiscoveryType = Literal[
 ]
 
 BoneIOInput = Literal[
-    "IN_01",
-    "IN_02",
-    "IN_03",
-    "IN_04",
-    "IN_05",
-    "IN_06",
-    "IN_07",
-    "IN_08",
-    "IN_09",
-    "IN_10",
-    "IN_11",
-    "IN_12",
-    "IN_13",
-    "IN_14",
-    "IN_15",
-    "IN_16",
-    "IN_17",
-    "IN_18",
-    "IN_19",
-    "IN_20",
-    "IN_21",
-    "IN_22",
-    "IN_23",
-    "IN_24",
-    "IN_25",
-    "IN_26",
-    "IN_27",
-    "IN_28",
-    "IN_29",
-    "IN_30",
-    "IN_31",
-    "IN_32",
-    "IN_33",
-    "IN_34",
-    "IN_35",
-    "IN_36",
-    "IN_37",
-    "IN_38",
-    "IN_39",
-    "IN_40",
-    "IN_41",
-    "IN_42",
-    "IN_43",
-    "IN_44",
-    "IN_45",
-    "IN_46",
-    "IN_47",
-    "IN_48",
-    "IN_49",
+    "in_01",
+    "in_02",
+    "in_03",
+    "in_04",
+    "in_05",
+    "in_06",
+    "in_07",
+    "in_08",
+    "in_09",
+    "in_10",
+    "in_11",
+    "in_12",
+    "in_13",
+    "in_14",
+    "in_15",
+    "in_16",
+    "in_17",
+    "in_18",
+    "in_19",
+    "in_20",
+    "in_21",
+    "in_22",
+    "in_23",
+    "in_24",
+    "in_25",
+    "in_26",
+    "in_27",
+    "in_28",
+    "in_29",
+    "in_30",
+    "in_31",
+    "in_32",
+    "in_33",
+    "in_34",
+    "in_35",
+    "in_36",
+    "in_37",
+    "in_38",
+    "in_39",
+    "in_40",
+    "in_41",
+    "in_42",
+    "in_43",
+    "in_44",
+    "in_45",
+    "in_46",
+    "in_47",
+    "in_48",
+    "in_49",
 ]
 
 
@@ -237,9 +237,9 @@ class EventActionConfig(BaseModel):
         "cover", "cover_over_mqtt", "mqtt", "mqtt_output", "output", "output_over_mqtt"
     ]
     pin: str
-    topic: str
-    action_mqtt_msg: str
-    boneio_id: str
+    topic: str | None = None
+    action_mqtt_msg: str | None = None
+    boneio_id: str | None = None
     action_cover: Literal[
         "toggle",
         "open",
@@ -253,6 +253,16 @@ class EventActionConfig(BaseModel):
     ] = "toggle"
     data: EventActionDataConfig | None = None
     action_output: Literal["toggle", "on", "off"] = "toggle"
+
+    @field_validator("action_cover", mode="before")
+    @classmethod
+    def validate_action_cover(cls, v: str) -> str:
+        return v.lower()
+
+    @field_validator("action_output", mode="before")
+    @classmethod
+    def validate_action_output(cls, v: str) -> str:
+        return v.lower()
 
 
 EventActionTypes = Literal["single", "double", "long"]
@@ -295,6 +305,16 @@ class BinarySensorAction(BaseModel):
     ] = "toggle"
     boneio_id: str | None = None
     action_output: Literal["toggle", "on", "off"] = "toggle"
+
+    @field_validator("action_cover", mode="before")
+    @classmethod
+    def validate_action_cover(cls, v: str) -> str:
+        return v.lower()
+
+    @field_validator("action_output", mode="before")
+    @classmethod
+    def validate_action_output(cls, v: str) -> str:
+        return v.lower()
 
 
 BinarySensorActionTypes = Literal["pressed", "released"]
