@@ -259,7 +259,7 @@ class Oled:
                             target=self._standard_callback,
                         )
         else:
-            self._handle_press(pin=None)
+            self._handle_press()
         if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds() > 0:
             self._cancel_sleep_handle = async_track_point_in_time(
                 loop=self._loop,
