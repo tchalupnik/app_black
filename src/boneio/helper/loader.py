@@ -31,7 +31,6 @@ from boneio.const import (
     ADDRESS,
     BINARY_SENSOR,
     COVER,
-    DEVICE_CLASS,
     EVENT_ENTITY,
     GPIO,
     ID,
@@ -42,9 +41,7 @@ from boneio.const import (
     MODEL,
     NONE,
     RELAY,
-    RESTORE_STATE,
     SENSOR,
-    SHOW_HA,
     UPDATE_INTERVAL,
     DallasBusTypes,
 )
@@ -471,7 +468,13 @@ def configure_event_sensor(
     | GpioInputBinarySensorOld
     | GpioInputBinarySensorNew
     | None = None,
-) -> GpioEventButtonOld | GpioEventButtonNew | None:
+) -> (
+    GpioEventButtonOld
+    | GpioEventButtonNew
+    | GpioInputBinarySensorOld
+    | GpioInputBinarySensorNew
+    | None
+):
     """Configure input sensor or button."""
     try:
         gpioEventButtonClass = (
@@ -522,7 +525,13 @@ def configure_binary_sensor(
     | GpioInputBinarySensorOld
     | GpioInputBinarySensorNew
     | None = None,
-) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
+) -> (
+    GpioEventButtonOld
+    | GpioEventButtonNew
+    | GpioInputBinarySensorOld
+    | GpioInputBinarySensorNew
+    | None
+):
     """Configure input sensor or button."""
     try:
         GpioInputBinarySensorClass = (
@@ -576,7 +585,7 @@ def configure_cover(
     platform = config.platform or "previous"
 
     def state_save(value: dict[str, int]):
-        if config[RESTORE_STATE]:
+        if config.restore_state:
             state_manager.save_attribute(
                 attr_type=COVER,
                 attribute=cover_id,
@@ -651,12 +660,12 @@ def configure_cover(
             topic_prefix=topic_prefix,
         )
         availability_msg_func = ha_cover_availabilty_message
-    if config.get(SHOW_HA, True):
+    if config.show_in_ha:
         send_ha_autodiscovery(
             id=cover.id,
             name=cover.name,
             ha_type=COVER,
-            device_class=config.get(DEVICE_CLASS),
+            device_class=config.device_class,
             availability_msg_func=availability_msg_func,
         )
     _LOGGER.debug("Configured cover %s", cover_id)

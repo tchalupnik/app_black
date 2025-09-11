@@ -18,12 +18,10 @@ from boneio.config import (
     ActionConfig,
     AdcConfig,
     BinarySensorActionTypes,
-    BinarySensorConfig,
     Config,
     DallasConfig,
     Ds2482Config,
     EventActionTypes,
-    EventConfig,
     Ina219Config,
     MqttAutodiscoveryMessage,
     SensorConfig,
@@ -523,45 +521,43 @@ class Manager:
                     return True
             return False
 
-        def configure_single_input(
-            configure_sensor_func,
-            gpio: BinarySensorConfig | EventConfig,
-            gpio_manager: GpioManager,
-        ) -> None:
+        if reload_config:
+            config_dict = load_config_from_file(self._config_file_path)
+            if config_dict is not None:
+                new_config = Config.model_validate(config_dict)
+                self.config.event = new_config.event
+                self.config.binary_sensor = new_config.binary_sensor
+                self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
+                self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
+        for gpio in self.config.event:
             if check_if_pin_configured(pin=gpio.pin):
                 return
-            input = configure_sensor_func(
+            input = configure_event_sensor(
                 gpio=gpio,
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self._inputs.get(gpio.pin, None),  # for reload actions.
                 actions=self.parse_actions(gpio.pin, gpio.actions),
-                gpio_manager=gpio_manager,
+                gpio_manager=self.gpio_manager,
             )
             if input:
                 self._inputs[input.pin] = input
 
-        if reload_config:
-            config_dict = load_config_from_file(self._config_file_path)
-            if config_dict is not None:
-                new_config = Config.model_validate(config_dict)
-                self.config.event = new_config.event
-                self.config.binary_sensors = new_config.binary_sensors
-                self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
-                self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
-        for gpio in self.config.event:
-            configure_single_input(
-                configure_sensor_func=configure_event_sensor,
+        for gpio in self.config.binary_sensor:
+            if check_if_pin_configured(pin=gpio.pin):
+                return
+            input = configure_binary_sensor(
                 gpio=gpio,
+                manager_press_callback=self.press_callback,
+                event_bus=self._event_bus,
+                send_ha_autodiscovery=self.send_ha_autodiscovery,
+                input=self._inputs.get(gpio.pin, None),  # for reload actions.
+                actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
-        for gpio in self.config.binary_sensors:
-            configure_single_input(
-                configure_sensor_func=configure_binary_sensor,
-                gpio=gpio,
-                gpio_manager=self.gpio_manager,
-            )
+            if input:
+                self._inputs[input.pin] = input
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Task:
         """Add task to run with asyncio loop."""
