@@ -18,35 +18,51 @@ LOW = Literal["LOW"]
 
 
 @dataclass
+class _Line:
+    name: str
+    chip: gpiod.Chip
+    offset: int
+
+
+@dataclass
 class GpioManager:
+    lines: dict[str, _Line]
     _loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.get_event_loop)
-    _chips: list[gpiod.Chip] = field(default_factory=list)
     _line_requests: dict[str, gpiod.LineRequest] = field(default_factory=dict)
 
     @classmethod
     @contextmanager
     def create(cls) -> Generator[GpioManager]:
-        paths = [
-            entry.path
-            for entry in os.scandir("/dev/")
-            if gpiod.is_gpiochip_device(entry.path)
-        ]
+        chips: list[gpiod.Chip] = []
+        lines: dict[str, _Line] = {}
+
+        for entry in os.scandir("/dev/"):
+            if not gpiod.is_gpiochip_device(entry.path):
+                continue
+
+            chip = gpiod.Chip(entry.path)
+            chips.append(chip)
+            for line in range(chip.get_info().num_lines):
+                line_info = chip.get_line_info(line)
+                line_name = line_info.name.split(" ")[0]
+                lines[line_name] = _Line(name=line_name, chip=chip, offset=line)
+
         try:
-            this = cls(_chips=[gpiod.Chip(path) for path in paths])
+            this = cls(lines=lines)
             yield this
         finally:
-            for chip in this._chips:
+            for chip in chips:
                 chip.close()
 
     def _setup_output(self, pin: str, initial: HIGH | LOW = LOW) -> None:
-        chip, line_offset = self._get_chip_and_offset_by_pin(pin)
-        request = chip.request_lines(
+        line = self.lines[pin]
+        request = line.chip.request_lines(
             config={
-                line_offset: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
+                line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
             },
         )
         request.set_value(
-            line_offset,
+            line.offset,
             gpiod.line.Value.ACTIVE if initial == HIGH else gpiod.line.Value.INACTIVE,
         )
         self._line_requests[pin] = request
@@ -60,10 +76,10 @@ class GpioManager:
             "gpio_input": gpiod.line.Bias.DISABLED,
         }.get(pull_mode)
 
-        chip, line_offset = self._get_chip_and_offset_by_pin(pin)
-        request = chip.request_lines(
+        line = self.lines[pin]
+        request = line.chip.request_lines(
             config={
-                line_offset: gpiod.LineSettings(
+                line.offset: gpiod.LineSettings(
                     direction=gpiod.line.Direction.INPUT, bias=gpio_mode
                 )
             },
@@ -110,7 +126,6 @@ class GpioManager:
         debounce_period: timedelta,
     ) -> AsyncGenerator[gpiod.LineEvent, None]:
         """Add detection for RISING and FALLING events."""
-        chip, line_offset = self._get_chip_and_offset_by_pin(pin)
 
         gpiod_edge = {
             FALLING: gpiod.line.Edge.FALLING,
@@ -120,9 +135,10 @@ class GpioManager:
 
         request = self._line_requests.get(pin)
         if request is None:
-            request = chip.request_lines(
+            line = self.lines[pin]
+            request = line.chip.request_lines(
                 config={
-                    line_offset: gpiod.LineSettings(
+                    line.offset: gpiod.LineSettings(
                         edge_detection=gpiod_edge,
                         debounce_period=debounce_period,
                     )
@@ -143,13 +159,3 @@ class GpioManager:
             fut = self._loop.create_future()
             for _ in events:
                 callback()
-
-    def _get_chip_and_offset_by_pin(self, pin: str) -> tuple[gpiod.Chip, int]:
-        for chip in self._chips:
-            try:
-                offset = chip.line_offset_from_id(pin)
-                return chip, offset
-            except OSError:
-                # An OSError is raised if the name is not found.
-                continue
-        raise ValueError(f"Line '{pin}' not found.")
