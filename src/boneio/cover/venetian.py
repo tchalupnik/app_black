@@ -7,6 +7,7 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
+from boneio.config import CoverConfig
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
 from boneio.cover.cover import BaseCover, BaseVenetianCoverABC
 from boneio.models import PositionDict
@@ -248,13 +249,11 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         _LOGGER.info("Closing tilt cover %s", self._id)
         await self.set_tilt(tilt_position=0)
 
-    def update_config_times(self, config: dict) -> None:
-        self._open_duration = config.get("open_duration", self._open_duration)
-        self._close_duration = config.get("close_duration", self._close_duration)
-        self._actuator_activation_duration = config.get(
-            "actuator_activation_duration", self._actuator_activation_duration
+    def update_config_times(self, config: CoverConfig) -> None:
+        self._actuator_activation_duration = (
+            config.actuator_activation_duration or self._actuator_activation_duration
         )
-        self._tilt_duration = config.get("tilt_duration", self._tilt_duration)
+        self._tilt_duration = config.tilt_duration or self._tilt_duration
 
     async def run_cover(
         self,

@@ -9,6 +9,7 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
+from boneio.config import CoverConfig
 from boneio.const import (
     CLOSE,
     CLOSED,
@@ -333,6 +334,5 @@ class PreviousCover(BasicMqtt):
     def kind(self) -> str:
         return "previous"
 
-    def update_config_times(self, config: dict) -> None:
-        self._open_duration = config.get("open_duration", self._open_duration)
-        self._close_duration = config.get("close_duration", self._close_duration)
+    def update_config_times(self, config: CoverConfig) -> None:
+        pass

@@ -16,10 +16,14 @@ from boneio.config import (
     BinarySensorActionTypes,
     BinarySensorConfig,
     Config,
+    CoverConfig,
     EventActionTypes,
     EventConfig,
     Ina219Config,
+    Mcp23017Config,
     OutputConfig,
+    Pca9685Config,
+    Pcf8575Config,
     SensorConfig,
     TemperatureConfig,
 )
@@ -31,23 +35,18 @@ from boneio.const import (
     EVENT_ENTITY,
     GPIO,
     ID,
-    INIT_SLEEP,
     INPUT,
     INPUT_SENSOR,
     LM75,
-    MCP,
     MCP_TEMP_9808,
     MODEL,
     NONE,
-    PCA,
-    PCF,
     RELAY,
     RESTORE_STATE,
     SENSOR,
     SHOW_HA,
     UPDATE_INTERVAL,
     DallasBusTypes,
-    ExpanderTypes,
 )
 from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
 from boneio.gpio import (
@@ -203,36 +202,32 @@ def create_serial_number_sensor(
     return sensor
 
 
-expander_class = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
-
-
 def create_expander(
     expander_dict: dict,
-    expander_config: list,
-    exp_type: ExpanderTypes,
+    expander_config: list[Pcf8575Config | Pca9685Config | Mcp23017Config],
     i2cbusio: I2C,
+    Class: MCP23017 | PCA9685 | PCF8575,
 ) -> dict:
     grouped_outputs = {}
     for expander in expander_config:
-        id = expander[ID] or expander[ADDRESS]
+        id = expander.id or expander.address
         try:
-            expander_dict[id] = expander_class[exp_type](
-                i2c=i2cbusio, address=expander[ADDRESS], reset=False
+            expander_dict[id] = Class(
+                i2c=i2cbusio, address=expander.address, reset=False
             )
-            sleep_time = expander.get(INIT_SLEEP, timedelta(seconds=0))
-            if sleep_time.total_seconds() > 0:
+            if expander.init_sleep.total_seconds() > 0:
                 _LOGGER.debug(
                     "Sleeping for %s while %s %s is initializing.",
-                    sleep_time.total_seconds(),
-                    exp_type,
+                    expander.init_sleep.total_seconds(),
+                    Class.__name__,
                     id,
                 )
-                time.sleep(sleep_time.total_seconds())
+                time.sleep(expander.init_sleep.total_seconds())
             else:
-                _LOGGER.debug("%s %s is initializing.", exp_type, id)
+                _LOGGER.debug("%s %s is initializing.", Class.__name__, id)
             grouped_outputs[id] = {}
         except TimeoutError as err:
-            _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)
+            _LOGGER.error("Can't connect to %s %s. %s", Class.__name__, id, err)
     return grouped_outputs
 
 
@@ -572,16 +567,13 @@ def configure_cover(
     cover_id: str,
     state_manager: StateManager,
     send_ha_autodiscovery: Callable,
-    config: dict,
-    tilt_duration: timedelta | None,
+    config: CoverConfig,
     open_relay: BasicRelay,
     close_relay: BasicRelay,
-    open_time: int,
-    close_time: int,
     event_bus: EventBus,
     topic_prefix: str,
-) -> PreviousCover | TimeBasedCover:
-    platform = config.get("platform", "previous")
+) -> PreviousCover | TimeBasedCover | VenetianCover:
+    platform = config.platform or "previous"
 
     def state_save(value: dict[str, int]):
         if config[RESTORE_STATE]:
@@ -592,7 +584,7 @@ def configure_cover(
             )
 
     if platform == "venetian":
-        if not tilt_duration:
+        if not config.tilt_duration:
             raise CoverConfigurationException(
                 "Tilt duration must be configured for tilt cover."
             )
@@ -609,14 +601,12 @@ def configure_cover(
             state_save=state_save,
             message_bus=message_bus,
             restored_state=restored_state,
-            tilt_duration=tilt_duration,
-            actuator_activation_duration=config.get(
-                "actuator_activation_duration", timedelta(milliseconds=0)
-            ),
+            tilt_duration=config.tilt_duration,
+            actuator_activation_duration=config.actuator_activation_duration,
             open_relay=open_relay,
             close_relay=close_relay,
-            open_time=open_time,
-            close_time=close_time,
+            open_time=config.open_time,
+            close_time=config.close_time,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )
@@ -635,8 +625,8 @@ def configure_cover(
             restored_state=restored_state,
             open_relay=open_relay,
             close_relay=close_relay,
-            open_time=open_time,
-            close_time=close_time,
+            open_time=config.open_time,
+            close_time=config.close_time,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )
@@ -655,8 +645,8 @@ def configure_cover(
             restored_state=restored_state,
             open_relay=open_relay,
             close_relay=close_relay,
-            open_time=open_time,
-            close_time=close_time,
+            open_time=config.open_time,
+            close_time=config.close_time,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )
@@ -687,8 +677,8 @@ def find_onewire_devices(
     ow_bus: OneWireBus | AsyncBoneIOW1ThermSensor,
     bus_id: str,
     bus_type: DallasBusTypes,
-) -> dict[OneWireAddress]:
-    out = {}
+) -> dict[int, OneWireAddress]:
+    out: dict[int, OneWireAddress] = {}
     try:
         devices = ow_bus.scan()
         for device in devices:

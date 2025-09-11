@@ -128,7 +128,7 @@ class MqttAutodiscoveryMessages(
 
 
 class MqttConfig(BaseModel):
-    host: str = "localhost"
+    host: str
     port: int = 1883
     username: str = "boneio"
     password: str = "boneio123"
@@ -215,7 +215,7 @@ Ina219DeviceClass = Literal["voltage", "current", "power"]
 
 
 class Ina219SensorConfig(BaseModel):
-    id: str
+    id: str | None = None
     device_class: Ina219DeviceClass
     filters: list[dict[Filters, float]] = Field(default_factory=list)
 
@@ -227,19 +227,23 @@ class Ina219Config(BaseModel):
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
 
 
-class EventActionDataConfig(BaseModel):
+class ActionDataConfig(BaseModel):
     position: int | None = None
     tilt_position: int | None = None
 
 
-class EventActionConfig(BaseModel):
+class ActionConfig(BaseModel):
     action: Literal[
-        "cover", "cover_over_mqtt", "mqtt", "mqtt_output", "output", "output_over_mqtt"
+        "mqtt",
+        "output",
+        "output_over_mqtt",
+        "cover",
+        "cover_over_mqtt",
     ]
     pin: str
-    topic: str | None = None
+    data: ActionDataConfig = Field(default_factory=ActionDataConfig)
     action_mqtt_msg: str | None = None
-    boneio_id: str | None = None
+    topic: str | None = None
     action_cover: Literal[
         "toggle",
         "open",
@@ -251,7 +255,7 @@ class EventActionConfig(BaseModel):
         "tilt_open",
         "tilt_close",
     ] = "toggle"
-    data: EventActionDataConfig | None = None
+    boneio_id: str | None = None
     action_output: Literal["toggle", "on", "off"] = "toggle"
 
     @field_validator("action_cover", mode="before")
@@ -269,13 +273,11 @@ EventActionTypes = Literal["single", "double", "long"]
 
 
 class EventConfig(BaseModel):
-    id: str
-    pin: str
-    boneio_input: BoneIOInput
-    actions: dict[EventActionTypes, list[EventActionConfig]] = Field(
-        default_factory=dict
-    )
-    device_class: Literal["button", "doorbell", "motion"]
+    id: str | None = None
+    pin: str | None = None
+    boneio_input: BoneIOInput | None = None
+    actions: dict[EventActionTypes, list[ActionConfig]] = Field(default_factory=dict)
+    device_class: Literal["button", "doorbell", "motion"] = "button"
     show_in_ha: bool = True
     inverted: bool = False
     gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"
@@ -289,65 +291,40 @@ class EventConfig(BaseModel):
         return v.lower()
 
 
-class BinarySensorAction(BaseModel):
-    action: Literal[
-        "mqtt",
-        "output",
-        "output_over_mqtt",
-        "cover",
-        "cover_over_mqtt",
-    ]
-    action_mqtt_msg: str
-    pin: str
-    topic: str
-    action_cover: Literal[
-        "toggle", "open", "close", "stop", "tilt", "tilt_open", "tilt_close"
-    ] = "toggle"
-    boneio_id: str | None = None
-    action_output: Literal["toggle", "on", "off"] = "toggle"
-
-    @field_validator("action_cover", mode="before")
-    @classmethod
-    def validate_action_cover(cls, v: str) -> str:
-        return v.lower()
-
-    @field_validator("action_output", mode="before")
-    @classmethod
-    def validate_action_output(cls, v: str) -> str:
-        return v.lower()
-
-
 BinarySensorActionTypes = Literal["pressed", "released"]
 
 
 class BinarySensorConfig(BaseModel):
-    id: str
-    pin: str
-    boneio_input: BoneIOInput
-    device_class: Literal[
-        "battery",
-        "cold",
-        "connectivity",
-        "door",
-        "garage_door",
-        "gas",
-        "heat",
-        "light",
-        "lock",
-        "moisture",
-        "motion",
-        "occupancy",
-        "opening",
-        "plug",
-        "power",
-        "presence",
-        "safety",
-        "smoke",
-        "sound",
-        "vibration",
-        "window",
-    ]
-    actions: dict[BinarySensorActionTypes, list[BinarySensorAction]] = Field(
+    id: str | None = None
+    pin: str | None = None
+    boneio_input: BoneIOInput | None = None
+    device_class: (
+        Literal[
+            "battery",
+            "cold",
+            "connectivity",
+            "door",
+            "garage_door",
+            "gas",
+            "heat",
+            "light",
+            "lock",
+            "moisture",
+            "motion",
+            "occupancy",
+            "opening",
+            "plug",
+            "power",
+            "presence",
+            "safety",
+            "smoke",
+            "sound",
+            "vibration",
+            "window",
+        ]
+        | None
+    ) = None
+    actions: dict[BinarySensorActionTypes, list[ActionConfig]] = Field(
         default_factory=dict
     )
     show_in_ha: bool = True
@@ -374,12 +351,19 @@ class OutputConfig(BaseModel):
     momentary_turn_off: timedelta | None = None
     virtual_power_usage: str | None = None
     virtual_volume_flow_rate: str | None = None
-    restore_state: bool | None = None
+    restore_state: bool = True
     interlock_group: str | list[str] = Field(default_factory=list)
     percentage_default_brightness: int | None = None
     mcp_id: str | None = None
     pca_id: str | None = None
     pcf_id: str | None = None
+
+
+class OutputGroupConfig(BaseModel):
+    outputs: list[str]
+    all_on_behaviour: bool = False
+    output_type: Literal["switch", "light"] = "switch"
+    id: str | None = None
 
 
 class SensorConfig(BaseModel):
@@ -395,17 +379,43 @@ class SensorConfig(BaseModel):
 
 class BoneIOConfig(BaseModel):
     name: str = BONEIO
-    device_type: Literal["24", "32", "cover", "cover mix"] = "cover"
-    version: float = 0.8
+    device_type: Literal[
+        "32x10A",
+        "32x10",
+        "32",
+        "24x16A",
+        "24x16",
+        "24",
+        "cover",
+        "cover mix",
+        "cm",
+        "32x10a",
+        "24x16a",
+    ] = "cover"
+    version: float = 0.9
+
+
+class WebAuthConfig(BaseModel):
+    username: str | None = None
+    password: str | None = None
 
 
 class WebConfig(BaseModel):
-    username: str | None = None
-    password: str | None = None
+    username: str
+    auth: WebAuthConfig | None = None
     port: int = 8090
 
     def is_auth_required(self) -> bool:
-        return self.username is not None and self.password is not None
+        return (
+            self.auth is not None
+            and self.auth.username is not None
+            and self.auth.password is not None
+        )
+
+    def validate_auth(self, username: str, password: str) -> bool:
+        if not self.is_auth_required():
+            return True
+        return self.auth.username == username and self.auth.password == password
 
 
 class AdcConfig(BaseModel):
@@ -416,6 +426,107 @@ class AdcConfig(BaseModel):
     filters: list[dict[Filters, float]] = Field(default_factory=list)
 
 
+class LoggerConfig(BaseModel):
+    pass
+
+
+class ModbusConfig(BaseModel):
+    uart: Literal["uart1", "uart2", "uart3", "uart4", "uart5"]
+    baudrate: int = 9600
+    stopbits: int = Field(default=1, ge=1, le=2)
+    parity: Literal["N", "E", "O"] = "N"
+
+
+class ModbusDeviceDataConfig(BaseModel):
+    width: str | int | float | None = None
+    length: str | int | float | None = None
+
+
+class ModbusDeviceSensorFilterConfig(BaseModel):
+    temperature: list[dict[Filters, float]] | None = None
+    humidity: list[dict[Filters, float]] | None = None
+
+
+class ModbusDeviceConfig(BaseModel):
+    id: str
+    address: int
+    model: Literal[
+        "cwt",
+        "dts1964_3f",
+        "liquid-sensor",
+        "orno-or-we-517",
+        "pt100",
+        "fujitsu-ac",
+        "r4dcb08",
+        "sdm120",
+        "sdm630",
+        "sht20",
+        "sht30",
+        "socomec_e03",
+        "socomec_e23",
+        "sofar",
+        "ventclear",
+    ]
+    update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=30))
+    sensor_filters: ModbusDeviceSensorFilterConfig | None = None
+    data: ModbusDeviceDataConfig | None = None
+
+
+class Mcp23017Config(BaseModel):
+    address: int
+    id: str | None = None
+    init_sleep: timedelta = Field(default_factory=lambda: timedelta(seconds=0))
+
+
+class Pcf8575Config(BaseModel):
+    address: int
+    id: str | None = None
+    init_sleep: timedelta = Field(default_factory=lambda: timedelta(seconds=0))
+
+
+class Pca9685Config(BaseModel):
+    address: int
+    id: str | None = None
+    init_sleep: timedelta = Field(default_factory=lambda: timedelta(seconds=0))
+
+
+class CoverConfig(BaseModel):
+    id: str
+    open_relay: str
+    close_relay: str
+    platform: Literal["time_based", "venetian", "previous"]
+    open_time: timedelta
+    close_time: timedelta
+    tilt_duration: timedelta | None = None
+    actuator_activation_duration: timedelta | None = None
+    restore_state: bool = False
+    device_class: (
+        Literal[
+            "awning",
+            "blind",
+            "curtain",
+            "damper",
+            "door",
+            "garage",
+            "gate",
+            "shade",
+            "shutter",
+            "window",
+        ]
+        | None
+    ) = None
+    show_in_ha: bool = True
+
+
+class Ds2482Config(BaseModel):
+    address: int
+    id: str | None = None
+
+
+class DallasConfig(BaseModel):
+    id: str
+
+
 class Config(BaseModel):
     boneio: BoneIOConfig
     mqtt: MqttConfig | None = None
@@ -423,9 +534,18 @@ class Config(BaseModel):
     lm75: list[TemperatureConfig] = Field(default_factory=list)
     mcp9808: list[TemperatureConfig] = Field(default_factory=list)
     ina219: list[Ina219Config] = Field(default_factory=list)
-    sensors: list[SensorConfig] = Field(default_factory=list)
-    binary_sensors: list[BinarySensorConfig] = Field(default_factory=list)
+    mcp23017: list[Mcp23017Config] = Field(default_factory=list)
+    pcf8575: list[Pcf8575Config] = Field(default_factory=list)
+    pca9685: list[Pca9685Config] = Field(default_factory=list)
+    sensor: list[SensorConfig] = Field(default_factory=list)
+    binary_sensor: list[BinarySensorConfig] = Field(default_factory=list)
     event: list[EventConfig] = Field(default_factory=list)
     output: list[OutputConfig] = Field(default_factory=list)
+    output_group: list[OutputGroupConfig] = Field(default_factory=list)
+    cover: list[CoverConfig] = Field(default_factory=list)
     adc: list[AdcConfig] = Field(default_factory=list)
+    modbus_devices: list[ModbusDeviceConfig] = Field(default_factory=list)
+    ds2482: list[Ds2482Config] = Field(default_factory=list)
     web: WebConfig | None = None
+    modbus: ModbusConfig | None = None
+    dallas: DallasConfig | None = None

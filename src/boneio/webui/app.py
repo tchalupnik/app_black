@@ -227,7 +227,7 @@ async def login(
         token = create_token({"sub": "default"})
         return {"token": token}
 
-    if username == config.web.username and password == config.web.password:
+    if config.web.validate_auth(username, password):
         token = create_token({"sub": username})
         return {"token": token}
     raise HTTPException(status_code=401, detail="Invalid credentials")

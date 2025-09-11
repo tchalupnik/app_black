@@ -9,16 +9,19 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Coroutine
 from pathlib import Path
 
+from adafruit_mcp230xx.mcp23017 import MCP23017
+from adafruit_pca9685 import PCA9685
 from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
+    ActionConfig,
     AdcConfig,
-    BinarySensorAction,
     BinarySensorActionTypes,
     BinarySensorConfig,
     Config,
-    EventActionConfig,
+    DallasConfig,
+    Ds2482Config,
     EventActionTypes,
     EventConfig,
     Ina219Config,
@@ -27,7 +30,6 @@ from boneio.config import (
     TemperatureConfig,
 )
 from boneio.const import (
-    ADDRESS,
     BINARY_SENSOR,
     BUTTON,
     CLOSE,
@@ -41,8 +43,6 @@ from boneio.const import (
     IP,
     LED,
     LIGHT,
-    MCP,
-    MCP23017,
     MODBUS,
     MQTT,
     NONE,
@@ -52,10 +52,6 @@ from boneio.const import (
     OUTPUT,
     OUTPUT_GROUP,
     OUTPUT_OVER_MQTT,
-    PCA,
-    PCA9685,
-    PCF,
-    PCF8575,
     RELAY,
     SET_BRIGHTNESS,
     STATE,
@@ -69,6 +65,7 @@ from boneio.const import (
     relay_actions,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
+from boneio.cover.venetian import VenetianCover
 from boneio.gpio_manager import GpioManager
 from boneio.helper import (
     GPIOInputException,
@@ -97,6 +94,8 @@ from boneio.helper.loader import (
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
+from boneio.helper.onewire.onewire import OneWireAddress
+from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
@@ -136,13 +135,8 @@ class Manager:
         self.gpio_manager = gpio_manager
         self._event_pins = old_config.get(EVENT_ENTITY, [])
         modbus_devices = old_config.get("modbus_devices", {})
-        mcp23017 = old_config.get(MCP23017, [])
-        pcf8575 = old_config.get(PCF8575, [])
-        pca9685 = old_config.get(PCA9685, [])
-        ds2482 = old_config.get(DS2482, [])
         cover = old_config.get(COVER, [])
         modbus = old_config.get(MODBUS, {})
-        dallas = old_config.get(DALLAS, None)
         output_group = old_config.get(OUTPUT_GROUP, [])
         _LOGGER.info("Initializing manager module.")
 
@@ -171,7 +165,7 @@ class Manager:
         self._oled = None
         self._tasks: list[asyncio.Task] = []
         self._config_covers = cover
-        self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
+        self._covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self._temp_sensors: list[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_coordinators = {}
@@ -187,28 +181,30 @@ class Manager:
         self._modbus_coordinators = {}
         if config.ina219 is not None:
             self._configure_ina219_sensors(sensors=config.ina219)
-        self._configure_sensors(dallas=dallas, ds2482=ds2482, sensors=config.sensors)
+        self._configure_sensors(
+            dallas=config.dallas, ds2482=config.ds2482, sensors=config.sensor
+        )
 
         self.grouped_outputs_by_expander = create_expander(
             expander_dict=self._mcp,
-            expander_config=mcp23017,
-            exp_type=MCP,
+            expander_config=config.mcp23017,
             i2cbusio=self._i2cbusio,
+            Class=MCP23017,
         )
         self.grouped_outputs_by_expander.update(
             create_expander(
                 expander_dict=self._pcf,
-                expander_config=pcf8575,
-                exp_type=PCF,
+                expander_config=config.pcf8575,
                 i2cbusio=self._i2cbusio,
+                Class=PCF8575,
             )
         )
         self.grouped_outputs_by_expander.update(
             create_expander(
                 expander_dict=self._pca,
-                expander_config=pca9685,
-                exp_type=PCA,
+                expander_config=config.pca9685,
                 i2cbusio=self._i2cbusio,
+                Class=PCA9685,
             )
         )
 
@@ -382,22 +378,23 @@ class Manager:
         """Configure covers."""
         if reload_config:
             config = load_config_from_file(self._config_file_path)
-            self._config_covers = config.get(COVER, [])
+            new_config = Config.model_validate(config)
+            self.config.cover = new_config.cover
             self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
-        for _config in self._config_covers:
-            _id = strip_accents(_config[ID])
-            open_relay = self._outputs.get(_config.get("open_relay"))
-            close_relay = self._outputs.get(_config.get("close_relay"))
+        for cover in self.config.cover:
+            _id = strip_accents(cover.id)
+            open_relay = self._outputs.get(cover.open_relay)
+            close_relay = self._outputs.get(cover.close_relay)
             if not open_relay:
                 _LOGGER.error(
                     "Can't configure cover %s. This relay doesn't exist.",
-                    _config.get("open_relay"),
+                    cover.open_relay,
                 )
                 continue
             if not close_relay:
                 _LOGGER.error(
                     "Can't configure cover %s. This relay doesn't exist.",
-                    _config.get("close_relay"),
+                    cover.close_relay,
                 )
                 continue
             if open_relay.output_type != COVER or close_relay.output_type != COVER:
@@ -412,18 +409,15 @@ class Manager:
             try:
                 if _id in self._covers:
                     _cover = self._covers[_id]
-                    _cover.update_config_times(_config)
+                    _cover.update_config_times(cover)
                     continue
                 self._covers[_id] = configure_cover(
                     message_bus=self._message_bus,
                     cover_id=_id,
                     state_manager=self._state_manager,
-                    config=_config,
+                    config=cover,
                     open_relay=open_relay,
                     close_relay=close_relay,
-                    open_time=_config.get("open_time"),
-                    close_time=_config.get("close_time"),
-                    tilt_duration=_config.get("tilt_duration"),
                     event_bus=self._event_bus,
                     send_ha_autodiscovery=self.send_ha_autodiscovery,
                     topic_prefix=self.config.mqtt.topic_prefix,
@@ -436,8 +430,8 @@ class Manager:
     def parse_actions(
         self,
         pin: str,
-        actions: dict[EventActionTypes, list[EventActionConfig]]
-        | dict[BinarySensorActionTypes, list[BinarySensorAction]],
+        actions: dict[EventActionTypes, list[ActionConfig]]
+        | dict[BinarySensorActionTypes, list[ActionConfig]],
     ) -> dict[EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]]:
         """Parse actions from config."""
         parsed_actions: dict[
@@ -606,10 +600,10 @@ class Manager:
 
     def _configure_sensors(
         self,
-        dallas: dict | None,
-        ds2482: list | None,
+        dallas: DallasConfig | None,
+        ds2482: list[Ds2482Config],
         sensors: list[SensorConfig],
-    ):
+    ) -> None:
         """
         Configure Dallas sensors via GPIO PIN bus or DS2482 bus.
         """
@@ -619,26 +613,26 @@ class Manager:
             find_onewire_devices,
         )
 
-        _one_wire_devices = {}
+        _one_wire_devices: dict[int, OneWireAddress] = {}
         _ds_onewire_bus = {}
 
-        for _single_ds in ds2482 or []:
-            _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds[ADDRESS])
+        for _single_ds in ds2482:
+            _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds.address)
             from boneio.helper.loader import (
                 configure_ds2482,
             )
 
-            _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
-                i2cbusio=self._i2cbusio, address=_single_ds[ADDRESS]
+            _ds_onewire_bus[_single_ds.id] = configure_ds2482(
+                i2cbusio=self._i2cbusio, address=_single_ds.address
             )
             _one_wire_devices.update(
                 find_onewire_devices(
-                    ow_bus=_ds_onewire_bus[_single_ds[ID]],
-                    bus_id=_single_ds[ID],
+                    ow_bus=_ds_onewire_bus[_single_ds.id],
+                    bus_id=_single_ds.id,
                     bus_type=DS2482,
                 )
             )
-        if dallas:
+        if dallas is not None:
             _LOGGER.debug("Preparing Dallas bus.")
             from boneio.helper.loader import configure_dallas
 
@@ -650,7 +644,7 @@ class Manager:
                 _one_wire_devices.update(
                     find_onewire_devices(
                         ow_bus=configure_dallas(),
-                        bus_id=dallas[ID],
+                        bus_id=dallas.id,
                         bus_type=DALLAS,
                     )
                 )
@@ -732,7 +726,9 @@ class Manager:
             if ina219:
                 self._ina219_sensors.append(ina219)
 
-    def _configure_modbus_coordinators(self, devices: dict) -> dict:
+    def _configure_modbus_coordinators(
+        self, devices: dict
+    ) -> dict[str, ModbusCoordinator]:
         if devices and self._modbus:
             from boneio.helper.loader import create_modbus_coordinators
 
