@@ -499,7 +499,6 @@ def configure_event_sensor(
                 actions=actions,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
-                gpio=gpio,
                 gpio_manager=gpio_manager,
             )
         if gpio.show_in_ha:
