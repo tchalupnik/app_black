@@ -134,7 +134,7 @@ class GpioManager:
                 config={
                     line.offset: gpiod.LineSettings(
                         edge_detection=gpiod_edge,
-                        debounce_period=debounce_period,
+                        # debounce_period=debounce_period,
                     )
                 },
             )
