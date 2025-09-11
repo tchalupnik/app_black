@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import time
 import typing
-from collections import namedtuple
 from collections.abc import Callable
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
@@ -37,14 +36,11 @@ from boneio.const import (
     INPUT_SENSOR,
     LM75,
     MCP,
-    MCP_ID,
     MCP_TEMP_9808,
     MODEL,
     NONE,
     PCA,
-    PCA_ID,
     PCF,
-    PCF_ID,
     RELAY,
     RESTORE_STATE,
     SENSOR,
@@ -66,7 +62,6 @@ from boneio.group import OutputGroup
 from boneio.helper import (
     CoverConfigurationException,
     GPIOInputException,
-    GPIOOutputException,
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
@@ -280,26 +275,6 @@ def create_modbus_coordinators(
     return modbus_coordinators
 
 
-OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")
-
-
-def output_chooser(output_kind: str, config):
-    """Get named tuple based on input."""
-    if output_kind == MCP:
-        expander_id = config.pop(MCP_ID, None)
-        return OutputEntry(MCPRelay, MCP, expander_id)
-    elif output_kind == GPIO:
-        return OutputEntry(GpioRelay, GPIO, GPIO)
-    elif output_kind == PCA:
-        expander_id = config.pop(PCA_ID, None)
-        return OutputEntry(PWMPCA, PCA, expander_id)
-    elif output_kind == PCF:
-        expander_id = config.pop(PCF_ID, None)
-        return OutputEntry(PCFRelay, PCF, expander_id)
-    else:
-        raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
-
-
 def configure_output_group(
     message_bus: MessageBus,
     topic_prefix: str,
@@ -342,8 +317,6 @@ def configure_relay(
     ):
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
-
-    output = output_chooser(output_kind=output_config.kind, config=output_config)
 
     if isinstance(output_config.interlock_group, str):
         output_config.interlock_group = [output_config.interlock_group]
@@ -431,9 +404,7 @@ def configure_relay(
             output_type=output_config.output_type,
         )
     else:
-        _LOGGER.error(
-            "Output kind: %s is not configured", getattr(output, "output_kind")
-        )
+        _LOGGER.error("Output kind: %s is not configured", output_config.kind)
         return None
 
     manager._interlock_manager.register(relay, output_config.interlock_group)
