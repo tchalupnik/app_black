@@ -219,7 +219,7 @@ class Manager:
             adc=self.config.adc,
         )
 
-        for output in config.outputs:
+        for output in config.output:
             _id = strip_accents(output.id)
             _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.
@@ -576,11 +576,11 @@ class Manager:
             config_dict = load_config_from_file(self._config_file_path)
             if config_dict is not None:
                 new_config = Config.model_validate(config_dict)
-                self.config.events = new_config.events
+                self.config.event = new_config.event
                 self.config.binary_sensors = new_config.binary_sensors
                 self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
                 self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
-        for gpio in self.config.events:
+        for gpio in self.config.event:
             configure_single_input(
                 configure_sensor_func=configure_event_sensor,
                 gpio=gpio,

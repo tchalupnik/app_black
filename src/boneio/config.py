@@ -405,7 +405,7 @@ class Config(BaseModel):
     ina219: list[Ina219Config] = Field(default_factory=list)
     sensors: list[SensorConfig] = Field(default_factory=list)
     binary_sensors: list[BinarySensorConfig] = Field(default_factory=list)
-    events: list[EventConfig] = Field(default_factory=list)
-    outputs: list[OutputConfig] = Field(default_factory=list)
+    event: list[EventConfig] = Field(default_factory=list)
+    output: list[OutputConfig] = Field(default_factory=list)
     adc: list[AdcConfig] = Field(default_factory=list)
     web: WebConfig | None = None
