@@ -154,17 +154,17 @@ class Manager:
         self._mcp = {}
         self._pcf = {}
         self._pca = {}
-        self._outputs: dict[str, BasicRelay] = {}
+        self.outputs: dict[str, BasicRelay] = {}
         self._configured_output_groups = {}
         self._interlock_manager = SoftwareInterlockManager()
 
         self._oled = None
         self._tasks: list[asyncio.Task] = []
         self._config_covers = cover
-        self._covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
-        self._temp_sensors: list[TempSensor] = []
-        self._ina219_sensors = []
-        self._modbus_coordinators = {}
+        self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
+        self.temp_sensors: list[TempSensor] = []
+        self.ina219_sensors = []
+        self.modbus_coordinators = {}
         self._modbus = None
 
         self._configure_modbus(modbus=modbus)
@@ -174,7 +174,7 @@ class Manager:
         if config.mcp9808 is not None:
             self._configure_temp_sensors(sensor_type="mcp9808", sensors=config.mcp9808)
 
-        self._modbus_coordinators = {}
+        self.modbus_coordinators = {}
         if config.ina219 is not None:
             self._configure_ina219_sensors(sensors=config.ina219)
         self._configure_sensors(
@@ -234,7 +234,7 @@ class Manager:
                     listener_id="manager",
                     target=self._relay_callback,
                 )
-            self._outputs[_id] = out
+            self.outputs[_id] = out
             if out.output_type not in (NONE, COVER):
                 self.send_ha_autodiscovery(
                     id=out.id,
@@ -246,7 +246,7 @@ class Manager:
                 )
             self._loop.create_task(self._delayed_send_state(out))
 
-        if self._outputs:
+        if self.outputs:
             self._configure_covers()
 
         self._outputs_group = output_group
@@ -260,7 +260,7 @@ class Manager:
             message_bus=self.message_bus,
             topic_prefix=self.config.mqtt.topic_prefix,
         )
-        self._modbus_coordinators = self._configure_modbus_coordinators(
+        self.modbus_coordinators = self._configure_modbus_coordinators(
             devices=modbus_devices
         )
 
@@ -273,8 +273,8 @@ class Manager:
                 enabled_screens=config.oled.screens,
                 output=self.grouped_outputs_by_expander,
                 inputs=self._inputs,
-                temp_sensor=(self._temp_sensors[0] if self._temp_sensors else None),
-                ina219=(self._ina219_sensors[0] if self._ina219_sensors else None),
+                temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
+                ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
                 extra_sensors=config.oled.extra_screen_sensors,
             )
             try:
@@ -294,25 +294,13 @@ class Manager:
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
 
-    @property
-    def ina219_sensors(self) -> list:
-        return self._ina219_sensors
-
-    @property
-    def modbus_coordinators(self) -> dict[str, ModbusCoordinator]:
-        return self._modbus_coordinators
-
-    @property
-    def temp_sensors(self) -> list[TempSensor]:
-        return self._temp_sensors
-
     def _configure_output_group(self):
         def get_outputs(output_list):
             outputs = []
             for x in output_list:
                 x = strip_accents(x)
-                if x in self._outputs:
-                    output = self._outputs[x]
+                if x in self.outputs:
+                    output = self.outputs[x]
                     if output.output_type == COVER:
                         _LOGGER.warning("You can't add cover output to group.")
                     else:
@@ -371,8 +359,8 @@ class Manager:
             self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
         for cover in self.config.cover:
             _id = strip_accents(cover.id)
-            open_relay = self._outputs.get(cover.open_relay)
-            close_relay = self._outputs.get(cover.close_relay)
+            open_relay = self.outputs.get(cover.open_relay)
+            close_relay = self.outputs.get(cover.close_relay)
             if not open_relay:
                 _LOGGER.error(
                     "Can't configure cover %s. This relay doesn't exist.",
@@ -395,11 +383,11 @@ class Manager:
                 )
                 continue
             try:
-                if _id in self._covers:
-                    _cover = self._covers[_id]
+                if _id in self.covers:
+                    _cover = self.covers[_id]
                     _cover.update_config_times(cover)
                     continue
-                self._covers[_id] = configure_cover(
+                self.covers[_id] = configure_cover(
                     message_bus=self.message_bus,
                     cover_id=_id,
                     state_manager=self._state_manager,
@@ -432,7 +420,7 @@ class Manager:
                     entity_id = action_definition.pin
                     stripped_entity_id = strip_accents(entity_id)
                     action_output = action_definition.action_output
-                    output = self._outputs.get(
+                    output = self.outputs.get(
                         stripped_entity_id,
                         self._configured_output_groups.get(stripped_entity_id),
                     )
@@ -458,7 +446,7 @@ class Manager:
                     stripped_entity_id = strip_accents(entity_id)
                     action_cover = action_definition.action_cover
                     extra_data = action_definition.data
-                    cover = self._covers.get(stripped_entity_id)
+                    cover = self.covers.get(stripped_entity_id)
                     action_to_execute = cover_actions.get(action_cover)
                     if cover and action_to_execute:
                         _f = getattr(cover, action_to_execute)
@@ -647,7 +635,7 @@ class Manager:
             if sensor.bus_id and sensor.bus_id in _ds_onewire_bus:
                 bus = _ds_onewire_bus[sensor.bus_id]
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
-            self._temp_sensors.append(
+            self.temp_sensors.append(
                 create_dallas_sensor(
                     manager=self,
                     message_bus=self.message_bus,
@@ -699,7 +687,7 @@ class Manager:
                 i2cbusio=self._i2cbusio,
             )
             if temp_sensor:
-                self._temp_sensors.append(temp_sensor)
+                self.temp_sensors.append(temp_sensor)
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
         from boneio.helper.loader import create_ina219_sensor
@@ -712,7 +700,7 @@ class Manager:
                 config=sensor_config,
             )
             if ina219:
-                self._ina219_sensors.append(ina219)
+                self.ina219_sensors.append(ina219)
 
     def _configure_modbus_coordinators(
         self, devices: dict
@@ -787,7 +775,7 @@ class Manager:
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
         )
-        if self._covers:
+        if self.covers:
             self.send_ha_autodiscovery(
                 id="cover_reload",
                 name="Reload times of covers",
@@ -846,7 +834,7 @@ class Manager:
                     )
                 continue
             elif action == OUTPUT:
-                output = self._outputs.get(
+                output = self.outputs.get(
                     entity_id, self._configured_output_groups.get(entity_id)
                 )
                 action_to_execute = action_definition.get("action_to_execute")
@@ -862,7 +850,7 @@ class Manager:
                 _f = getattr(output, action_to_execute)
                 await _f()
             elif action == COVER:
-                cover = self._covers.get(entity_id)
+                cover = self.covers.get(entity_id)
                 action_to_execute = action_definition.get("action_to_execute")
                 extra_data = action_definition.get("extra_data", {})
                 duration = None
@@ -902,7 +890,7 @@ class Manager:
 
     async def toggle_output(self, output_id: str) -> str:
         """Toggle output state."""
-        output = self._outputs.get(output_id)
+        output = self.outputs.get(output_id)
         if output:
             if output.output_type == NONE or output.output_type == COVER:
                 return "not_allowed"
@@ -941,7 +929,7 @@ class Manager:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
         if msg_type == RELAY and command == "set":
-            target_device = self._outputs.get(device_id)
+            target_device = self.outputs.get(device_id)
 
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
@@ -953,13 +941,13 @@ class Manager:
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
-            target_device = self._outputs.get(device_id)
+            target_device = self.outputs.get(device_id)
             if target_device and target_device.output_type != NONE and message != "":
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == COVER:
-            cover = self._covers.get(device_id)
+            cover = self.covers.get(device_id)
             if not cover:
                 return
             if command == "set":
@@ -1009,7 +997,7 @@ class Manager:
                 _LOGGER.info("Reloading covers actions")
                 self._configure_covers(reload_config=True)
         elif msg_type == "modbus" and command == "set":
-            target_device = self._modbus_coordinators.get(device_id)
+            target_device = self.modbus_coordinators.get(device_id)
             if target_device:
                 if isinstance(message, str):
                     message = json.loads(message)
@@ -1024,17 +1012,7 @@ class Manager:
 
         os._exit(0)  # Terminate the process
 
-    @property
-    def outputs(self) -> dict:
-        """Get list of output."""
-        return self._outputs
-
-    @property
-    def covers(self) -> dict:
-        """Get list of covers."""
-        return self._covers
-
-    async def _delayed_send_state(self, output):
+    async def _delayed_send_state(self, output: BasicRelay) -> None:
         """Send state after a delay."""
         await asyncio.sleep(0.5)
         await output.async_send_state()
@@ -1052,14 +1030,14 @@ class Manager:
             elif action == OUTPUT:
                 output_id = actions[action].get(ID)
                 output_action = actions[action].get("action")
-                output = self._outputs.get(output_id)
+                output = self.outputs.get(output_id)
                 if output and output_action:
                     _f = getattr(output, output_action)
                     await _f()
             elif action == COVER:
                 cover_id = actions[action].get(ID)
                 cover_action = actions[action].get("action")
-                cover = self._covers.get(cover_id)
+                cover = self.covers.get(cover_id)
                 if cover and cover_action:
                     _f = getattr(cover, cover_action)
                     await _f()
