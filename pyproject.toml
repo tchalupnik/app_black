@@ -33,6 +33,7 @@ dependencies = [
   "qrcode==7.4.2",
   "python-can>=4.6.1",
   "httpx>=0.28.1",
+  "gpiod>=2.3.0",
 ]
 requires-python = ">=3.10"
 license = { text = "GNU General Public License v3.0" }

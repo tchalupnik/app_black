@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Literal
+import logging
 
 import gpiod  # type: ignore
 
@@ -15,6 +16,9 @@ FALLING = Literal["FALLING"]
 RISING = Literal["RISING"]
 HIGH = Literal["HIGH"]
 LOW = Literal["LOW"]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -112,6 +116,8 @@ class GpioManager:
         edge: FALLING | RISING | BOTH = BOTH,
         debounce_period: timedelta = timedelta(milliseconds=100),
     ) -> None:
+        _LOGGER.debug("add_event_callback, pin: %s", pin) 
+
         asyncio.create_task(
             self._add_event_callback(
                 pin=pin, edge=edge, callback=callback, debounce_period=debounce_period
@@ -126,6 +132,8 @@ class GpioManager:
         debounce_period: timedelta,
     ) -> AsyncGenerator[gpiod.LineEvent, None]:
         """Add detection for RISING and FALLING events."""
+
+        breakpoint()
 
         gpiod_edge = {
             FALLING: gpiod.line.Edge.FALLING,
@@ -158,4 +166,5 @@ class GpioManager:
             events = fut.result()
             fut = self._loop.create_future()
             for _ in events:
+                _LOGGER.debug("add_event_callback calling callback on pin: %s", pin)
                 callback()

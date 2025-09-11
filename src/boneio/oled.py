@@ -293,6 +293,7 @@ class Oled:
 
     def _handle_press(self) -> None:
         """Handle press of PIN for OLED display."""
+        _LOGGER.debug("Handling press!")
         if self._cancel_sleep_handle:
             self._cancel_sleep_handle()
             self._cancel_sleep_handle = None
