@@ -146,11 +146,7 @@ class Manager:
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = event_bus
-
-        self._message_bus: MessageBus = message_bus
-
-        self.send_message = message_bus.send_message
-        self._mqtt_state = message_bus.state
+        self.message_bus = message_bus
         self._inputs = {}
         from board import SCL, SDA
 
@@ -210,7 +206,7 @@ class Manager:
 
         create_adc(
             manager=self,
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             topic_prefix=self.config.mqtt.topic_prefix,
             adc=self.config.adc,
         )
@@ -261,7 +257,7 @@ class Manager:
 
         self._serial_number_sensor = create_serial_number_sensor(
             manager=self,
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             topic_prefix=self.config.mqtt.topic_prefix,
         )
         self._modbus_coordinators = self._configure_modbus_coordinators(
@@ -299,10 +295,6 @@ class Manager:
         _LOGGER.info("BoneIO manager is ready.")
 
     @property
-    def mqtt_state(self) -> bool:
-        return self._mqtt_state()
-
-    @property
     def ina219_sensors(self) -> list:
         return self._ina219_sensors
 
@@ -313,10 +305,6 @@ class Manager:
     @property
     def temp_sensors(self) -> list[TempSensor]:
         return self._temp_sensors
-
-    @property
-    def output_groups(self) -> dict:
-        return self._configured_output_groups
 
     def _configure_output_group(self):
         def get_outputs(output_list):
@@ -346,7 +334,7 @@ class Manager:
             )
             configured_group = configure_output_group(
                 config=group,
-                message_bus=self._message_bus,
+                message_bus=self.message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
                 relay_id=group[ID].replace(" ", ""),
@@ -412,7 +400,7 @@ class Manager:
                     _cover.update_config_times(cover)
                     continue
                 self._covers[_id] = configure_cover(
-                    message_bus=self._message_bus,
+                    message_bus=self.message_bus,
                     cover_id=_id,
                     state_manager=self._state_manager,
                     config=cover,
@@ -662,7 +650,7 @@ class Manager:
             self._temp_sensors.append(
                 create_dallas_sensor(
                     manager=self,
-                    message_bus=self._message_bus,
+                    message_bus=self.message_bus,
                     address=address,
                     topic_prefix=self.config.mqtt.topic_prefix,
                     config=sensor,
@@ -673,7 +661,7 @@ class Manager:
     def _configure_adc(self, adc: list[AdcConfig]) -> None:
         create_adc(
             manager=self,
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             topic_prefix=self.config.mqtt.topic_prefix,
             adc=adc,
         )
@@ -704,7 +692,7 @@ class Manager:
         for sensor in sensors:
             temp_sensor = create_temp_sensor(
                 manager=self,
-                message_bus=self._message_bus,
+                message_bus=self.message_bus,
                 topic_prefix=self.config.mqtt.topic_prefix,
                 sensor_type=sensor_type,
                 config=sensor,
@@ -720,7 +708,7 @@ class Manager:
             ina219 = create_ina219_sensor(
                 topic_prefix=self.config.mqtt.topic_prefix,
                 manager=self,
-                message_bus=self._message_bus,
+                message_bus=self.message_bus,
                 config=sensor_config,
             )
             if ina219:
@@ -734,7 +722,7 @@ class Manager:
 
             return create_modbus_coordinators(
                 manager=self,
-                message_bus=self._message_bus,
+                message_bus=self.message_bus,
                 event_bus=self._event_bus,
                 entries=devices,
                 modbus=self._modbus,
@@ -746,7 +734,7 @@ class Manager:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
         topic = f"{self.config.mqtt.topic_prefix}/{STATE}"
-        self.send_message(topic=topic, payload=ONLINE, retain=True)
+        self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
 
     @property
     def event_bus(self) -> EventBus:
@@ -853,7 +841,7 @@ class Manager:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
                 if action_topic and action_payload:
-                    self.send_message(
+                    self.message_bus.send_message(
                         topic=action_topic, payload=action_payload, retain=False
                     )
                 continue
@@ -890,14 +878,14 @@ class Manager:
                 await _f(**extra_data)
             elif action == OUTPUT_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
-                self.send_message(
+                self.message_bus.send_message(
                     topic=f"{boneio_id}/cmd/relay/{entity_id}/set",
                     payload=action_definition.get("action_output"),
                     retain=False,
                 )
             elif action == COVER_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
-                self.send_message(
+                self.message_bus.send_message(
                     topic=f"{boneio_id}/cmd/cover/{entity_id}/set",
                     payload=action_definition.get("action_cover"),
                     retain=False,
@@ -905,11 +893,11 @@ class Manager:
 
         payload = generate_payload()
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
-        self.send_message(topic=topic, payload=payload, retain=False)
+        self.message_bus.send_message(topic=topic, payload=payload, retain=False)
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
             self._loop.call_soon_threadsafe(
-                self._loop.call_later, 0.2, self.send_message, topic, ""
+                self._loop.call_later, 0.2, self.message_bus.send_message, topic, ""
             )
 
     async def toggle_output(self, output_id: str) -> str:
@@ -1058,7 +1046,9 @@ class Manager:
                 topic = actions[action].get(TOPIC)
                 payload = actions[action].get("payload")
                 if topic and payload:
-                    self.send_message(topic=topic, payload=payload, retain=False)
+                    self.message_bus.send_message(
+                        topic=topic, payload=payload, retain=False
+                    )
             elif action == OUTPUT:
                 output_id = actions[action].get(ID)
                 output_action = actions[action].get("action")
@@ -1109,8 +1099,8 @@ class Manager:
             message=MqttAutodiscoveryMessage(topic=topic, payload=payload),
             type=ha_type,
         )
-        self.send_message(topic=topic, payload=payload, retain=True)
+        self.message_bus.send_message(topic=topic, payload=payload, retain=True)
 
     def resend_autodiscovery(self) -> None:
         for msg in self.config.mqtt.autodiscovery_messages.root.values():
-            self.send_message(**msg.model_dump(), retain=True)
+            self.message_bus.send_message(**msg.model_dump(), retain=True)

@@ -209,7 +209,7 @@ class HostData:
                             "col": 3,
                         },
                         "MQTT": {
-                            "data": "CONN" if manager.mqtt_state else "DOWN",
+                            "data": "CONN" if manager.message_bus.state else "DOWN",
                             "fontSize": "small",
                             "row": 3,
                             "col": 60,
