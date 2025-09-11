@@ -228,8 +228,8 @@ class Ina219Config(BaseModel):
 
 
 class EventActionDataConfig(BaseModel):
-    position: int
-    tilt_position: int
+    position: int | None = None
+    tilt_position: int | None = None
 
 
 class EventActionConfig(BaseModel):
