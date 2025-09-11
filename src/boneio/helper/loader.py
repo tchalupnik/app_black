@@ -517,6 +517,7 @@ def configure_binary_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
+    gpio_manager: GpioManager,
     actions: dict[
         EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
     ],
@@ -557,6 +558,7 @@ def configure_binary_sensor(
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 gpio=gpio,
+                gpio_manager=gpio_manager,
             )
         if gpio.show_in_ha:
             send_ha_autodiscovery(
