@@ -23,8 +23,7 @@ from boneio.const import (
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
 from boneio.models import CoverState
-from boneio.relay import MCPRelay
-from src.boneio.relay.basic import BasicRelay
+from boneio.relay.basic import BasicRelay
 
 if typing.TYPE_CHECKING:
     from boneio.message_bus.basic import MessageBus
