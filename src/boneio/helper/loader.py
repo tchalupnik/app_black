@@ -529,7 +529,7 @@ def configure_binary_sensor(
                     gpio_manager=gpio_manager,
                 )
             else:
-                input = GpioInputBinarySensorClass(
+                input = GpioInputBinarySensorOld(
                     pin=gpio.pin,
                     name=name,
                     actions=actions,
