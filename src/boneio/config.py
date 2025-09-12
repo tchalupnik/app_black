@@ -429,21 +429,40 @@ class LoggerConfig(BaseModel):
     pass
 
 
+Uarts = Literal["uart1", "uart2", "uart3", "uart4", "uart5"]
+
+
+class UartConfig(BaseModel):
+    id: str
+    tx: str
+    rx: str | None = None
+
+
+UartsConfig: dict[Uarts, UartConfig] = {
+    "uart1": UartConfig(id="/dev/ttyS1", tx="P9.24", rx="P9.26"),
+    "uart2": UartConfig(id="/dev/ttyS2", tx="P9.21", rx="P9.22"),
+    "uart3": UartConfig(id="/dev/ttyS3", tx="P9.42", rx=None),
+    "uart4": UartConfig(id="/dev/ttyS4", tx="P9.13", rx="P9.11"),
+    "uart5": UartConfig(id="/dev/ttyS5", tx="P8.37", rx="P8.38"),
+}
+
+ModbusParity = Literal["N", "E", "O"]
+
+
 class ModbusConfig(BaseModel):
-    uart: Literal["uart1", "uart2", "uart3", "uart4", "uart5"]
+    uart: Uarts
     baudrate: int = 9600
     stopbits: int = Field(default=1, ge=1, le=2)
-    parity: Literal["N", "E", "O"] = "N"
+    bytesize: int = 8
+    parity: ModbusParity = "N"
 
 
-class ModbusDeviceDataConfig(BaseModel):
-    width: str | int | float | None = None
-    length: str | int | float | None = None
-
-
-class ModbusDeviceSensorFilterConfig(BaseModel):
-    temperature: list[dict[Filters, float]] | None = None
-    humidity: list[dict[Filters, float]] | None = None
+ModbusDeviceDataNames = Literal["width", "length"]
+ModbusDeviceData = dict[ModbusDeviceDataNames, str | int | float]
+ModbusDeviceSensorFilterNames = Literal["temperature", "humidity"]
+ModbusDeviceSensorFilters = dict[
+    ModbusDeviceSensorFilterNames, list[dict[Filters, float]]
+]
 
 
 class ModbusDeviceConfig(BaseModel):
@@ -467,8 +486,8 @@ class ModbusDeviceConfig(BaseModel):
         "ventclear",
     ]
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=30))
-    sensor_filters: ModbusDeviceSensorFilterConfig | None = None
-    data: ModbusDeviceDataConfig | None = None
+    sensor_filters: ModbusDeviceSensorFilters | None = None
+    data: ModbusDeviceData | None = None
 
 
 class Mcp23017Config(BaseModel):

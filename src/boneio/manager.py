@@ -24,9 +24,12 @@ from boneio.config import (
     Ds2482Config,
     EventActionTypes,
     Ina219Config,
+    ModbusConfig,
+    ModbusDeviceConfig,
     MqttAutodiscoveryMessage,
     SensorConfig,
     TemperatureConfig,
+    UartsConfig,
 )
 from boneio.const import (
     BINARY_SENSOR,
@@ -42,7 +45,6 @@ from boneio.const import (
     IP,
     LED,
     LIGHT,
-    MODBUS,
     MQTT,
     NONE,
     ON,
@@ -56,8 +58,6 @@ from boneio.const import (
     STOP,
     SWITCH,
     TOPIC,
-    UART,
-    UARTS,
     VALVE,
     cover_actions,
     relay_actions,
@@ -89,6 +89,7 @@ from boneio.helper.loader import (
     create_adc,
     create_dallas_sensor,
     create_expander,
+    create_modbus_coordinators,
     create_serial_number_sensor,
     create_temp_sensor,
 )
@@ -132,8 +133,6 @@ class Manager:
         gpio_manager: GpioManager,
     ) -> None:
         self.gpio_manager = gpio_manager
-        modbus_devices = old_config.get("modbus_devices", {})
-        modbus = old_config.get(MODBUS, {})
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
@@ -159,9 +158,10 @@ class Manager:
         self.temp_sensors: list[TempSensor] = []
         self.ina219_sensors = []
         self.modbus_coordinators = {}
-        self._modbus = None
+        self.modbus: Modbus | None = None
 
-        self._configure_modbus(modbus=modbus)
+        if config.modbus is not None:
+            self._configure_modbus(modbus=config.modbus)
 
         if config.lm75 is not None:
             self._configure_temp_sensors(sensor_type="lm75", sensors=config.lm75)
@@ -254,7 +254,7 @@ class Manager:
             topic_prefix=self.config.mqtt.topic_prefix,
         )
         self.modbus_coordinators = self._configure_modbus_coordinators(
-            devices=modbus_devices
+            devices=config.modbus_devices
         )
 
         if config.oled is not None and config.oled.enabled:
@@ -642,23 +642,23 @@ class Manager:
             adc=adc,
         )
 
-    def _configure_modbus(self, modbus: dict) -> None:
-        uart = modbus.get(UART)
-        if uart and uart in UARTS:
+    def _configure_modbus(self, modbus: ModbusConfig) -> None:
+        uart = modbus.uart
+        if uart in UartsConfig:
             try:
-                self._modbus = Modbus(
-                    uart=UARTS[uart],
-                    baudrate=modbus.get("baudrate", 9600),
-                    stopbits=modbus.get("stopbits", 1),
-                    bytesize=modbus.get("bytesize", 8),
-                    parity=modbus.get("parity", "N"),
+                self.modbus = Modbus(
+                    uart=UartsConfig[uart],
+                    baudrate=modbus.baudrate,
+                    stopbits=modbus.stopbits,
+                    bytesize=modbus.bytesize,
+                    parity=modbus.parity,
                 )
             except ModbusUartException:
                 _LOGGER.error(
                     "This UART %s can't be used for modbus communication.",
                     uart,
                 )
-                self._modbus = None
+                self.modbus = None
 
     def _configure_temp_sensors(
         self,
@@ -691,17 +691,15 @@ class Manager:
                 self.ina219_sensors.append(ina219)
 
     def _configure_modbus_coordinators(
-        self, devices: dict
+        self, devices: list[ModbusDeviceConfig]
     ) -> dict[str, ModbusCoordinator]:
-        if devices and self._modbus:
-            from boneio.helper.loader import create_modbus_coordinators
-
+        if self.modbus is not None:
             return create_modbus_coordinators(
                 manager=self,
                 message_bus=self.message_bus,
                 event_bus=self._event_bus,
                 entries=devices,
-                modbus=self._modbus,
+                modbus=self.modbus,
                 config=self.config,
             )
         return {}

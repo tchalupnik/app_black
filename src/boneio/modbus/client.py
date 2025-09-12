@@ -5,7 +5,6 @@ import logging
 import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
 from pymodbus.client.common import (
     ReadCoilsResponse,
@@ -19,7 +18,8 @@ from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.pdu import ModbusResponse
 from pymodbus.register_read_message import ReadInputRegistersResponse
 
-from boneio.const import ID, REGISTERS, RX, TX, UART
+from boneio.config import UartConfig
+from boneio.const import REGISTERS, UART
 from boneio.helper.exceptions import ModbusUartException
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class Modbus:
 
     def __init__(
         self,
-        uart: dict[str, Any],
+        uart: UartConfig,
         baudrate: int = 9600,
         stopbits: int = 1,
         bytesize: int = 8,
@@ -103,21 +103,18 @@ class Modbus:
         """Initialize the Modbus hub."""
         from boneio.gpio import configure_pin
 
-        rx = uart.get(RX)
-        tx = uart.get(TX)
-        if not tx or not rx:
+        if uart.rx is None:
             raise ModbusUartException
         _LOGGER.debug(
             "Setting UART for modbus communication: %s with baudrate %s, parity %s, stopbits %s, bytesize %s",
-            uart,
+            str(uart),
             baudrate,
             parity,
             stopbits,
             bytesize,
         )
-        configure_pin(pin=rx, mode=UART)
-        configure_pin(pin=tx, mode=UART)
-        self._uart = uart
+        configure_pin(pin=uart.rx, mode=UART)
+        configure_pin(pin=uart.tx, mode=UART)
 
         # generic configuration
         self._client: BaseModbusClient | None = None
@@ -129,7 +126,7 @@ class Modbus:
 
         try:
             self._client = ModbusSerialClient(
-                port=self._uart[ID],
+                port=uart.id,
                 method="rtu",
                 baudrate=baudrate,
                 stopbits=stopbits,

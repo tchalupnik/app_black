@@ -7,7 +7,11 @@ import typing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from boneio.config import Config
+from boneio.config import (
+    Config,
+    ModbusDeviceData,
+    ModbusDeviceSensorFilters,
+)
 from boneio.const import (
     ADDRESS,
     BASE,
@@ -68,16 +72,14 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         modbus: Modbus,
         address: str,
         model: str,
-        sensors_filters: dict,
         config: Config,
         event_bus: EventBus,
         update_interval: timedelta,
+        sensors_filters: ModbusDeviceSensorFilters | None,
+        additional_data: ModbusDeviceData | None,
         id: str = DefaultName,
-        additional_data: dict = None,
     ):
         """Initialize Modbus coordinator class."""
-        if additional_data is None:
-            additional_data = {}
         BasicMqtt.__init__(
             self,
             id=id or address,
@@ -91,7 +93,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._address = address
         self._discovery_sent = False
         self._payload_online = OFFLINE
-        self._sensors_filters = {k.lower(): v for k, v in sensors_filters.items()}
+        self._sensors_filters = sensors_filters
         self._modbus_entities: list[
             dict[
                 str,
@@ -232,7 +234,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self, additional: dict
     ) -> ModbusDerivedNumericSensor | None:
         config_keys = additional.get("config_keys", [])
-        if not self._additional_data:
+        if self._additional_data is None:
             return None
         if not all(k in self._additional_data for k in config_keys):
             return None

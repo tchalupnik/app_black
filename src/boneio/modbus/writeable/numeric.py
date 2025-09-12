@@ -26,20 +26,8 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
     ):
         ModbusNumericSensor.__init__(self, config=config, **kwargs)
         self._coordinator = coordinator
-        self._write_address = write_address
+        self.write_address = write_address
         self._write_filters = write_filters
-
-    async def write_value(self, value: float) -> None:
-        await self._coordinator.write_register(
-            unit=self._address,
-            address=self.address,
-            value=value,
-            method=self._register_method,
-        )
-
-    @property
-    def write_address(self) -> int | None:
-        return self._write_address
 
     def discovery_message(self):
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"

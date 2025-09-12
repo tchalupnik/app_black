@@ -4,7 +4,6 @@ import logging
 import time
 import typing
 from collections.abc import Callable
-from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
@@ -21,6 +20,7 @@ from boneio.config import (
     EventConfig,
     Ina219Config,
     Mcp23017Config,
+    ModbusDeviceConfig,
     OutputConfig,
     Pca9685Config,
     Pcf8575Config,
@@ -28,21 +28,17 @@ from boneio.config import (
     TemperatureConfig,
 )
 from boneio.const import (
-    ADDRESS,
     BINARY_SENSOR,
     COVER,
     EVENT_ENTITY,
     GPIO,
-    ID,
     INPUT,
     INPUT_SENSOR,
     LM75,
     MCP_TEMP_9808,
-    MODEL,
     NONE,
     RELAY,
     SENSOR,
-    UPDATE_INTERVAL,
 )
 from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
 from boneio.gpio import (
@@ -231,7 +227,7 @@ def create_modbus_coordinators(
     manager: Manager,
     message_bus: MessageBus,
     event_bus: EventBus,
-    entries: dict,
+    entries: list[ModbusDeviceConfig],
     modbus: Modbus,
     config: Config,
 ) -> dict[str, ModbusCoordinator]:
@@ -239,20 +235,18 @@ def create_modbus_coordinators(
 
     modbus_coordinators = {}
     for entry in entries:
-        name = entry.get(ID)
-        id = name.replace(" ", "")
-        additional_data = entry.get("data", {})
+        id = entry.id.replace(" ", "")
         try:
             modbus_coordinators[id.lower()] = ModbusCoordinator(
-                address=entry[ADDRESS],
+                address=entry.address,
                 id=id,
-                name=name,
+                name=entry.id,
                 manager=manager,
-                model=entry[MODEL],
+                model=entry.model,
                 message_bus=message_bus,
-                update_interval=entry.get(UPDATE_INTERVAL, timedelta(seconds=60)),
-                sensors_filters=entry.get("sensors_filters", {}),
-                additional_data=additional_data,
+                update_interval=entry.update_interval,
+                sensors_filters=entry.sensor_filters,
+                additional_data=entry.data,
                 modbus=modbus,
                 event_bus=event_bus,
                 config=config,
