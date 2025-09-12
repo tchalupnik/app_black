@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from boneio.config import Config
+from boneio.config import Config, ModbusDeviceData
 from boneio.const import ID, MODEL, NAME, TEXT_SENSOR
 from boneio.helper.ha_discovery import (
     modbus_sensor_availabilty_message,
@@ -17,7 +17,7 @@ class ModbusDerivedTextSensor(BaseSensor):
         name: str,
         parent: dict,
         message_bus: MessageBus,
-        context_config: dict,
+        context_config: ModbusDeviceData,
         config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
@@ -35,18 +35,10 @@ class ModbusDerivedTextSensor(BaseSensor):
             user_filters=[],
             ha_filter="",
         )
-        self._context_config = context_config
-        self._source_sensor_base_address = source_sensor_base_address
+        self.context = context_config
+        self.base_address = source_sensor_base_address
         self._source_sensor_decoded_name = source_sensor_decoded_name
         self._value_mapping = value_mapping
-
-    @property
-    def context(self) -> dict:
-        return self._context_config
-
-    @property
-    def base_address(self) -> str:
-        return self._source_sensor_base_address
 
     @property
     def state(self) -> str:

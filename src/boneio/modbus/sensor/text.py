@@ -29,7 +29,7 @@ class ModbusTextSensor(BaseSensor):
         filters: list,
         message_bus: MessageBus,
         config: Config,
-        value_mapping: dict = None,
+        value_mapping: dict | None = None,
         user_filters: list | None = None,
         ha_filter: str = "",
     ) -> None:

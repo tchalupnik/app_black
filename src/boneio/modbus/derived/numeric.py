@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import ast
+from typing import Literal
 
-from boneio.config import Config
+from boneio.config import Config, ModbusDeviceData
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
 
@@ -20,15 +21,13 @@ class ModbusDerivedNumericSensor(BaseSensor):
         filters: list,
         message_bus: MessageBus,
         formula: str,
-        context_config: dict,
+        context_config: ModbusDeviceData,
         config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
         user_filters: list | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
-        if user_filters is None:
-            user_filters = []
         BaseSensor.__init__(
             self,
             name=name,
@@ -44,22 +43,10 @@ class ModbusDerivedNumericSensor(BaseSensor):
             user_filters=user_filters,
             ha_filter=ha_filter,
         )
-        self._formula = formula
-        self._context_config = context_config
-        self._source_sensor_base_address = source_sensor_base_address
+        self.formula = formula
+        self.context = context_config
+        self.base_address = source_sensor_base_address
         self._source_sensor_decoded_name = source_sensor_decoded_name
-
-    @property
-    def formula(self) -> str:
-        return self._formula
-
-    @property
-    def context(self) -> dict:
-        return self._context_config
-
-    @property
-    def base_address(self) -> str:
-        return self._source_sensor_base_address
 
     @property
     def state(self) -> float:
@@ -70,7 +57,11 @@ class ModbusDerivedNumericSensor(BaseSensor):
     def source_sensor_decoded_name(self) -> str:
         return self._source_sensor_decoded_name
 
-    def _safe_evaluate_expression(self, formula: str, context: dict) -> float:
+    def _safe_evaluate_expression(
+        self,
+        formula: str,
+        context: dict[Literal["width", "length", "X"], str | float | int],
+    ) -> float:
         """
         Safely evaluate mathematical expressions without using eval().
         Supports basic arithmetic operations and common mathematical functions.
@@ -97,7 +88,11 @@ class ModbusDerivedNumericSensor(BaseSensor):
             # Return the original sensor value if evaluation fails
             return context.get("X", 0.0)
 
-    def _evaluate_ast_node(self, node: ast.AST, context: dict) -> float:
+    def _evaluate_ast_node(
+        self,
+        node: ast.AST,
+        context: dict[Literal["width", "length", "X"], str | float | int],
+    ) -> float:
         """Safely evaluate AST nodes for mathematical expressions."""
         if isinstance(node, ast.Constant):
             return float(node.value)
@@ -167,7 +162,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float
     ) -> None:
-        context = {
+        context: dict[Literal["width", "length", "X"], str | float | int] = {
             "X": source_sensor_value,
             **self.context,
         }

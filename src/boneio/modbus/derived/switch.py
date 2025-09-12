@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import logging
-
-from boneio.config import Config
+from boneio.config import Config, ModbusDeviceData
 from boneio.const import ID, MODEL, NAME, SENSOR, SWITCH
 from boneio.helper.ha_discovery import (
     modbus_availabilty_message,
@@ -10,8 +8,6 @@ from boneio.helper.ha_discovery import (
 from boneio.helper.util import find_key_by_value
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ModbusDerivedSwitch(BaseSensor):
@@ -22,7 +18,7 @@ class ModbusDerivedSwitch(BaseSensor):
         name: str,
         parent: dict,
         message_bus: MessageBus,
-        context_config: dict,
+        context_config: ModbusDeviceData,
         config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
@@ -34,28 +30,16 @@ class ModbusDerivedSwitch(BaseSensor):
             self,
             name=name,
             parent=parent,
-            value_type=None,
-            return_type=None,
-            filters=[],
             message_bus=message_bus,
             config=config,
-            user_filters=[],
             ha_filter="",
         )
-        self._context_config = context_config
-        self._source_sensor_base_address = source_sensor_base_address
-        self._source_sensor_decoded_name = source_sensor_decoded_name
+        self.context = context_config
+        self.base_address = source_sensor_base_address
+        self.source_sensor_decoded_name = source_sensor_decoded_name
         self._value_mapping = value_mapping
         self._payload_off = payload_off
         self._payload_on = payload_on
-
-    @property
-    def context(self) -> dict:
-        return self._context_config
-
-    @property
-    def base_address(self) -> str:
-        return self._source_sensor_base_address
 
     @property
     def state(self) -> str:
@@ -83,10 +67,6 @@ class ModbusDerivedSwitch(BaseSensor):
             **kwargs,
         )
         return msg
-
-    @property
-    def source_sensor_decoded_name(self) -> str:
-        return self._source_sensor_decoded_name
 
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float
