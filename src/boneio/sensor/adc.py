@@ -6,7 +6,7 @@ import logging
 import typing
 from datetime import timedelta
 
-import Adafruit_BBIO.ADC as ADC
+import Adafruit_BBIO.ADC as ADC  # type: ignore
 
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt

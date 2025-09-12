@@ -29,6 +29,7 @@ class BasicMqtt:
 class MqttBase(BaseModel):
     # TODO: Finish later
     id: str
+    name: str
     topic_prefix: str
     topic_type: str
     # message_bus: MessageBus

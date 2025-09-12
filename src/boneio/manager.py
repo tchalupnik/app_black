@@ -91,6 +91,7 @@ from boneio.helper.loader import (
     create_adc,
     create_dallas_sensor,
     create_expander,
+    create_ina219_sensor,
     create_modbus_coordinators,
     create_serial_number_sensor,
 )
@@ -711,8 +712,6 @@ class Manager:
                 self.modbus = None
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
-        from boneio.helper.loader import create_ina219_sensor
-
         for sensor_config in sensors:
             ina219 = create_ina219_sensor(
                 topic_prefix=self.config.mqtt.topic_prefix,
