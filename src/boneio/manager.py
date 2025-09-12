@@ -131,9 +131,7 @@ class Manager:
         gpio_manager: GpioManager,
     ) -> None:
         self.gpio_manager = gpio_manager
-        self._event_pins = old_config.get(EVENT_ENTITY, [])
         modbus_devices = old_config.get("modbus_devices", {})
-        cover = old_config.get(COVER, [])
         modbus = old_config.get(MODBUS, {})
         output_group = old_config.get(OUTPUT_GROUP, [])
         _LOGGER.info("Initializing manager module.")
@@ -156,9 +154,7 @@ class Manager:
         self._configured_output_groups = {}
         self._interlock_manager = SoftwareInterlockManager()
 
-        self._oled = None
         self._tasks: list[asyncio.Task] = []
-        self._config_covers = cover
         self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self.temp_sensors: list[TempSensor] = []
         self.ina219_sensors = []
@@ -276,7 +272,7 @@ class Manager:
                 extra_sensors=config.oled.extra_screen_sensors,
             )
             try:
-                self._oled = Oled(
+                oled = Oled(
                     host_data=self._host_data,
                     screen_order=config.oled.screens,
                     grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
@@ -286,9 +282,8 @@ class Manager:
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
-            finally:
-                if self._oled is not None:
-                    self._oled.render_display()
+            else:
+                oled.render_display()
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
 
