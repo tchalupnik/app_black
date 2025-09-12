@@ -143,12 +143,15 @@ class GpioManager:
 
             def c():
                 events = request.read_edge_events()
+                _LOGGER.debug(str(events))
                 fut.set_result(events)
 
             self._loop.add_reader(request.fd, c)
 
             while True:
                 await fut
+                # debounce_period is bugged
+                await asyncio.sleep(debounce_period.total_seconds())
                 events = fut.result()
                 fut = self._loop.create_future()
                 for _ in events:

@@ -11,7 +11,7 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
 from boneio.const import OLED_PIN, UPTIME, WHITE
-from boneio.gpio_manager import GpioManager
+from boneio.gpio_manager import GpioManager, FALLING
 from boneio.helper import (
     HostData,
     I2CError,
@@ -116,6 +116,7 @@ class Oled:
             pin=OLED_PIN,
             callback=self._handle_press,
             debounce_period=timedelta(milliseconds=240),
+            edge=FALLING,
         )
         try:
             serial = i2c(port=2, address=0x3C)
