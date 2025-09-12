@@ -5,7 +5,7 @@ import time
 import typing
 from collections.abc import Callable
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
@@ -43,12 +43,12 @@ from boneio.const import (
     RELAY,
     SENSOR,
     UPDATE_INTERVAL,
-    DallasBusTypes,
 )
 from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
 from boneio.gpio import (
     GpioEventButtonNew,
     GpioEventButtonOld,
+    GpioEventButtonsAndSensors,
     GpioInputBinarySensorNew,
     GpioInputBinarySensorOld,
     GpioRelay,
@@ -442,53 +442,57 @@ def configure_event_sensor(
     actions: dict[
         EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
     ],
-    input: GpioEventButtonOld
-    | GpioEventButtonNew
-    | GpioInputBinarySensorOld
-    | GpioInputBinarySensorNew
-    | None = None,
-) -> (
-    GpioEventButtonOld
-    | GpioEventButtonNew
-    | GpioInputBinarySensorOld
-    | GpioInputBinarySensorNew
-    | None
-):
+    input: GpioEventButtonsAndSensors | None = None,
+) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
-    try:
-        gpioEventButtonClass = (
+    name = gpio.id or gpio.pin
+    if input:
+        GpioEventButtonClass = (
             GpioEventButtonNew if gpio.detection_type == "new" else GpioEventButtonOld
         )
-        name = gpio.id or gpio.pin
-        if input:
-            if not isinstance(input, gpioEventButtonClass):
-                _LOGGER.warning(
-                    "You reconfigured type of input. It's forbidden. Please restart boneIO."
+        if not isinstance(input, GpioEventButtonClass):
+            _LOGGER.warning(
+                "You reconfigured type of input. It's forbidden. Please restart boneIO."
+            )
+            return input
+        input.actions = actions
+    else:
+        try:
+            if gpio.detection_type == "new":
+                input = GpioEventButtonNew(
+                    pin=gpio.pin,
+                    name=name,
+                    input_type=INPUT,
+                    empty_message_after=gpio.clear_message,
+                    actions=actions,
+                    manager_press_callback=manager_press_callback,
+                    event_bus=event_bus,
+                    gpio_manager=gpio_manager,
                 )
-                return input
-            input.set_actions(actions=actions)
-        else:
-            input = gpioEventButtonClass(
-                pin=gpio.pin,
-                name=name,
-                input_type=INPUT,
-                empty_message_after=gpio.clear_message,
-                actions=actions,
-                manager_press_callback=manager_press_callback,
-                event_bus=event_bus,
-                gpio_manager=gpio_manager,
-            )
-        if gpio.show_in_ha:
-            send_ha_autodiscovery(
-                id=gpio.pin,
-                name=name,
-                ha_type=EVENT_ENTITY,
-                device_class=gpio.device_class,
-                availability_msg_func=ha_event_availabilty_message,
-            )
-        return input
-    except GPIOInputException as err:
-        _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
+            else:
+                input = GpioEventButtonOld(
+                    pin=gpio.pin,
+                    name=name,
+                    input_type=INPUT,
+                    empty_message_after=gpio.clear_message,
+                    actions=actions,
+                    manager_press_callback=manager_press_callback,
+                    event_bus=event_bus,
+                    bounce_time=gpio.bounce_time,
+                    gpio_manager=gpio_manager,
+                )
+        except GPIOInputException as err:
+            _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
+            raise
+    if gpio.show_in_ha:
+        send_ha_autodiscovery(
+            id=gpio.pin,
+            name=name,
+            ha_type=EVENT_ENTITY,
+            device_class=gpio.device_class,
+            availability_msg_func=ha_event_availabilty_message,
+        )
+    return input
 
 
 def configure_binary_sensor(
@@ -500,56 +504,61 @@ def configure_binary_sensor(
     actions: dict[
         EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
     ],
-    input: GpioEventButtonOld
-    | GpioEventButtonNew
-    | GpioInputBinarySensorOld
-    | GpioInputBinarySensorNew
-    | None = None,
-) -> (
-    GpioEventButtonOld
-    | GpioEventButtonNew
-    | GpioInputBinarySensorOld
-    | GpioInputBinarySensorNew
-    | None
-):
+    input: GpioEventButtonsAndSensors | None = None,
+) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
-    try:
+    name = gpio.id or gpio.pin
+    if input:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew
             if gpio.detection_type == "new"
             else GpioInputBinarySensorOld
         )
-        name = gpio.id or gpio.pin
-        if input:
-            if not isinstance(input, GpioInputBinarySensorClass):
-                _LOGGER.warning(
-                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+        if not isinstance(input, GpioInputBinarySensorClass):
+            _LOGGER.warning(
+                "You preconfigured type of input. It's forbidden. Please restart boneIO."
+            )
+            return input
+        input.actions = actions
+    else:
+        try:
+            if gpio.detection_type == "new":
+                input = GpioInputBinarySensorNew(
+                    pin=gpio.pin,
+                    name=name,
+                    actions=actions,
+                    input_type=INPUT_SENSOR,
+                    empty_message_after=gpio.clear_message,
+                    manager_press_callback=manager_press_callback,
+                    event_bus=event_bus,
+                    gpio=gpio,
+                    gpio_manager=gpio_manager,
                 )
-                return input
-            input.set_actions(actions=actions)
-        else:
-            input = GpioInputBinarySensorClass(
-                pin=gpio.pin,
-                name=name,
-                actions=actions,
-                input_type=INPUT_SENSOR,
-                empty_message_after=gpio.clear_message,
-                manager_press_callback=manager_press_callback,
-                event_bus=event_bus,
-                gpio=gpio,
-                gpio_manager=gpio_manager,
-            )
-        if gpio.show_in_ha:
-            send_ha_autodiscovery(
-                id=gpio.pin,
-                name=name,
-                ha_type=BINARY_SENSOR,
-                device_class=gpio.device_class,
-                availability_msg_func=ha_binary_sensor_availabilty_message,
-            )
-        return input
-    except GPIOInputException as err:
-        _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
+            else:
+                input = GpioInputBinarySensorClass(
+                    pin=gpio.pin,
+                    name=name,
+                    actions=actions,
+                    input_type=INPUT_SENSOR,
+                    empty_message_after=gpio.clear_message,
+                    manager_press_callback=manager_press_callback,
+                    event_bus=event_bus,
+                    gpio=gpio,
+                    gpio_manager=gpio_manager,
+                )
+        except GPIOInputException as err:
+            _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
+            raise
+
+    if gpio.show_in_ha:
+        send_ha_autodiscovery(
+            id=gpio.pin,
+            name=name,
+            ha_type=BINARY_SENSOR,
+            device_class=gpio.device_class,
+            availability_msg_func=ha_binary_sensor_availabilty_message,
+        )
+    return input
 
 
 def configure_cover(
@@ -666,7 +675,7 @@ def configure_dallas() -> AsyncBoneIOW1ThermSensor:
 def find_onewire_devices(
     ow_bus: OneWireBus | AsyncBoneIOW1ThermSensor,
     bus_id: str,
-    bus_type: DallasBusTypes,
+    bus_type: Literal["ds2482", "dallas"],
 ) -> dict[int, OneWireAddress]:
     out: dict[int, OneWireAddress] = {}
     try:

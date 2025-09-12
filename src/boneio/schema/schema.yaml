@@ -608,7 +608,7 @@ binary_sensor:
           label: Id to use in HA if needed. Default to pin number.
       pin:
         type: string
-        required: False
+        required: True
         meta:
           label: PIN to use.
       gpio_mode:
@@ -723,7 +723,7 @@ event:
           label: Id to use in HA if needed. Default to pin number.
       pin:
         type: string
-        required: False
+        required: True
         meta:
           label: PIN to use.
       gpio_mode:

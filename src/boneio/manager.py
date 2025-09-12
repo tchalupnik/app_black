@@ -64,6 +64,7 @@ from boneio.const import (
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
+from boneio.gpio import GpioEventButtonsAndSensors
 from boneio.gpio_manager import GpioManager
 from boneio.group.output import OutputGroup
 from boneio.helper import (
@@ -142,7 +143,7 @@ class Manager:
         self._state_manager = state_manager
         self._event_bus = event_bus
         self.message_bus = message_bus
-        self._inputs = {}
+        self._inputs: dict[str, GpioEventButtonsAndSensors] = {}
         from board import SCL, SDA
 
         self._i2cbusio = I2C(SCL, SDA)
@@ -500,7 +501,7 @@ class Manager:
                     )
         return parsed_actions
 
-    def configure_inputs(self, reload_config: bool = False):
+    def configure_inputs(self, reload_config: bool = False) -> None:
         """Configure inputs. Either events or binary sensors."""
 
         def check_if_pin_configured(pin: str) -> bool:
@@ -528,7 +529,7 @@ class Manager:
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self._inputs.get(gpio.pin, None),  # for reload actions.
+                input=self._inputs.get(gpio.pin),  # for reload actions.
                 actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
@@ -543,7 +544,7 @@ class Manager:
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self._inputs.get(gpio.pin, None),  # for reload actions.
+                input=self._inputs.get(gpio.pin),  # for reload actions.
                 actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
