@@ -109,6 +109,7 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.oled import Oled
 from boneio.relay.basic import BasicRelay
+from boneio.sensor.ina219 import INA219
 from boneio.sensor.temp import TempSensor
 from boneio.sensor.temp.lm75 import LM75Sensor
 from boneio.sensor.temp.mcp9808 import MCP9808Sensor
@@ -160,7 +161,7 @@ class Manager:
         self.tasks: list[asyncio.Task] = []
         self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self.temp_sensors: list[TempSensor] = []
-        self.ina219_sensors = []
+        self.ina219_sensors: list[INA219] = []
         self.modbus_coordinators = {}
         self.modbus: Modbus | None = None
 

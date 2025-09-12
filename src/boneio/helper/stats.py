@@ -29,11 +29,12 @@ from boneio.const import (
 )
 from boneio.helper.events import EventBus
 from boneio.models import HostSensorState
+from boneio.sensor.temp import TempSensor
 
 if TYPE_CHECKING:
     from boneio.gpio.base import GpioBase
     from boneio.manager import Manager
-    from boneio.sensor import INA219, LM75Sensor, MCP9808Sensor
+    from boneio.sensor import INA219
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.version import __version__
@@ -180,7 +181,7 @@ class HostData:
         self,
         output: dict,
         inputs: dict[str, GpioBase],
-        temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
+        temp_sensor: Callable[[TempSensor], None] | None,
         ina219: INA219 | None,
         manager: Manager,
         event_bus: EventBus,
