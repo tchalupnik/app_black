@@ -13,7 +13,6 @@ from pathlib import Path
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
 from busio import I2C
-from src.boneio.oled import Oled
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
@@ -113,6 +112,7 @@ from boneio.sensor.temp import TempSensor
 from boneio.sensor.temp.lm75 import LM75Sensor
 from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
+from boneio.oled import Oled
 
 if typing.TYPE_CHECKING:
     from boneio.gpio.base import GpioBase
@@ -1105,4 +1105,4 @@ class Manager:
 
     async def resend_autodiscovery(self) -> None:
         for msg in self.config.mqtt.autodiscovery_messages.root.values():
-            await self.message_bus.send_message(**msg.model_dump(), retain=True)
+            self.message_bus.send_message(**msg.model_dump(), retain=True)

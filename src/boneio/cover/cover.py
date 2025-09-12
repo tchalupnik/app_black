@@ -205,7 +205,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return
         _LOGGER.info("Opening cover %s.", self._id)
         await self.run_cover(current_operation=OPENING)
-        await self.message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=OPENING
         )
 
@@ -214,7 +214,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return
         _LOGGER.info("Closing cover %s.", self._id)
         await self.run_cover(current_operation=CLOSING)
-        await self.message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=CLOSING
         )
 
