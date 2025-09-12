@@ -72,7 +72,7 @@ async def async_run(
     )
     # Convert coroutines to Tasks
     message_bus.set_manager(manager=manager)
-    tasks.update(manager.tasks())
+    tasks.update(manager.tasks)
 
     message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
     _LOGGER.info("Starting message bus %s.", message_bus_type)
