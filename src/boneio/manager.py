@@ -13,6 +13,7 @@ from pathlib import Path
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
 from busio import I2C
+from src.boneio.oled import Oled
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
@@ -352,8 +353,6 @@ class Manager:
         )
 
         if config.oled is not None and config.oled.enabled:
-            from boneio.oled import Oled
-
             self._host_data = HostData(
                 manager=self,
                 event_bus=self._event_bus,
