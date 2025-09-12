@@ -48,22 +48,17 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
             topic_prefix=topic_prefix,
         )
         self._pin = pin
-        self._state = None
+        self.state: float | None = None
         self._filters = filters
         AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
-
-    @property
-    def state(self) -> float:
-        """Give rounded value of temperature."""
-        return self._state
 
     def update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         _state = self._apply_filters(value=ADC.read(self._pin))
         if not _state:
             return
-        self._state = _state
+        self.state = _state
         self._timestamp = timestamp
         self.message_bus.send_message(
             topic=self._send_topic,
