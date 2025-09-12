@@ -18,11 +18,10 @@ class LocalMessageBus(MessageBus):
 
     def __init__(self):
         """Initialize local message bus."""
-        self._state = True
+        self.state = True
         self._subscribers: dict[str, set[Callable]] = {}
         self._retain_values: dict[str, str | dict] = {}
-        self._manager: Manager = None
-        self._running = True
+        self.manager: Manager | None = None
 
     async def send_message(
         self, topic: str, payload: str | dict, retain: bool = False
@@ -48,21 +47,12 @@ class LocalMessageBus(MessageBus):
         if topic in self._retain_values:
             asyncio.create_task(callback(topic, self._retain_values[topic]))
 
-    @property
-    def state(self) -> bool:
-        """Get bus state."""
-        return self._state
-
     async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
-        while self._running:
-            if self._manager and hasattr(self._manager, "reconnect_callback"):
-                await self._manager.reconnect_callback()
+        while True:
+            if self.manager is not None:
+                await self.manager.reconnect_callback()
             await asyncio.sleep(60)  # Run reconnect callback every minute like MQTT
-
-    def set_manager(self, manager: Manager) -> None:
-        """Set manager."""
-        self._manager = manager
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""

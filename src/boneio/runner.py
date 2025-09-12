@@ -13,7 +13,7 @@ from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
 from boneio.logger import configure_logger
 from boneio.manager import Manager
-from boneio.message_bus import MQTTClient
+from boneio.message_bus import LocalMessageBus, MQTTClient
 from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
@@ -60,8 +60,6 @@ async def async_run(
             config.mqtt.password = mqttpassword
         message_bus = MQTTClient(config=config)
     else:
-        from boneio.message_bus import LocalMessageBus
-
         message_bus = LocalMessageBus()
 
     manager = Manager(
@@ -71,7 +69,7 @@ async def async_run(
         config_file_path=config_file,
     )
     # Convert coroutines to Tasks
-    message_bus.set_manager(manager=manager)
+    message_bus.manager = manager
     tasks.update(manager.tasks)
 
     message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"

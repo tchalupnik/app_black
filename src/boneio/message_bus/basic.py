@@ -6,9 +6,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from boneio.manager import Manager
-
 
 class MessageBus(ABC):
     """Base class for message handling."""
@@ -27,10 +24,6 @@ class MessageBus(ABC):
     @abstractmethod
     async def start_client(self) -> None:
         """Start the message bus client."""
-
-    @abstractmethod
-    def set_manager(self, manager: Manager) -> None:
-        """Set manager."""
 
     @abstractmethod
     async def announce_offline(self) -> None:

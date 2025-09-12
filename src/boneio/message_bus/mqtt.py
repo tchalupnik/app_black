@@ -40,7 +40,7 @@ class MQTTClient(MessageBus):
 
     def __init__(self, config: Config) -> None:
         """Set up client."""
-        self.manager: Manager = None
+        self.manager: Manager | None = None
         self.config = config
         self.asyncio_client: AsyncioClient = None
         self.create_client()
@@ -87,6 +87,7 @@ class MQTTClient(MessageBus):
         )
 
     async def publish(
+    async def publish(
         self,
         topic: str,
         payload: str | None = None,
@@ -108,6 +109,7 @@ class MQTTClient(MessageBus):
         _LOGGER.debug("Sending message topic: %s, payload: %s", topic, payload)
         await self.asyncio_client.publish(topic, **params)
 
+    async def subscribe(
     async def subscribe(
         self,
         topics: list[str],
