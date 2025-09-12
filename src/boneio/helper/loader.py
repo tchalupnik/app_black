@@ -302,7 +302,7 @@ def configure_relay(
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
-            interlock_manager=manager._interlock_manager,
+            interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
             name=name,
             event_bus=event_bus,
@@ -322,7 +322,7 @@ def configure_relay(
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
-            interlock_manager=manager._interlock_manager,
+            interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
             name=name,
             event_bus=event_bus,
@@ -345,7 +345,7 @@ def configure_relay(
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
-            interlock_manager=manager._interlock_manager,
+            interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
             name=name,
             event_bus=event_bus,
@@ -368,7 +368,7 @@ def configure_relay(
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
-            interlock_manager=manager._interlock_manager,
+            interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
             name=name,
             event_bus=event_bus,
@@ -378,7 +378,7 @@ def configure_relay(
         _LOGGER.error("Output kind: %s is not configured", output_config.kind)
         return None
 
-    manager._interlock_manager.register(relay, output_config.interlock_group)
+    manager.interlock_manager.register(relay, output_config.interlock_group)
     manager.grouped_outputs_by_expander[expander_id][relay_id] = relay
     if relay.is_virtual_power:
         manager.send_ha_autodiscovery(

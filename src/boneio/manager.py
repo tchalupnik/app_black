@@ -152,9 +152,9 @@ class Manager:
         self._pca = {}
         self.outputs: dict[str, BasicRelay] = {}
         self.output_groups: dict[str, OutputGroup] = {}
-        self._interlock_manager = SoftwareInterlockManager()
+        self.interlock_manager = SoftwareInterlockManager()
 
-        self._tasks: list[asyncio.Task] = []
+        self.tasks: list[asyncio.Task] = []
         self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self.temp_sensors: list[TempSensor] = []
         self.ina219_sensors = []
@@ -555,7 +555,7 @@ class Manager:
         """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
         task: asyncio.Task = asyncio.create_task(coro)
-        self._tasks.append(task)
+        self.tasks.append(task)
         return task
 
     @property
@@ -733,10 +733,6 @@ class Manager:
         if not _config:
             return
         configure_logger(log_config=_config.get("logger"), debug=-1)
-
-    def get_tasks(self) -> set[asyncio.Task]:
-        """Retrieve asyncio tasks to run."""
-        return self._tasks
 
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""
