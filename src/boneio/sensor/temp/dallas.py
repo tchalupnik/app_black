@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import typing
 from datetime import timedelta
@@ -45,10 +44,13 @@ class DallasSensorDS2482(TempSensor):
         topic_prefix: str,
         filters: list[dict[Filters, float]],
         id: str,
-    ):
+    ) -> None:
         """Initialize Temp class."""
-        self._loop = asyncio.get_event_loop()
-        # Use a dummy i2c and address since DS2482 doesn't use I2C
+        try:
+            self.pct = DS18X20(bus=bus, address=address.int_address)
+        except ValueError as err:
+            raise OneWireError(err)
+
         super().__init__(
             manager=manager,
             message_bus=message_bus,
@@ -58,10 +60,6 @@ class DallasSensorDS2482(TempSensor):
             id=id,
             filters=filters,
         )
-        try:
-            self.pct = DS18X20(bus=bus, address=address.int_address)
-        except ValueError as err:
-            raise OneWireError(err)
 
     def get_temperature(self) -> float:
         return self.pct.read_temperature()
@@ -82,8 +80,11 @@ class DallasSensorW1(TempSensor):
         """Initialize Temp class."""
         if not filters:
             filters = [{"round": 2}]
-        self._loop = asyncio.get_event_loop()
-        # Use a dummy i2c and address since W1 doesn't use I2C
+
+        try:
+            self.pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
+        except ValueError as err:
+            raise OneWireError(err)
         super().__init__(
             manager=manager,
             message_bus=message_bus,
@@ -93,10 +94,6 @@ class DallasSensorW1(TempSensor):
             id=id,
             filters=filters,
         )
-        try:
-            self.pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
-        except ValueError as err:
-            raise OneWireError(err)
 
     def get_temperature(self) -> float:
         raise NotImplementedError("Uses its own async method")

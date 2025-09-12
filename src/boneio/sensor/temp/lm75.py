@@ -34,8 +34,13 @@ class LM75Sensor(TempSensor):
         update_interval: timedelta,
         filters: list[dict[Filters, float]],
         unit_of_measurement: str,
-    ):
+    ) -> None:
         """Initialize Temp class."""
+
+        try:
+            self.pct = PCT2075(i2c, address)
+        except ValueError as err:
+            raise I2CError(err)
         super().__init__(
             id=id,
             manager=manager,
@@ -46,10 +51,6 @@ class LM75Sensor(TempSensor):
             filters=filters,
             unit_of_measurement=unit_of_measurement,
         )
-        try:
-            self.pct = PCT2075(i2c, address)
-        except ValueError as err:
-            raise I2CError(err)
 
     def get_temperature(self) -> float:
         return self.pct.temperature
