@@ -286,7 +286,6 @@ def configure_relay(
             name=name,
             event_bus=event_bus,
             mcp=mcp,
-            mcp_id=output_config.mcp_id,
             output_type=output_config.output_type,
         )
     elif output_config.kind == "pca":
