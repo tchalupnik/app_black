@@ -595,31 +595,15 @@ class CustomValidator(Validator):
             multiplier = 1_000_000.0
         elif unit == "gw":
             multiplier = 1_000_000_000.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
         elif unit == "kwh":
             # 1 kWh = 1000 W (for 1h). For config, treat as 1000W average.
             multiplier = 1000.0
         elif unit == "mwh":
             multiplier = 1_000_000.0
         elif unit == "gwh":
-            multiplier = 1_000_000_000.0
-        elif unit == "mw":
             multiplier = 1_000_000.0
         elif unit == "wh":
             multiplier = 1.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
-        elif unit == "mw":
-            multiplier = 1_000_000.0
         else:
             _LOGGER.warning("Unknown unit for power value: %s", unit)
             raise ValueError(f"Unknown unit for power value: {unit}")
@@ -668,7 +652,7 @@ class CustomValidator(Validator):
         return result
 
 
-def load_config_from_string(config_str: str) -> dict:
+def _load_config_from_string(config_str: str) -> dict:
     """Load config from string."""
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
@@ -708,7 +692,7 @@ def load_config_from_file(config_file: Path):
     if not config_yaml:
         _LOGGER.warning("Missing yaml file. %s", config_file)
         return None
-    return load_config_from_string(config_yaml)
+    return _load_config_from_string(config_yaml)
 
 
 def update_config_section(config_file: Path, section: str, data: dict) -> dict:

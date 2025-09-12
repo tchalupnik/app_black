@@ -28,7 +28,6 @@ from boneio.helper.stats import HostData
 from boneio.helper.yaml_util import (
     CustomValidator,
     load_config_from_file,
-    load_config_from_string,
     load_yaml_file,
     schema_file,
 )
@@ -57,9 +56,7 @@ __all__ = [
     "AsyncUpdater",
     "UniqueQueue",
     "schema_file",
-    "load_config_from_string",
     "load_config_from_file",
-    "",
     "callback",
     "is_callback",
     "ClickTimer",
