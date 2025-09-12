@@ -205,7 +205,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return
         _LOGGER.info("Opening cover %s.", self._id)
         await self.run_cover(current_operation=OPENING)
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=OPENING
         )
 
@@ -214,7 +214,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return
         _LOGGER.info("Closing cover %s.", self._id)
         await self.run_cover(current_operation=CLOSING)
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=CLOSING
         )
 
@@ -289,8 +289,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._event_bus.trigger_event(
             {"event_type": "cover", "entity_id": self.id, "event_state": event}
         )
-        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
-        self._message_bus.send_message(
+        self.message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/pos", payload=json_position
         )
 

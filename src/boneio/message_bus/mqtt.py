@@ -9,9 +9,9 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
@@ -40,7 +40,7 @@ class MQTTClient(MessageBus):
 
     def __init__(self, config: Config) -> None:
         """Set up client."""
-        self._manager: Manager = None
+        self.manager: Manager = None
         self.config = config
         self.asyncio_client: AsyncioClient = None
         self.create_client()
@@ -48,7 +48,7 @@ class MQTTClient(MessageBus):
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
         self._mqtt_energy_listeners: dict[
-            str, Callable[[str, str], Awaitable[None]]
+            str, Callable[[str, str], Coroutine[Any, Any, None]]
         ] = {}
         self._discovery_topics = (
             [
@@ -86,7 +86,7 @@ class MQTTClient(MessageBus):
             clean_session=True,
         )
 
-    async def publish(  # pylint:disable=too-many-arguments
+    async def publish(
         self,
         topic: str,
         payload: str | None = None,
@@ -108,7 +108,7 @@ class MQTTClient(MessageBus):
         _LOGGER.debug("Sending message topic: %s, payload: %s", topic, payload)
         await self.asyncio_client.publish(topic, **params)
 
-    async def subscribe(  # pylint:disable=too-many-arguments
+    async def subscribe(
         self,
         topics: list[str],
         qos: int = 0,
@@ -134,7 +134,7 @@ class MQTTClient(MessageBus):
         await self.asyncio_client.subscribe(topic=args, **params, timeout=timeout)
 
     async def subscribe_and_listen(
-        self, topic: str, callback: Callable[[str, str], Awaitable[None]]
+        self, topic: str, callback: Callable[[str], Coroutine[Any, Any, None]]
     ) -> None:
         self._mqtt_energy_listeners[topic] = callback
 
@@ -192,7 +192,7 @@ class MQTTClient(MessageBus):
         try:
             while True:
                 try:
-                    await self._subscribe_manager(self._manager)
+                    await self._subscribe_manager(self.manager)
                 except MqttError as err:
                     self.reconnect_interval = min(self.reconnect_interval * 2, 60)
                     _LOGGER.error(
@@ -208,10 +208,6 @@ class MQTTClient(MessageBus):
             _LOGGER.info("MQTT client shutting down...")
             await self.asyncio_client.disconnect(timeout=1.0)
             # raise
-
-    def set_manager(self, manager: Manager) -> None:
-        """Set manager."""
-        self._manager = manager
 
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
@@ -262,7 +258,9 @@ class MQTTClient(MessageBus):
         return self._connection_established
 
     async def handle_messages(
-        self, messages: Message, callback: Callable[[str, str], Awaitable[None]]
+        self,
+        messages: AsyncGenerator[Message, None],
+        callback: Callable[[str, str], Awaitable[None]],
     ):
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
@@ -283,7 +281,7 @@ class MQTTClient(MessageBus):
                 for topic, listener_callback in self._mqtt_energy_listeners.items():
                     if message.topic.matches(topic):
                         callback_start = False
-                        await listener_callback(str(message.topic), payload)
+                        await listener_callback(payload)
                         break
             if callback_start:
                 _LOGGER.debug(

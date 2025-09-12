@@ -126,7 +126,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
         _LOGGER.info(
             "Available single sensors for %s: %s",
-            self._name,
+            self.name,
             ", ".join(
                 [s.name for sensors in self._modbus_entities for s in sensors.values()]
             ),
@@ -134,7 +134,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         if self._additional_sensors:
             _LOGGER.info(
                 "Available additional sensors for %s: %s",
-                self._name,
+                self.name,
                 ", ".join(
                     [
                         s.name
@@ -164,8 +164,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "base_address": base,
                     "register_address": register[ADDRESS],
                     "parent": {
-                        NAME: self._name,
-                        ID: self._id,
+                        NAME: self.name,
+                        ID: self.id,
                         MODEL: self._model,
                     },
                     "unit_of_measurement": register.get("unit_of_measurement"),
@@ -174,7 +174,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "value_type": register.get("value_type"),
                     "return_type": register.get("return_type", "regular"),
                     "filters": register.get("filters", []),
-                    "message_bus": self._message_bus,
+                    "message_bus": self.message_bus,
                 }
                 if entity_type == SENSOR:
                     single_sensor = ModbusNumericSensor(
@@ -253,7 +253,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedNumericSensor(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self.name, ID: self.id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
             source_sensor_decoded_name=source_sensor.decoded_name,
             unit_of_measurement=additional.get("unit_of_measurement", "m3"),
@@ -262,7 +262,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             value_type=additional.get("value_type", ""),
             return_type=additional.get("return_type", ""),
             filters=[],
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             config=self.config,
             ha_filter=additional.get("ha_filter", "round(2)"),
             formula=additional.get("formula", ""),
@@ -291,9 +291,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedTextSensor(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self.name, ID: self.id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             config=self.config,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
@@ -318,9 +318,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedSelect(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self.name, ID: self.id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             config=self.config,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
@@ -345,9 +345,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedSwitch(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self.name, ID: self.id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
-            message_bus=self._message_bus,
+            message_bus=self.message_bus,
             config=self.config,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
@@ -453,7 +453,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             _LOGGER.debug("Register written %s", status)
             output[derived_sensor.decoded_name] = derived_sensor.state
             output[source_sensor.decoded_name] = source_sensor.state
-            self._message_bus.send_message(
+            self.message_bus.send_message(
                 topic=f"{self._send_topic}/{source_sensor.base_address}",
                 payload=output,
             )
@@ -491,7 +491,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             }
         )
         self._timestamp = timestamp
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/{modbus_sensor.base_address}",
             payload=output,
         )
@@ -523,7 +523,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             if not self._discovery_sent:
                 _LOGGER.error(
                     "Discovery for %s not sent. First register not available.",
-                    self._id,
+                    self.id,
                 )
 
     async def async_update(self, timestamp: float) -> float | None:
@@ -538,10 +538,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 method=data.get("register_type", "input"),
             )
             if self._payload_online == OFFLINE and values:
-                _LOGGER.info("Sending online payload about device %s.", self._name)
+                _LOGGER.info("Sending online payload about device %s.", self.name)
                 self._payload_online = ONLINE
-                self._message_bus.send_message(
-                    topic=f"{self.config.mqtt.topic_prefix}/{self._id}/{STATE}",
+                self.message_bus.send_message(
+                    topic=f"{self.config.mqtt.topic_prefix}/{self.id}/{STATE}",
                     payload=self._payload_online,
                 )
             if not values:
@@ -551,8 +551,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 else:
                     # Let's assume device is offline.
                     self.set_payload_offline()
-                    self._message_bus.send_message(
-                        topic=f"{self.config.mqtt.topic_prefix}/{self._id}/{STATE}",
+                    self.message_bus.send_message(
+                        topic=f"{self.config.mqtt.topic_prefix}/{self.id}/{STATE}",
                         payload=self._payload_online,
                     )
                     self._discovery_sent = False
@@ -622,7 +622,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 )
 
             self._timestamp = timestamp
-            self._message_bus.send_message(
+            self.message_bus.send_message(
                 topic=f"{self._send_topic}/{data[BASE]}",
                 payload=output,
             )

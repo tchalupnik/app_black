@@ -234,6 +234,9 @@ class Ina219Config(BaseModel):
     sensors: list[Ina219SensorConfig] = Field(default_factory=list)
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
 
+    def identifier(self) -> str:
+        return (self.id or str(self.address)).replace(" ", "")
+
 
 class ActionDataConfig(BaseModel):
     position: int | None = None

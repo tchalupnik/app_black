@@ -17,7 +17,6 @@ from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
-    INA219,
     IP,
     MAC,
     MASK,
@@ -34,8 +33,7 @@ from boneio.models import HostSensorState
 if TYPE_CHECKING:
     from boneio.gpio.base import GpioBase
     from boneio.manager import Manager
-    from boneio.sensor import INA219 as INA219Class
-    from boneio.sensor import LM75Sensor, MCP9808Sensor
+    from boneio.sensor import INA219, LM75Sensor, MCP9808Sensor
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.version import __version__
@@ -183,7 +181,7 @@ class HostData:
         output: dict,
         inputs: dict[str, GpioBase],
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None] | None,
-        ina219: INA219Class | None,
+        ina219: INA219 | None,
         manager: Manager,
         event_bus: EventBus,
         enabled_screens: list[OledScreens],
@@ -256,7 +254,7 @@ class HostData:
                     for sensor in ina219.sensors.values()
                 }
 
-            host_stats[INA219] = {
+            host_stats["ina219"] = {
                 "f": get_ina_values,
                 "update_interval": timedelta(seconds=60),
             }

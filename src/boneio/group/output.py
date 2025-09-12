@@ -82,6 +82,6 @@ class OutputGroup(BasicRelay):
 
     async def async_send_state(self) -> None:
         """Send state to Mqtt on action."""
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=self._send_topic, payload=self.payload(), retain=True
         )

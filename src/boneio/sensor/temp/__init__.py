@@ -97,7 +97,7 @@ class TempSensor(ABC, BasicMqtt, AsyncUpdater, Filter):
                 ),
             }
         )
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=self._send_topic,
             payload={STATE: self._state},
         )

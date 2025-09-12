@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from datetime import timedelta
+
+from pydantic import BaseModel, ValidationError
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
@@ -20,7 +21,7 @@ from boneio.models import OutputState
 _LOGGER = logging.getLogger(__name__)
 
 
-class VirtualEnergySensor:
+class _VirtualEnergySensor:
     def __init__(
         self,
         message_bus: MessageBus,
@@ -30,22 +31,22 @@ class VirtualEnergySensor:
         virtual_power_usage: float | None = None,
         virtual_volume_flow_rate: float | None = None,
     ):
-        self._loop = loop or asyncio.get_running_loop()
+        self._loop = loop
         self._message_bus = message_bus
         self._virtual_sensors_task = None
         self._parent = parent
-        self._virtual_power_usage = virtual_power_usage
-        self._virtual_volume_flow_rate = virtual_volume_flow_rate
+        self.virtual_power_usage = virtual_power_usage
+        self.virtual_volume_flow_rate = virtual_volume_flow_rate
         # --- Virtual energy counter ---
         self._energy_consumed_Wh = 0.0
         self._water_consumed_L = 0.0
-        self._last_on_timestamp = time.time() if self._parent.state == ON else None
+        self.last_on_timestamp = time.time() if self._parent.state == ON else None
         self._virtual_energy_topic = f"{topic_prefix}/energy/{self._parent.id}"
         self._subscribe_restore_energy_state()
 
     def start_virtual_sensors_task(self):
         """Start periodic task to update and send virtual energy state every 30 seconds."""
-        self._last_on_timestamp = time.time()
+        self.last_on_timestamp = time.time()
         if (
             self._virtual_sensors_task is not None
             and not self._virtual_sensors_task.done()
@@ -58,7 +59,7 @@ class VirtualEnergySensor:
 
     def stop_virtual_sensors_task(self):
         """Stop periodic virtual energy update task."""
-        self._last_on_timestamp = None
+        self.last_on_timestamp = None
         if self._virtual_sensors_task is not None:
             self._virtual_sensors_task.cancel()
             self._virtual_sensors_task = None
@@ -66,18 +67,6 @@ class VirtualEnergySensor:
             _LOGGER.info(
                 "Stopped periodic virtual sensors task for %s", self._parent.id
             )
-
-    @property
-    def last_on_timestamp(self) -> float | None:
-        return self._last_on_timestamp
-
-    @property
-    def virtual_power_usage(self) -> float | None:
-        return self._virtual_power_usage
-
-    @property
-    def virtual_volume_flow_rate(self) -> float | None:
-        return self._virtual_volume_flow_rate
 
     async def _virtual_sensors_loop(self):
         """Periodically update and send virtual energy state every 30 seconds while relay is ON."""
@@ -100,8 +89,8 @@ class VirtualEnergySensor:
     def _update_virtual_energy(self):
         """Update energy counter if virtual_power_usage is set."""
         now = time.time()
-        if self._parent.state == ON and self._last_on_timestamp is not None:
-            elapsed = now - self._last_on_timestamp
+        if self._parent.state == ON and self.last_on_timestamp is not None:
+            elapsed = now - self.last_on_timestamp
             if self.virtual_power_usage is not None:
                 self._energy_consumed_Wh += (
                     self.virtual_power_usage * elapsed
@@ -120,44 +109,35 @@ class VirtualEnergySensor:
                     self._parent.id,
                     self._water_consumed_L,
                 )
-            self._last_on_timestamp = now
+            self.last_on_timestamp = now
 
     def _subscribe_restore_energy_state(self):
         """
         Subscribe to the retained MQTT topic for energy and restore state if available.
         """
 
-        async def on_energy_message(_topic, payload):
+        async def on_energy_message(payload: str) -> None:
             try:
-                payload = json.loads(payload)
-                if isinstance(payload, dict):
-                    if "energy" in payload:
-                        retained_energy_wh = float(payload["energy"])
-                        self._energy_consumed_Wh = retained_energy_wh
-                        _LOGGER.info(
-                            "Restored energy state for %s from MQTT: %.4f Wh",
-                            self._parent.id,
-                            self._energy_consumed_Wh,
-                        )
-                    if "water" in payload:
-                        retained_water_consumption_L = float(payload["water"])
-                        self._water_consumed_L = retained_water_consumption_L
-                        _LOGGER.info(
-                            "Restored water consumption state for %s from MQTT: %.4f L",
-                            self._parent.id,
-                            self._water_consumed_L,
-                        )
-                else:
-                    _LOGGER.warning(
-                        "Invalid retained payload for %s: %s",
+                energy_message = _EnergyMessage.model_validate_json(payload)
+                if energy_message.energy is not None:
+                    self._energy_consumed_Wh = energy_message.energy
+                    _LOGGER.info(
+                        "Restored energy state for %s from MQTT: %.4f Wh",
                         self._parent.id,
-                        payload,
+                        self._energy_consumed_Wh,
                     )
-            except Exception as e:
+                if energy_message.water is not None:
+                    self._water_consumed_L = energy_message.water
+                    _LOGGER.info(
+                        "Restored water consumption state for %s from MQTT: %.4f L",
+                        self._parent.id,
+                        self._water_consumed_L,
+                    )
+            except ValidationError as e:
                 _LOGGER.warning(
                     "Failed to restore energy state for %s from MQTT: %s",
                     self._parent.id,
-                    e,
+                    str(e),
                 )
             finally:
                 await self._message_bus.unsubscribe_and_stop_listen(
@@ -165,49 +145,36 @@ class VirtualEnergySensor:
                 )
 
         # Subscribe (works for both LocalMessageBus and MQTTClient)
-        if hasattr(self, "_message_bus") and self._message_bus is not None:
-            asyncio.create_task(
-                self._message_bus.subscribe_and_listen(
-                    self._virtual_energy_topic, on_energy_message
-                )
+        asyncio.create_task(
+            self._message_bus.subscribe_and_listen(
+                self._virtual_energy_topic, on_energy_message
             )
-        else:
-            _LOGGER.warning(
-                "Message bus not available for %s, cannot subscribe for retained energy.",
-                self._parent.id,
-            )
-
-    def get_virtual_power(self) -> float:
-        """Return current virtual power usage in W."""
-        return self.virtual_power_usage if self._parent.state == ON else 0.0
-
-    def get_virtual_energy(self) -> float:
-        """Return current virtual energy in Wh."""
-        return round(self._energy_consumed_Wh, 3)
-
-    def get_virtual_volume_flow_rate(self) -> float:
-        """Return current virtual volume flow rate in L/h."""
-        return self.virtual_volume_flow_rate if self._parent.state == ON else 0.0
-
-    def get_virtual_water_consumption(self) -> float:
-        """Return current virtual water consumption in L."""
-        return round(self._water_consumed_L, 3)
+        )
 
     def send_virtual_energy_state(self):
         """Send virtual power/energy state to MQTT for Home Assistant."""
         payload = {}
         if self.virtual_power_usage is not None:
-            payload["power"] = self.get_virtual_power()
-            payload["energy"] = self.get_virtual_energy()
+            payload["power"] = (
+                self.virtual_power_usage if self._parent.state == ON else 0.0
+            )
+            payload["energy"] = round(self._energy_consumed_Wh, 3)
         if self.virtual_volume_flow_rate is not None:
-            payload["volume_flow_rate"] = self.get_virtual_volume_flow_rate()
-            payload["water"] = self.get_virtual_water_consumption()
+            payload["volume_flow_rate"] = (
+                self.virtual_volume_flow_rate if self._parent.state == ON else 0.0
+            )
+            payload["water"] = round(self._water_consumed_L, 3)
         self._message_bus.send_message(
-            topic=f"{self._virtual_energy_topic}",
+            topic=self._virtual_energy_topic,
             payload=payload,
             retain=True,
         )
         _LOGGER.info("Sent virtual energy state for %s: %s", self._parent.id, payload)
+
+
+class _EnergyMessage(BaseModel):
+    energy: float | None = None
+    water: float | None = None
 
 
 class RelayBase(MqttBase):
@@ -275,8 +242,8 @@ class BasicRelay(BasicMqtt):
         # Subscribe to retained MQTT energy value
         self._virtual_energy_sensor = None
         if virtual_power_usage is not None or virtual_volume_flow_rate is not None:
-            self._virtual_energy_sensor = VirtualEnergySensor(
-                message_bus=self._message_bus,
+            self._virtual_energy_sensor = _VirtualEnergySensor(
+                message_bus=self.message_bus,
                 loop=self._loop,
                 topic_prefix=topic_prefix,
                 parent=self,
@@ -324,12 +291,12 @@ class BasicRelay(BasicMqtt):
     def id(self) -> str:
         """Id of the relay.
         Has to be trimmed out of spaces because of MQTT handling in HA."""
-        return self._id or self._pin_id
+        return self.id or self._pin_id
 
     @property
     def name(self) -> str:
         """Not trimmed id."""
-        return self._name or self._pin_id
+        return self.name or self._pin_id
 
     @property
     def state(self) -> str:
@@ -351,7 +318,7 @@ class BasicRelay(BasicMqtt):
             state = ON if self.is_active else OFF
         self._state = state
         if self.output_type not in (COVER, NONE):
-            self._message_bus.send_message(
+            self.message_bus.send_message(
                 topic=self._send_topic,
                 payload={STATE: state},
                 retain=True,

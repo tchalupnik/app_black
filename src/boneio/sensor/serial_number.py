@@ -56,7 +56,7 @@ class SerialNumberSensor(BasicMqtt, AsyncUpdater):
         _state = network_info["mac"].replace(":", "")[-6:]
         self._state = f"blk{_state}"
         self._timestamp = timestamp
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=self._send_topic,
             payload=self.state,
         )

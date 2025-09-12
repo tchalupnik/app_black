@@ -166,11 +166,11 @@ class PreviousCover(BasicMqtt):
 
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=self.state
         )
         pos = round(self._position, 0)
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/pos", payload={"position": str(pos)}
         )
         self._state_save(value={"position": pos})
@@ -217,7 +217,7 @@ class PreviousCover(BasicMqtt):
                 rounded_pos = 100
             elif rounded_pos < 0:
                 rounded_pos = 0
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)}
         )
         asyncio.create_task(self.async_send_state())
@@ -241,7 +241,7 @@ class PreviousCover(BasicMqtt):
         _LOGGER.info("Closing cover %s.", self._id)
 
         self._requested_closing = True
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=CLOSING
         )
         await self.run_cover(
@@ -258,7 +258,7 @@ class PreviousCover(BasicMqtt):
         _LOGGER.info("Opening cover %s.", self._id)
 
         self._requested_closing = False
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=OPENING
         )
         await self.run_cover(
@@ -282,7 +282,7 @@ class PreviousCover(BasicMqtt):
             set_position,
             current_operation,
         )
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=current_operation
         )
         await self.run_cover(

@@ -82,6 +82,7 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.relay.basic import BasicRelay
 from boneio.sensor import DallasSensorDS2482, GpioADCSensor, initialize_adc
+from boneio.sensor.ina219 import INA219
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -721,31 +722,22 @@ def create_ina219_sensor(
     message_bus: MessageBus,
     topic_prefix: str,
     config: Ina219Config,
-):
+) -> INA219:
     """Create INA219 sensor in manager."""
-    from boneio.sensor import INA219
+    ina219 = INA219(
+        manager=manager,
+        message_bus=message_bus,
+        topic_prefix=topic_prefix,
+        config=config,
+    )
 
-    address = config.address
-    id = (config.id or address).replace(" ", "")
-    try:
-        ina219 = INA219(
-            id=id,
-            address=address,
-            sensors=config.sensors,
-            manager=manager,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-            update_interval=config.update_interval,
+    for sensor in ina219.sensors.values():
+        manager.send_ha_autodiscovery(
+            id=sensor.id,
+            name=sensor.name,
+            ha_type=SENSOR,
+            availability_msg_func=ha_sensor_ina_availabilty_message,
+            unit_of_measurement=sensor.unit_of_measurement,
+            device_class=sensor.device_class,
         )
-        for sensor in ina219.sensors.values():
-            manager.send_ha_autodiscovery(
-                id=sensor.id,
-                name=sensor.name,
-                ha_type=SENSOR,
-                availability_msg_func=ha_sensor_ina_availabilty_message,
-                unit_of_measurement=sensor.unit_of_measurement,
-                device_class=sensor.device_class,
-            )
-        return ina219
-    except I2CError as err:
-        _LOGGER.error("Can't configure Temp sensor. %s", err)
+    return ina219

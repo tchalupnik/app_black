@@ -8,7 +8,7 @@ import time
 import typing
 from datetime import datetime, timedelta
 
-from boneio.config import Ina219DeviceClass, Ina219SensorConfig
+from boneio.config import Ina219Config, Ina219DeviceClass
 from boneio.const import SENSOR, STATE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.filter import Filter
@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 unit_converter = {"current": "A", "power": "W", "voltage": "V"}
 
 
-class INA219Sensor(BasicMqtt, Filter):
+class _INA219Sensor(BasicMqtt, Filter):
     """Represent single value from INA219 as sensor."""
 
     def __init__(
@@ -84,7 +84,7 @@ class INA219Sensor(BasicMqtt, Filter):
             return
         self._state = _state
         self._timestamp = timestamp
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=self._send_topic,
             payload={STATE: self.state},
         )
@@ -101,21 +101,20 @@ class INA219(AsyncUpdater):
         update_interval: timedelta,
         message_bus: MessageBus,
         topic_prefix: str,
-        sensors: list[Ina219SensorConfig],
+        config: Ina219Config,
     ) -> None:
         """Setup INA219 Sensor"""
         self._loop = asyncio.get_event_loop()
         self._ina_219 = INA219_I2C(address=address)
-        self._sensors: dict[Ina219DeviceClass, INA219Sensor] = {}
-        self._id = id
-        for sensor in sensors:
-            _name = sensor.id
-            _id = f"{id}{_name.replace(' ', '')}"
-            self._sensors[sensor.device_class] = INA219Sensor(
+        self._sensors: dict[Ina219DeviceClass, _INA219Sensor] = {}
+        self.id = id
+        for sensor in config.sensors:
+            _id = f"{id}_{sensor.id.replace(' ', '')}"
+            self._sensors[sensor.device_class] = _INA219Sensor(
                 device_class=sensor.device_class,
                 filters=sensor.filters,
                 state=None,
-                name=_name,
+                name=sensor.id,
                 id=_id,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
@@ -124,11 +123,7 @@ class INA219(AsyncUpdater):
         _LOGGER.debug("Configured INA219 on address %s", address)
 
     @property
-    def id(self) -> str:
-        return self._id
-
-    @property
-    def sensors(self) -> dict[Ina219DeviceClass, INA219Sensor]:
+    def sensors(self) -> dict[Ina219DeviceClass, _INA219Sensor]:
         return self._sensors
 
     async def async_update(self, timestamp: datetime) -> None:

@@ -65,7 +65,7 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
             return
         self._state = _state
         self._timestamp = timestamp
-        self._message_bus.send_message(
+        self.message_bus.send_message(
             topic=self._send_topic,
             payload=self.state,
         )

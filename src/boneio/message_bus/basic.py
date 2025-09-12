@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
@@ -38,7 +38,7 @@ class MessageBus(ABC):
 
     @abstractmethod
     async def subscribe_and_listen(
-        self, topic: str, callback: Callable[[str, str], Awaitable[None]]
+        self, topic: str, callback: Callable[[str], Coroutine[Any, Any, None]]
     ) -> None:
         """Subscribe to a topic and listen for messages."""
 
