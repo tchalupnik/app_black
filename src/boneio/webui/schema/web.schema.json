@@ -4,15 +4,36 @@
   "properties": {
     "web": {
       "type": [
-        "string",
         "object",
-        "null"
+        "string"
       ],
       "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable web interface",
+          "title": "Enabled"
+        },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -20,9 +41,9 @@
         },
         "auth": {
           "type": [
-            "string",
+            "null",
             "object",
-            "null"
+            "string"
           ],
           "default": {},
           "properties": {

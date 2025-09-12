@@ -283,6 +283,7 @@ wheels = [
 name = "boneio"
 source = { editable = "." }
 dependencies = [
+    { name = "adafruit-bbio" },
     { name = "adafruit-blinka" },
     { name = "adafruit-circuitpython-ds18x20" },
     { name = "adafruit-circuitpython-mcp230xx" },
@@ -314,11 +315,6 @@ dependencies = [
     { name = "websockets" },
 ]
 
-[package.optional-dependencies]
-no-dev = [
-    { name = "adafruit-bbio" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "bandit" },
@@ -330,7 +326,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "adafruit-bbio", marker = "extra == 'no-dev'", git = "https://github.com/tchalupnik/adafruit-beaglebone-io-python.git" },
+    { name = "adafruit-bbio", git = "https://github.com/tchalupnik/adafruit-beaglebone-io-python.git" },
     { name = "adafruit-blinka", specifier = "==8.56.0" },
     { name = "adafruit-circuitpython-ds18x20", specifier = "==1.4.3" },
     { name = "adafruit-circuitpython-mcp230xx", specifier = "==2.5.16" },
@@ -361,7 +357,6 @@ requires-dist = [
     { name = "w1thermsensor", extras = ["async"], specifier = "==2.3.0" },
     { name = "websockets", specifier = "==11.0.3" },
 ]
-provides-extras = ["no-dev"]
 
 [package.metadata.requires-dev]
 dev = [

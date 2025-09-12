@@ -4,13 +4,13 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -75,10 +75,9 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "120ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
@@ -345,19 +344,19 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -413,23 +412,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -467,13 +466,13 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -529,23 +528,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"

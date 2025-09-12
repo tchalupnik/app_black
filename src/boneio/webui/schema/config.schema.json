@@ -4,8 +4,8 @@
   "properties": {
     "mqtt": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "host": {
@@ -25,8 +25,8 @@
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -39,8 +39,8 @@
         },
         "ha_discovery": {
           "type": [
-            "string",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -85,15 +85,36 @@
     },
     "web": {
       "type": [
-        "string",
         "object",
-        "null"
+        "string"
       ],
       "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable web interface",
+          "title": "Enabled"
+        },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -101,9 +122,9 @@
         },
         "auth": {
           "type": [
-            "string",
+            "null",
             "object",
-            "null"
+            "string"
           ],
           "default": {},
           "properties": {
@@ -127,8 +148,8 @@
     },
     "logger": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "default": {
@@ -178,8 +199,8 @@
     },
     "oled": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "default": {},
       "properties": {
@@ -207,8 +228,8 @@
         },
         "screens": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "default": [
             "uptime",
@@ -241,13 +262,13 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "items": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "sensor_type": {
@@ -279,10 +300,9 @@
         },
         "screensaver_timeout": {
           "type": [
-            "string",
-            "number"
+            "number",
+            "string"
           ],
-          "x-timeperiod": true,
           "default": "60s",
           "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "title": "Screensaver timeout"
@@ -293,8 +313,8 @@
     },
     "modbus": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "uart": {
@@ -314,15 +334,15 @@
         },
         "baudrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1,
           "enum": [
@@ -335,8 +355,8 @@
         },
         "bytesize": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8
         },
@@ -361,13 +381,13 @@
     },
     "modbus_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -377,8 +397,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -440,24 +460,23 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "30s",
             "description": "Update interval.",
             "title": "Update interval"
           },
           "sensors_filters": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "temperature": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -466,8 +485,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -475,8 +494,8 @@
               },
               "humidity": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -485,8 +504,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -498,24 +517,24 @@
           },
           "data": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "width": {
                 "type": [
-                  "string",
+                  "number",
                   "integer",
-                  "number"
+                  "string"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
-                  "string",
+                  "number",
                   "integer",
-                  "number"
+                  "string"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -536,13 +555,13 @@
     },
     "lm75": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -552,8 +571,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 72,
             "description": "Address of I2C",
@@ -561,18 +580,17 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -581,8 +599,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -606,13 +624,13 @@
     },
     "ina219": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -622,8 +640,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -631,8 +649,8 @@
           },
           "sensors": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -650,8 +668,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "id": {
@@ -672,8 +690,8 @@
                 },
                 "filters": {
                   "type": [
-                    "string",
-                    "array"
+                    "array",
+                    "string"
                   ],
                   "default": [
                     {
@@ -682,8 +700,8 @@
                   ],
                   "items": {
                     "type": [
-                      "string",
-                      "object"
+                      "object",
+                      "string"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -694,10 +712,9 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -709,13 +726,13 @@
     },
     "mcp9808": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -725,8 +742,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -734,18 +751,17 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -754,8 +770,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -779,13 +795,13 @@
     },
     "mcp23017": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -795,18 +811,17 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "0s",
             "description": "How long to sleep for MCP to initialize.",
             "title": "Init sleep"
@@ -821,13 +836,13 @@
     },
     "pcf8575": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -837,18 +852,17 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "0s",
             "description": "How long to sleep for PCF to initialize.",
             "title": "Init sleep"
@@ -863,13 +877,13 @@
     },
     "pca9685": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -879,18 +893,17 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "0s",
             "description": "How long to sleep for PCA to initialize.",
             "title": "Init sleep"
@@ -905,13 +918,13 @@
     },
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -955,27 +968,25 @@
           },
           "pin": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
@@ -1011,16 +1022,16 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
@@ -1061,13 +1072,13 @@
     },
     "output_group": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1077,8 +1088,8 @@
           },
           "outputs": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "List of outputs.",
             "title": "Outputs"
@@ -1132,13 +1143,13 @@
     },
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1203,10 +1214,9 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "120ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
@@ -1473,19 +1483,19 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1541,23 +1551,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1595,13 +1605,13 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1657,23 +1667,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1718,13 +1728,13 @@
     },
     "event": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1789,10 +1799,9 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "30ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
             "title": "Bounce time"
@@ -2014,19 +2023,19 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2082,23 +2091,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2136,13 +2145,13 @@
               },
               "double": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2198,23 +2207,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2252,13 +2261,13 @@
               },
               "long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2314,23 +2323,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2375,13 +2384,13 @@
     },
     "adc": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2408,10 +2417,9 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -2440,8 +2448,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -2453,8 +2461,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2470,13 +2478,13 @@
     },
     "cover": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2532,37 +2540,33 @@
           },
           "open_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "title": "Open time"
           },
           "close_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
           },
           "tilt_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
             "title": "Tilt duration"
           },
           "actuator_activation_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
             "title": "Actuator activation duration"
           },
@@ -2622,13 +2626,13 @@
     },
     "ds2482": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2649,8 +2653,8 @@
     },
     "dallas": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "id": {
@@ -2667,13 +2671,13 @@
     },
     "sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2695,8 +2699,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Dallas device",
             "title": "Address"
@@ -2730,8 +2734,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -2740,8 +2744,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2749,10 +2753,9 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
-            "x-timeperiod": true,
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
@@ -2778,8 +2781,8 @@
     },
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "name": {
@@ -2789,12 +2792,13 @@
         },
         "version": {
           "type": [
-            "string",
-            "number"
+            "number",
+            "string"
           ],
           "enum": [
             "0.7",
-            "0.8"
+            "0.8",
+            "0.9"
           ],
           "examples": [
             "0.7"
