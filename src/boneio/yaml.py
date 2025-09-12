@@ -11,7 +11,7 @@ from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
 from boneio.config import Config
 
-schema_file = Path(__file__).parent / "../schema/schema.yaml"
+schema_file = Path(__file__).parent / "schema" / "schema.yaml"
 _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
@@ -25,7 +25,7 @@ class ConfigurationError(ValueError):
 class BoneIOLoader(SafeLoader):
     """Loader which support for include in yaml files."""
 
-    def __init__(self, stream):
+    def __init__(self, stream) -> None:
         self._root = Path(stream.name).parent
 
         super(BoneIOLoader, self).__init__(stream)
