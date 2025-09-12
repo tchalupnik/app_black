@@ -337,7 +337,7 @@ class EventBus:
             del self._every_second_listeners[name]
 
 
-def as_utc(dattim: dt.datetime) -> dt.datetime:
+def _as_utc(dattim: dt.datetime) -> dt.datetime:
     """Return a datetime as UTC time.
 
     Assumes datetime without tzinfo to be in the DEFAULT_TIME_ZONE.
@@ -347,20 +347,18 @@ def as_utc(dattim: dt.datetime) -> dt.datetime:
     return dattim.astimezone(UTC)
 
 
-@callback
 def async_track_point_in_time(
     loop: asyncio.AbstractEventLoop, job, point_in_time: datetime, **kwargs
 ) -> CALLBACK_TYPE:
     """Add a listener that fires once after a specific point in UTC time."""
     # Ensure point_in_time is UTC
-    utc_point_in_time = as_utc(point_in_time)
+    utc_point_in_time = _as_utc(point_in_time)
     expected_fire_timestamp = utc_point_in_time.timestamp()
 
     # Since this is called once, we accept a so we can avoid
     # having to figure out how to call the action every time its called.
     cancel_callback: asyncio.TimerHandle | None = None
 
-    @callback
     def run_action(job) -> None:
         """Call the action."""
         nonlocal cancel_callback
@@ -385,88 +383,9 @@ def async_track_point_in_time(
     delta = expected_fire_timestamp - time.time()
     cancel_callback = loop.call_later(delta, run_action, job)
 
-    @callback
     def unsub_point_in_time_listener() -> None:
         """Cancel the call_later."""
         assert cancel_callback is not None
         cancel_callback.cancel()
 
     return unsub_point_in_time_listener
-
-
-@callback
-def async_track_point_in_timestamp(
-    loop: asyncio.AbstractEventLoop,
-    action,
-    timestamp: float,
-) -> CALLBACK_TYPE:
-    """Add a listener that fires once after a specific point in UTC time."""
-    # Since this is called once, we accept a so we can avoid
-    # having to figure out how to call the action every time its called.
-    cancel_callback: asyncio.TimerHandle | None = None
-
-    @callback
-    def run_action(job) -> None:
-        """Call the action."""
-        nonlocal cancel_callback
-
-        now = time.time()
-
-        # Depending on the available clock support (including timer hardware
-        # and the OS kernel) it can happen that we fire a little bit too early
-        # as measured by utcnow(). That is bad when callbacks have assumptions
-        # about the current time. Thus, we rearm the timer for the remaining
-        # time.
-        delta = timestamp - now
-        if delta > 0:
-            _LOGGER.debug("Called %f seconds too early, rearming", delta)
-
-            cancel_callback = loop.call_later(delta, run_action, job)
-            return
-
-        loop.call_soon(job, timestamp)
-
-    now = time.time()
-    delta = timestamp - now
-    cancel_callback = loop.call_later(delta, run_action, action)
-
-    @callback
-    def unsub_point_in_time_listener() -> None:
-        """Cancel the call_later."""
-        assert cancel_callback is not None
-        cancel_callback.cancel()
-
-    return unsub_point_in_time_listener
-
-
-@callback
-def async_call_later_miliseconds(
-    loop: asyncio.AbstractEventLoop,
-    action,
-    delay: float,
-) -> CALLBACK_TYPE:
-    """Add a listener that fires once after a specific point in UTC time."""
-    # Ensure point_in_time is UTC
-    expected_fire_timestamp = time.time() + (delay / 1000)
-    return async_track_point_in_timestamp(
-        loop=loop, action=action, timestamp=expected_fire_timestamp
-    )
-
-
-def create_unawaited_task_threadsafe(
-    loop: asyncio.AbstractEventLoop,
-    transient_tasks: list[asyncio.Task[Any]],
-    coro: Coroutine[Any, Any, None],
-    task_future: asyncio.Future[asyncio.Task[Any]] | None = None,
-) -> None:
-    """
-    Schedule a coroutine on the loop and add the Task to transient_tasks.
-    """
-
-    def callback() -> None:
-        task = loop.create_task(coro)
-        transient_tasks.append(task)
-        if task_future is not None:
-            task_future.set_result(task)
-
-    loop.call_soon_threadsafe(callback)

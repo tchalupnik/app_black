@@ -1053,8 +1053,8 @@ async def websocket_endpoint(
                 for cover in boneio_manager.covers.values():
                     try:
                         cover_state_kwargs = {}
-                        if getattr(cover, "kind", None) == "venetian":
-                            cover_state_kwargs["tilt"] = getattr(cover, "tilt", 0)
+                        if cover.kind == "venetian":
+                            cover_state_kwargs["tilt"] = cover.tilt
                         cover_state = CoverState(
                             id=cover.id,
                             name=cover.name,

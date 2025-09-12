@@ -14,7 +14,6 @@ from boneio.helper import BasicMqtt
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.mqtt import MqttBase
-from boneio.helper.util import callback
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
 
@@ -406,7 +405,6 @@ class BasicRelay(BasicMqtt):
                 action=action,
             )
 
-    @callback
     async def _momentary_callback(self, timestamp, action):
         _LOGGER.info("Momentary callback at %s for output %s", timestamp, self.name)
         await action(timestamp=timestamp)
