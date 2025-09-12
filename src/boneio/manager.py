@@ -107,12 +107,12 @@ from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
+from boneio.oled import Oled
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 from boneio.sensor.temp.lm75 import LM75Sensor
 from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
-from boneio.oled import Oled
 
 if typing.TYPE_CHECKING:
     from boneio.gpio.base import GpioBase
