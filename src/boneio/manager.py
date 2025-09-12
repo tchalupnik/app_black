@@ -553,10 +553,6 @@ class Manager:
         self.tasks.append(task)
         return task
 
-    @property
-    def inputs(self) -> list[GpioBase]:
-        return list(self.inputs.values())
-
     def _configure_sensors(
         self,
         dallas: DallasConfig | None,

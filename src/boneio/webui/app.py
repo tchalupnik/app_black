@@ -933,7 +933,7 @@ def remove_listener_for_all_covers(boneio_manager: Manager):
 
 
 def add_listener_for_all_inputs(boneio_manager: Manager):
-    for input in boneio_manager.inputs:
+    for input in boneio_manager.inputs.values():
         boneio_manager.event_bus.add_event_listener(
             event_type="input",
             entity_id=input.pin,
@@ -1007,7 +1007,7 @@ async def websocket_endpoint(
             # Send initial states
             try:
                 # Send inputs
-                for input_ in boneio_manager.inputs:
+                for input_ in boneio_manager.inputs.values():
                     try:
                         input_state = InputState(
                             name=input_.name,
