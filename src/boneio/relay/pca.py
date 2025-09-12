@@ -55,7 +55,7 @@ class PWMPCA(BasicRelay):
     @property
     def is_led(self) -> bool:
         """Check if HA type is light"""
-        return self._output_type == LED
+        return self.output_type == LED
 
     @property
     def brightness(self) -> int:

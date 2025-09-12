@@ -226,16 +226,16 @@ class BasicRelay(BasicMqtt):
         self.pin_id = pin_id
         self._momentary_turn_off = momentary_turn_off
         self._momentary_turn_on = momentary_turn_on
-        self._output_type = output_type
+        self.output_type = output_type
         self._event_bus = event_bus
         self._interlock_manager = interlock_manager
         self._interlock_groups = [] if interlock_groups is None else interlock_groups
         if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
-        self._state = ON if restored_state else OFF
+        self.state = ON if restored_state else OFF
         self._momentary_action = None
-        self._last_timestamp = 0.0
+        self.last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
 
         # Subscribe to retained MQTT energy value
@@ -258,11 +258,6 @@ class BasicRelay(BasicMqtt):
         self._interlock_groups = interlock_groups
 
     @property
-    def is_mcp_type(self) -> bool:
-        """Check if relay is mcp type."""
-        return False
-
-    @property
     def is_virtual_power(self) -> bool:
         return (
             self._virtual_energy_sensor is not None
@@ -277,34 +272,9 @@ class BasicRelay(BasicMqtt):
         )
 
     @property
-    def output_type(self) -> str:
-        """HA type."""
-        return self._output_type
-
-    @property
     def is_light(self) -> bool:
         """Check if HA type is light"""
-        return self._output_type == LIGHT
-
-    @property
-    def id(self) -> str:
-        """Id of the relay.
-        Has to be trimmed out of spaces because of MQTT handling in HA."""
-        return self.id or self.pin_id
-
-    @property
-    def name(self) -> str:
-        """Not trimmed id."""
-        return self.name or self.pin_id
-
-    @property
-    def state(self) -> str:
-        """Is relay active."""
-        return self._state
-
-    @property
-    def last_timestamp(self) -> float:
-        return self._last_timestamp
+        return self.output_type == LIGHT
 
     def payload(self) -> dict:
         return {STATE: self.state}
@@ -315,7 +285,7 @@ class BasicRelay(BasicMqtt):
             state = optimized_value
         else:
             state = ON if self.is_active else OFF
-        self._state = state
+        self.state = state
         if self.output_type not in (COVER, NONE):
             self.message_bus.send_message(
                 topic=self._send_topic,
@@ -329,7 +299,7 @@ class BasicRelay(BasicMqtt):
                     self._virtual_energy_sensor.stop_virtual_sensors_task()
         if optimized_value:
             return
-        self._last_timestamp = time.time()
+        self.last_timestamp = time.time()
         event = OutputState(
             id=self.id,
             name=self.name,
@@ -414,8 +384,3 @@ class BasicRelay(BasicMqtt):
     def is_active(self) -> bool:
         """Is active check."""
         raise NotImplementedError
-
-    @property
-    def expander_id(self) -> str:
-        """Retrieve parent Expander ID."""
-        return self._expander_id

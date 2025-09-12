@@ -20,7 +20,6 @@ class MCPRelay(BasicRelay):
         self,
         pin: int,
         mcp: MCP23017,
-        mcp_id: str,
         message_bus: MessageBus,
         topic_prefix: str,
         id: str,
@@ -48,7 +47,6 @@ class MCPRelay(BasicRelay):
             output_type=output_type,
             restored_state=restored_state,
         )
-        self._expander_id = mcp_id
 
         self.init_with_check_if_can_restore_state(restored_state=restored_state)
         _LOGGER.debug("Setup MCP with pin %s", self.pin_id)

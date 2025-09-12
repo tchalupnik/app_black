@@ -21,7 +21,6 @@ class PCFRelay(BasicRelay):
         self,
         pin: int,
         expander: PCF8575,
-        expander_id: str,
         message_bus: MessageBus,
         name: str,
         event_bus: EventBus,
@@ -49,7 +48,6 @@ class PCFRelay(BasicRelay):
             output_type=output_type,
             restored_state=restored_state,
         )
-        self._expander_id = expander_id
         self._active_state = False
         _LOGGER.debug("Setup PCF with pin %s", self.pin_id)
 

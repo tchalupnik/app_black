@@ -332,6 +332,7 @@ def configure_relay(
             name=name,
             event_bus=event_bus,
             output_type=output_config.output_type,
+            expander=expander,
         )
     else:
         _LOGGER.error("Output kind: %s is not configured", output_config.kind)
