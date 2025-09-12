@@ -239,8 +239,8 @@ def merge_board_config(config: dict) -> dict:
 
     try:
         board_file = get_board_config_path(f"output_{board_name}", version)
-        input_file = get_board_config_path("input", version)
-        board_config = load_yaml_file(board_file)
+        input_file = Path(get_board_config_path("input", version))
+        board_config = load_yaml_file(Path(board_file))
         input_config = load_yaml_file(input_file)
         if not board_config:
             raise ConfigurationError(
@@ -434,7 +434,7 @@ class CustomValidator(Validator):
     def _normalize_coerce_actions_output(self, value):
         return str(value).upper()
 
-    def _normalize_coerce_length_to_meters(self, value) -> float:
+    def _normalize_coerce_length_to_meters(self, value) -> float | None:
         """
         Convert a length value to meters.
         Accepts:

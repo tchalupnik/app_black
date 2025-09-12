@@ -153,9 +153,6 @@ class Manager:
         from board import SCL, SDA  # type: ignore
 
         self.i2c = I2C(SCL, SDA)
-        self.mcp = {}
-        self.pcf = {}
-        self.pca = {}
         self.outputs: dict[str, BasicRelay] = {}
         self.output_groups: dict[str, OutputGroup] = {}
         self.interlock_manager = SoftwareInterlockManager()
@@ -171,9 +168,7 @@ class Manager:
             self._configure_modbus(modbus=config.modbus)
 
         for sensor in config.lm75:
-            if sensor.id is None:
-                continue
-            id = sensor.id.replace(" ", "")
+            id = sensor.identifier()
             try:
                 temp_sensor = LM75Sensor(
                     id=id,
@@ -201,9 +196,7 @@ class Manager:
             if temp_sensor:
                 self.temp_sensors.append(temp_sensor)
         for sensor in config.mcp9808:
-            if sensor.id is None:
-                continue
-            id = sensor.id.replace(" ", "")
+            id = sensor.identifier()
             try:
                 temp_sensor = MCP9808Sensor(
                     id=id,

@@ -205,10 +205,13 @@ Filters = Literal[
 
 class TemperatureConfig(BaseModel):
     address: int
-    id: str | None = None
+    id: str
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
     filters: list[dict[Filters, float]] = Field(default_factory=list)
     unit_of_measurement: Literal["°C", "°F"] = "°C"
+
+    def identifier(self) -> str:
+        return self.id.replace(" ", "")
 
 
 class Lm75Config(TemperatureConfig):
