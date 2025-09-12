@@ -2,11 +2,8 @@ import asyncio
 import datetime as dt
 import logging
 import time
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any
-
-from boneio.helper.util import callback
 
 _LOGGER = logging.getLogger(__name__)
 UTC = dt.timezone.utc
