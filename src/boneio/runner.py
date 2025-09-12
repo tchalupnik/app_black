@@ -24,14 +24,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_run(
-    config: dict,
+    config: Config,
     config_file: Path,
     mqttusername: str | None = None,
     mqttpassword: str | None = None,
     debug: int = 0,
 ) -> int:
     """Run BoneIO."""
-    configuration = Config.model_validate(config)
     web_server = None
     tasks: set[asyncio.Task] = set()
     event_bus = EventBus(loop=asyncio.get_event_loop())
@@ -54,12 +53,12 @@ async def async_run(
     event_bus_task.add_done_callback(tasks.discard)
 
     # Initialize message bus based on config
-    if configuration.mqtt is not None:
+    if config.mqtt is not None:
         if mqttusername is not None:
-            configuration.mqtt.username = mqttusername
+            config.mqtt.username = mqttusername
         if mqttpassword is not None:
-            configuration.mqtt.password = mqttpassword
-        message_bus = MQTTClient(config=configuration)
+            config.mqtt.password = mqttpassword
+        message_bus = MQTTClient(config=config)
     else:
         from boneio.message_bus import LocalMessageBus
 
@@ -67,12 +66,11 @@ async def async_run(
 
     with GpioManager.create() as gpio_manager:
         manager = Manager(
-            config=configuration,
+            config=config,
             message_bus=message_bus,
             event_bus=event_bus,
             state_manager=StateManager(state_file=config_file.parent / "state.json"),
             config_file_path=config_file,
-            old_config=config,
             gpio_manager=gpio_manager,
         )
         # Convert coroutines to Tasks
@@ -86,10 +84,10 @@ async def async_run(
         message_bus_task.add_done_callback(tasks.discard)
 
         # Start web server if configured
-        if configuration.web is not None:
+        if config.web is not None:
             _LOGGER.info("Starting Web server.")
             web_server = WebServer(
-                config=configuration,
+                config=config,
                 config_file=config_file,
                 manager=manager,
             )

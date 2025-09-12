@@ -129,7 +129,6 @@ class Manager:
         event_bus: EventBus,
         state_manager: StateManager,
         config_file_path: Path,
-        old_config: dict,
         gpio_manager: GpioManager,
     ) -> None:
         self.gpio_manager = gpio_manager

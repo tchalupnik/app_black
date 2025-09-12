@@ -6,6 +6,8 @@ import logging
 import os
 from pathlib import Path
 
+from boneio.config import Config
+
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
 import argparse
@@ -220,9 +222,10 @@ def run(
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
         configure_logger(log_config=_config.get("logger"), debug=debug)
+        config = Config.model_validate(_config)
         ret = asyncio.run(
             async_run(
-                config=_config,
+                config=config,
                 config_file=config_file,
                 mqttusername=mqttusername,
                 mqttpassword=mqttpassword,
