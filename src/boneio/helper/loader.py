@@ -627,7 +627,7 @@ def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus
     return ow_bus
 
 
-def configure_dallas() -> AsyncBoneIOW1ThermSensor:
+def configure_dallas() -> type[AsyncBoneIOW1ThermSensor]:
     return AsyncBoneIOW1ThermSensor
 
 

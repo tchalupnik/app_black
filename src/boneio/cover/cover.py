@@ -170,9 +170,9 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._close_time = close_time.total_seconds() * 1000
         self._position = position
         self._initial_position = None
-        self._current_operation = IDLE
+        self.current_operation = IDLE
 
-        self._last_timestamp = time.monotonic()
+        self.last_timestamp = time.monotonic()
 
         self._last_update_time = 0
         self._closed = position <= 0
@@ -196,7 +196,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             self._movement_thread.join(timeout=0.5)
             self._open_relay.turn_off()
             self._close_relay.turn_off()
-            self._current_operation = IDLE
+            self.current_operation = IDLE
             if not on_exit:
                 self.send_state(self.state, self.json_position)
 
@@ -239,23 +239,23 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
     async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
-        if self._current_operation != IDLE:
+        if self.current_operation != IDLE:
             await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
-        if self._current_operation != IDLE:
+        if self.current_operation != IDLE:
             await self.stop()
         else:
             await self.close()
 
     @property
     def state(self) -> str:
-        if self._current_operation == OPENING:
+        if self.current_operation == OPENING:
             return OPENING
-        elif self._current_operation == CLOSING:
+        elif self.current_operation == CLOSING:
             return CLOSING
         else:
             return CLOSED if self._position == 0 else OPEN
@@ -268,23 +268,16 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     def json_position(self) -> PositionDict:
         return {"position": self.position}
 
-    @property
-    def current_operation(self) -> str:
-        return self._current_operation
-
-    @property
-    def last_timestamp(self) -> float:
-        return self._last_timestamp
-
-    def send_state(self, state: str, json_position: PositionDict = None) -> None:
+    def send_state(self, state: str, json_position: PositionDict) -> None:
         event = CoverState(
             id=self.id,
             name=self.name,
             state=state,
             kind=self.kind,
-            timestamp=self._last_timestamp,
-            current_operation=self._current_operation,
-            **json_position,
+            timestamp=self.last_timestamp,
+            current_operation=self.current_operation,
+            position=json_position["position"],
+            tilt=json_position["tilt"],
         )
         self._event_bus.trigger_event(
             {"event_type": "cover", "entity_id": self.id, "event_state": event}

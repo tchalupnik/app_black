@@ -286,8 +286,8 @@ EventActionTypes = Literal["single", "double", "long"]
 
 
 class EventConfig(BaseModel):
+    pin: str
     id: str | None = None
-    pin: str | None = None
     boneio_input: BoneIOInput | None = None
     actions: dict[EventActionTypes, list[ActionConfig]] = Field(default_factory=dict)
     device_class: Literal["button", "doorbell", "motion"] = "button"
@@ -308,8 +308,8 @@ BinarySensorActionTypes = Literal["pressed", "released"]
 
 
 class BinarySensorConfig(BaseModel):
+    pin: str
     id: str | None = None
-    pin: str | None = None
     boneio_input: BoneIOInput | None = None
     device_class: (
         Literal[
@@ -356,10 +356,10 @@ class BinarySensorConfig(BaseModel):
 
 class OutputConfig(BaseModel):
     id: str
+    pin: int
     output_type: Literal["cover", "light", "switch", "valve", "none"]
-    kind: Literal["gpio", "mcp", "pca", "pcf"] | None = None
+    kind: Literal["gpio", "mcp", "pca", "pcf"]
     boneio_output: str | None = None
-    pin: int | None = None
     momentary_turn_on: timedelta | None = None
     momentary_turn_off: timedelta | None = None
     virtual_power_usage: str | None = None
