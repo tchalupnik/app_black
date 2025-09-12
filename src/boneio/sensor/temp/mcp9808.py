@@ -50,3 +50,6 @@ class MCP9808Sensor(TempSensor):
             self.pct = MCP9808(i2c, address)
         except ValueError as err:
             raise I2CError(err)
+
+    def get_temperature(self) -> float:
+        return self.pct.temperature
