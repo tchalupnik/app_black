@@ -24,9 +24,12 @@ from boneio.config import (
     Ds2482Config,
     EventActionTypes,
     Ina219Config,
+    Mcp23017Config,
     ModbusConfig,
     ModbusDeviceConfig,
     MqttAutodiscoveryMessage,
+    Pca9685Config,
+    Pcf8575Config,
     SensorConfig,
     UartsConfig,
 )
@@ -86,11 +89,11 @@ from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
     configure_binary_sensor,
     configure_cover,
+    configure_ds2482,
     configure_event_sensor,
     configure_relay,
     create_adc,
     create_dallas_sensor,
-    create_expander,
     create_ina219_sensor,
     create_modbus_coordinators,
     create_serial_number_sensor,
@@ -146,12 +149,12 @@ class Manager:
         self._event_bus = event_bus
         self.message_bus = message_bus
         self.inputs: dict[str, GpioEventButtonsAndSensors] = {}
-        from board import SCL, SDA
+        from board import SCL, SDA  # type: ignore
 
-        self._i2cbusio = I2C(SCL, SDA)
-        self._mcp = {}
-        self._pcf = {}
-        self._pca = {}
+        self.i2c = I2C(SCL, SDA)
+        self.mcp = {}
+        self.pcf = {}
+        self.pca = {}
         self.outputs: dict[str, BasicRelay] = {}
         self.output_groups: dict[str, OutputGroup] = {}
         self.interlock_manager = SoftwareInterlockManager()
@@ -174,7 +177,7 @@ class Manager:
                 temp_sensor = LM75Sensor(
                     id=id,
                     name=sensor.id,
-                    i2c=self._i2cbusio,
+                    i2c=self.i2c,
                     address=sensor.address,
                     manager=self,
                     message_bus=message_bus,
@@ -204,7 +207,7 @@ class Manager:
                 temp_sensor = MCP9808Sensor(
                     id=id,
                     name=sensor.id,
-                    i2c=self._i2cbusio,
+                    i2c=self.i2c,
                     address=sensor.address,
                     manager=self,
                     message_bus=message_bus,
@@ -234,28 +237,60 @@ class Manager:
             dallas=config.dallas, ds2482=config.ds2482, sensors=config.sensor
         )
 
-        self.grouped_outputs_by_expander = create_expander(
-            expander_dict=self._mcp,
-            expander_config=config.mcp23017,
-            i2cbusio=self._i2cbusio,
-            Class=MCP23017,
+        _E = typing.TypeVar("_E", bound="MCP23017 | PCF8575 | PCA9685")
+        _C = typing.TypeVar(
+            "_C", bound="Mcp23017Config | Pcf8575Config | Pca9685Config"
         )
-        self.grouped_outputs_by_expander.update(
-            create_expander(
-                expander_dict=self._pcf,
-                expander_config=config.pcf8575,
-                i2cbusio=self._i2cbusio,
-                Class=PCF8575,
-            )
+
+        def create_expander(
+            expanders_config: list[_C],
+            create_func: Callable[[_C], _E],
+        ) -> dict[str, _E]:
+            result: dict[str, _E] = {}
+            for config in expanders_config:
+                id = config.identifier()
+                try:
+                    obj = create_func(config)
+                    result[id] = obj
+                    if config.init_sleep.total_seconds() > 0:
+                        _LOGGER.debug(
+                            "Sleeping for %s while %s %s is initializing.",
+                            config.init_sleep.total_seconds(),
+                            str(type(obj)),
+                            id,
+                        )
+                        # TODO it has to be async!!!
+                        time.sleep(config.init_sleep.total_seconds())
+                    else:
+                        _LOGGER.debug("%s %s is initializing.", str(type(obj)), id)
+                except TimeoutError as err:
+                    _LOGGER.error("Can't connect to %s. %s", id, err)
+            return result
+
+        def mcp23017(expander: Mcp23017Config) -> MCP23017:
+            return MCP23017(self.i2c, address=expander.address)
+
+        def pcf8575(expander: Pcf8575Config) -> PCF8575:
+            return PCF8575(self.i2c, address=expander.address)
+
+        def pca9685(expander: Pca9685Config) -> PCA9685:
+            return PCA9685(self.i2c, address=expander.address)
+
+        self.mcp = create_expander(
+            expanders_config=config.mcp23017,
+            create_func=mcp23017,
         )
-        self.grouped_outputs_by_expander.update(
-            create_expander(
-                expander_dict=self._pca,
-                expander_config=config.pca9685,
-                i2cbusio=self._i2cbusio,
-                Class=PCA9685,
-            )
+        self.pcf = create_expander(
+            expanders_config=config.pcf8575,
+            create_func=pcf8575,
         )
+        self.pca = create_expander(
+            expanders_config=config.pca9685,
+            create_func=pca9685,
+        )
+        self.grouped_outputs_by_expander: dict[str, dict[str, BasicRelay]] = {
+            key: {} for key in (self.mcp.keys() | self.pcf.keys() | self.pca.keys())
+        }
 
         create_adc(
             manager=self,
@@ -333,7 +368,7 @@ class Manager:
                 oled = Oled(
                     host_data=self._host_data,
                     screen_order=config.oled.screens,
-                    grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
+                    grouped_outputs_by_expander=self.grouped_outputs_by_expander.keys(),
                     sleep_timeout=config.oled.screensaver_timeout,
                     event_bus=self._event_bus,
                     gpio_manager=self.gpio_manager,
@@ -633,17 +668,14 @@ class Manager:
 
         for _single_ds in ds2482:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds.address)
-            from boneio.helper.loader import (
-                configure_ds2482,
-            )
-
-            _ds_onewire_bus[_single_ds.id] = configure_ds2482(
-                i2cbusio=self._i2cbusio, address=_single_ds.address
+            id = _single_ds.identifier()
+            _ds_onewire_bus[id] = configure_ds2482(
+                i2cbusio=self.i2c, address=_single_ds.address
             )
             _one_wire_devices.update(
                 find_onewire_devices(
-                    ow_bus=_ds_onewire_bus[_single_ds.id],
-                    bus_id=_single_ds.id,
+                    ow_bus=_ds_onewire_bus[id],
+                    bus_id=id,
                     bus_type=DS2482,
                 )
             )
@@ -796,21 +828,6 @@ class Manager:
                 availability_msg_func=ha_button_availabilty_message,
                 entity_category="config",
             )
-
-    @property
-    def mcp(self):
-        """Get MCP by it's id."""
-        return self._mcp
-
-    @property
-    def pca(self):
-        """Get PCA by it's id."""
-        return self._pca
-
-    @property
-    def pcf(self):
-        """Get PCF by it's id."""
-        return self._pcf
 
     async def press_callback(
         self,

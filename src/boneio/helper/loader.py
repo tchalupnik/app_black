@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import logging
-import time
 import typing
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
-from adafruit_mcp230xx.mcp23017 import MCP23017
-from adafruit_pca9685 import PCA9685
 from busio import I2C
 
 from boneio.config import (
@@ -19,11 +16,8 @@ from boneio.config import (
     EventActionTypes,
     EventConfig,
     Ina219Config,
-    Mcp23017Config,
     ModbusDeviceConfig,
     OutputConfig,
-    Pca9685Config,
-    Pcf8575Config,
     SensorConfig,
     TemperatureConfig,
 )
@@ -75,7 +69,6 @@ from boneio.helper.onewire import (
     OneWireAddress,
     OneWireBus,
 )
-from boneio.helper.pcf8575 import PCF8575
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -193,35 +186,6 @@ def create_serial_number_sensor(
         availability_msg_func=ha_sensor_availabilty_message,
     )
     return sensor
-
-
-def create_expander(
-    expander_dict: dict,
-    expander_config: list[Pcf8575Config | Pca9685Config | Mcp23017Config],
-    i2cbusio: I2C,
-    Class: MCP23017 | PCA9685 | PCF8575,
-) -> dict:
-    grouped_outputs = {}
-    for expander in expander_config:
-        id = expander.id or expander.address
-        try:
-            expander_dict[id] = Class(
-                i2c=i2cbusio, address=expander.address, reset=False
-            )
-            if expander.init_sleep.total_seconds() > 0:
-                _LOGGER.debug(
-                    "Sleeping for %s while %s %s is initializing.",
-                    expander.init_sleep.total_seconds(),
-                    Class.__name__,
-                    id,
-                )
-                time.sleep(expander.init_sleep.total_seconds())
-            else:
-                _LOGGER.debug("%s %s is initializing.", Class.__name__, id)
-            grouped_outputs[id] = {}
-        except TimeoutError as err:
-            _LOGGER.error("Can't connect to %s %s. %s", Class.__name__, id, err)
-    return grouped_outputs
 
 
 def create_modbus_coordinators(

@@ -235,7 +235,9 @@ class Ina219Config(BaseModel):
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
 
     def identifier(self) -> str:
-        return (self.id or str(self.address)).replace(" ", "")
+        if self.id:
+            return (self.id).replace(" ", "")
+        return str(self.address)
 
 
 class ActionDataConfig(BaseModel):
@@ -505,22 +507,27 @@ class ModbusDeviceConfig(BaseModel):
     data: ModbusDeviceData | None = None
 
 
-class Mcp23017Config(BaseModel):
+class ExpanderConfig(BaseModel):
     address: int
     id: str | None = None
     init_sleep: timedelta = Field(default_factory=lambda: timedelta(seconds=0))
 
+    def identifier(self) -> str:
+        if self.id:
+            return (self.id).replace(" ", "")
+        return str(self.address)
 
-class Pcf8575Config(BaseModel):
-    address: int
-    id: str | None = None
-    init_sleep: timedelta = Field(default_factory=lambda: timedelta(seconds=0))
+
+class Mcp23017Config(ExpanderConfig):
+    pass
 
 
-class Pca9685Config(BaseModel):
-    address: int
-    id: str | None = None
-    init_sleep: timedelta = Field(default_factory=lambda: timedelta(seconds=0))
+class Pcf8575Config(ExpanderConfig):
+    pass
+
+
+class Pca9685Config(ExpanderConfig):
+    pass
 
 
 class CoverConfig(BaseModel):
@@ -554,6 +561,11 @@ class CoverConfig(BaseModel):
 class Ds2482Config(BaseModel):
     address: int
     id: str | None = None
+
+    def identifier(self) -> str:
+        if self.id:
+            return (self.id).replace(" ", "")
+        return str(self.address)
 
 
 class DallasConfig(BaseModel):

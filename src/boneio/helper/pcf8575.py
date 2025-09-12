@@ -5,5 +5,5 @@ from busio import I2C
 
 
 class PCF8575(AdafruitPCF8575):
-    def __init__(self, i2c: I2C, address: int, reset: bool) -> None:
+    def __init__(self, i2c: I2C, address: int) -> None:
         super().__init__(i2c_bus=i2c, address=address)
