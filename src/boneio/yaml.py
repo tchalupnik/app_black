@@ -158,7 +158,7 @@ def load_yaml_file(filename: Path) -> Any:
 
 def get_board_config_path(board_name: str, version: str) -> str:
     """Get the appropriate board configuration file path based on version."""
-    base_dir = Path(__file__).parent / "../boards"
+    base_dir = Path(__file__).parent / "boards"
     version_dir = base_dir / version
     version_specific_file = version_dir / f"{board_name}.yaml"
 
