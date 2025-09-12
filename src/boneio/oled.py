@@ -11,7 +11,7 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
 from boneio.const import OLED_PIN, UPTIME, WHITE
-from boneio.gpio_manager import GpioManager, FALLING
+from boneio.gpio_manager import FALLING, GpioManager
 from boneio.helper import (
     HostData,
     I2CError,
