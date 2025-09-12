@@ -147,9 +147,9 @@ class GpioManager:
 
             while True:
                 await fut
+                events = fut.result()
                 # debounce_period is bugged
                 await asyncio.sleep(debounce_period.total_seconds())
-                events = fut.result()
                 fut = self._loop.create_future()
                 for _ in events:
                     _LOGGER.debug("add_event_callback calling callback on pin: %s", pin)
