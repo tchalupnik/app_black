@@ -313,7 +313,7 @@ class Manager:
                 relay_id=_id,
                 event_bus=self._event_bus,
             )
-            if not out:
+            if out is None:
                 continue
             if output.restore_state:
                 self._event_bus.add_event_listener(

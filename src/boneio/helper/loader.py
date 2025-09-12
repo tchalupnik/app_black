@@ -235,7 +235,7 @@ def configure_relay(
     output_config: OutputConfig,
     event_bus: EventBus,
     restore_state: bool = False,
-) -> BasicRelay:
+) -> BasicRelay | None:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
@@ -438,7 +438,6 @@ def configure_event_sensor(
                     actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
-                    bounce_time=gpio.bounce_time,
                     gpio_manager=gpio_manager,
                 )
         except GPIOInputException as err:
