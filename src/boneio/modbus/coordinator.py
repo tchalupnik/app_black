@@ -437,6 +437,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             source_sensor = self.get_entity_by_name(
                 derived_sensor.source_sensor_decoded_name
             )
+            if source_sensor is None:
+                raise ValueError("Source sensor doesn't exist!")
+
             if not source_sensor.write_address:
                 _LOGGER.error(
                     "Source sensor %s has no write address", source_sensor.name

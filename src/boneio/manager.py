@@ -932,7 +932,7 @@ class Manager:
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
         if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
             if message == ONLINE:
-                self.resend_autodiscovery()
+                await self.resend_autodiscovery()
                 self._event_bus.signal_ha_online()
             return
         try:
@@ -1104,6 +1104,6 @@ class Manager:
         )
         self.message_bus.send_message(topic=topic, payload=payload, retain=True)
 
-    def resend_autodiscovery(self) -> None:
+    async def resend_autodiscovery(self) -> None:
         for msg in self.config.mqtt.autodiscovery_messages.root.values():
-            self.message_bus.send_message(**msg.model_dump(), retain=True)
+            await self.message_bus.send_message(**msg.model_dump(), retain=True)
