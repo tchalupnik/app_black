@@ -5,7 +5,7 @@ import time
 import typing
 from collections.abc import Callable
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
@@ -54,7 +54,6 @@ from boneio.gpio import (
     GpioRelay,
 )
 from boneio.gpio_manager import GpioManager
-from boneio.group import OutputGroup
 from boneio.helper import (
     CoverConfigurationException,
     GPIOInputException,
@@ -265,26 +264,6 @@ def create_modbus_coordinators(
                 err,
             )
     return modbus_coordinators
-
-
-def configure_output_group(
-    message_bus: MessageBus,
-    topic_prefix: str,
-    config: dict,
-    **kwargs,
-) -> Any:
-    """Configure kind of relay. Most common MCP."""
-    _id = config.pop(ID)
-
-    output = OutputGroup(
-        message_bus=message_bus,
-        topic_prefix=topic_prefix,
-        id=_id,
-        callback=lambda: None,
-        **config,
-        **kwargs,
-    )
-    return output
 
 
 def configure_relay(

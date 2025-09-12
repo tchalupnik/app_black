@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import asyncio
 
+from boneio.config import OutputGroupConfig
 from boneio.const import COVER, OFF, ON, SWITCH
+from boneio.helper.events import EventBus
+from boneio.helper.state_manager import StateManager
+from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 
@@ -14,20 +18,28 @@ class OutputGroup(BasicRelay):
 
     def __init__(
         self,
+        config: OutputGroupConfig,
+        message_bus: MessageBus,
+        state_manager: StateManager,
+        topic_prefix: str,
+        relay_id: str,
+        event_bus: EventBus,
         members: list[BasicRelay],
-        output_type: str = SWITCH,
-        all_on_behaviour: bool = False,
-        **kwargs,
     ) -> None:
         """Initialize cover class."""
         self._loop = asyncio.get_event_loop()
         super().__init__(
-            **kwargs,
-            output_type=output_type,
+            config=config,
+            message_bus=message_bus,
+            state_manager=state_manager,
+            topic_prefix=topic_prefix,
+            relay_id=relay_id,
+            event_bus=event_bus,
+            members=members,
+            output_type=SWITCH,
             restored_state=False,
             topic_type="group",
         )
-        self._all_on_behaviour = all_on_behaviour
         self._group_members = [x for x in members if x.output_type != COVER]
         self._timer_handle = None
         self.check_state()
@@ -48,10 +60,7 @@ class OutputGroup(BasicRelay):
 
     async def event_listener(self, event: OutputState = None) -> None:
         """Listen for events called by children relays."""
-        if self._all_on_behaviour:
-            state = ON if all(x.state == ON for x in self._group_members) else OFF
-        else:
-            state = ON if any(x.state == ON for x in self._group_members) else OFF
+        state = ON if any(x.state == ON for x in self._group_members) else OFF
         if state != self._state or not event:
             self._state = state
             self._loop.create_task(self.async_send_state())

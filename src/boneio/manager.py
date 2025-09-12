@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 import typing
 from collections import defaultdict, deque
@@ -48,7 +49,6 @@ from boneio.const import (
     ONLINE,
     OPEN,
     OUTPUT,
-    OUTPUT_GROUP,
     OUTPUT_OVER_MQTT,
     RELAY,
     SET_BRIGHTNESS,
@@ -65,6 +65,7 @@ from boneio.const import (
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
 from boneio.gpio_manager import GpioManager
+from boneio.group.output import OutputGroup
 from boneio.helper import (
     GPIOInputException,
     HostData,
@@ -83,7 +84,6 @@ from boneio.helper.loader import (
     configure_binary_sensor,
     configure_cover,
     configure_event_sensor,
-    configure_output_group,
     configure_relay,
     create_adc,
     create_dallas_sensor,
@@ -133,7 +133,6 @@ class Manager:
         self.gpio_manager = gpio_manager
         modbus_devices = old_config.get("modbus_devices", {})
         modbus = old_config.get(MODBUS, {})
-        output_group = old_config.get(OUTPUT_GROUP, [])
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
@@ -151,7 +150,7 @@ class Manager:
         self._pcf = {}
         self._pca = {}
         self.outputs: dict[str, BasicRelay] = {}
-        self._configured_output_groups = {}
+        self.output_groups: dict[str, OutputGroup] = {}
         self._interlock_manager = SoftwareInterlockManager()
 
         self._tasks: list[asyncio.Task] = []
@@ -243,7 +242,6 @@ class Manager:
         if self.outputs:
             self._configure_covers()
 
-        self._outputs_group = output_group
         self._configure_output_group()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
@@ -287,9 +285,9 @@ class Manager:
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
 
-    def _configure_output_group(self):
-        def get_outputs(output_list):
-            outputs = []
+    def _configure_output_group(self) -> None:
+        def get_outputs(output_list: list[str]) -> list[BasicRelay]:
+            outputs: list[BasicRelay] = []
             for x in output_list:
                 x = strip_accents(x)
                 if x in self.outputs:
@@ -300,50 +298,48 @@ class Manager:
                         outputs.append(output)
             return outputs
 
-        for group in self._outputs_group:
-            members = get_outputs(group.pop("outputs"))
+        for group in self.config.output_group:
+            members = get_outputs(group.outputs)
             if not members:
                 _LOGGER.warning(
                     "This group %s doesn't have any valid members. Not adding it.",
-                    group[ID],
+                    group.id,
                 )
                 continue
             _LOGGER.debug(
                 "Configuring output group %s with members: %s",
-                group[ID],
+                group.id,
                 [x.name for x in members],
             )
-            configured_group = configure_output_group(
-                config=group,
+            output_group = OutputGroup(
                 message_bus=self.message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
-                relay_id=group[ID].replace(" ", ""),
+                relay_id=group.id.replace(" ", ""),
                 event_bus=self._event_bus,
                 members=members,
+                config=group,
             )
-            self._configured_output_groups[configured_group.id] = configured_group
-            if configured_group.output_type != NONE:
+            self.output_groups[output_group.id] = output_group
+            if output_group.output_type != NONE:
                 self.send_ha_autodiscovery(
-                    id=configured_group.id,
-                    name=configured_group.name,
-                    ha_type=configured_group.output_type,
+                    id=output_group.id,
+                    name=output_group.name,
+                    ha_type=output_group.output_type,
                     availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
-                        configured_group.output_type,
+                        output_group.output_type,
                         ha_switch_availabilty_message,
                     ),
                     device_type="group",
                     icon=(
                         "mdi:lightbulb-group"
-                        if configured_group.output_type == LIGHT
+                        if output_group.output_type == LIGHT
                         else "mdi:toggle-switch-variant"
                     ),
                 )
-            self.append_task(
-                coro=configured_group.event_listener, name=configured_group.id
-            )
+            self.append_task(coro=output_group.event_listener, name=output_group.id)
 
-    def _configure_covers(self, reload_config: bool = False):
+    def _configure_covers(self, reload_config: bool = False) -> None:
         """Configure covers."""
         if reload_config:
             config = load_config_from_file(self._config_file_path)
@@ -415,7 +411,7 @@ class Manager:
                     action_output = action_definition.action_output
                     output = self.outputs.get(
                         stripped_entity_id,
-                        self._configured_output_groups.get(stripped_entity_id),
+                        self.output_groups.get(stripped_entity_id),
                     )
                     action_to_execute = relay_actions.get(action_output)
                     if output and action_to_execute:
@@ -825,9 +821,7 @@ class Manager:
                     )
                 continue
             elif action == OUTPUT:
-                output = self.outputs.get(
-                    entity_id, self._configured_output_groups.get(entity_id)
-                )
+                output = self.outputs.get(entity_id, self.output_groups.get(entity_id))
                 action_to_execute = action_definition.get("action_to_execute")
                 duration = None
                 if start_time is not None:
@@ -966,7 +960,7 @@ class Manager:
                     except ValueError as err:
                         _LOGGER.warning(err)
         elif msg_type == "group" and command == "set":
-            target_device = self._configured_output_groups.get(device_id)
+            target_device = self.output_groups.get(device_id)
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
@@ -999,8 +993,6 @@ class Manager:
 
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")
-        import os
-
         os._exit(0)  # Terminate the process
 
     async def _delayed_send_state(self, output: BasicRelay) -> None:
