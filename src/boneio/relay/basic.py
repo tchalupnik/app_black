@@ -201,6 +201,7 @@ class BasicRelay(BasicMqtt):
         event_bus: EventBus,
         topic_prefix: str,
         message_bus: MessageBus,
+        expander_id: str,
         name: str | None = None,
         output_type: str = SWITCH,
         restored_state: bool = False,
@@ -223,6 +224,7 @@ class BasicRelay(BasicMqtt):
             topic_prefix=topic_prefix,
             message_bus=message_bus,
         )
+        self.expander_id = expander_id
         self.pin_id = pin_id
         self._momentary_turn_off = momentary_turn_off
         self._momentary_turn_on = momentary_turn_on

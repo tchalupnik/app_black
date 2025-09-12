@@ -252,9 +252,9 @@ def configure_relay(
         output_config.interlock_group = [output_config.interlock_group]
 
     if output_config.kind == "gpio":
-        expander_id = output_config.id
         if GPIO not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[GPIO] = {}
+        expander_id = output_config.id
         relay = GpioRelay(
             pin_id=output_config.pin,
             message_bus=message_bus,
@@ -265,14 +265,15 @@ def configure_relay(
             interlock_groups=output_config.interlock_group,
             name=name,
             event_bus=event_bus,
+            expander_id=expander_id,
         )
     elif output_config.kind == "mcp":
-        if output_config.mcp_id is None:
+        expander_id = output_config.mcp_id
+        if expander_id is None:
             _LOGGER.error("No MCP id configured!")
             return None
-        expander_id = output_config.mcp_id
         mcp = manager.mcp.get(expander_id)
-        if not mcp:
+        if mcp is None:
             _LOGGER.error("No such MCP configured!")
             return None
         relay = MCPRelay(
@@ -287,14 +288,15 @@ def configure_relay(
             event_bus=event_bus,
             mcp=mcp,
             output_type=output_config.output_type,
+            expander_id=output_config.mcp_id,
         )
     elif output_config.kind == "pca":
-        if output_config.pca_id is None:
+        expander_id = output_config.pca_id
+        if expander_id is None:
             _LOGGER.error("No PCA id configured!")
             return None
-        expander_id = output_config.pca_id
         pca = manager.pca.get(expander_id)
-        if not pca:
+        if pca is None:
             _LOGGER.error("No such PCA configured!")
             return None
         relay = PWMPCA(
@@ -310,12 +312,13 @@ def configure_relay(
             pca=pca,
             pca_id=output_config.pca_id,
             output_type=output_config.output_type,
+            expander_id=expander_id,
         )
     elif output_config.kind == "pcf":
-        if output_config.pcf_id is None:
+        expander_id = output_config.pcf_id
+        if expander_id is None:
             _LOGGER.error("No PCF id configured!")
             return None
-        expander_id = output_config.pcf_id
         expander = manager.pcf.get(expander_id)
         if not expander:
             _LOGGER.error("No such PCF configured!")
@@ -332,6 +335,7 @@ def configure_relay(
             event_bus=event_bus,
             output_type=output_config.output_type,
             expander=expander,
+            expander_id=expander_id,
         )
     else:
         _LOGGER.error("Output kind: %s is not configured", output_config.kind)

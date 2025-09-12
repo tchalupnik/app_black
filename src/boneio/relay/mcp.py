@@ -20,6 +20,7 @@ class MCPRelay(BasicRelay):
         self,
         pin: int,
         mcp: MCP23017,
+        expander_id: str,
         message_bus: MessageBus,
         topic_prefix: str,
         id: str,
@@ -46,6 +47,7 @@ class MCPRelay(BasicRelay):
             interlock_groups=interlock_groups,
             output_type=output_type,
             restored_state=restored_state,
+            expander_id=expander_id,
         )
 
         self.init_with_check_if_can_restore_state(restored_state=restored_state)

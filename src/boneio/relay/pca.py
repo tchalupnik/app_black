@@ -22,6 +22,7 @@ class PWMPCA(BasicRelay):
         self,
         pin: int,
         pca: PCA9685,
+        expander_id: str,
         percentage_default_brightness: int,
         message_bus: MessageBus,
         topic_prefix: str,
@@ -47,6 +48,7 @@ class PWMPCA(BasicRelay):
             interlock_groups=interlock_groups,
             output_type=output_type,
             restored_state=restored_state,
+            expander_id=expander_id,
         )
         self._percentage_default_brightness = percentage_default_brightness
         self._brightness = restored_brightness if restored_state else 0
