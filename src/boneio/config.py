@@ -401,7 +401,6 @@ class WebAuthConfig(BaseModel):
 
 
 class WebConfig(BaseModel):
-    username: str
     auth: WebAuthConfig | None = None
     port: int = 8090
 
