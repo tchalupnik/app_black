@@ -256,7 +256,7 @@ def configure_relay(
         if GPIO not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[GPIO] = {}
         relay = GpioRelay(
-            pin=output_config.pin,
+            pin_id=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,

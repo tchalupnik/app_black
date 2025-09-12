@@ -224,7 +224,7 @@ class BasicRelay(BasicMqtt):
             topic_prefix=topic_prefix,
             message_bus=message_bus,
         )
-        self._pin_id = pin_id
+        self.pin_id = pin_id
         self._momentary_turn_off = momentary_turn_off
         self._momentary_turn_on = momentary_turn_on
         self._output_type = output_type
@@ -291,12 +291,12 @@ class BasicRelay(BasicMqtt):
     def id(self) -> str:
         """Id of the relay.
         Has to be trimmed out of spaces because of MQTT handling in HA."""
-        return self.id or self._pin_id
+        return self.id or self.pin_id
 
     @property
     def name(self) -> str:
         """Not trimmed id."""
-        return self.name or self._pin_id
+        return self.name or self.pin_id
 
     @property
     def state(self) -> str:
@@ -336,7 +336,7 @@ class BasicRelay(BasicMqtt):
             name=self.name,
             state=state,
             type=self.output_type,
-            pin=self._pin_id,
+            pin=self.pin_id,
             timestamp=self.last_timestamp,
             expander_id=self.expander_id,
         )

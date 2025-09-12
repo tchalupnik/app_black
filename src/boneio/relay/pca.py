@@ -6,7 +6,7 @@ import logging
 
 from adafruit_pca9685 import PCA9685, PCAChannels
 
-from boneio.const import BRIGHTNESS, LED, OFF, ON, PCA, STATE, SWITCH
+from boneio.const import BRIGHTNESS, LED, OFF, ON, STATE, SWITCH
 from boneio.helper.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus
@@ -50,12 +50,7 @@ class PWMPCA(BasicRelay):
         )
         self._percentage_default_brightness = percentage_default_brightness
         self._brightness = restored_brightness if restored_state else 0
-        _LOGGER.debug("Setup PCA with pin %s", self._pin_id)
-
-    @property
-    def expander_type(self) -> str:
-        """Check expander type."""
-        return PCA
+        _LOGGER.debug("Setup PCA with pin %s", self.pin_id)
 
     @property
     def is_led(self) -> bool:
@@ -70,7 +65,7 @@ class PWMPCA(BasicRelay):
                 return 0
             return self._pin.duty_cycle
         except KeyError:
-            _LOGGER.error("Cant read value form driver on pin %s", self._pin_id)
+            _LOGGER.error("Cant read value form driver on pin %s", self.pin_id)
             return 0
 
     def set_brightness(self, value: int) -> None:
@@ -79,7 +74,7 @@ class PWMPCA(BasicRelay):
             _LOGGER.debug("Set brightness relay %s.", value)
             self._pin.duty_cycle = value
         except KeyError:
-            _LOGGER.error("Cant set value form driver on pin %s", self._pin_id)
+            _LOGGER.error("Cant set value form driver on pin %s", self.pin_id)
 
     @property
     def is_active(self) -> bool:

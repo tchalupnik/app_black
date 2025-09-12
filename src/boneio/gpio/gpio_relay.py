@@ -20,7 +20,7 @@ class GpioRelay(BasicRelay):
 
     def __init__(
         self,
-        pin: int,
+        pin_id: int,
         message_bus: MessageBus,
         topic_prefix: str,
         id: str,
@@ -35,7 +35,7 @@ class GpioRelay(BasicRelay):
         """Initialize Gpio relay."""
         super().__init__(
             id=id,
-            pin_id=pin,
+            pin_id=pin_id,
             name=name,
             topic_prefix=topic_prefix,
             event_bus=event_bus,
@@ -46,18 +46,18 @@ class GpioRelay(BasicRelay):
             restored_state=restored_state,
         )
         self.gpio_manager = gpio_manager
-        self.gpio_manager.write(self._pin_id, LOW)
-        _LOGGER.debug("Setup relay with pin %s", self._pin_id)
+        self.gpio_manager.write(self.pin_id, LOW)
+        _LOGGER.debug("Setup relay with pin %s", self.pin_id)
 
     @property
     def is_active(self) -> bool:
         """Is relay active."""
-        return self.gpio_manager.read(self._pin_id)
+        return self.gpio_manager.read(self.pin_id)
 
     def turn_on(self) -> None:
         """Call turn on action."""
-        self.gpio_manager.write(self._pin_id, HIGH)
+        self.gpio_manager.write(self.pin_id, HIGH)
 
     def turn_off(self) -> None:
         """Call turn off action."""
-        self.gpio_manager.write(self._pin_id, LOW)
+        self.gpio_manager.write(self.pin_id, LOW)

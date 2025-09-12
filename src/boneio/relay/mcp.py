@@ -32,7 +32,7 @@ class MCPRelay(BasicRelay):
         restored_state: bool = False,
     ) -> None:
         """Initialize MCP relay."""
-        self._pin: DigitalInOut = mcp.get_pin(pin)
+        self.pin: DigitalInOut = mcp.get_pin(pin)
         if output_type == COVER:
             """Just in case to not restore state of covers etc."""
             restored_state = False
@@ -51,7 +51,7 @@ class MCPRelay(BasicRelay):
         self._expander_id = mcp_id
 
         self.init_with_check_if_can_restore_state(restored_state=restored_state)
-        _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
+        _LOGGER.debug("Setup MCP with pin %s", self.pin_id)
 
     def init_with_check_if_can_restore_state(self, restored_state: bool) -> None:
         if restored_state:
@@ -61,25 +61,15 @@ class MCPRelay(BasicRelay):
                 ):
                     _LOGGER.warning(
                         "Interlock active: cannot restore ON state for %s at startup",
-                        self._pin_id,
+                        self.pin_id,
                     )
                     restored_state = False
-        self._pin.switch_to_output(value=restored_state)
-
-    @property
-    def expander_type(self) -> str:
-        """Check expander type."""
-        return MCP
+        self.pin.switch_to_output(value=restored_state)
 
     @property
     def is_active(self) -> bool:
         """Is relay active."""
         return self.pin.value
-
-    @property
-    def pin(self) -> DigitalInOut:
-        """PIN of the relay"""
-        return self._pin
 
     def turn_on(self, time=None) -> None:
         """Call turn on action."""

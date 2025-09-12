@@ -33,11 +33,11 @@ class PCFRelay(BasicRelay):
         restored_state: bool = False,
     ) -> None:
         """Initialize MCP relay."""
-        self._pin: DigitalInOut = expander.get_pin(pin)
+        self.pin: DigitalInOut = expander.get_pin(pin)
         if output_type == NONE:
             """Just in case to not restore state of covers etc."""
             restored_state = False
-        self._pin.switch_to_output(value=restored_state)
+        self.pin.switch_to_output(value=restored_state)
         super().__init__(
             id=id,
             name=name,
@@ -51,27 +51,12 @@ class PCFRelay(BasicRelay):
         )
         self._expander_id = expander_id
         self._active_state = False
-        _LOGGER.debug("Setup PCF with pin %s", self._pin_id)
-
-    @property
-    def expander_type(self) -> str:
-        """Check expander type."""
-        return PCF
-
-    @property
-    def pin_id(self) -> int:
-        """Return PIN id."""
-        return self._pin_id
+        _LOGGER.debug("Setup PCF with pin %s", self.pin_id)
 
     @property
     def is_active(self) -> bool:
         """Is relay active."""
         return self.pin.value == self._active_state
-
-    @property
-    def pin(self) -> DigitalInOut:
-        """PIN of the relay"""
-        return self._pin
 
     def turn_on(self) -> None:
         """Call turn on action."""
