@@ -5,12 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import typing
+from abc import ABC, abstractmethod
 from datetime import timedelta
 
 from boneio.config import Filters
-from boneio.const import SENSOR, STATE, TEMPERATURE
+from boneio.const import SENSOR, STATE
 from boneio.helper import AsyncUpdater, BasicMqtt
-from boneio.helper.exceptions import I2CError
 from boneio.helper.filter import Filter
 from boneio.models import SensorState
 
@@ -21,24 +21,19 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class TempSensor(BasicMqtt, AsyncUpdater, Filter):
+class TempSensor(ABC, BasicMqtt, AsyncUpdater, Filter):
     """Represent Temp sensor in BoneIO."""
-
-    SensorClass = None
-    DefaultName = TEMPERATURE
 
     def __init__(
         self,
-        i2c,
-        address: str,
+        id: str,
         manager: Manager,
         message_bus: MessageBus,
         topic_prefix: str,
         name: str,
         update_interval: timedelta,
         filters: list[dict[Filters, float]],
-        id: str = DefaultName,
-        unit_of_measurement: str = "°C",
+        unit_of_measurement: str,
     ):
         """Initialize Temp class."""
         if not filters:
@@ -64,11 +59,10 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         self._filters = filters
         self._unit_of_measurement = unit_of_measurement
         self._state: float | None = None
-        try:
-            if self.SensorClass:
-                self._pct = self.SensorClass(i2c_bus=i2c, address=address)
-        except ValueError as err:
-            raise I2CError(err)
+
+    @abstractmethod
+    def get_temperature(self) -> float:
+        pass
 
     @property
     def state(self) -> float:
@@ -82,13 +76,11 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
     async def async_update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         try:
-            _temp = self._pct.temperature
+            _temp = self.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
-            _temp = self._apply_filters(value=self._pct.temperature)
+            _temp = self._apply_filters(value=_temp)
         except RuntimeError as err:
-            _temp = None
             _LOGGER.error("Sensor error: %s %s", err, self.id)
-        if _temp is None:
             return
         self._state = _temp
         self._timestamp = timestamp

@@ -211,6 +211,14 @@ class TemperatureConfig(BaseModel):
     unit_of_measurement: Literal["°C", "°F"] = "°C"
 
 
+class Lm75Config(TemperatureConfig):
+    pass
+
+
+class Mcp9808Config(TemperatureConfig):
+    pass
+
+
 Ina219DeviceClass = Literal["voltage", "current", "power"]
 
 
@@ -553,8 +561,8 @@ class Config(BaseModel):
     boneio: BoneIOConfig
     mqtt: MqttConfig | None = None
     oled: OledConfig | None = None
-    lm75: list[TemperatureConfig] = Field(default_factory=list)
-    mcp9808: list[TemperatureConfig] = Field(default_factory=list)
+    lm75: list[Lm75Config] = Field(default_factory=list)
+    mcp9808: list[Mcp9808Config] = Field(default_factory=list)
     ina219: list[Ina219Config] = Field(default_factory=list)
     mcp23017: list[Mcp23017Config] = Field(default_factory=list)
     pcf8575: list[Pcf8575Config] = Field(default_factory=list)

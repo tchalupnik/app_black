@@ -28,7 +28,6 @@ from boneio.config import (
     ModbusDeviceConfig,
     MqttAutodiscoveryMessage,
     SensorConfig,
-    TemperatureConfig,
     UartsConfig,
 )
 from boneio.const import (
@@ -79,7 +78,10 @@ from boneio.helper import (
 )
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
-from boneio.helper.ha_discovery import ha_valve_availabilty_message
+from boneio.helper.ha_discovery import (
+    ha_sensor_temp_availabilty_message,
+    ha_valve_availabilty_message,
+)
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
     configure_binary_sensor,
@@ -91,7 +93,6 @@ from boneio.helper.loader import (
     create_expander,
     create_modbus_coordinators,
     create_serial_number_sensor,
-    create_temp_sensor,
 )
 from boneio.helper.onewire.onewire import OneWireAddress
 from boneio.helper.pcf8575 import PCF8575
@@ -104,6 +105,8 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
+from boneio.sensor.temp.lm75 import LM75Sensor
+from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
 
 if typing.TYPE_CHECKING:
@@ -162,10 +165,66 @@ class Manager:
         if config.modbus is not None:
             self._configure_modbus(modbus=config.modbus)
 
-        if config.lm75 is not None:
-            self._configure_temp_sensors(sensor_type="lm75", sensors=config.lm75)
-        if config.mcp9808 is not None:
-            self._configure_temp_sensors(sensor_type="mcp9808", sensors=config.mcp9808)
+        for sensor in config.lm75:
+            if sensor.id is None:
+                continue
+            id = sensor.id.replace(" ", "")
+            try:
+                temp_sensor = LM75Sensor(
+                    id=id,
+                    name=sensor.id,
+                    i2c=self._i2cbusio,
+                    address=sensor.address,
+                    manager=self,
+                    message_bus=message_bus,
+                    topic_prefix=self.config.mqtt.topic_prefix,
+                    update_interval=sensor.update_interval,
+                    filters=sensor.filters,
+                    unit_of_measurement=sensor.unit_of_measurement,
+                )
+            except I2CError as err:
+                _LOGGER.error("Can't configure Temp sensor. %s", err)
+                continue
+
+            self.send_ha_autodiscovery(
+                id=id,
+                name=sensor.id,
+                ha_type="sensor",
+                availability_msg_func=ha_sensor_temp_availabilty_message,
+                unit_of_measurement=temp_sensor.unit_of_measurement,
+            )
+            if temp_sensor:
+                self.temp_sensors.append(temp_sensor)
+        for sensor in config.mcp9808:
+            if sensor.id is None:
+                continue
+            id = sensor.id.replace(" ", "")
+            try:
+                temp_sensor = MCP9808Sensor(
+                    id=id,
+                    name=sensor.id,
+                    i2c=self._i2cbusio,
+                    address=sensor.address,
+                    manager=self,
+                    message_bus=message_bus,
+                    topic_prefix=self.config.mqtt.topic_prefix,
+                    update_interval=sensor.update_interval,
+                    filters=sensor.filters,
+                    unit_of_measurement=sensor.unit_of_measurement,
+                )
+            except I2CError as err:
+                _LOGGER.error("Can't configure Temp sensor. %s", err)
+                continue
+
+            self.send_ha_autodiscovery(
+                id=id,
+                name=sensor.id,
+                ha_type="sensor",
+                availability_msg_func=ha_sensor_temp_availabilty_message,
+                unit_of_measurement=temp_sensor.unit_of_measurement,
+            )
+            if temp_sensor:
+                self.temp_sensors.append(temp_sensor)
 
         self.modbus_coordinators = {}
         if config.ina219 is not None:
@@ -650,23 +709,6 @@ class Manager:
                     uart,
                 )
                 self.modbus = None
-
-    def _configure_temp_sensors(
-        self,
-        sensor_type: typing.Literal["lm75", "mcp9808"],
-        sensors: list[TemperatureConfig],
-    ) -> None:
-        for sensor in sensors:
-            temp_sensor = create_temp_sensor(
-                manager=self,
-                message_bus=self.message_bus,
-                topic_prefix=self.config.mqtt.topic_prefix,
-                sensor_type=sensor_type,
-                config=sensor,
-                i2cbusio=self._i2cbusio,
-            )
-            if temp_sensor:
-                self.temp_sensors.append(temp_sensor)
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
         from boneio.helper.loader import create_ina219_sensor

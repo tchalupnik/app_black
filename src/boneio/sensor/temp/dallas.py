@@ -15,7 +15,7 @@ from w1thermsensor import (
 )
 
 from boneio.config import Filters
-from boneio.const import STATE, TEMPERATURE
+from boneio.const import STATE
 from boneio.helper.exceptions import OneWireError
 from boneio.helper.onewire import (
     AsyncBoneIOW1ThermSensor,
@@ -34,9 +34,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class DallasSensorDS2482(TempSensor):
-    DefaultName = TEMPERATURE
-    SensorClass = DS18X20
-
     def __init__(
         self,
         bus: OneWireBus,
@@ -47,14 +44,12 @@ class DallasSensorDS2482(TempSensor):
         update_interval: timedelta,
         topic_prefix: str,
         filters: list[dict[Filters, float]],
-        id: str = DefaultName,
+        id: str,
     ):
         """Initialize Temp class."""
         self._loop = asyncio.get_event_loop()
         # Use a dummy i2c and address since DS2482 doesn't use I2C
         super().__init__(
-            i2c=None,
-            address="",
             manager=manager,
             message_bus=message_bus,
             name=name,
@@ -64,16 +59,15 @@ class DallasSensorDS2482(TempSensor):
             filters=filters,
         )
         try:
-            self._pct = DS18X20(bus=bus, address=address)
-            self._state = None
+            self.pct = DS18X20(bus=bus, address=address.int_address)
         except ValueError as err:
             raise OneWireError(err)
 
+    def get_temperature(self) -> float:
+        return self.pct.read_temperature()
+
 
 class DallasSensorW1(TempSensor):
-    DefaultName = TEMPERATURE
-    SensorClass = AsyncBoneIOW1ThermSensor
-
     def __init__(
         self,
         address: OneWireAddress,
@@ -83,7 +77,7 @@ class DallasSensorW1(TempSensor):
         update_interval: timedelta,
         topic_prefix: str,
         filters: list[dict[Filters, float]],
-        id: str = DefaultName,
+        id: str,
     ):
         """Initialize Temp class."""
         if not filters:
@@ -91,8 +85,6 @@ class DallasSensorW1(TempSensor):
         self._loop = asyncio.get_event_loop()
         # Use a dummy i2c and address since W1 doesn't use I2C
         super().__init__(
-            i2c=None,
-            address="",
             manager=manager,
             message_bus=message_bus,
             name=name,
@@ -102,13 +94,16 @@ class DallasSensorW1(TempSensor):
             filters=filters,
         )
         try:
-            self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
+            self.pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
         except ValueError as err:
             raise OneWireError(err)
 
+    def get_temperature(self) -> float:
+        raise NotImplementedError("Uses its own async method")
+
     async def async_update(self, timestamp: float) -> None:
         try:
-            _temp = await self._pct.get_temperature()
+            _temp = await self.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
             _temp = self._apply_filters(value=_temp)
             if _temp is None:
