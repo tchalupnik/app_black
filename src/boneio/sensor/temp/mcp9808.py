@@ -1,16 +1,22 @@
 """MCP9808 temp sensor."""
 
+from __future__ import annotations
+
+import typing
 from datetime import timedelta
 
 from adafruit_mcp9808 import MCP9808
-from busio import I2C
 
-from boneio.config import Filters
 from boneio.helper.exceptions import I2CError
-from boneio.manager import Manager
-from boneio.message_bus.basic import MessageBus
 
 from . import TempSensor
+
+if typing.TYPE_CHECKING:
+    from busio import I2C
+
+    from boneio.config import Filters
+    from boneio.manager import Manager
+    from boneio.message_bus.basic import MessageBus
 
 
 class MCP9808Sensor(TempSensor):
