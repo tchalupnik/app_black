@@ -50,10 +50,14 @@ mqtt:
 web:
   type: dict
   required: False
-  nullable: True
   meta:
     label: "https://boneio.eu/docs/black/0.9.x-dev/configuration/web \n Web section of boneIO Black. It enables web interface. Default on port 8090."
   schema:
+    enabled:
+      type: boolean
+      default: True
+      meta:
+        label: Enable web interface
     port:
       required: False
       type: integer
