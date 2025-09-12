@@ -4,8 +4,8 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -75,8 +75,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "120ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
@@ -350,8 +350,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -466,8 +466,8 @@
               },
               "released": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -582,7 +582,10 @@
               }
             }
           }
-        }
+        },
+        "required": [
+          "pin"
+        ]
       },
       "description": "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables binary sensors in HA. It detects press and release states. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Binary sensor"

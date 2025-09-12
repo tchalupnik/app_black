@@ -4,8 +4,8 @@
   "properties": {
     "event": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -75,8 +75,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "30ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
@@ -305,8 +305,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -421,8 +421,8 @@
               },
               "double": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -537,8 +537,8 @@
               },
               "long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -653,7 +653,10 @@
               }
             }
           }
-        }
+        },
+        "required": [
+          "pin"
+        ]
       },
       "description": "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Event"

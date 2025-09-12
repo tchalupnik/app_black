@@ -4,8 +4,8 @@
   "properties": {
     "output_group": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -20,8 +20,8 @@
           },
           "outputs": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "List of outputs.",
             "title": "Outputs"

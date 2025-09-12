@@ -4,8 +4,8 @@
   "properties": {
     "pcf8575": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -28,8 +28,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "0s",
             "description": "How long to sleep for PCF to initialize.",

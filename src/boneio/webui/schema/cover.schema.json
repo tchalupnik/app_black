@@ -4,8 +4,8 @@
   "properties": {
     "cover": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -66,32 +66,32 @@
           },
           "open_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "title": "Open time"
           },
           "close_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
           },
           "tilt_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
             "title": "Tilt duration"
           },
           "actuator_activation_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
             "title": "Actuator activation duration"

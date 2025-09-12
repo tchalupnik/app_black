@@ -4,8 +4,8 @@
   "properties": {
     "modbus_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -83,8 +83,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "30s",
             "description": "Update interval.",
@@ -98,8 +98,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -117,8 +117,8 @@
               },
               "humidity": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -146,18 +146,18 @@
             "properties": {
               "width": {
                 "type": [
-                  "number",
                   "integer",
-                  "string"
+                  "string",
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
-                  "number",
                   "integer",
-                  "string"
+                  "string",
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"

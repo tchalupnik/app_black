@@ -33,8 +33,8 @@
         },
         "screens": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "default": [
             "uptime",
@@ -67,8 +67,8 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "items": {
             "type": [
@@ -105,8 +105,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "default": "60s",
           "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",

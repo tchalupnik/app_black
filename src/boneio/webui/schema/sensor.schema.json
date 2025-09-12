@@ -4,8 +4,8 @@
   "properties": {
     "sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -67,8 +67,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -86,8 +86,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",

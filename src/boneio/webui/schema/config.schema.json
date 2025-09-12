@@ -122,8 +122,8 @@
         },
         "auth": {
           "type": [
-            "null",
             "object",
+            "null",
             "string"
           ],
           "default": {},
@@ -228,8 +228,8 @@
         },
         "screens": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "default": [
             "uptime",
@@ -262,8 +262,8 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "items": {
             "type": [
@@ -300,8 +300,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "default": "60s",
           "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
@@ -381,8 +381,8 @@
     },
     "modbus_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -460,8 +460,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "30s",
             "description": "Update interval.",
@@ -475,8 +475,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -494,8 +494,8 @@
               },
               "humidity": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -523,18 +523,18 @@
             "properties": {
               "width": {
                 "type": [
-                  "number",
                   "integer",
-                  "string"
+                  "string",
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
-                  "number",
                   "integer",
-                  "string"
+                  "string",
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -555,8 +555,8 @@
     },
     "lm75": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -580,8 +580,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
@@ -589,8 +589,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -624,8 +624,8 @@
     },
     "ina219": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -649,8 +649,8 @@
           },
           "sensors": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -690,8 +690,8 @@
                 },
                 "filters": {
                   "type": [
-                    "array",
-                    "string"
+                    "string",
+                    "array"
                   ],
                   "default": [
                     {
@@ -712,8 +712,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
@@ -726,8 +726,8 @@
     },
     "mcp9808": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -751,8 +751,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
@@ -760,8 +760,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -795,8 +795,8 @@
     },
     "mcp23017": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -819,8 +819,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "0s",
             "description": "How long to sleep for MCP to initialize.",
@@ -836,8 +836,8 @@
     },
     "pcf8575": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -860,8 +860,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "0s",
             "description": "How long to sleep for PCF to initialize.",
@@ -877,8 +877,8 @@
     },
     "pca9685": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -901,8 +901,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "0s",
             "description": "How long to sleep for PCA to initialize.",
@@ -918,8 +918,8 @@
     },
     "output": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -976,16 +976,16 @@
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
@@ -1022,8 +1022,8 @@
           },
           "interlock_group": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
@@ -1072,8 +1072,8 @@
     },
     "output_group": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1088,8 +1088,8 @@
           },
           "outputs": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "List of outputs.",
             "title": "Outputs"
@@ -1143,8 +1143,8 @@
     },
     "binary_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1214,8 +1214,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "120ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
@@ -1489,8 +1489,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -1605,8 +1605,8 @@
               },
               "released": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -1721,15 +1721,18 @@
               }
             }
           }
-        }
+        },
+        "required": [
+          "pin"
+        ]
       },
       "description": "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables binary sensors in HA. It detects press and release states. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Binary sensor"
     },
     "event": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1799,8 +1802,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "30ms",
             "description": "Bounce time for GPIO in miliseconds. Only for advanced usage.",
@@ -2029,8 +2032,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -2145,8 +2148,8 @@
               },
               "double": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -2261,8 +2264,8 @@
               },
               "long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -2377,15 +2380,18 @@
               }
             }
           }
-        }
+        },
+        "required": [
+          "pin"
+        ]
       },
       "description": "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state.",
       "title": "Event"
     },
     "adc": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -2417,8 +2423,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
@@ -2448,8 +2454,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -2478,8 +2484,8 @@
     },
     "cover": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -2540,32 +2546,32 @@
           },
           "open_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "title": "Open time"
           },
           "close_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
           },
           "tilt_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
             "title": "Tilt duration"
           },
           "actuator_activation_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
             "title": "Actuator activation duration"
@@ -2626,8 +2632,8 @@
     },
     "ds2482": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -2671,8 +2677,8 @@
     },
     "sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -2734,8 +2740,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -2753,8 +2759,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "default": "60s",
             "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
@@ -2792,8 +2798,8 @@
         },
         "version": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "enum": [
             "0.7",
