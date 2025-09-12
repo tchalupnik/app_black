@@ -51,7 +51,7 @@ from boneio.gpio import (
 )
 from boneio.gpio_manager import GpioManager
 from boneio.helper import (
-    CoverConfigurationException,
+    CoverConfigurationError,
     GPIOInputException,
     I2CError,
     StateManager,
@@ -578,7 +578,7 @@ def configure_cover(
 
     if platform == "venetian":
         if not config.tilt_duration:
-            raise CoverConfigurationException(
+            raise CoverConfigurationError(
                 "Tilt duration must be configured for tilt cover."
             )
         _LOGGER.debug("Configuring tilt cover %s", cover_id)

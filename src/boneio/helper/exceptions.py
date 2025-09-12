@@ -21,11 +21,7 @@ class OneWireError(BoneIOException):
     """One Wire Exception."""
 
 
-class ConfigurationException(BoneIOException):
-    """Configuration yaml exception."""
-
-
-class CoverConfigurationException(BoneIOException):
+class CoverConfigurationError(BoneIOException):
     """Cover configuration exception."""
 
 

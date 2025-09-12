@@ -2,28 +2,19 @@
 
 from __future__ import annotations
 
-import logging
-import os
-from pathlib import Path
-
-from boneio.config import Config
-
-os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
-
 import argparse
 import asyncio
+import logging
+import os
 import sys
+from pathlib import Path
 
 from yaml import MarkedYAMLError
 
 from boneio.const import ACTION
-from boneio.helper import load_config_from_file
 from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import (
-    ConfigurationException,
-    RestartRequestException,
-)
-from boneio.helper.logger import configure_logger, setup_logging
+from boneio.helper.exceptions import RestartRequestException
+from boneio.logger import configure_logger, setup_logging
 from boneio.modbus.client import VALUE_TYPES
 from boneio.modbus.modbuscli import (
     async_run_modbus_get,
@@ -32,7 +23,9 @@ from boneio.modbus.modbuscli import (
 )
 from boneio.runner import async_run
 from boneio.version import __version__
+from boneio.yaml import ConfigurationError, load_config
 
+os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 TASK_CANCELATION_TIMEOUT = 1
 
 _LOGGER = logging.getLogger(__name__)
@@ -217,12 +210,7 @@ def run(
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
-        _config = load_config_from_file(config_file=config_file)
-        if not _config:
-            _LOGGER.error("Config not loaded. Exiting.")
-            return 1
-        configure_logger(log_config=_config.get("logger"), debug=debug)
-        config = Config.model_validate(_config)
+        config = load_config(config_file=config_file)
         ret = asyncio.run(
             async_run(
                 config=config,
@@ -237,10 +225,9 @@ def run(
     except KeyboardInterrupt:
         return 0
     except GracefulExit as err:
-        if err is not None:
-            _LOGGER.info("Message: %s", err)
+        _LOGGER.info("Message: %s", err)
         return 0
-    except (ConfigurationException, MarkedYAMLError) as err:
+    except (ConfigurationError, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         return 1
 
@@ -252,7 +239,7 @@ def run_modbus_command(
     setup_logging(debug_level=args.debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
-        configure_logger(log_config={}, debug=args.debug)
+        configure_logger(debug=args.debug)
         ret = 0
         if args.modbus_action == "set":
             ret = asyncio.run(
@@ -302,7 +289,7 @@ def run_modbus_command(
         if err is not None:
             _LOGGER.info(err)
         return 0
-    except (ConfigurationException, MarkedYAMLError) as err:
+    except (ConfigurationError, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         return 1
 

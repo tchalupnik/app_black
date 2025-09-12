@@ -11,6 +11,7 @@ import secrets
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Literal
 
 import httpx
 from fastapi import (
@@ -36,11 +37,6 @@ from starlette.websockets import WebSocketState
 from boneio.config import Config
 from boneio.const import COVER, NONE
 from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import ConfigurationException
-from boneio.helper.yaml_util import (
-    load_config_from_file,
-    update_config_section,
-)
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -51,6 +47,7 @@ from boneio.models import (
 )
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
+from boneio.yaml import ConfigurationError, load_config, update_config_section
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
 
@@ -703,20 +700,20 @@ async def get_name(config: Config = Depends(get_config)) -> dict[str, str]:
 async def check_configuration():
     """Check if the configuration is valid."""
     try:
-        load_config_from_file(config_file=app.state.yaml_config_file)
+        load_config(config_file=app.state.yaml_config_file)
         return {"status": "success"}
-    except ConfigurationException as e:
+    except ConfigurationError as e:
         return {"status": "error", "message": str(e)}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 @app.get("/api/config")
-async def get_parsed_config():
+async def get_parsed_config() -> dict[Literal["config"], Config]:
     """Get parsed configuration data with !include resolved."""
     try:
         # Load config using BoneIOLoader which handles !include
-        config_data = load_config_from_file(app.state.yaml_config_file)
+        config_data = load_config(app.state.yaml_config_file)
 
         _LOGGER.info("Successfully loaded parsed configuration")
         return {"config": config_data}

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from colorlog import ColoredFormatter
 
+from boneio.config import LoggerConfig
 from boneio.const import PAHO, PYMODBUS
 from boneio.version import __version__
 
@@ -23,7 +24,7 @@ _nameToLevel = {
 }
 
 
-def configure_logger(log_config: dict, debug: int) -> None:
+def configure_logger(debug: int, log_config: LoggerConfig | None = None) -> None:
     """Configure logger based on config yaml."""
 
     def debug_logger():
@@ -42,21 +43,23 @@ def configure_logger(log_config: dict, debug: int) -> None:
             logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
             logging.getLogger("hypercorn.error").setLevel(logging.DEBUG)
 
-    if not log_config:
+    if log_config is None:
         debug_logger()
         return
-    default = log_config.get("default", "").upper()
-    if default in _nameToLevel:
-        _LOGGER.info("Setting default log level to %s", default)
-        logging.getLogger().setLevel(_nameToLevel[default])
-        if debug == 0:
-            debug = -1
-    for k, v in log_config.get("logs", {}).items():
-        logger = logging.getLogger(k)
-        val = v.upper()
-        if val in _nameToLevel and logger:
-            _LOGGER.info("Setting %s log level to %s", k, val)
-            logger.setLevel(_nameToLevel[val])
+    default = log_config.default.upper() if log_config.default is not None else None
+    if log_config.default is not None:
+        level = _nameToLevel.get(log_config.default.upper())
+        if level is not None:
+            logging.getLogger().setLevel(_nameToLevel[default])
+            if debug == 0:
+                debug = -1
+
+    for log_key, log_level in log_config.logs.items():
+        logger = logging.getLogger(log_key)
+        val = _nameToLevel.get(log_level.upper())
+        if val is not None:
+            _LOGGER.info("Setting %s log level to %s", log_key, log_level)
+            logger.setLevel(val)
     debug_logger()
 
 

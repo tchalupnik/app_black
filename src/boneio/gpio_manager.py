@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import AsyncGenerator, Callable, Generator
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Literal
@@ -29,12 +28,12 @@ class _Pin:
 
 @dataclass
 class GpioManager:
-    pins: dict[str, _Pin]
-    _loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.get_event_loop)
+    pins: dict[str, _Pin] = field(default_factory=dict, init=False)
+    _loop: asyncio.AbstractEventLoop = field(
+        default_factory=asyncio.get_event_loop, init=False
+    )
 
-    @classmethod
-    @contextmanager
-    def create(cls) -> Generator[GpioManager]:
+    def __post_init__(self) -> None:
         pins: dict[str, _Pin] = {}
 
         for entry in os.scandir("/dev/"):
@@ -46,9 +45,7 @@ class GpioManager:
                     line_info = chip.get_line_info(line)
                     line_name = line_info.name.split(" ")[0]
                     pins[line_name] = _Pin(chip_path=entry.path, offset=line)
-
-        this = cls(pins=pins)
-        yield this
+        self.pins = pins
 
     def setup_input(self, pin: str, pull_mode: str = "gpio") -> None:
         """Set up a GPIO as input."""

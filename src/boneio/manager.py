@@ -78,7 +78,7 @@ from boneio.helper import (
     ha_switch_availabilty_message,
 )
 from boneio.helper.events import EventBus
-from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
+from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
 from boneio.helper.ha_discovery import ha_valve_availabilty_message
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
@@ -93,18 +93,18 @@ from boneio.helper.loader import (
     create_serial_number_sensor,
     create_temp_sensor,
 )
-from boneio.helper.logger import configure_logger
 from boneio.helper.onewire.onewire import OneWireAddress
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
-from boneio.helper.yaml_util import load_config_from_file
+from boneio.logger import configure_logger
 from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
+from boneio.yaml import load_config
 
 if typing.TYPE_CHECKING:
     from boneio.gpio.base import GpioBase
@@ -127,21 +127,21 @@ class Manager:
         config: Config,
         message_bus: MessageBus,
         event_bus: EventBus,
-        state_manager: StateManager,
         config_file_path: Path,
-        gpio_manager: GpioManager,
     ) -> None:
-        self.gpio_manager = gpio_manager
+        self.gpio_manager = GpioManager()
+        self.state_manager = StateManager(
+            state_file=config_file_path.parent / "state.json"
+        )
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
         self.config = config
         self._host_data: HostData | None = None
         self._config_file_path = config_file_path
-        self._state_manager = state_manager
         self._event_bus = event_bus
         self.message_bus = message_bus
-        self._inputs: dict[str, GpioEventButtonsAndSensors] = {}
+        self.inputs: dict[str, GpioEventButtonsAndSensors] = {}
         from board import SCL, SDA
 
         self._i2cbusio = I2C(SCL, SDA)
@@ -211,7 +211,7 @@ class Manager:
                 manager=self,
                 output_config=output,
                 message_bus=message_bus,
-                state_manager=self._state_manager,
+                state_manager=self.state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
                 name=output.id,
                 restore_state=output.restore_state,
@@ -264,7 +264,7 @@ class Manager:
                 event_bus=self._event_bus,
                 enabled_screens=config.oled.screens,
                 output=self.grouped_outputs_by_expander,
-                inputs=self._inputs,
+                inputs=self.inputs,
                 temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
                 ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
                 extra_sensors=config.oled.extra_screen_sensors,
@@ -313,7 +313,7 @@ class Manager:
             )
             output_group = OutputGroup(
                 message_bus=self.message_bus,
-                state_manager=self._state_manager,
+                state_manager=self.state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
                 relay_id=group.id.replace(" ", ""),
                 event_bus=self._event_bus,
@@ -342,9 +342,7 @@ class Manager:
     def _configure_covers(self, reload_config: bool = False) -> None:
         """Configure covers."""
         if reload_config:
-            config = load_config_from_file(self._config_file_path)
-            new_config = Config.model_validate(config)
-            self.config.cover = new_config.cover
+            self.config.cover = load_config(self._config_file_path).cover
             self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
         for cover in self.config.cover:
             _id = strip_accents(cover.id)
@@ -379,7 +377,7 @@ class Manager:
                 self.covers[_id] = configure_cover(
                     message_bus=self.message_bus,
                     cover_id=_id,
-                    state_manager=self._state_manager,
+                    state_manager=self.state_manager,
                     config=cover,
                     open_relay=open_relay,
                     close_relay=close_relay,
@@ -388,7 +386,7 @@ class Manager:
                     topic_prefix=self.config.mqtt.topic_prefix,
                 )
 
-            except CoverConfigurationException as err:
+            except CoverConfigurationError as err:
                 _LOGGER.error("Can't configure cover %s. %s", _id, err)
                 continue
 
@@ -504,7 +502,7 @@ class Manager:
         """Configure inputs. Either events or binary sensors."""
 
         def check_if_pin_configured(pin: str) -> bool:
-            if pin in self._inputs:
+            if pin in self.inputs:
                 if not reload_config:
                     _LOGGER.warning(
                         "This PIN %s is already configured. Omitting it.", pin
@@ -513,13 +511,11 @@ class Manager:
             return False
 
         if reload_config:
-            config_dict = load_config_from_file(self._config_file_path)
-            if config_dict is not None:
-                new_config = Config.model_validate(config_dict)
-                self.config.event = new_config.event
-                self.config.binary_sensor = new_config.binary_sensor
-                self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
-                self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
+            config = load_config(self._config_file_path)
+            self.config.event = config.event
+            self.config.binary_sensor = config.binary_sensor
+            self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
+            self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
         for gpio in self.config.event:
             if check_if_pin_configured(pin=gpio.pin):
                 return
@@ -528,12 +524,12 @@ class Manager:
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self._inputs.get(gpio.pin),  # for reload actions.
+                input=self.inputs.get(gpio.pin),  # for reload actions.
                 actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
             if input:
-                self._inputs[input.pin] = input
+                self.inputs[input.pin] = input
 
         for gpio in self.config.binary_sensor:
             if check_if_pin_configured(pin=gpio.pin):
@@ -543,12 +539,12 @@ class Manager:
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self._inputs.get(gpio.pin),  # for reload actions.
+                input=self.inputs.get(gpio.pin),  # for reload actions.
                 actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
             if input:
-                self._inputs[input.pin] = input
+                self.inputs[input.pin] = input
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Task:
         """Add task to run with asyncio loop."""
@@ -559,7 +555,7 @@ class Manager:
 
     @property
     def inputs(self) -> list[GpioBase]:
-        return list(self._inputs.values())
+        return list(self.inputs.values())
 
     def _configure_sensors(
         self,
@@ -718,7 +714,7 @@ class Manager:
         event: OutputState,
     ) -> None:
         """Relay callback function."""
-        self._state_manager.save_attribute(
+        self.state_manager.save_attribute(
             attr_type=RELAY,
             attribute=event.id,
             value=event.state == ON,
@@ -726,10 +722,8 @@ class Manager:
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
-        _config = load_config_from_file(config_file=self._config_file_path)
-        if not _config:
-            return
-        configure_logger(log_config=_config.get("logger"), debug=-1)
+        _config = load_config(config_file=self._config_file_path)
+        configure_logger(log_config=_config.logger, debug=-1)
 
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""

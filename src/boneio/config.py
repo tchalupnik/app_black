@@ -425,8 +425,12 @@ class AdcConfig(BaseModel):
     filters: list[dict[Filters, float]] = Field(default_factory=list)
 
 
+LoggerLevels = Literal["critical", "error", "warning", "info", "debug"]
+
+
 class LoggerConfig(BaseModel):
-    pass
+    default: LoggerLevels | None = None
+    logs: dict[str, LoggerLevels] = Field(default_factory=dict)
 
 
 Uarts = Literal["uart1", "uart2", "uart3", "uart4", "uart5"]
@@ -567,3 +571,4 @@ class Config(BaseModel):
     web: WebConfig | None = None
     modbus: ModbusConfig | None = None
     dallas: DallasConfig | None = None
+    logger: LoggerConfig | None = None

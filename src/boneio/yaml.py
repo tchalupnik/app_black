@@ -2,7 +2,6 @@ import fnmatch
 import logging
 import os
 import re
-from collections import OrderedDict
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -10,14 +9,17 @@ from typing import Any
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
-from boneio.const import ID, OUTPUT
-from boneio.helper.exceptions import ConfigurationException
+from boneio.config import Config
 
 schema_file = Path(__file__).parent / "../schema/schema.yaml"
 _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
 _SECRET_VALUES = {}
+
+
+class ConfigurationError(ValueError):
+    """Configuration yaml exception."""
 
 
 class BoneIOLoader(SafeLoader):
@@ -63,7 +65,7 @@ class BoneIOLoader(SafeLoader):
 
     def construct_include_dir_named(self, node):
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
-        mapping = OrderedDict()
+        mapping = {}
         for fname in files:
             filename = fname.stem
             mapping[filename] = load_yaml_file(fname)
@@ -71,7 +73,7 @@ class BoneIOLoader(SafeLoader):
 
     def construct_include_dir_merge_named(self, node):
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
-        mapping = OrderedDict()
+        mapping = {}
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
             if isinstance(loaded_yaml, dict):
@@ -135,7 +137,7 @@ def _find_files(directory, pattern):
 def load_yaml_file(filename: Path) -> Any:
     with filename.open("r") as stream:
         try:
-            return load(stream, Loader=BoneIOLoader) or OrderedDict()
+            return load(stream, Loader=BoneIOLoader)
         except YAMLError as exception:
             msg = ""
             if hasattr(exception, "problem_mark"):
@@ -151,7 +153,7 @@ def load_yaml_file(filename: Path) -> Any:
                     )
                 mark = exception.problem_mark
                 msg = f" at line {mark.line + 1} column {mark.column + 1}"
-            raise ConfigurationException(f"Error loading yaml{msg}") from exception
+            raise ConfigurationError(f"Error loading yaml{msg}") from exception
 
 
 def get_board_config_path(board_name: str, version: str) -> str:
@@ -161,7 +163,7 @@ def get_board_config_path(board_name: str, version: str) -> str:
     version_specific_file = version_dir / f"{board_name}.yaml"
 
     if not version_dir.exists():
-        raise ConfigurationException(
+        raise ConfigurationError(
             f"Board configurations for version {version} not found. "
             f"Expected directory: {version_dir}"
         )
@@ -169,7 +171,7 @@ def get_board_config_path(board_name: str, version: str) -> str:
     if version_specific_file.exists():
         return version_specific_file
 
-    raise ConfigurationException(
+    raise ConfigurationError(
         f"Board configuration '{board_name}' for version {version} not found. "
         f"Expected file: {version_specific_file}"
     )
@@ -241,11 +243,11 @@ def merge_board_config(config: dict) -> dict:
         board_config = load_yaml_file(board_file)
         input_config = load_yaml_file(input_file)
         if not board_config:
-            raise ConfigurationException(
+            raise ConfigurationError(
                 f"Bottom board configuration file {board_file} is empty"
             )
     except FileNotFoundError:
-        raise ConfigurationException(
+        raise ConfigurationError(
             f"Board configuration for {board_name} version {version} not found"
         )
     _LOGGER.debug("Loaded board configuration: %s", board_name)
@@ -268,7 +270,7 @@ def merge_board_config(config: dict) -> dict:
                 boneio_output = output["boneio_output"].lower()
                 mapped_output = output_mapping.get(boneio_output)
                 if not mapped_output:
-                    raise ConfigurationException(
+                    raise ConfigurationError(
                         f"Output mapping '{output['boneio_output']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
@@ -283,7 +285,7 @@ def merge_board_config(config: dict) -> dict:
                 boneio_input = input["boneio_input"].lower()
                 mapped_input = input_mapping.get(boneio_input)
                 if not mapped_input:
-                    raise ConfigurationException(
+                    raise ConfigurationError(
                         f"Input mapping '{input['boneio_input']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
@@ -294,7 +296,7 @@ def merge_board_config(config: dict) -> dict:
                 boneio_input = input["boneio_input"].lower()
                 mapped_input = input_mapping.get(boneio_input)
                 if not mapped_input:
-                    raise ConfigurationException(
+                    raise ConfigurationError(
                         f"Input mapping '{input['boneio_input']}' not found in board configuration"
                     )
                 # Merge mapped output with user config, preserving user-specified values
@@ -317,10 +319,10 @@ def one_of(*values, **kwargs):
             matches = difflib.get_close_matches(option, options_)
             if matches:
                 matches_str = ", ".join(f"'{x}'" for x in matches)
-                raise ConfigurationException(
+                raise ConfigurationError(
                     f"Unknown value '{value}', did you mean {matches_str}?"
                 )
-            raise ConfigurationException(
+            raise ConfigurationError(
                 f"Unknown value '{value}', valid options are {options}."
             )
         return value
@@ -469,13 +471,13 @@ class CustomValidator(Validator):
     def _normalize_coerce_positive_time_period(self, value) -> timedelta:
         """Validate and transform time period with time unit and integer value."""
         if isinstance(value, int):
-            raise ConfigurationException(
+            raise ConfigurationError(
                 f"Don't know what '{value}' means as it has no time *unit*! Did you mean '{value}s'?"
             )
         if isinstance(value, timedelta):
             return value
         if not isinstance(value, str):
-            raise ConfigurationException("Expected string for time period with unit.")
+            raise ConfigurationError("Expected string for time period with unit.")
 
         unit_to_kwarg = {
             "us": "microseconds",
@@ -497,11 +499,11 @@ class CustomValidator(Validator):
 
         match = re.match(r"^([-+]?[0-9]*\.?[0-9]*)\s*(\w*)$", value)
         if match is None:
-            raise ConfigurationException(f"Expected time period with unit, got {value}")
+            raise ConfigurationError(f"Expected time period with unit, got {value}")
 
         unit = match.group(2)
         if unit not in unit_to_kwarg:
-            raise ConfigurationException(
+            raise ConfigurationError(
                 f"Unknown time unit '{unit}', valid options are {', '.join(unit_to_kwarg.keys())}"
             )
 
@@ -542,8 +544,8 @@ class CustomValidator(Validator):
 
     def _check_with_output_id_uniqueness(self, field, value):
         """Check if outputs ids are unique if they exists."""
-        if self.document[OUTPUT] is not None:
-            all_ids = [x[ID] for x in self.document[OUTPUT]]
+        if self.document["output"] is not None:
+            all_ids = [x["id"] for x in self.document["output"]]
             if len(all_ids) != len(set(all_ids)):
                 self._error(field, "Output IDs are not unique.")
 
@@ -679,20 +681,19 @@ def _load_config_from_string(config_str: str) -> dict:
                     ]
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
-        raise ConfigurationException(error_msg)
+        raise ConfigurationError(error_msg)
 
     return merged_doc
 
 
-def load_config_from_file(config_file: Path):
+def load_config(config_file: Path) -> Config:
     try:
         config_yaml = load_yaml_file(config_file)
     except FileNotFoundError as err:
-        raise ConfigurationException(err)
+        raise ConfigurationError(err)
     if not config_yaml:
-        _LOGGER.warning("Missing yaml file. %s", config_file)
-        return None
-    return _load_config_from_string(config_yaml)
+        raise ValueError(f"Empty configuration file: {config_file}")
+    return Config.model_validate(_load_config_from_string(config_yaml))
 
 
 def update_config_section(config_file: Path, section: str, data: dict) -> dict:
