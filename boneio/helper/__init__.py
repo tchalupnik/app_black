@@ -11,11 +11,6 @@ from boneio.helper.exceptions import (
 from boneio.helper.gpio import (
     GpioBaseClass,
     configure_pin,
-    edge_detect,
-    read_input,
-    setup_input,
-    setup_output,
-    write_output,
 )
 from boneio.helper.ha_discovery import (
     ha_adc_sensor_availabilty_message,
@@ -47,11 +42,6 @@ __all__ = [
     "CustomValidator",
     "load_yaml_file",
     "HostData",
-    "setup_input",
-    "setup_output",
-    "edge_detect",
-    "read_input",
-    "write_output",
     "make_font",
     "ha_light_availabilty_message",
     "ha_switch_availabilty_message",

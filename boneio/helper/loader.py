@@ -56,6 +56,7 @@ from boneio.helper import (
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.events import EventBus
+from boneio.helper.gpiod import GpioManager
 from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
@@ -89,16 +90,13 @@ if TYPE_CHECKING:
 from busio import I2C
 
 from boneio.relay import PWMPCA, GpioRelay, MCPRelay, PCFRelay
-from boneio.sensor import GpioADCSensor, initialize_adc
+from boneio.sensor import GpioADCSensor
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def create_adc(manager: Manager, message_bus: MessageBus, topic_prefix: str, adc_list: list = []):
     """Create ADC sensor."""
-
-    initialize_adc()
-
     # TODO: find what exception can ADC gpio throw.
     for gpio in adc_list:
         name = gpio.get(ID)
@@ -302,6 +300,7 @@ def configure_output_group(
 
 def configure_relay(
     manager: Manager,
+    gpio_manager: GpioManager,
     message_bus: MessageBus,
     state_manager: StateManager,
     topic_prefix: str,
@@ -366,6 +365,7 @@ def configure_relay(
             manager.grouped_outputs_by_expander[GPIO] = {}
         extra_args = {
             "pin": config.pop(PIN),
+            "gpio_manager": gpio_manager,
         }
     else:
         _LOGGER.error(
@@ -445,6 +445,7 @@ def configure_relay(
 
 
 def configure_event_sensor(
+    gpio_manager: GpioManager,
     gpio: dict,
     pin: str,
     manager_press_callback: Callable,
@@ -470,6 +471,7 @@ def configure_event_sensor(
             input.set_actions(actions=actions)
         else:
             input = gpioEventButtonClass(
+                gpio_manager=gpio_manager,
                 pin=pin,
                 name=name,
                 input_type=INPUT,
@@ -494,6 +496,7 @@ def configure_event_sensor(
 
 
 def configure_binary_sensor(
+    gpio_manager: GpioManager,
     gpio: dict,
     pin: str,
     manager_press_callback: Callable,
@@ -519,6 +522,7 @@ def configure_binary_sensor(
             input.set_actions(actions=actions)
         else:
             input = GpioInputBinarySensorClass(
+                gpio_manager=gpio_manager,
                 pin=pin,
                 name=name,
                 actions=actions,

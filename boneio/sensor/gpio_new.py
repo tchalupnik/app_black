@@ -3,9 +3,8 @@
 import logging
 import time
 
-from boneio.const import BOTH, PRESSED, RELEASED
+from boneio.const import PRESSED, RELEASED
 from boneio.helper import GpioBaseClass
-from boneio.helper.gpio import add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,8 +27,7 @@ class GpioInputBinarySensorNew(GpioBaseClass):
         )
         self._initial_send = kwargs.get("initial_send", False)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
-        add_event_detect(pin=self._pin, edge=BOTH)
-        add_event_callback(pin=self._pin, callback=self.check_state)
+        self.gpio_manager.add_event_callback(self._pin, self.check_state)
         self._loop.call_soon_threadsafe(self.check_state, self._initial_send)
 
     def check_state(self, initial_send: bool = False) -> None:

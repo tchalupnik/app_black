@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 import logging
 from itertools import cycle
 from typing import List
@@ -15,11 +16,10 @@ from boneio.helper import (
     HostData,
     I2CError,
     TimePeriod,
-    edge_detect,
     make_font,
-    setup_input,
 )
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
+from boneio.helper.gpiod import GpioManager
 from boneio.models import InputState, OutputState, SensorState
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ class Oled:
 
     def __init__(
         self,
+        gpio_manager: GpioManager,
         host_data: HostData,
         grouped_outputs_by_expander: List[str],
         sleep_timeout: TimePeriod,
@@ -61,6 +62,7 @@ class Oled:
     ) -> None:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
+        self._gpio_manager = gpio_manager
         self._event_bus = event_bus
         self.grouped_outputs_by_expander = None
         self._input_groups = []
@@ -112,8 +114,7 @@ class Oled:
         self._sleep = False
         self._cancel_sleep_handle = None
         self._sleep_timeout = sleep_timeout
-        setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
-        edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=240)
+        self._gpio_manager.add_event_callback(OLED_PIN, self._handle_press, debounce_period=timedelta(milliseconds=240))
         try:
             serial = i2c(port=2, address=0x3C)
             self._device = sh1106(serial)

@@ -71,6 +71,7 @@ from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
 from boneio.helper.gpio import GpioBaseClass
+from boneio.helper.gpiod import GpioManager
 from boneio.helper.ha_discovery import ha_valve_availabilty_message
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
@@ -136,6 +137,8 @@ class Manager:
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
+
+        self.gpio_manager = GpioManager()
 
         self._config_helper: ConfigHelper = config_helper
         self._host_data = None
@@ -212,6 +215,7 @@ class Manager:
             _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.
                 manager=self,
+                gpio_manager=self.gpio_manager,
                 message_bus=message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
@@ -276,6 +280,7 @@ class Manager:
             )
             try:
                 self._oled = Oled(
+                    gpio_manager=self.gpio_manager,
                     host_data=self._host_data,
                     screen_order=self._screens,
                     grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
@@ -532,6 +537,7 @@ class Manager:
             if check_if_pin_configured(pin=pin):
                 return
             input = configure_sensor_func(
+                gpio_manager=self.gpio_manager,
                 gpio=gpio,
                 pin=pin,
                 manager_press_callback=self.press_callback,

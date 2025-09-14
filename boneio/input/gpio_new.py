@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 import logging
 import time
 
-from boneio.const import BOTH, DOUBLE, LONG, SINGLE
+from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer, GpioBaseClass
-from boneio.helper.gpio import edge_detect
 from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,9 +40,7 @@ class GpioEventButtonNew(GpioBaseClass):
         # State tracking
         self._double_click_possible = False  # True after first click until window expires
         
-        edge_detect(
-            pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH
-        )
+        self.gpio_manager.add_event_callback(self._pin, self.check_state, debounce_period=timedelta())
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):
@@ -63,7 +61,7 @@ class GpioEventButtonNew(GpioBaseClass):
         self._timer_double.reset()
         self.press_callback(click_type=LONG, duration=duration)
 
-    def check_state(self, _) -> None:
+    def check_state(self) -> None:
         time_now = time.time()
         self._state = self.is_pressed
 

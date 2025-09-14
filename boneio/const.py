@@ -1,19 +1,15 @@
 # from typing import Literal
-try:
-    from Adafruit_BBIO.GPIO import BOTH, FALLING, HIGH, LOW, RISING
-except ModuleNotFoundError:
-    HIGH = "high"
-    LOW = "low"
-    BOTH = "both"
-    FALLING = "falling"
-    RISING = "rising"
-    pass
 from typing_extensions import Literal
 
 BONEIO = "boneio"
 NONE = "none"
 
 # MISCELLANEOUS CONSTS
+HIGH = "high"
+LOW = "low"
+BOTH = "both"
+FALLING = "falling"
+RISING = "rising"
 RELAY = "relay"
 LED = "led"
 ON = "ON"
