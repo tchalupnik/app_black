@@ -7,7 +7,6 @@ authors = [
     { name = "Paweł Szafer", email = "pszafer@gmail.com" },
 ]
 dependencies = [
-    "Adafruit-Blinka==8.56.0",
     "adafruit-circuitpython-ds18x20==1.4.3",
     "adafruit-circuitpython-mcp230xx==2.5.16",
     "adafruit-circuitpython-mcp9808==3.3.26",
