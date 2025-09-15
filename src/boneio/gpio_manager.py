@@ -32,6 +32,7 @@ class GpioManager:
     _loop: asyncio.AbstractEventLoop = field(
         default_factory=asyncio.get_event_loop, init=False
     )
+    last_value_from_callback: dict[str, bool] = field(default_factory=dict, init=False)
 
     def __post_init__(self) -> None:
         pins: dict[str, _Pin] = {}
@@ -84,6 +85,10 @@ class GpioManager:
 
     def read(self, pin: str) -> bool:
         """Read a value from a GPIO."""
+        value = self.last_value_from_callback.get(pin)
+        if value is not None:
+            return value
+
         gpiod_pin = self.pins[pin]
         with gpiod.Chip(gpiod_pin.chip_path) as chip:
             request = chip.request_lines(
@@ -119,18 +124,12 @@ class GpioManager:
         debounce_period: timedelta,
     ) -> AsyncGenerator[gpiod.LineEvent, None]:
         """Add detection for RISING and FALLING events."""
-        gpiod_edge = {
-            FALLING: gpiod.line.Edge.FALLING,
-            RISING: gpiod.line.Edge.RISING,
-            BOTH: gpiod.line.Edge.BOTH,
-        }[edge]
-
         line = self.pins[pin]
         with gpiod.Chip(line.chip_path) as chip:
             request = chip.request_lines(
                 config={
                     line.offset: gpiod.LineSettings(
-                        edge_detection=gpiod_edge,
+                        edge_detection=gpiod.line.Edge.BOTH,
                         # debounce_period=debounce_period,
                     )
                 },
@@ -140,18 +139,39 @@ class GpioManager:
 
             def c():
                 events = request.read_edge_events()
+                self.last_value_from_callback[pin] = (
+                    events[-1].event_type == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
+                )
+                if fut.done():
+                    return
+
+                if edge == FALLING:
+                    events = [
+                        event
+                        for event in events
+                        if event.event_type
+                        == gpiod.edge_event.EdgeEvent.Type.FALLING_EDGE
+                    ]
+
+                elif edge == RISING:
+                    events = [
+                        event
+                        for event in events
+                        if event.event_type
+                        == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
+                    ]
+
                 _LOGGER.debug(str(events))
-                if not fut.done():
-                    fut.set_result(events)
+                fut.set_result(events)
 
             self._loop.add_reader(request.fd, c)
 
             while True:
                 await fut
-                events = fut.result()
+                result = fut.result()
                 # debounce_period is bugged
                 await asyncio.sleep(debounce_period.total_seconds())
                 fut = self._loop.create_future()
-                for _ in events:
+                for _ in result:
                     _LOGGER.debug("add_event_callback calling callback on pin: %s", pin)
                     callback()
