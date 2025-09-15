@@ -4,8 +4,8 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "adafruit-blinka"
-version = "0.1.dev1973"
-source = { git = "https://github.com/tchalupnik/Adafruit_Blinka#b630c4f2ec08a436ac9ba72538a9bd2aa9177ef9" }
+version = "0.1.dev1975"
+source = { git = "https://github.com/tchalupnik/Adafruit_Blinka#296328d3426d3936b5e06bf58756fb7bdeb71538" }
 dependencies = [
     { name = "adafruit-circuitpython-typing" },
     { name = "adafruit-platformdetect" },
@@ -268,6 +268,7 @@ wheels = [
 
 [[package]]
 name = "boneio"
+version = "0.13"
 source = { editable = "." }
 dependencies = [
     { name = "adafruit-blinka" },

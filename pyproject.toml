@@ -2,7 +2,7 @@
 name = "boneio"
 description = "Python App for BoneIO"
 readme = "README.md"
-dynamic = ["version"]
+version = "0.13"
 authors = [{ name = "Paweł Szafer", email = "pszafer@gmail.com" }]
 dependencies = [
   "Adafruit-Blinka @ git+https://github.com/tchalupnik/Adafruit_Blinka",
@@ -57,17 +57,10 @@ Changelog = "https://github.com/boneIO-eu/app_bbb/releases"
 [project.scripts]
 boneio = "boneio.bonecli:main"
 
+
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build]
-include = ["src/boneio"]
-[tool.hatch.version]
-path = "src/boneio/version.py"
-
-[tool.hatch.metadata]
-allow-direct-references = true
+requires = ["uv_build>=0.8.17,<0.9.0"]
+build-backend = "uv_build"
 
 [tool.ruff]
 target-version = "py310"
