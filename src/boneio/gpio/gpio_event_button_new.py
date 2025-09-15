@@ -96,7 +96,7 @@ class GpioEventButtonNew(GpioBase):
         self._timer_double.reset()
         self.press_callback(click_type=LONG, duration=duration)
 
-    def check_state(self, _) -> None:
+    def check_state(self) -> None:
         time_now = time.time()
         self._state = self.is_pressed
 

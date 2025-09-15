@@ -141,7 +141,8 @@ class GpioManager:
             def c():
                 events = request.read_edge_events()
                 _LOGGER.debug(str(events))
-                fut.set_result(events)
+                if not fut.done():
+                    fut.set_result(events)
 
             self._loop.add_reader(request.fd, c)
 
