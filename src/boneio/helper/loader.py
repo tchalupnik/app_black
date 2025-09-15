@@ -74,7 +74,7 @@ from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.relay.basic import BasicRelay
-from boneio.sensor import DallasSensorDS2482, GpioADCSensor, initialize_adc
+from boneio.sensor import DallasSensorDS2482, GpioADCSensor
 from boneio.sensor.ina219 import INA219
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
@@ -93,10 +93,6 @@ def create_adc(
 ):
     """Create ADC sensor."""
 
-    if adc:
-        initialize_adc()
-
-    # TODO: find what exception can ADC gpio throw.
     for gpio in adc:
         id = gpio.id.replace(" ", "")
         try:

@@ -1,6 +1,6 @@
 """Sensor module."""
 
-from boneio.sensor.adc import GpioADCSensor, initialize_adc
+from boneio.sensor.adc import GpioADCSensor
 from boneio.sensor.ina219 import INA219
 from boneio.sensor.temp.dallas import DallasSensorDS2482
 from boneio.sensor.temp.lm75 import LM75Sensor
@@ -10,7 +10,6 @@ __all__ = [
     "DallasSensorDS2482",
     "LM75Sensor",
     "MCP9808Sensor",
-    "initialize_adc",
     "GpioADCSensor",
     "INA219",
 ]
