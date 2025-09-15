@@ -306,6 +306,11 @@ class EventConfig(BaseModel):
     def validate_boneio_input(cls, v: str) -> str:
         return v.lower()
 
+    def identifier(self) -> str:
+        if self.id:
+            return (self.id).replace(" ", "")
+        return self.pin
+
 
 BinarySensorActionTypes = Literal["pressed", "released"]
 
@@ -355,6 +360,11 @@ class BinarySensorConfig(BaseModel):
     @classmethod
     def validate_boneio_input(cls, v: str) -> str:
         return v.lower()
+
+    def identifier(self) -> str:
+        if self.id:
+            return (self.id).replace(" ", "")
+        return self.pin
 
 
 class OutputConfig(BaseModel):

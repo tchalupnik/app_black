@@ -8,8 +8,8 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
-from boneio.config import BinarySensorActionTypes, EventActionTypes
-from boneio.const import DOUBLE, LONG, SINGLE
+from boneio.config import BinarySensorActionTypes, EventActionTypes, EventConfig
+from boneio.const import DOUBLE, INPUT, LONG, SINGLE
 from boneio.gpio_manager import GpioManager
 from boneio.helper import ClickTimer
 
@@ -31,34 +31,30 @@ class GpioEventButton(GpioBase):
 
     def __init__(
         self,
-        pin: str,
+        config: EventConfig,
         manager_press_callback: Callable,
-        name: str,
         actions: dict[
             EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
         ],
-        input_type: str,
-        empty_message_after: bool,
         event_bus: EventBus,
         gpio_manager: GpioManager,
-        boneio_input: str = "",
-        gpio_mode: str = "gpio",
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
-            pin=pin,
+            pin=config.pin,
             manager_press_callback=manager_press_callback,
-            name=name,
+            name=config.identifier(),
             actions=actions,
-            input_type=input_type,
-            empty_message_after=empty_message_after,
+            input_type=INPUT,
+            empty_message_after=config.clear_message,
             event_bus=event_bus,
-            boneio_input=boneio_input,
-            gpio_mode=gpio_mode,
+            boneio_input=config.boneio_input,
+            gpio_mode=config.gpio_mode,
             gpio_manager=gpio_manager,
+            bounce_time=config.bounce_time,
         )
         self._state = self.is_pressed
-        _LOGGER.debug("Configured stable listening for input pin %s", self._pin)
+        _LOGGER.debug("Configured stable listening for input pin %s", self.pin)
         self._timer_double = ClickTimer(
             delay=timedelta(milliseconds=DOUBLE_CLICK_DURATION_MS),
             action=lambda x: self.double_click_press_callback(),

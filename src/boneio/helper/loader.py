@@ -393,7 +393,7 @@ def configure_relay(
 
 
 def configure_event_sensor(
-    gpio: EventConfig,
+    event_config: EventConfig,
     gpio_manager: GpioManager,
     manager_press_callback: Callable,
     event_bus: EventBus,
@@ -404,10 +404,11 @@ def configure_event_sensor(
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
-    name = gpio.id or gpio.pin
     if input:
         GpioEventButtonClass = (
-            GpioEventButtonNew if gpio.detection_type == "new" else GpioEventButtonOld
+            GpioEventButtonNew
+            if event_config.detection_type == "new"
+            else GpioEventButtonOld
         )
         if not isinstance(input, GpioEventButtonClass):
             _LOGGER.warning(
@@ -417,12 +418,9 @@ def configure_event_sensor(
         input.actions = actions
     else:
         try:
-            if gpio.detection_type == "new":
+            if event_config.detection_type == "new":
                 input = GpioEventButtonNew(
-                    pin=gpio.pin,
-                    name=name,
-                    input_type=INPUT,
-                    empty_message_after=gpio.clear_message,
+                    config=event_config,
                     actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
@@ -430,31 +428,28 @@ def configure_event_sensor(
                 )
             else:
                 input = GpioEventButtonOld(
-                    pin=gpio.pin,
-                    name=name,
-                    input_type=INPUT,
-                    empty_message_after=gpio.clear_message,
+                    config=event_config,
                     actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
                     gpio_manager=gpio_manager,
                 )
         except GPIOInputException as err:
-            _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
+            _LOGGER.error("This PIN %s can't be configured. %s", event_config.pin, err)
             raise
-    if gpio.show_in_ha:
+    if event_config.show_in_ha:
         send_ha_autodiscovery(
-            id=gpio.pin,
-            name=name,
+            id=event_config.pin,
+            name=event_config.identifier(),
             ha_type=EVENT_ENTITY,
-            device_class=gpio.device_class,
+            device_class=event_config.device_class,
             availability_msg_func=ha_event_availabilty_message,
         )
     return input
 
 
 def configure_binary_sensor(
-    gpio: BinarySensorConfig,
+    sensor_config: BinarySensorConfig,
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
@@ -465,11 +460,10 @@ def configure_binary_sensor(
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
-    name = gpio.id or gpio.pin
     if input:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew
-            if gpio.detection_type == "new"
+            if sensor_config.detection_type == "new"
             else GpioInputBinarySensorOld
         )
         if not isinstance(input, GpioInputBinarySensorClass):
@@ -480,40 +474,32 @@ def configure_binary_sensor(
         input.actions = actions
     else:
         try:
-            if gpio.detection_type == "new":
+            if sensor_config.detection_type == "new":
                 input = GpioInputBinarySensorNew(
-                    pin=gpio.pin,
-                    name=name,
+                    config=sensor_config,
                     actions=actions,
-                    input_type=INPUT_SENSOR,
-                    empty_message_after=gpio.clear_message,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
-                    gpio=gpio,
                     gpio_manager=gpio_manager,
                 )
             else:
                 input = GpioInputBinarySensorOld(
-                    pin=gpio.pin,
-                    name=name,
+                    config=sensor_config,
                     actions=actions,
-                    input_type=INPUT_SENSOR,
-                    empty_message_after=gpio.clear_message,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
-                    gpio=gpio,
                     gpio_manager=gpio_manager,
                 )
         except GPIOInputException as err:
-            _LOGGER.error("This PIN %s can't be configured. %s", gpio.pin, err)
+            _LOGGER.error("This PIN %s can't be configured. %s", sensor_config.pin, err)
             raise
 
-    if gpio.show_in_ha:
+    if sensor_config.show_in_ha:
         send_ha_autodiscovery(
-            id=gpio.pin,
-            name=name,
+            id=sensor_config.pin,
+            name=sensor_config.identifier(),
             ha_type=BINARY_SENSOR,
-            device_class=gpio.device_class,
+            device_class=sensor_config.device_class,
             availability_msg_func=ha_binary_sensor_availabilty_message,
         )
     return input

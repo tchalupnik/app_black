@@ -8,7 +8,7 @@ import typing
 from collections.abc import Callable
 
 from boneio.config import BinarySensorActionTypes, BinarySensorConfig, EventActionTypes
-from boneio.const import PRESSED, RELEASED
+from boneio.const import INPUT_SENSOR, PRESSED, RELEASED
 from boneio.gpio_manager import GpioManager
 
 from .base import GpioBase
@@ -24,35 +24,33 @@ class GpioInputBinarySensor(GpioBase):
 
     def __init__(
         self,
-        pin: str,
+        config: BinarySensorConfig,
         manager_press_callback: Callable,
-        name: str,
         actions: dict[
             EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
         ],
-        input_type: str,
-        empty_message_after: bool,
         event_bus: EventBus,
-        gpio: BinarySensorConfig,
         gpio_manager: GpioManager,
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
-            pin=pin,
+            pin=config.pin,
             manager_press_callback=manager_press_callback,
-            name=name,
+            name=config.identifier(),
             actions=actions,
-            input_type=input_type,
-            empty_message_after=empty_message_after,
+            input_type=INPUT_SENSOR,
+            empty_message_after=config.clear_message,
             event_bus=event_bus,
-            boneio_input=gpio.boneio_input,
-            bounce_time=gpio.bounce_time,
-            gpio_mode=gpio.gpio_mode,
+            boneio_input=config.boneio_input,
+            bounce_time=config.bounce_time,
+            gpio_mode=config.gpio_mode,
             gpio_manager=gpio_manager,
         )
         self._state = self.is_pressed
-        self._click_type = (RELEASED, PRESSED) if gpio.inverted else (PRESSED, RELEASED)
-        _LOGGER.debug("Configured sensor pin %s", self._pin)
+        self._click_type = (
+            (RELEASED, PRESSED) if config.inverted else (PRESSED, RELEASED)
+        )
+        _LOGGER.debug("Configured sensor pin %s", self.pin)
         asyncio.create_task(self._run())
 
     async def _run(self) -> None:
@@ -65,5 +63,5 @@ class GpioInputBinarySensor(GpioBase):
             return
         self._state = state
         click_type = self._click_type[0] if state else self._click_type[1]
-        _LOGGER.debug("%s event on pin %s", click_type, self._pin)
+        _LOGGER.debug("%s event on pin %s", click_type, self.pin)
         self.press_callback(click_type=click_type, duration=None)

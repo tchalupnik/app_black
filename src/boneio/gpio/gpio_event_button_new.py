@@ -8,8 +8,8 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
-from boneio.config import BinarySensorActionTypes, EventActionTypes
-from boneio.const import DOUBLE, LONG, SINGLE
+from boneio.config import BinarySensorActionTypes, EventActionTypes, EventConfig
+from boneio.const import DOUBLE, INPUT, LONG, SINGLE
 from boneio.gpio_manager import GpioManager
 from boneio.helper import ClickTimer
 
@@ -30,31 +30,27 @@ class GpioEventButtonNew(GpioBase):
 
     def __init__(
         self,
+        config: EventConfig,
         gpio_manager: GpioManager,
-        pin: str,
         manager_press_callback: Callable,
-        name: str,
         actions: dict[
             EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
         ],
-        input_type: str,
-        empty_message_after: bool,
         event_bus: EventBus,
-        boneio_input: str = "",
-        gpio_mode: str = "gpio",
     ) -> None:
         """Setup GPIO Input Button"""
         super().__init__(
-            pin=pin,
+            pin=config.pin,
             manager_press_callback=manager_press_callback,
-            name=name,
+            name=config.identifier(),
             actions=actions,
-            input_type=input_type,
-            empty_message_after=empty_message_after,
+            input_type=INPUT,
+            empty_message_after=config.empty_message_after,
             event_bus=event_bus,
-            boneio_input=boneio_input,
-            gpio_mode=gpio_mode,
+            boneio_input=config.boneio_input,
+            gpio_mode=config.gpio_mode,
             gpio_manager=gpio_manager,
+            bounce_time=config.bounce_time,
         )
         self._state = self.is_pressed
         self.button_pressed_time = 0.0
@@ -75,8 +71,8 @@ class GpioEventButtonNew(GpioBase):
             False  # True after first click until window expires
         )
 
-        self.gpio_manager.add_event_callback(pin=self._pin, callback=self.check_state)
-        _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
+        self.gpio_manager.add_event_callback(pin=self.pin, callback=self.check_state)
+        _LOGGER.debug("Configured NEW listening for input pin %s", self.pin)
 
     def single_click_callback(self):
         """Called when double click window expires without second click."""

@@ -344,7 +344,7 @@ class HostData:
         """Get stats for input."""
         inputs = {}
         for input in self._inputs[type]:
-            inputs[input.id] = {
+            inputs[input.pin] = {
                 "name": input.name,
                 "state": input.last_state[0].upper()
                 if input.last_state and input.last_state != "Unknown"

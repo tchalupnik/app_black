@@ -608,7 +608,7 @@ class Manager:
             if check_if_pin_configured(pin=gpio.pin):
                 return
             input = configure_event_sensor(
-                gpio=gpio,
+                event_config=gpio,
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
@@ -623,7 +623,7 @@ class Manager:
             if check_if_pin_configured(pin=gpio.pin):
                 return
             input = configure_binary_sensor(
-                gpio=gpio,
+                sensor_config=gpio,
                 manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
