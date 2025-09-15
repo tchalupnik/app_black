@@ -45,7 +45,7 @@ class GpioEventButtonNew(GpioBase):
             name=config.identifier(),
             actions=actions,
             input_type=INPUT,
-            empty_message_after=config.empty_message_after,
+            empty_message_after=config.clear_message,
             event_bus=event_bus,
             boneio_input=config.boneio_input,
             gpio_mode=config.gpio_mode,
