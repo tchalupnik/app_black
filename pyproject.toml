@@ -7,7 +7,7 @@ authors = [
     { name = "Paweł Szafer", email = "pszafer@gmail.com" },
 ]
 dependencies = [
-    "Adafruit-Blinka @ git+https://github.com/adafruit/Adafruit_Blinka",
+    "Adafruit-Blinka @ git+https://github.com/tchalupnik/Adafruit_Blinka",
     "adafruit-circuitpython-ds18x20==1.4.3",
     "adafruit-circuitpython-mcp230xx==2.5.16",
     "adafruit-circuitpython-mcp9808==3.3.26",
@@ -29,7 +29,7 @@ dependencies = [
     "adafruit-circuitpython-typing==1.9.5",
     "gpiod==2.3.0",
     "fastapi==0.103.2",
-    "pydantic==2.5.3",
+    "pydantic==2.11.9",
     "hypercorn==0.14.4",
     "websockets==11.0.3",
     "python-jose[cryptography]==3.3.0",
