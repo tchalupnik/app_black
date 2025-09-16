@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import typing
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
@@ -9,11 +8,9 @@ from busio import I2C
 
 from boneio.config import (
     AdcConfig,
-    BinarySensorActionTypes,
     BinarySensorConfig,
     Config,
     CoverConfig,
-    EventActionTypes,
     EventConfig,
     Ina219Config,
     ModbusDeviceConfig,
@@ -26,8 +23,6 @@ from boneio.const import (
     COVER,
     EVENT_ENTITY,
     GPIO,
-    INPUT,
-    INPUT_SENSOR,
     LM75,
     MCP_TEMP_9808,
     NONE,
