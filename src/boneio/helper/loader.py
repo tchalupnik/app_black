@@ -199,15 +199,9 @@ def create_modbus_coordinators(
         id = entry.identifier()
         try:
             modbus_coordinators[id] = ModbusCoordinator(
-                address=entry.address,
-                id=id,
-                name=entry.id,
+                device_config=entry,
                 manager=manager,
-                model=entry.model,
                 message_bus=message_bus,
-                update_interval=entry.update_interval,
-                sensors_filters=entry.sensor_filters,
-                additional_data=entry.data,
                 modbus=modbus,
                 event_bus=event_bus,
                 config=config,
