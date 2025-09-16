@@ -141,6 +141,8 @@ class GpioManager:
 
             def c():
                 events = request.read_edge_events()
+                if not len(events):
+                    return
                 self.last_value_from_callback[pin] = (
                     events[-1].event_type == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
                 )
@@ -163,7 +165,12 @@ class GpioManager:
                         == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
                     ]
 
-                _LOGGER.debug("Processing %s events for pin %s on edge %s.", len(events), pin, edge)
+                _LOGGER.debug(
+                    "Processing %s event(s) for pin %s on edge %s.",
+                    len(events),
+                    pin,
+                    edge,
+                )
                 fut.set_result(events)
 
             self._loop.add_reader(request.fd, c)
