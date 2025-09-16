@@ -143,7 +143,7 @@ class Oled:
             )
             row_no += 15
 
-    def _sleeptime(self):
+    def _sleeptime(self) -> None:
         with canvas(self._device) as draw:
             draw.rectangle(self._device.bounding_box, outline="black", fill="black")
         self._sleep = True
@@ -268,20 +268,20 @@ class Oled:
                 point_in_time=utcnow() + self._sleep_timeout,
             )
 
-    async def _output_callback(self, event: OutputState):
+    async def _output_callback(self, event: OutputState) -> None:
         if (
             self.grouped_outputs_by_expander
             and self._current_screen in self.grouped_outputs_by_expander
         ):
             self.handle_data_update(type=self._current_screen)
 
-    async def _standard_callback(self, event: SensorState):
+    async def _standard_callback(self, event: SensorState) -> None:
         self.handle_data_update(type=UPTIME)
 
-    async def _input_callback(self, event: InputState):
+    async def _input_callback(self, event: InputState) -> None:
         self.handle_data_update(type="inputs")
 
-    def handle_data_update(self, type: str):
+    def handle_data_update(self, type: str) -> None:
         """Callback to handle new data present into screen."""
         if not self._current_screen:
             return
@@ -307,7 +307,7 @@ class Oled:
             self._sleep = False
         self.render_display()
 
-    def draw_qr_code(self, url: str):
+    def draw_qr_code(self, url: str) -> None:
         """Draw QR code on the OLED display."""
         if not url:
             return

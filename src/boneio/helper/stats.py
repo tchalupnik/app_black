@@ -29,6 +29,7 @@ from boneio.const import (
 )
 from boneio.helper.events import EventBus
 from boneio.models import HostSensorState
+from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 
 if TYPE_CHECKING:
@@ -43,7 +44,7 @@ _LOGGER = logging.getLogger(__name__)
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 
 
-def display_time(seconds):
+def display_time(seconds: float) -> str:
     """Strf time."""
     result = []
 
@@ -74,7 +75,7 @@ def get_network_info():
     return retrieve_from_psutil()
 
 
-def get_cpu_info():
+def get_cpu_info() -> dict[str, str]:
     """Fetch CPU info."""
     cpu = psutil.cpu_times_percent()
     return {
@@ -84,7 +85,7 @@ def get_cpu_info():
     }
 
 
-def get_disk_info():
+def get_disk_info() -> dict[str, str]:
     """Fetch disk info."""
     disk = psutil.disk_usage("/")
     return {
@@ -94,7 +95,7 @@ def get_disk_info():
     }
 
 
-def get_memory_info():
+def get_memory_info() -> dict[str, str]:
     """Fetch memory info."""
     vm = psutil.virtual_memory()
     return {
@@ -104,7 +105,7 @@ def get_memory_info():
     }
 
 
-def get_swap_info():
+def get_swap_info() -> dict[str, str]:
     """Fetch swap info."""
     swap = psutil.swap_memory()
     return {
@@ -114,7 +115,7 @@ def get_swap_info():
     }
 
 
-def get_uptime():
+def get_uptime() -> str:
     """Fetch uptime info."""
     return display_time(time.clock_gettime(time.CLOCK_BOOTTIME))
 
@@ -179,7 +180,7 @@ class HostData:
 
     def __init__(
         self,
-        output: dict,
+        output: dict[str, dict[str, BasicRelay]],
         inputs: dict[str, GpioBase],
         temp_sensor: Callable[[TempSensor], None] | None,
         ina219: INA219 | None,
@@ -261,7 +262,7 @@ class HostData:
             }
         if extra_sensors:
 
-            def get_extra_sensors_values():
+            def get_extra_sensors_values() -> dict:
                 output = {}
                 for sensor in extra_sensors:
                     if sensor.sensor_type == "modbus":
