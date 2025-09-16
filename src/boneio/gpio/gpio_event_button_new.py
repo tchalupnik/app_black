@@ -67,6 +67,7 @@ class GpioEventButtonNew(GpioBase):
             False  # True after first click until window expires
         )
 
+        self.gpio_manager.setup_input(pin=self.pin, pull_mode="gpio_pu")
         self.gpio_manager.add_event_callback(pin=self.pin, callback=self.check_state)
         _LOGGER.debug("Configured NEW listening for input pin %s", self.pin)
 

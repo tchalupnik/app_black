@@ -20,9 +20,9 @@ input_mapping:
   in_09:
     pin: P8_45
     gpio_mode: gpio_pu
-  # in_10:
-  #   pin: P8_46
-  #   gpio_mode: gpio_pu
+  in_10:
+    pin: P8_46
+    gpio_mode: gpio_pu
   in_11:
     pin: P9_42
   in_12:
@@ -37,8 +37,8 @@ input_mapping:
     pin: P9_27
   in_17:
     pin: P9_25
-#  in_18:
-#    pin: P9_23
+  in_18:
+    pin: P9_23
   in_19:
     pin: P9_22
     gpio_mode: gpio_pu

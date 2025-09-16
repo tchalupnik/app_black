@@ -163,7 +163,7 @@ class GpioManager:
                         == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
                     ]
 
-                _LOGGER.debug(str(events))
+                _LOGGER.debug("Processing %s events for pin %s on edge %s.", len(events), pin, edge)
                 fut.set_result(events)
 
             self._loop.add_reader(request.fd, c)
