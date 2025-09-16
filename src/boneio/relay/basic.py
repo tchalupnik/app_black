@@ -12,7 +12,6 @@ from pydantic import BaseModel, ValidationError
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
-from boneio.helper.mqtt import MqttBase
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
@@ -174,21 +173,6 @@ class _VirtualEnergySensor:
 class _EnergyMessage(BaseModel):
     energy: float | None = None
     water: float | None = None
-
-
-class RelayBase(MqttBase):
-    # TODO: finish later
-    # event_bus: EventBus
-    topic_type: str = RELAY
-
-    output_type: str = SWITCH
-    # interlock_manager: SoftwareInterlockManager | None = None
-    interlock_groups: list[str] = []
-    restored_state: bool = False
-    momentary_turn_on: timedelta | None = None
-    momentary_turn_off: timedelta | None = None
-    virtual_power_usage: float | None = None
-    virtual_volume_flow_rate: float | None = None
 
 
 class BasicRelay:
