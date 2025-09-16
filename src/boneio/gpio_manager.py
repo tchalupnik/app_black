@@ -25,6 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 class _Pin:
     chip_path: str
     offset: int
+    configured: Literal["in", "out"] | None = None
 
 
 @dataclass
@@ -52,58 +53,95 @@ class GpioManager:
         with ExitStack() as stack:
             yield cls(stack=stack, pins=pins)
 
-    def setup_input(self, pin: str, pull_mode: str = "gpio") -> None:
+    def init(
+        self,
+        pin: str,
+        mode: Literal["in", "out"],
+        pull_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] | None = None,
+    ) -> None:
         """Set up a GPIO as input."""
-        gpio_mode = {
-            "gpio": gpiod.line.Bias.DISABLED,
-            "gpio_pu": gpiod.line.Bias.PULL_UP,
-            "gpio_pd": gpiod.line.Bias.PULL_DOWN,
-            "gpio_input": gpiod.line.Bias.DISABLED,
-        }.get(pull_mode)
+
+        if mode == "in":
+            direction = gpiod.line.Direction.INPUT
+        elif mode == "out":
+            if pull_mode is not None:
+                raise ValueError(
+                    "Configuration error: Mode `OUT` and `pull_mode` different than none!"
+                )
+            direction = gpiod.line.Direction.OUTPUT
+        else:
+            raise ValueError("Wrong gpio direction!")
+
+        if pull_mode == "gpio":
+            bias = gpiod.line.Bias.DISABLED
+        elif pull_mode == "gpio_pu":
+            bias = gpiod.line.Bias.PULL_DOWN
+        elif pull_mode == "gpio_pd":
+            bias = gpiod.line.Bias.PULL_UP
+        elif pull_mode == "gpio_input":
+            bias = gpiod.line.Bias.DISABLED
+        else:
+            raise ValueError("Wrong gpio pull mode!")
 
         line = self.pins[pin]
+        config = {line.offset: gpiod.LineSettings(direction=direction, bias=bias)}
         chip = self.chips.get(line.chip_path)
-        if chip is None:
-            chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
 
-        chip.request_lines(
-            config={
-                line.offset: gpiod.LineSettings(
-                    direction=gpiod.line.Direction.INPUT, bias=gpio_mode
-                )
-            },
-        )
+        def configure(chip: gpiod.Chip) -> None:
+            if line.configured is None:
+                chip.request_lines(conifg=config)
+            elif line.configured != mode:
+                chip.reconfigure_lines(conifg=config)
+
+        if chip is None:
+            with gpiod.Chip(line.chip_path) as chip:
+                configure(chip)
+        else:
+            configure(chip)
 
     def write(self, pin: str, value: HIGH | LOW) -> None:
         """Write a value to a GPIO."""
         line = self.pins[pin]
+        config = {
+            line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
+        }
+
+        def _write(chip: gpiod.Chip) -> None:
+            if line.configured == "in":
+                request = chip.reconfigure_lines(config=config)
+            else:
+                request = chip.request_lines(config=config)
+            request.set_value(
+                line.offset,
+                gpiod.line.Value.ACTIVE if value == HIGH else gpiod.line.Value.INACTIVE,
+            )
+
         chip = self.chips.get(line.chip_path)
         if chip is None:
-            chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
-
-        request = chip.request_lines(
-            config={
-                line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
-            },
-        )
-        request.set_value(
-            line.offset,
-            gpiod.line.Value.ACTIVE if value == HIGH else gpiod.line.Value.INACTIVE,
-        )
+            with gpiod.Chip(line.chip_path) as chip:
+                _write(chip)
+        else:
+            _write(chip)
 
     def read(self, pin: str) -> bool:
         """Read a value from a GPIO."""
         line = self.pins[pin]
+        config = {line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.INPUT)}
+
+        def _read(chip: gpiod.Chip) -> None:
+            if line.configured == "out":
+                request = chip.reconfigure_lines(config=config)
+            else:
+                request = chip.request_lines(config=config)
+            return request.get_values()[0]
+
         chip = self.chips.get(line.chip_path)
         if chip is None:
-            chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
+            with gpiod.Chip(line.chip_path) as chip:
+                value = _read(chip)
+        else:
+            value = _read(chip)
 
-        request = chip.request_lines(
-            config={
-                line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.INPUT)
-            },
-        )
-        value = request.get_values()[0]
         return value == gpiod.line.Value.ACTIVE
 
     def add_event_callback(
@@ -151,9 +189,6 @@ class GpioManager:
             events = request.read_edge_events()
             if not len(events):
                 return
-            self.last_value_from_callback[pin] = (
-                events[-1].event_type == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
-            )
             if fut.done():
                 return
 

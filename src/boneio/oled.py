@@ -111,7 +111,7 @@ class Oled:
         self._sleep = False
         self._cancel_sleep_handle = None
         self._sleep_timeout = sleep_timeout
-        self.gpio_manager.setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
+        self.gpio_manager.init(pin=OLED_PIN, mode="in", pull_mode="gpio_pu")
         self.gpio_manager.add_event_callback(
             pin=OLED_PIN,
             callback=self._handle_press,
