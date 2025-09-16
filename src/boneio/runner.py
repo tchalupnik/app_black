@@ -6,9 +6,11 @@ import asyncio
 import logging
 import signal
 import warnings
+from contextlib import ExitStack
 from pathlib import Path
 
 from boneio.config import Config
+from boneio.gpio_manager import GpioManager
 from boneio.helper.events import EventBus, GracefulExit
 from boneio.helper.exceptions import RestartRequestException
 from boneio.logger import configure_logger
@@ -62,11 +64,14 @@ async def async_run(
     else:
         message_bus = LocalMessageBus()
 
+    stack = ExitStack()
+    gpio_manager = stack.enter_context(GpioManager.create())
     manager = Manager(
         config=config,
         message_bus=message_bus,
         event_bus=event_bus,
         config_file_path=config_file,
+        gpio_manager=gpio_manager,
     )
     # Convert coroutines to Tasks
     message_bus.manager = manager
