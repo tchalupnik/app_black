@@ -51,7 +51,6 @@ class TimeBasedCover(BaseCover):
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             position=position,
-            kind="time",
         )
 
     def _move_cover(

@@ -73,7 +73,6 @@ class PreviousCover(BasicMqtt):
             topic_type=COVER,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
-            kind="previous",
         )
         self._lock = asyncio.Lock()
         self._state_save = state_save
@@ -147,7 +146,6 @@ class PreviousCover(BasicMqtt):
             name=self.name,
             state=self.state,
             position=round(self._position, 0),
-            kind=self.kind,
             timestamp=self.last_timestamp,
             current_operation=self.current_operation,
         )

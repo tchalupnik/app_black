@@ -43,7 +43,6 @@ class CoverState(BaseModel):
     current_operation: str
     timestamp: float | None = None
     tilt: int = 0  # Tilt position (0-100)
-    kind: str
 
 
 class SensorState(BaseModel):

@@ -68,7 +68,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             position=position,
-            kind="venetian",
         )
 
     def _move_cover(
@@ -235,10 +234,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
     @property
     def tilt(self) -> int:
         return round(self._tilt_position, 0)
-
-    @property
-    def kind(self) -> str:
-        return "venetian"
 
     async def tilt_open(self) -> None:
         """Opening only tilt cover."""

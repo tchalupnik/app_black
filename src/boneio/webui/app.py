@@ -36,6 +36,7 @@ from starlette.websockets import WebSocketState
 
 from boneio.config import Config
 from boneio.const import COVER, NONE
+from boneio.cover.venetian import VenetianCover
 from boneio.helper.events import GracefulExit
 from boneio.manager import Manager
 from boneio.models import (
@@ -530,7 +531,7 @@ async def set_cover_tilt(
     cover = manager.covers.get(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
-    if cover.kind != "venetian":
+    if isinstance(cover, VenetianCover):
         raise HTTPException(status_code=400, detail="Invalid cover type")
     tilt = tilt_data.tilt
     if tilt < 0 or tilt > 100:
@@ -1052,18 +1053,14 @@ async def websocket_endpoint(
                 # Send covers
                 for cover in boneio_manager.covers.values():
                     try:
-                        cover_state_kwargs = {}
-                        if cover.kind == "venetian":
-                            cover_state_kwargs["tilt"] = cover.tilt
                         cover_state = CoverState(
                             id=cover.id,
                             name=cover.name,
                             state=cover.state,
                             position=cover.position,
-                            kind=cover.kind,
                             timestamp=cover.last_timestamp,
                             current_operation=cover.current_operation,
-                            **cover_state_kwargs,
+                            tilt=cover.tilt if isinstance(cover, VenetianCover) else 0,
                         )
                         update = StateUpdate(type="cover", data=cover_state)
                         if not await send_state_update(update):

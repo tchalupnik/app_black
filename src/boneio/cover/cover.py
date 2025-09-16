@@ -150,7 +150,6 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
-        kind: Literal["previous", "time", "venetian"],
         position: int = 100,
     ) -> None:
         BasicMqtt.__init__(
@@ -170,7 +169,6 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._open_time = open_time.total_seconds() * 1000
         self._close_time = close_time.total_seconds() * 1000
         self.position = position
-        self.kind = kind
         self._initial_position = None
         self.current_operation = IDLE
 
@@ -271,7 +269,6 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             id=self.id,
             name=self.name,
             state=state,
-            kind=self.kind,
             timestamp=self.last_timestamp,
             current_operation=self.current_operation,
             position=json_position["position"],
