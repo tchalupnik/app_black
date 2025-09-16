@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import timedelta
 
 from boneio.config import EventConfig
-from boneio.const import DOUBLE, INPUT, LONG, SINGLE
+from boneio.const import INPUT
 from boneio.gpio_manager import GpioManager
 from boneio.helper import ClickTimer
 
