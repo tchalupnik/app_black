@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import AsyncGenerator, Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator, Iterable
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -84,73 +84,61 @@ class GpioManager:
         else:
             raise ValueError("Wrong gpio pull mode!")
 
-        line = self.pins[pin]
-        config = {line.offset: gpiod.LineSettings(direction=direction, bias=bias)}
-        chip = self.chips.get(line.chip_path)
+        gpio_pin = self.pins[pin]
+        config: dict[Iterable[int | str] | int | str, gpiod.LineSettings | None] = {
+            gpio_pin.offset: gpiod.LineSettings(direction=direction, bias=bias)
+        }
+        chip = self.chips.get(gpio_pin.chip_path)
 
         def configure(chip: gpiod.Chip) -> None:
-            if line.configured is None:
-                line.request_line = chip.request_lines(config=config)
-                line.configured = mode
+            if gpio_pin.configured is None or gpio_pin.request_line is None:
+                gpio_pin.request_line = chip.request_lines(config=config)
+                gpio_pin.configured = mode
 
-            elif line.configured != mode:
-                line.request_line.reconfigure_lines(config=config)
+            elif gpio_pin.configured != mode:
+                gpio_pin.request_line.reconfigure_lines(config=config)
 
         if chip is None:
-            with gpiod.Chip(line.chip_path) as chip:
+            with gpiod.Chip(gpio_pin.chip_path) as chip:
                 configure(chip)
         else:
             configure(chip)
 
     def write(self, pin: str, value: Literal["high", "low"]) -> None:
         """Write a value to a GPIO."""
-        line = self.pins[pin]
-        config = {
-            line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
-        }
-
-        def _write(chip: gpiod.Chip) -> None:
-            if line.configured == "in":
-                line.request_line.reconfigure_lines(config=config)
-            elif line.configured is None:
-                line.request_line = chip.request_lines(config=config)
-                line.configured = "out"
-            line.request_line.set_value(
-                line.offset,
-                gpiod.line.Value.ACTIVE
-                if value == "high"
-                else gpiod.line.Value.INACTIVE,
+        gpio_pin = self.pins[pin]
+        if gpio_pin.configured is None or gpio_pin.request_line is None:
+            raise ValueError(f"Pin {pin} is not configured!")
+        if gpio_pin.configured == "in":
+            gpio_pin.request_line.reconfigure_lines(
+                config={
+                    gpio_pin.offset: gpiod.LineSettings(
+                        direction=gpiod.line.Direction.OUTPUT
+                    )
+                }
             )
-
-        chip = self.chips.get(line.chip_path)
-        if chip is None:
-            with gpiod.Chip(line.chip_path) as chip:
-                _write(chip)
-        else:
-            _write(chip)
+            gpio_pin.configured = "out"
+        gpio_pin.request_line.set_value(
+            gpio_pin.offset,
+            gpiod.line.Value.ACTIVE if value == "high" else gpiod.line.Value.INACTIVE,
+        )
 
     def read(self, pin: str) -> bool:
         """Read a value from a GPIO."""
-        line = self.pins[pin]
-        config = {line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.INPUT)}
+        gpio_pin = self.pins[pin]
 
-        def _read(
-            chip: gpiod.Chip,
-        ) -> gpiod.line.Value.ACTIVE | gpiod.line.Value.INACTIVE:
-            if line.configured == "out":
-                request = chip.reconfigure_lines(config=config)
-            elif line.configured is None:
-                request = chip.request_lines(config=config)
-            return request.get_values()[0]
-
-        chip = self.chips.get(line.chip_path)
-        if chip is None:
-            with gpiod.Chip(line.chip_path) as chip:
-                value = _read(chip)
-        else:
-            value = _read(chip)
-
-        return value == gpiod.line.Value.ACTIVE
+        if gpio_pin.configured is None or gpio_pin.request_line is None:
+            raise ValueError(f"Pin {pin} is not configured!")
+        if gpio_pin.configured == "out":
+            gpio_pin.request_line.reconfigure_lines(
+                config={
+                    gpio_pin.offset: gpiod.LineSettings(
+                        direction=gpiod.line.Direction.INPUT
+                    )
+                }
+            )
+            gpio_pin.configured = "in"
+        return gpio_pin.request_line.get_values()[0] == gpiod.line.Value.ACTIVE
 
     def add_event_callback(
         self,
@@ -173,7 +161,7 @@ class GpioManager:
         edge: Edge,
         callback: Callable[[], None],
         debounce_period: timedelta,
-    ) -> AsyncGenerator[gpiod.LineEvent, None]:
+    ) -> None:
         """Add detection for RISING and FALLING events."""
         line = self.pins[pin]
 
