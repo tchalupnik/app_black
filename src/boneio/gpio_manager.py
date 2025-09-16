@@ -106,6 +106,7 @@ class GpioManager:
 
     def write(self, pin: str, value: Literal["high", "low"]) -> None:
         """Write a value to a GPIO."""
+        _LOGGER.debug("[%s] write to pin, value %s", pin, value)
         gpio_pin = self.pins[pin]
         if gpio_pin.configured is None or gpio_pin.request_line is None:
             raise ValueError(f"Pin {pin} is not configured!")
@@ -125,6 +126,7 @@ class GpioManager:
 
     def read(self, pin: str) -> bool:
         """Read a value from a GPIO."""
+        _LOGGER.debug("[%s] read from pin", pin)
         gpio_pin = self.pins[pin]
 
         if gpio_pin.configured is None or gpio_pin.request_line is None:
