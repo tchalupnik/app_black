@@ -58,7 +58,7 @@ class GpioManager:
         self,
         pin: str,
         mode: Literal["in", "out"],
-        pull_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] | None = None,
+        pull_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio",
     ) -> None:
         """Set up a GPIO as input."""
 
@@ -93,8 +93,7 @@ class GpioManager:
             if gpio_pin.configured is None or gpio_pin.request_line is None:
                 gpio_pin.request_line = chip.request_lines(config=config)
                 gpio_pin.configured = mode
-
-            elif gpio_pin.configured != mode:
+            else:
                 gpio_pin.request_line.reconfigure_lines(config=config)
 
         if chip is None:
@@ -154,16 +153,15 @@ class GpioManager:
         if gpio_pin.configured is None or gpio_pin.request_line is None:
             raise ValueError(f"Pin {pin} is not configured!")
 
-        if gpio_pin.configured == "out":
-            gpio_pin.request_line.reconfigure_lines(
-                config={
-                    gpio_pin.offset: gpiod.LineSettings(
-                        direction=gpiod.line.Direction.INPUT,
-                        edge_detection=gpiod.line.Edge.BOTH,
-                        # debounce_period=debounce_period,
-                    )
-                }
-            )
+        gpio_pin.request_line.reconfigure_lines(
+            config={
+                gpio_pin.offset: gpiod.LineSettings(
+                    direction=gpiod.line.Direction.INPUT,
+                    edge_detection=gpiod.line.Edge.BOTH,
+                    # debounce_period=debounce_period,
+                )
+            }
+        )
 
         asyncio.create_task(
             self._add_event_callback(
