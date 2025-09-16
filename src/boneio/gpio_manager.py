@@ -7,18 +7,18 @@ from collections.abc import AsyncGenerator, Callable, Generator
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
+from enum import Enum
 from typing import Literal
 
-import gpiod  # type: ignore
-
-BOTH = Literal["BOTH"]
-FALLING = Literal["FALLING"]
-RISING = Literal["RISING"]
-HIGH = Literal["HIGH"]
-LOW = Literal["LOW"]
-
+import gpiod
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class Edge(Enum):
+    BOTH = "BOTH"
+    FALLING = "FALLING"
+    RISING = "RISING"
 
 
 @dataclass
@@ -26,6 +26,7 @@ class _Pin:
     chip_path: str
     offset: int
     configured: Literal["in", "out"] | None = None
+    request_line: gpiod.line_request.LineRequest | None = None
 
 
 @dataclass
@@ -89,9 +90,11 @@ class GpioManager:
 
         def configure(chip: gpiod.Chip) -> None:
             if line.configured is None:
-                chip.request_lines(config=config)
+                line.request_line = chip.request_lines(config=config)
+                line.configured = mode
+
             elif line.configured != mode:
-                chip.reconfigure_lines(config=config)
+                line.request_line.reconfigure_lines(config=config)
 
         if chip is None:
             with gpiod.Chip(line.chip_path) as chip:
@@ -99,7 +102,7 @@ class GpioManager:
         else:
             configure(chip)
 
-    def write(self, pin: str, value: HIGH | LOW) -> None:
+    def write(self, pin: str, value: Literal["high", "low"]) -> None:
         """Write a value to a GPIO."""
         line = self.pins[pin]
         config = {
@@ -108,12 +111,15 @@ class GpioManager:
 
         def _write(chip: gpiod.Chip) -> None:
             if line.configured == "in":
-                request = chip.reconfigure_lines(config=config)
-            else:
-                request = chip.request_lines(config=config)
-            request.set_value(
+                line.request_line.reconfigure_lines(config=config)
+            elif line.configured is None:
+                line.request_line = chip.request_lines(config=config)
+                line.configured = "out"
+            line.request_line.set_value(
                 line.offset,
-                gpiod.line.Value.ACTIVE if value == HIGH else gpiod.line.Value.INACTIVE,
+                gpiod.line.Value.ACTIVE
+                if value == "high"
+                else gpiod.line.Value.INACTIVE,
             )
 
         chip = self.chips.get(line.chip_path)
@@ -128,10 +134,12 @@ class GpioManager:
         line = self.pins[pin]
         config = {line.offset: gpiod.LineSettings(direction=gpiod.line.Direction.INPUT)}
 
-        def _read(chip: gpiod.Chip) -> None:
+        def _read(
+            chip: gpiod.Chip,
+        ) -> gpiod.line.Value.ACTIVE | gpiod.line.Value.INACTIVE:
             if line.configured == "out":
                 request = chip.reconfigure_lines(config=config)
-            else:
+            elif line.configured is None:
                 request = chip.request_lines(config=config)
             return request.get_values()[0]
 
@@ -148,7 +156,7 @@ class GpioManager:
         self,
         pin: str,
         callback: Callable[[], None],
-        edge: FALLING | RISING | BOTH = BOTH,
+        edge: Edge = Edge.BOTH,
         debounce_period: timedelta = timedelta(milliseconds=100),
     ) -> None:
         _LOGGER.debug("add_event_callback, pin: %s", pin)
@@ -162,7 +170,7 @@ class GpioManager:
     async def _add_event_callback(
         self,
         pin: str,
-        edge: FALLING | RISING | BOTH,
+        edge: Edge,
         callback: Callable[[], None],
         debounce_period: timedelta,
     ) -> AsyncGenerator[gpiod.LineEvent, None]:
@@ -173,33 +181,33 @@ class GpioManager:
         if chip is None:
             chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
             self.chips[line.chip_path] = chip
-
-        request = chip.request_lines(
-            config={
-                line.offset: gpiod.LineSettings(
-                    edge_detection=gpiod.line.Edge.BOTH,
-                    # debounce_period=debounce_period,
-                )
-            },
-        )
+        if line.configured is None:
+            request = chip.request_lines(
+                config={
+                    line.offset: gpiod.LineSettings(
+                        edge_detection=gpiod.line.Edge.BOTH,
+                        # debounce_period=debounce_period,
+                    )
+                },
+            )
 
         fut = self._loop.create_future()
 
-        def c():
+        def c() -> None:
             events = request.read_edge_events()
             if not len(events):
                 return
             if fut.done():
                 return
 
-            if edge == FALLING:
+            if edge == Edge.FALLING:
                 events = [
                     event
                     for event in events
                     if event.event_type == gpiod.edge_event.EdgeEvent.Type.FALLING_EDGE
                 ]
 
-            elif edge == RISING:
+            elif edge == Edge.RISING:
                 events = [
                     event
                     for event in events

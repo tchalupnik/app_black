@@ -6,7 +6,7 @@ Created just in case.
 import logging
 
 from boneio.const import SWITCH
-from boneio.gpio_manager import HIGH, LOW, GpioManager
+from boneio.gpio_manager import GpioManager
 from boneio.helper.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus
@@ -46,7 +46,7 @@ class GpioRelay(BasicRelay):
             restored_state=restored_state,
         )
         self.gpio_manager = gpio_manager
-        self.gpio_manager.write(self.pin_id, LOW)
+        self.gpio_manager.write(self.pin_id, "low")
         _LOGGER.debug("Setup relay with pin %s", self.pin_id)
 
     @property
@@ -56,8 +56,8 @@ class GpioRelay(BasicRelay):
 
     def turn_on(self) -> None:
         """Call turn on action."""
-        self.gpio_manager.write(self.pin_id, HIGH)
+        self.gpio_manager.write(self.pin_id, "high")
 
     def turn_off(self) -> None:
         """Call turn off action."""
-        self.gpio_manager.write(self.pin_id, LOW)
+        self.gpio_manager.write(self.pin_id, "low")
