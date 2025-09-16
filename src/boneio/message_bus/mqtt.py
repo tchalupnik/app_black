@@ -19,7 +19,7 @@ from aiomqtt import Message, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
-from boneio.config import Config
+from boneio.config import MqttConfig
 from boneio.const import (
     OFFLINE,
     PAHO,
@@ -38,7 +38,7 @@ _LOGGER = logging.getLogger(__name__)
 class MQTTClient(MessageBus):
     """Represent an MQTT client."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: MqttConfig) -> None:
         """Set up client."""
         self.manager: Manager | None = None
         self.config = config
@@ -52,14 +52,14 @@ class MQTTClient(MessageBus):
         ] = {}
         self._discovery_topics = (
             [
-                f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{self.config.mqtt.topic_prefix}/#"
-                for ha_type in self.config.mqtt.autodiscovery_messages
+                f"{self.config.ha_discovery.topic_prefix}/{ha_type}/{self.config.topic_prefix}/#"
+                for ha_type in self.config.autodiscovery_messages
             ]
-            if self.config.mqtt.ha_discovery.enabled
+            if self.config.ha_discovery.enabled
             else []
         )
         self._topics = [
-            self.config.mqtt.subscribe_topic(),
+            self.config.subscribe_topic(),
             "homeassistant/status",
         ]
         self._running = True
@@ -67,16 +67,14 @@ class MQTTClient(MessageBus):
 
     def create_client(self) -> None:
         """Create the asyncio client."""
-        _LOGGER.debug(
-            "Creating client %s:%s", self.config.mqtt.host, self.config.mqtt.port
-        )
+        _LOGGER.debug("Creating client %s:%s", self.config.host, self.config.port)
         self.asyncio_client = AsyncioClient(
-            self.config.mqtt.host,
-            self.config.mqtt.port,
-            username=self.config.mqtt.username,
-            password=self.config.mqtt.password,
+            self.config.host,
+            self.config.port,
+            username=self.config.username,
+            password=self.config.password,
             will=Will(
-                topic=f"{self.config.mqtt.topic_prefix}/{STATE}",
+                topic=f"{self.config.topic_prefix}/{STATE}",
                 payload=OFFLINE,
                 qos=0,
                 retain=False,
@@ -182,7 +180,7 @@ class MQTTClient(MessageBus):
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
         await self.publish(
-            topic=f"{self.config.mqtt.topic_prefix}/{STATE}",
+            topic=f"{self.config.topic_prefix}/{STATE}",
             payload=OFFLINE,
             retain=True,
         )
@@ -270,14 +268,13 @@ class MQTTClient(MessageBus):
                 if message.topic.matches(discovery_topic):
                     callback_start = False
                     topic = str(message.topic)
-                    if (
-                        message.payload
-                        and not self.config.mqtt.is_topic_in_autodiscovery(topic)
+                    if message.payload and not self.config.is_topic_in_autodiscovery(
+                        topic
                     ):
                         _LOGGER.info("Removing unused discovery entity %s", topic)
                         self.send_message(topic=topic, payload=None, retain=True)
                     break
-            if message.topic.matches(f"{self.config.mqtt.topic_prefix}/energy/#"):
+            if message.topic.matches(f"{self.config.topic_prefix}/energy/#"):
                 for topic, listener_callback in self._mqtt_energy_listeners.items():
                     if message.topic.matches(topic):
                         callback_start = False

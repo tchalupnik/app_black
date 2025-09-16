@@ -60,7 +60,7 @@ async def async_run(
             config.mqtt.username = mqttusername
         if mqttpassword is not None:
             config.mqtt.password = mqttpassword
-        message_bus = MQTTClient(config=config)
+        message_bus = MQTTClient(config=config.mqtt)
     else:
         message_bus = LocalMessageBus()
 
