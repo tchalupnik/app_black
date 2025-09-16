@@ -237,12 +237,12 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
     async def tilt_open(self) -> None:
         """Opening only tilt cover."""
-        _LOGGER.info("Opening tilt cover %s", self._id)
+        _LOGGER.info("Opening tilt cover %s", self.id)
         await self.set_tilt(tilt_position=100)
 
     async def tilt_close(self) -> None:
         """Closing only tilt cover."""
-        _LOGGER.info("Closing tilt cover %s", self._id)
+        _LOGGER.info("Closing tilt cover %s", self.id)
         await self.set_tilt(tilt_position=0)
 
     def update_config_times(self, config: CoverConfig) -> None:

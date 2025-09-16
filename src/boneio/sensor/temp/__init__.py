@@ -10,8 +10,9 @@ from datetime import timedelta
 
 from boneio.config import Filters
 from boneio.const import SENSOR, STATE
-from boneio.helper import AsyncUpdater, BasicMqtt
+from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
+from boneio.helper.util import strip_accents
 from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
@@ -21,7 +22,7 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class TempSensor(ABC, BasicMqtt, AsyncUpdater, Filter):
+class TempSensor(ABC, AsyncUpdater, Filter):
     """Represent Temp sensor in BoneIO."""
 
     def __init__(
@@ -39,17 +40,10 @@ class TempSensor(ABC, BasicMqtt, AsyncUpdater, Filter):
         if not filters:
             filters = [{"round": 2}]
         self._loop = asyncio.get_event_loop()
-
-        # Initialize BasicMqtt first
-        BasicMqtt.__init__(
-            self,
-            id=id,
-            topic_prefix=topic_prefix,
-            name=name,
-            message_bus=message_bus,
-            topic_type=SENSOR,
-        )
-
+        self.id = id.replace(" ", "")
+        self.name = name
+        self.message_bus = message_bus
+        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
         # Initialize AsyncUpdater next
         AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
 

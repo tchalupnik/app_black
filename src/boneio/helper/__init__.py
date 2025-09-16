@@ -20,7 +20,6 @@ from boneio.helper.ha_discovery import (
     ha_sensor_temp_availabilty_message,
     ha_switch_availabilty_message,
 )
-from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.oled import make_font
 from boneio.helper.queue import UniqueQueue
 from boneio.helper.state_manager import StateManager
@@ -44,7 +43,6 @@ __all__ = [
     "GPIOOutputException",
     "I2CError",
     "StateManager",
-    "BasicMqtt",
     "AsyncUpdater",
     "UniqueQueue",
     "callback",

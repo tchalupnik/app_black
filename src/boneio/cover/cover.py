@@ -7,7 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import timedelta
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from boneio.const import (
     CLOSED,
@@ -18,7 +18,7 @@ from boneio.const import (
     OPENING,
 )
 from boneio.helper.events import EventBus
-from boneio.helper.mqtt import BasicMqtt
+from boneio.helper.util import strip_accents
 from boneio.models import CoverState, PositionDict
 from boneio.relay import MCPRelay
 
@@ -138,7 +138,7 @@ class BaseVenetianCoverABC:
         """Close cover tilt."""
 
 
-class BaseCover(BaseCoverABC, BasicMqtt):
+class BaseCover(BaseCoverABC):
     def __init__(
         self,
         id: str,
@@ -152,16 +152,11 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         topic_prefix: str,
         position: int = 100,
     ) -> None:
-        BasicMqtt.__init__(
-            self,
-            id=id,
-            name=id,
-            topic_type=COVER,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-        )
+        self.id = id.replace(" ", "")
+        self.name = id
+        self.message_bus = message_bus
+        self._send_topic = f"{topic_prefix}/{COVER}/{strip_accents(self.id)}"
         self._loop = asyncio.get_event_loop()
-        self._id = id
         self._open_relay = open_relay
         self._close_relay = close_relay
         self._state_save = state_save
@@ -203,7 +198,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     async def open(self) -> None:
         if self.position >= 100:
             return
-        _LOGGER.info("Opening cover %s.", self._id)
+        _LOGGER.info("Opening cover %s.", self.id)
         await self.run_cover(current_operation=OPENING)
         self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=OPENING
@@ -212,7 +207,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     async def close(self) -> None:
         if self.position <= 0:
             return
-        _LOGGER.info("Closing cover %s.", self._id)
+        _LOGGER.info("Closing cover %s.", self.id)
         await self.run_cover(current_operation=CLOSING)
         self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=CLOSING
@@ -231,21 +226,21 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             await self.run_cover(current_operation=CLOSING, target_position=position)
 
     async def toggle(self) -> None:
-        _LOGGER.debug("Toggle cover %s from input.", self._id)
+        _LOGGER.debug("Toggle cover %s from input.", self.id)
         if self.position > 50:
             await self.close()
         else:
             await self.open()
 
     async def toggle_open(self) -> None:
-        _LOGGER.debug("Toggle open cover %s from input.", self._id)
+        _LOGGER.debug("Toggle open cover %s from input.", self.id)
         if self.current_operation != IDLE:
             await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
-        _LOGGER.debug("Toggle close cover %s from input.", self._id)
+        _LOGGER.debug("Toggle close cover %s from input.", self.id)
         if self.current_operation != IDLE:
             await self.stop()
         else:

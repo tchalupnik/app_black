@@ -10,10 +10,10 @@ from datetime import timedelta
 from pydantic import BaseModel, ValidationError
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
-from boneio.helper import BasicMqtt
 from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.mqtt import MqttBase
+from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
 
@@ -191,7 +191,7 @@ class RelayBase(MqttBase):
     virtual_volume_flow_rate: float | None = None
 
 
-class BasicRelay(BasicMqtt):
+class BasicRelay:
     """Basic relay class."""
 
     def __init__(
@@ -217,13 +217,11 @@ class BasicRelay(BasicMqtt):
         Supports virtual_power_usage for energy monitoring.
         """
         # No parsing needed, Cerberus coerce handles conversion to watts.
-        super().__init__(
-            id=id,
-            name=name or id,
-            topic_type=topic_type,
-            topic_prefix=topic_prefix,
-            message_bus=message_bus,
-        )
+
+        self.name = name or id
+        self.id = id.replace(" ", "")
+        self.message_bus = message_bus
+        self._send_topic = f"{topic_prefix}/{topic_type}/{strip_accents(self.id)}"
         self.expander_id = expander_id
         self.pin_id = pin_id
         self._momentary_turn_off = momentary_turn_off

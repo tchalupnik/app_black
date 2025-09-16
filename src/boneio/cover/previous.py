@@ -21,7 +21,7 @@ from boneio.const import (
     STOP,
 )
 from boneio.helper.events import EventBus
-from boneio.helper.mqtt import BasicMqtt
+from boneio.helper.util import strip_accents
 from boneio.models import CoverState
 from boneio.relay.basic import BasicRelay
 
@@ -48,7 +48,7 @@ class RelayHelper:
         self.steps = 100 / time.total_seconds()
 
 
-class PreviousCover(BasicMqtt):
+class PreviousCover:
     """Cover class of boneIO"""
 
     def __init__(
@@ -66,14 +66,10 @@ class PreviousCover(BasicMqtt):
     ) -> None:
         """Initialize cover class."""
         self._loop = asyncio.get_event_loop()
-        self._id = id
-        super().__init__(
-            id=id,
-            name=id,
-            topic_type=COVER,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-        )
+        self.id = id.replace(" ", "")
+        self.name = id
+        self.message_bus = message_bus
+        self._send_topic = f"{topic_prefix}/{COVER}/{strip_accents(self.id)}"
         self._lock = asyncio.Lock()
         self._state_save = state_save
         self._open = RelayHelper(relay=open_relay, time=open_time)
@@ -133,7 +129,7 @@ class PreviousCover(BasicMqtt):
 
     async def stop(self) -> None:
         """Public Stop cover graceful."""
-        _LOGGER.info("Stopping cover %s.", self._id)
+        _LOGGER.info("Stopping cover %s.", self.name)
         if self.current_operation != IDLE:
             self._stop_cover(on_exit=False)
         await self.async_send_state()
@@ -227,7 +223,7 @@ class PreviousCover(BasicMqtt):
         if self._position is None:
             self._closed = True
             return
-        _LOGGER.info("Closing cover %s.", self._id)
+        _LOGGER.info("Closing cover %s.", self.name)
 
         self._requested_closing = True
         self.message_bus.send_message(
@@ -244,7 +240,7 @@ class PreviousCover(BasicMqtt):
         if self._position is None:
             self._closed = False
             return
-        _LOGGER.info("Opening cover %s.", self._id)
+        _LOGGER.info("Opening cover %s.", self.name)
 
         self._requested_closing = False
         self.message_bus.send_message(
@@ -279,29 +275,29 @@ class PreviousCover(BasicMqtt):
         )
 
     async def open(self) -> None:
-        _LOGGER.debug("Opening cover %s.", self._id)
+        _LOGGER.debug("Opening cover %s.", self.name)
         await self.open_cover()
 
     async def close(self) -> None:
-        _LOGGER.debug("Closing cover %s.", self._id)
+        _LOGGER.debug("Closing cover %s.", self.name)
         await self.close_cover()
 
     async def toggle(self) -> None:
-        _LOGGER.debug("Toggle cover %s from input.", self._id)
+        _LOGGER.debug("Toggle cover %s from input.", self.name)
         if self.state == CLOSED:
             await self.close()
         else:
             await self.open()
 
     async def toggle_open(self) -> None:
-        _LOGGER.debug("Toggle open cover %s from input.", self._id)
+        _LOGGER.debug("Toggle open cover %s from input.", self.name)
         if self.current_operation != IDLE:
             await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
-        _LOGGER.debug("Toggle close cover %s from input.", self._id)
+        _LOGGER.debug("Toggle close cover %s from input.", self.name)
         if self.current_operation != IDLE:
             await self.stop()
         else:

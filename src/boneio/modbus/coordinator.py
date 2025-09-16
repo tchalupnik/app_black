@@ -26,10 +26,10 @@ from boneio.const import (
     SWITCH,
     TEXT_SENSOR,
 )
-from boneio.helper import AsyncUpdater, BasicMqtt
+from boneio.helper import AsyncUpdater
 from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
-from boneio.helper.util import open_json
+from boneio.helper.util import open_json, strip_accents
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
@@ -57,7 +57,7 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
+class ModbusCoordinator(AsyncUpdater, Filter):
     """Represent Modbus coordinator in BoneIO."""
 
     def __init__(
@@ -69,11 +69,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         event_bus: EventBus,
     ):
         """Initialize Modbus coordinator class."""
-        BasicMqtt.__init__(
-            self,
-            id=device_config.identifier(),
-            topic_type=SENSOR,
-            topic_prefix=config.mqtt.topic_prefix,
+        self.id = device_config.identifier()
+        self._send_topic = (
+            f"{config.mqtt.topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
         )
         self.config = config
         self._modbus = modbus

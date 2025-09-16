@@ -10,9 +10,10 @@ from datetime import datetime
 
 from boneio.config import Filters, Ina219Config, Ina219DeviceClass
 from boneio.const import SENSOR, STATE
-from boneio.helper import AsyncUpdater, BasicMqtt
+from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
+from boneio.helper.util import strip_accents
 from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
@@ -24,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 unit_converter = {"current": "A", "power": "W", "voltage": "V"}
 
 
-class _INA219Sensor(BasicMqtt, Filter):
+class _INA219Sensor(Filter):
     """Represent single value from INA219 as sensor."""
 
     def __init__(
@@ -37,13 +38,10 @@ class _INA219Sensor(BasicMqtt, Filter):
         topic_prefix: str,
         state: float | None = None,
     ) -> None:
-        super().__init__(
-            id=id,
-            name=name,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-            topic_type=SENSOR,
-        )
+        self.id = id.replace(" ", "")
+        self.name = name
+        self.message_bus = message_bus
+        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
         self.unit_of_measurement = unit_converter[device_class]
         self.device_class = device_class
         self._filters = filters

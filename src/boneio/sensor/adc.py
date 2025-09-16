@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from boneio.const import SENSOR
-from boneio.helper import AsyncUpdater, BasicMqtt
+from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
+from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 
 if TYPE_CHECKING:
@@ -59,7 +60,7 @@ def read(
         return 0.0
 
 
-class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
+class GpioADCSensor(AsyncUpdater, Filter):
     """Represent Gpio ADC sensor."""
 
     def __init__(
@@ -75,14 +76,13 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
     ) -> None:
         """Setup GPIO ADC Sensor"""
         super().__init__(
-            topic_type=SENSOR,
             manager=manager,
             update_interval=update_interval,
-            id=id,
-            name=name,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
         )
+        self.id = id.replace(" ", "")
+        self.name = name
+        self.message_bus = message_bus
+        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
         self._pin = pin
         self.state: float | None = None
         self._filters = filters

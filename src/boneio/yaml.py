@@ -134,13 +134,15 @@ def _find_files(directory, pattern):
                 yield filename
 
 
-def load_yaml_file(filename: Path) -> Any:
+def load_yaml_file(filename: Path | str) -> Any:
+    if isinstance(filename, str):
+        filename = Path(filename)
     with filename.open("r") as stream:
         try:
             return load(stream, Loader=BoneIOLoader)
         except YAMLError as exception:
             msg = ""
-            if hasattr(exception, "problem_mark"):
+            if isinstance(exception, MarkedYAMLError):
                 if exception.context is not None:
                     msg += (
                         "  parser says\n"
