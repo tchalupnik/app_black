@@ -142,7 +142,7 @@ class Manager:
     ) -> None:
         self.gpio_manager = gpio_manager
         self.state_manager = StateManager(
-            state_file=config_file_path.parent / "state.json"
+            state_file_path=config_file_path.parent / "state.json"
         )
         _LOGGER.info("Initializing manager module.")
 
