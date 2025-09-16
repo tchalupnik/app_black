@@ -52,7 +52,7 @@ class GpioEventButtonNew(GpioBase):
             gpio_manager=gpio_manager,
             bounce_time=config.bounce_time,
         )
-        self._state = self.is_pressed
+        self._state = self.is_pressed()
         self.button_pressed_time = 0.0
         self.last_click_time = 0.0
 
@@ -94,7 +94,7 @@ class GpioEventButtonNew(GpioBase):
 
     def check_state(self) -> None:
         time_now = time.time()
-        self._state = self.is_pressed
+        self._state = self.is_pressed()
 
         if self._state:  # Button pressed
             # Ignore bounces
