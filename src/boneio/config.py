@@ -263,7 +263,7 @@ OutputActionTypes: TypeAlias = Literal["toggle", "on", "off"]
 
 
 class OutputActionConfig(BaseModel):
-    type: Literal["output"] = "output"
+    action: Literal["output"] = "output"
     pin: str
     action_output: OutputActionTypes
 
@@ -274,13 +274,13 @@ class OutputActionConfig(BaseModel):
 
 
 class MqttActionConfig(BaseModel):
-    type: Literal["mqtt"] = "mqtt"
+    action: Literal["mqtt"] = "mqtt"
     action_mqtt_msg: str
     topic: str
 
 
 class CoverActionConfig(BaseModel):
-    type: Literal["cover"] = "cover"
+    action: Literal["cover"] = "cover"
     pin: str
     action_cover: CoverActionTypes
     data: ActionDataConfig | None = None
@@ -292,7 +292,7 @@ class CoverActionConfig(BaseModel):
 
 
 class OutputOverMqttActionConfig(BaseModel):
-    type: Literal["output_over_mqtt"] = "output_over_mqtt"
+    action: Literal["output_over_mqtt"] = "output_over_mqtt"
     pin: str
     boneio_id: str
     action_output: OutputActionTypes
@@ -304,7 +304,7 @@ class OutputOverMqttActionConfig(BaseModel):
 
 
 class CoverOverMqttActionConfig(BaseModel):
-    type: Literal["cover_over_mqtt"] = "cover_over_mqtt"
+    action: Literal["cover_over_mqtt"] = "cover_over_mqtt"
     pin: str
     boneio_id: str
     action_cover: CoverActionTypes
