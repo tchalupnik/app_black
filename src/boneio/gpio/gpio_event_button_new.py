@@ -71,23 +71,23 @@ class GpioEventButtonNew(GpioBase):
         self.gpio_manager.add_event_callback(pin=self.pin, callback=self.check_state)
         _LOGGER.debug("Configured NEW listening for input pin %s", self.pin)
 
-    def single_click_callback(self):
+    def single_click_callback(self) -> None:
         """Called when double click window expires without second click."""
         if not self._state:  # Only trigger if button is released
-            self.press_callback(click_type=SINGLE, duration=None)
+            self.press_callback(click_type="single", duration=None)
         self._double_click_possible = False
 
-    def double_click_callback(self):
+    def double_click_callback(self) -> None:
         """Handle double click."""
-        self.press_callback(click_type=DOUBLE, duration=None)
+        self.press_callback(click_type="double", duration=None)
         self._double_click_possible = False
         self._timer_double.reset()  # Cancel pending single click
 
-    def long_click_callback(self, duration: float):
+    def long_click_callback(self, duration: float) -> None:
         """Handle long press."""
         self._double_click_possible = False  # Cancel any pending clicks
         self._timer_double.reset()
-        self.press_callback(click_type=LONG, duration=duration)
+        self.press_callback(click_type="long", duration=duration)
 
     def check_state(self) -> None:
         time_now = time.time()
