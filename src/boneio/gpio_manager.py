@@ -89,9 +89,9 @@ class GpioManager:
 
         def configure(chip: gpiod.Chip) -> None:
             if line.configured is None:
-                chip.request_lines(conifg=config)
+                chip.request_lines(config=config)
             elif line.configured != mode:
-                chip.reconfigure_lines(conifg=config)
+                chip.reconfigure_lines(config=config)
 
         if chip is None:
             with gpiod.Chip(line.chip_path) as chip:
