@@ -30,8 +30,8 @@ class _Pin:
 @dataclass
 class GpioManager:
     stack: ExitStack
+    pins: dict[str, _Pin] = field(default_factory=dict)
     chips: dict[str, gpiod.Chip] = field(default_factory=dict, init=False)
-    pins: dict[str, _Pin] = field(default_factory=dict, init=False)
     _loop: asyncio.AbstractEventLoop = field(
         default_factory=asyncio.get_event_loop, init=False
     )
