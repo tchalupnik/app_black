@@ -51,6 +51,7 @@ class TimeBasedCover(BaseCover):
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             position=position,
+            kind="time",
         )
 
     def _move_cover(
@@ -143,10 +144,6 @@ class TimeBasedCover(BaseCover):
                 args=("close", self._close_time, target_position),
             )
             self._movement_thread.start()
-
-    @property
-    def kind(self) -> str:
-        return "time"
 
     def update_config_times(self, config: CoverConfig) -> None:
         pass

@@ -32,6 +32,8 @@ class GpioManager:
     _loop: asyncio.AbstractEventLoop = field(
         default_factory=asyncio.get_event_loop, init=False
     )
+    # it needs to be rewritten due to the lock is not on pin but on the chip
+    # btw breakpoint is set
     last_value_from_callback: dict[str, bool] = field(default_factory=dict, init=False)
 
     def __post_init__(self) -> None:

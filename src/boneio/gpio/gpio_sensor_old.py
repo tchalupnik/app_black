@@ -46,7 +46,7 @@ class GpioInputBinarySensor(GpioBase):
             gpio_mode=config.gpio_mode,
             gpio_manager=gpio_manager,
         )
-        self._state = self.is_pressed
+        self._state = self.is_pressed()
         self._click_type = (
             (RELEASED, PRESSED) if config.inverted else (PRESSED, RELEASED)
         )
@@ -55,7 +55,7 @@ class GpioInputBinarySensor(GpioBase):
 
     async def _run(self) -> None:
         while True:
-            self.check_state(state=self.is_pressed)
+            self.check_state(state=self.is_pressed())
             await asyncio.sleep(self._bounce_time)
 
     def check_state(self, state: bool) -> None:

@@ -73,20 +73,21 @@ class PreviousCover(BasicMqtt):
             topic_type=COVER,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
+            kind="previous",
         )
         self._lock = asyncio.Lock()
         self._state_save = state_save
         self._open = RelayHelper(relay=open_relay, time=open_time)
         self._close = RelayHelper(relay=close_relay, time=close_time)
         self._set_position = None
-        self._current_operation = IDLE
+        self.current_operation = IDLE
         self._position = float(
             restored_state.get("position", DEFAULT_RESTORED_STATE["position"])
         )
         self._requested_closing = True
         self._event_bus = event_bus
         self._timer_handle = None
-        self._last_timestamp = 0.0
+        self.last_timestamp = 0.0
         if self._position is None:
             self._closed = True
         else:
@@ -103,9 +104,9 @@ class PreviousCover(BasicMqtt):
         current_operation: str,
     ) -> None:
         """Run cover engine."""
-        if self._current_operation != IDLE:
+        if self.current_operation != IDLE:
             self._stop_cover()
-        self._current_operation = current_operation
+        self.current_operation = current_operation
 
         def get_relays():
             if current_operation == OPENING:
@@ -134,13 +135,13 @@ class PreviousCover(BasicMqtt):
     async def stop(self) -> None:
         """Public Stop cover graceful."""
         _LOGGER.info("Stopping cover %s.", self._id)
-        if self._current_operation != IDLE:
+        if self.current_operation != IDLE:
             self._stop_cover(on_exit=False)
         await self.async_send_state()
 
     async def async_send_state(self) -> None:
         """Send state to Websocket on action asynchronously."""
-        self._last_timestamp = time.time()
+        self.last_timestamp = time.time()
         event = CoverState(
             id=self.id,
             name=self.name,
@@ -148,7 +149,7 @@ class PreviousCover(BasicMqtt):
             position=round(self._position, 0),
             kind=self.kind,
             timestamp=self.last_timestamp,
-            current_operation=self._current_operation,
+            current_operation=self.current_operation,
         )
         self._event_bus.trigger_event(
             {"event_type": "cover", "entity_id": self.id, "event_state": event}
@@ -175,7 +176,7 @@ class PreviousCover(BasicMqtt):
             self._set_position = None
             if not on_exit:
                 self.send_state()
-        self._current_operation = IDLE
+        self.current_operation = IDLE
 
     @property
     def current_cover_position(self) -> int:
@@ -184,7 +185,7 @@ class PreviousCover(BasicMqtt):
 
     def listen_cover(self, *args) -> None:
         """Listen for change in cover."""
-        if self._current_operation == IDLE:
+        if self.current_operation == IDLE:
             return
 
         def get_step():
@@ -296,33 +297,21 @@ class PreviousCover(BasicMqtt):
 
     async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
-        if self._current_operation != IDLE:
+        if self.current_operation != IDLE:
             await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
-        if self._current_operation != IDLE:
+        if self.current_operation != IDLE:
             await self.stop()
         else:
             await self.close()
 
     @property
-    def last_timestamp(self) -> float:
-        return self._last_timestamp
-
-    @property
     def position(self) -> int:
         return round(self._position, 0)
-
-    @property
-    def current_operation(self) -> str:
-        return self._current_operation
-
-    @property
-    def kind(self) -> str:
-        return "previous"
 
     def update_config_times(self, config: CoverConfig) -> None:
         pass

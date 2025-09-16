@@ -67,7 +67,7 @@ class GpioBase:
         self._empty_message_after = empty_message_after
         self.boneio_input = boneio_input
         self._click_type = (PRESSED, RELEASED)
-        self._state = self.is_pressed
+        self._state = self.is_pressed()
         self.last_state = "Unknown"
         self.last_press_timestamp = 0.0
         self._event_bus = event_bus
@@ -140,7 +140,6 @@ class GpioBase:
     ) -> list[dict[str, Any]]:
         return self._actions.get(click_type, [])
 
-    @property
     def is_pressed(self) -> bool:
         """Is button pressed."""
         return self.gpio_manager.read(self.pin)

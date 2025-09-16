@@ -68,6 +68,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             position=position,
+            kind="venetian",
         )
 
     def _move_cover(

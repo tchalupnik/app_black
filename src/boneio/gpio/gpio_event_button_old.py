@@ -53,7 +53,7 @@ class GpioEventButton(GpioBase):
             gpio_manager=gpio_manager,
             bounce_time=config.bounce_time,
         )
-        self._state = self.is_pressed
+        self._state = self.is_pressed()
         _LOGGER.debug("Configured stable listening for input pin %s", self.pin)
         self._timer_double = ClickTimer(
             delay=timedelta(milliseconds=DOUBLE_CLICK_DURATION_MS),
@@ -81,7 +81,7 @@ class GpioEventButton(GpioBase):
 
     async def _run(self) -> None:
         while True:
-            self.check_state(state=self.is_pressed)
+            self.check_state(state=self.is_pressed())
             await asyncio.sleep(self._bounce_time)
 
     def check_state(self, state: bool) -> None:

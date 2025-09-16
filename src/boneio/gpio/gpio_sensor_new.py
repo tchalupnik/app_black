@@ -46,7 +46,7 @@ class GpioInputBinarySensorNew(GpioBase):
             gpio_mode=config.gpio_mode,
             gpio_manager=gpio_manager,
         )
-        self._state = self.is_pressed
+        self._state = self.is_pressed()
         self.button_pressed_time = 0.0
         self._click_type = (
             (RELEASED, PRESSED) if config.inverted else (PRESSED, RELEASED)
@@ -66,7 +66,7 @@ class GpioInputBinarySensorNew(GpioBase):
     def check_state(self, initial_send: bool = False) -> None:
         """Check if state has changed."""
         time_now = time.time()
-        state = self.is_pressed
+        state = self.is_pressed()
         if (time_now - self.button_pressed_time <= self._bounce_time) or (
             not initial_send and state == self._state
         ):

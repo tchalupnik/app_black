@@ -4,10 +4,10 @@ import asyncio
 import logging
 import threading
 import time
-import typing
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import timedelta
+from typing import TYPE_CHECKING, Literal
 
 from boneio.const import (
     CLOSED,
@@ -22,7 +22,7 @@ from boneio.helper.mqtt import BasicMqtt
 from boneio.models import CoverState, PositionDict
 from boneio.relay import MCPRelay
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
@@ -150,6 +150,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
+        kind: Literal["previous", "time", "venetian"],
         position: int = 100,
     ) -> None:
         BasicMqtt.__init__(
@@ -168,7 +169,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._event_bus = event_bus
         self._open_time = open_time.total_seconds() * 1000
         self._close_time = close_time.total_seconds() * 1000
-        self._position = position
+        self.position = position
+        self.kind = kind
         self._initial_position = None
         self.current_operation = IDLE
 
@@ -177,7 +179,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._last_update_time = 0
         self._closed = position <= 0
 
-        self._movement_thread = None
+        self._movement_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
         self._event_bus.add_sigterm_listener(self.on_exit)
@@ -201,7 +203,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
                 self.send_state(self.state, self.json_position)
 
     async def open(self) -> None:
-        if self._position >= 100:
+        if self.position >= 100:
             return
         _LOGGER.info("Opening cover %s.", self._id)
         await self.run_cover(current_operation=OPENING)
@@ -210,7 +212,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         )
 
     async def close(self) -> None:
-        if self._position <= 0:
+        if self.position <= 0:
             return
         _LOGGER.info("Closing cover %s.", self._id)
         await self.run_cover(current_operation=CLOSING)
@@ -222,17 +224,17 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         if not 0 <= position <= 100:
             raise ValueError("Pozycja musi być w zakresie od 0 do 100.")
 
-        if abs(self._position - position) < 1:
+        if abs(self.position - position) < 1:
             return
 
-        if position > self._position:
+        if position > self.position:
             await self.run_cover(current_operation=OPENING, target_position=position)
-        elif position < self._position:
+        elif position < self.position:
             await self.run_cover(current_operation=CLOSING, target_position=position)
 
     async def toggle(self) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self._id)
-        if self._position > 50:
+        if self.position > 50:
             await self.close()
         else:
             await self.open()
@@ -258,11 +260,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         elif self.current_operation == CLOSING:
             return CLOSING
         else:
-            return CLOSED if self._position == 0 else OPEN
-
-    @property
-    def position(self) -> int:
-        return round(self._position, 0)
+            return CLOSED if self.position == 0 else OPEN
 
     @property
     def json_position(self) -> PositionDict:
