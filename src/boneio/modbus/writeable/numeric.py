@@ -24,7 +24,7 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
         write_filters: list | None = None,
         **kwargs,
     ):
-        ModbusNumericSensor.__init__(self, config=config, **kwargs)
+        super().__init__(self, config=config, **kwargs)
         self._coordinator = coordinator
         self.write_address = write_address
         self._write_filters = write_filters

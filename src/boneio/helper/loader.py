@@ -196,9 +196,9 @@ def create_modbus_coordinators(
 
     modbus_coordinators = {}
     for entry in entries:
-        id = entry.id.replace(" ", "")
+        id = entry.identifier()
         try:
-            modbus_coordinators[id.lower()] = ModbusCoordinator(
+            modbus_coordinators[id] = ModbusCoordinator(
                 address=entry.address,
                 id=id,
                 name=entry.id,

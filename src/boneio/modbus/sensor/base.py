@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 
-from boneio.config import Config, MqttAutodiscoveryMessage
+from boneio.config import Config, Filters, MqttAutodiscoveryMessage
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
@@ -27,7 +27,7 @@ class BaseSensor(Filter):
         value_type: str | None = None,
         return_type: str | None = None,
         filters: list = None,
-        user_filters: list | None = None,
+        user_filters: list[dict[Filters, float]] | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
         if user_filters is None:
@@ -55,7 +55,7 @@ class BaseSensor(Filter):
             f"/{self._parent[ID]}{self._decoded_name_low.replace('_', '')}/config"
         )
 
-    def set_user_filters(self, user_filters: list) -> None:
+    def set_user_filters(self, user_filters: list[dict[Filters, float]]) -> None:
         self._user_filters = user_filters
 
     def set_value(self, value, timestamp: float) -> None:

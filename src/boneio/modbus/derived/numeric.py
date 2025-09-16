@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from typing import Literal
 
-from boneio.config import Config, ModbusDeviceData
+from boneio.config import Config, Filters, ModbusDeviceData
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
 
@@ -25,7 +25,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
         config: Config,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
-        user_filters: list | None = None,
+        user_filters: list[dict[Filters, float]] | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
         BaseSensor.__init__(
@@ -46,16 +46,12 @@ class ModbusDerivedNumericSensor(BaseSensor):
         self.formula = formula
         self.context = context_config
         self.base_address = source_sensor_base_address
-        self._source_sensor_decoded_name = source_sensor_decoded_name
+        self.source_sensor_decoded_name = source_sensor_decoded_name
 
     @property
     def state(self) -> float:
         """Give rounded value of temperature."""
         return self._value or 0.0
-
-    @property
-    def source_sensor_decoded_name(self) -> str:
-        return self._source_sensor_decoded_name
 
     def _safe_evaluate_expression(
         self,

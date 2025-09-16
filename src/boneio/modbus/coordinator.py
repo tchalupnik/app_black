@@ -4,14 +4,10 @@ import asyncio
 import logging
 import time
 import typing
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
-from boneio.config import (
-    Config,
-    ModbusDeviceData,
-    ModbusDeviceSensorFilters,
-)
+from boneio.config import Config, ModbusDeviceConfig
 from boneio.const import (
     ADDRESS,
     BASE,
@@ -64,36 +60,29 @@ _LOGGER = logging.getLogger(__name__)
 class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus coordinator in BoneIO."""
 
-    DefaultName = "ModbusCoordinator"
-
     def __init__(
         self,
+        device_config: ModbusDeviceConfig,
         manager: Manager,
         modbus: Modbus,
-        address: str,
-        model: str,
         config: Config,
         event_bus: EventBus,
-        update_interval: timedelta,
-        sensors_filters: ModbusDeviceSensorFilters | None,
-        additional_data: ModbusDeviceData | None,
-        id: str = DefaultName,
     ):
         """Initialize Modbus coordinator class."""
         BasicMqtt.__init__(
             self,
-            id=id or address,
+            id=device_config.identifier(),
             topic_type=SENSOR,
             topic_prefix=config.mqtt.topic_prefix,
         )
         self.config = config
         self._modbus = modbus
-        self._db = open_json(path=Path(__file__).parent, model=model)
+        self._db = open_json(path=Path(__file__).parent, model=device_config.model)
         self._model = self._db[MODEL]
-        self._address = address
+        self._address = device_config.address
         self._discovery_sent = False
         self._payload_online = OFFLINE
-        self._sensors_filters = sensors_filters
+        self._sensors_filters = device_config.sensor_filters
         self._modbus_entities: list[
             dict[
                 str,
@@ -117,7 +106,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._additional_sensors_by_name: dict[
             str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor
         ] = {}
-        self._additional_data = additional_data
+        self._additional_data = device_config.data
 
         self.__init_modbus_entities__()
         # Additional sensors
@@ -147,7 +136,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._event_bus.add_haonline_listener(target=self.set_payload_offline)
         try:
             AsyncUpdater.__init__(
-                self, manager=manager, update_interval=update_interval
+                self, manager=manager, update_interval=device_config.update_interval
             )
         except Exception as e:
             _LOGGER.error("Error in AsyncUpdater: %s", e)
@@ -225,9 +214,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     )
                 else:
                     continue
-                single_sensor.set_user_filters(
-                    self._sensors_filters.get(single_sensor.decoded_name, [])
-                )
+                if self._sensors_filters is not None:
+                    single_sensor.set_user_filters(
+                        self._sensors_filters.get(single_sensor.decoded_name, [])
+                    )
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
     def __init_derived_numeric(

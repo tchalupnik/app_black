@@ -564,6 +564,9 @@ class ModbusDeviceConfig(BaseModel):
     sensor_filters: ModbusDeviceSensorFilters | None = None
     data: ModbusDeviceData | None = None
 
+    def identifier(self) -> str:
+        return self.id.replace(" ", "")
+
 
 class ExpanderConfig(BaseModel):
     address: int
@@ -617,13 +620,13 @@ class CoverConfig(BaseModel):
 
 
 class Ds2482Config(BaseModel):
-    address: int
+    address: str
     id: str | None = None
 
     def identifier(self) -> str:
         if self.id:
             return (self.id).replace(" ", "")
-        return str(self.address)
+        return self.address
 
 
 class DallasConfig(BaseModel):
