@@ -323,7 +323,7 @@ ActionConfig = Annotated[
         | CoverOverMqttActionConfig
         | OutputOverMqttActionConfig
     ),
-    Discriminator("type"),
+    Discriminator("action"),
 ]
 
 
