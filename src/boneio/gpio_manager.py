@@ -63,7 +63,7 @@ class GpioManager:
 
         line = self.pins[pin]
         chip = self.chips.get(line.chip_path)
-        if chip is not None:
+        if chip is None:
             chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
 
         chip.request_lines(
@@ -78,7 +78,7 @@ class GpioManager:
         """Write a value to a GPIO."""
         line = self.pins[pin]
         chip = self.chips.get(line.chip_path)
-        if chip is not None:
+        if chip is None:
             chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
 
         request = chip.request_lines(
@@ -95,7 +95,7 @@ class GpioManager:
         """Read a value from a GPIO."""
         line = self.pins[pin]
         chip = self.chips.get(line.chip_path)
-        if chip is not None:
+        if chip is None:
             chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
 
         request = chip.request_lines(
@@ -132,7 +132,7 @@ class GpioManager:
         line = self.pins[pin]
 
         chip = self.chips.get(line.chip_path)
-        if chip is not None:
+        if chip is None:
             chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
             self.chips[line.chip_path] = chip
 
