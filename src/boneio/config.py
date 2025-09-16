@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BaseModel, Field, RootModel, field_validator
+from pydantic import BaseModel, Discriminator, Field, RootModel, field_validator
 
 from boneio.const import (
     BINARY_SENSOR,
@@ -248,41 +248,83 @@ class ActionDataConfig(BaseModel):
     tilt_position: int | None = None
 
 
-class ActionConfig(BaseModel):
-    action: Literal[
-        "mqtt",
-        "output",
-        "output_over_mqtt",
-        "cover",
-        "cover_over_mqtt",
-    ]
+CoverActionTypes: TypeAlias = Literal[
+    "toggle",
+    "open",
+    "close",
+    "stop",
+    "toggle_open",
+    "toggle_close",
+    "tilt",
+    "tilt_open",
+    "tilt_close",
+]
+OutputActionTypes: TypeAlias = Literal["toggle", "on", "off"]
+
+
+class OutputActionConfig(BaseModel):
+    type: Literal["output"] = "output"
     pin: str
-    data: ActionDataConfig = Field(default_factory=ActionDataConfig)
-    action_mqtt_msg: str | None = None
-    topic: str | None = None
-    action_cover: Literal[
-        "toggle",
-        "open",
-        "close",
-        "stop",
-        "toggle_open",
-        "toggle_close",
-        "tilt",
-        "tilt_open",
-        "tilt_close",
-    ] = "toggle"
-    boneio_id: str | None = None
-    action_output: Literal["toggle", "on", "off"] = "toggle"
+    action_output: OutputActionTypes
+
+    @field_validator("action_output", mode="before")
+    @classmethod
+    def validate_action_output(cls, v: str) -> str:
+        return v.lower()
+
+
+class MqttActionConfig(BaseModel):
+    type: Literal["mqtt"] = "mqtt"
+    action_mqtt_msg: str
+    topic: str
+
+
+class CoverActionConfig(BaseModel):
+    type: Literal["cover"] = "cover"
+    pin: str
+    action_cover: CoverActionTypes
+    data: ActionDataConfig | None = None
 
     @field_validator("action_cover", mode="before")
     @classmethod
     def validate_action_cover(cls, v: str) -> str:
         return v.lower()
 
+
+class OutputOverMqttActionConfig(BaseModel):
+    type: Literal["output_over_mqtt"] = "output_over_mqtt"
+    pin: str
+    boneio_id: str
+    action_output: OutputActionTypes
+
     @field_validator("action_output", mode="before")
     @classmethod
     def validate_action_output(cls, v: str) -> str:
         return v.lower()
+
+
+class CoverOverMqttActionConfig(BaseModel):
+    type: Literal["cover_over_mqtt"] = "cover_over_mqtt"
+    pin: str
+    boneio_id: str
+    action_cover: CoverActionTypes
+
+    @field_validator("action_cover", mode="before")
+    @classmethod
+    def validate_action_cover(cls, v: str) -> str:
+        return v.lower()
+
+
+ActionConfig = Annotated[
+    (
+        OutputActionConfig
+        | MqttActionConfig
+        | CoverActionConfig
+        | CoverOverMqttActionConfig
+        | OutputOverMqttActionConfig
+    ),
+    Discriminator("type"),
+]
 
 
 EventActionTypes = Literal["single", "double", "long"]
@@ -386,10 +428,13 @@ class OutputConfig(BaseModel):
 
 
 class OutputGroupConfig(BaseModel):
+    id: str
     outputs: list[str]
     all_on_behaviour: bool = False
     output_type: Literal["switch", "light"] = "switch"
-    id: str | None = None
+
+    def identifier(self) -> str:
+        return self.id.replace(" ", "")
 
 
 class SensorConfig(BaseModel):

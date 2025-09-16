@@ -5,10 +5,10 @@ import json
 import logging
 import os
 import time
-import typing
-from collections import defaultdict, deque
+from collections import deque
 from collections.abc import Callable, Coroutine
 from pathlib import Path
+from typing import TYPE_CHECKING, TypeVar
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
@@ -16,10 +16,11 @@ from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
-    ActionConfig,
     AdcConfig,
     BinarySensorActionTypes,
     Config,
+    CoverActionConfig,
+    CoverOverMqttActionConfig,
     DallasConfig,
     Ds2482Config,
     EventActionTypes,
@@ -27,7 +28,10 @@ from boneio.config import (
     Mcp23017Config,
     ModbusConfig,
     ModbusDeviceConfig,
+    MqttActionConfig,
     MqttAutodiscoveryMessage,
+    OutputActionConfig,
+    OutputOverMqttActionConfig,
     Pca9685Config,
     Pcf8575Config,
     SensorConfig,
@@ -38,7 +42,6 @@ from boneio.const import (
     BUTTON,
     CLOSE,
     COVER,
-    COVER_OVER_MQTT,
     DALLAS,
     DS2482,
     EVENT_ENTITY,
@@ -53,7 +56,6 @@ from boneio.const import (
     ONLINE,
     OPEN,
     OUTPUT,
-    OUTPUT_OVER_MQTT,
     RELAY,
     SET_BRIGHTNESS,
     STATE,
@@ -61,7 +63,6 @@ from boneio.const import (
     SWITCH,
     TOPIC,
     VALVE,
-    cover_actions,
     relay_actions,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
@@ -115,7 +116,7 @@ from boneio.sensor.temp.lm75 import LM75Sensor
 from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from boneio.gpio.base import GpioBase
 
 _LOGGER = logging.getLogger(__name__)
@@ -232,10 +233,8 @@ class Manager:
             dallas=config.dallas, ds2482=config.ds2482, sensors=config.sensor
         )
 
-        _E = typing.TypeVar("_E", bound="MCP23017 | PCF8575 | PCA9685")
-        _C = typing.TypeVar(
-            "_C", bound="Mcp23017Config | Pcf8575Config | Pca9685Config"
-        )
+        _E = TypeVar("_E", bound="MCP23017 | PCF8575 | PCA9685")
+        _C = TypeVar("_C", bound="Mcp23017Config | Pcf8575Config | Pca9685Config")
 
         def create_expander(
             expanders_config: list[_C],
@@ -403,7 +402,6 @@ class Manager:
                 message_bus=self.message_bus,
                 state_manager=self.state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
-                relay_id=group.id.replace(" ", ""),
                 event_bus=self._event_bus,
                 members=members,
                 config=group,
@@ -478,114 +476,6 @@ class Manager:
                 _LOGGER.error("Can't configure cover %s. %s", _id, err)
                 continue
 
-    def parse_actions(
-        self,
-        pin: str,
-        actions: dict[EventActionTypes, list[ActionConfig]]
-        | dict[BinarySensorActionTypes, list[ActionConfig]],
-    ) -> dict[EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]]:
-        """Parse actions from config."""
-        parsed_actions: dict[
-            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-        ] = defaultdict(list)
-
-        for click_type, action_definitions in actions.items():
-            for action_definition in action_definitions:
-                if action_definition.action == OUTPUT:
-                    entity_id = action_definition.pin
-                    stripped_entity_id = strip_accents(entity_id)
-                    action_output = action_definition.action_output
-                    output = self.outputs.get(
-                        stripped_entity_id,
-                        self.output_groups.get(stripped_entity_id),
-                    )
-                    action_to_execute = relay_actions.get(action_output)
-                    if output and action_to_execute:
-                        _f = getattr(output, action_to_execute)
-                        if _f:
-                            parsed_actions[click_type].append(
-                                {
-                                    "action": action_definition.action,
-                                    "pin": stripped_entity_id,
-                                    "action_to_execute": action_to_execute,
-                                }
-                            )
-                            continue
-                    _LOGGER.warning(
-                        "Device %s for action in %s not found. Omitting.",
-                        entity_id,
-                        pin,
-                    )
-                elif action_definition.action == COVER:
-                    entity_id = action_definition.pin
-                    stripped_entity_id = strip_accents(entity_id)
-                    action_cover = action_definition.action_cover
-                    extra_data = action_definition.data
-                    cover = self.covers.get(stripped_entity_id)
-                    action_to_execute = cover_actions.get(action_cover)
-                    if cover and action_to_execute:
-                        _f = getattr(cover, action_to_execute)
-                        if _f:
-                            parsed_actions[click_type].append(
-                                {
-                                    "action": action_definition.action,
-                                    "action_to_execute": action_to_execute,
-                                    "extra_data": extra_data,
-                                }
-                            )
-                            continue
-                    _LOGGER.warning(
-                        "Device %s for action not found. Omitting.", entity_id
-                    )
-                elif action_definition.action == MQTT:
-                    action_mqtt_msg = action_definition.action_mqtt_msg
-                    action_topic = action_definition.topic
-                    if action_topic and action_mqtt_msg:
-                        parsed_actions[click_type].append(
-                            {
-                                "action": action_definition.action,
-                                "action_mqtt_msg": action_mqtt_msg,
-                                "action_topic": action_topic,
-                            }
-                        )
-                        continue
-                    _LOGGER.warning(
-                        "Device %s for action not found. Omitting.", entity_id
-                    )
-                elif action_definition.action == OUTPUT_OVER_MQTT:
-                    boneio_id = action_definition.boneio_id
-                    action_output = action_definition.action_output
-                    action_to_execute = relay_actions.get(action_output.upper())
-                    if boneio_id and action_to_execute:
-                        parsed_actions[click_type].append(
-                            {
-                                "action": action_definition.action,
-                                "boneio_id": boneio_id,
-                                "action_output": action_output,
-                            }
-                        )
-                        continue
-                    _LOGGER.warning(
-                        "Device %s for action not found. Omitting.", entity_id
-                    )
-                elif action_definition.action == COVER_OVER_MQTT:
-                    boneio_id = action_definition.boneio_id
-                    action_cover = action_definition.action_cover
-                    action_to_execute = cover_actions.get(action_cover.upper())
-                    if boneio_id and action_to_execute:
-                        parsed_actions[click_type].append(
-                            {
-                                "action": action_definition.action,
-                                "boneio_id": boneio_id,
-                                "action_cover": action_cover,
-                            }
-                        )
-                        continue
-                    _LOGGER.warning(
-                        "Device %s for action not found. Omitting.", entity_id
-                    )
-        return parsed_actions
-
     def configure_inputs(self, reload_config: bool = False) -> None:
         """Configure inputs. Either events or binary sensors."""
 
@@ -613,7 +503,6 @@ class Manager:
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self.inputs.get(gpio.pin),  # for reload actions.
-                actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
             if input:
@@ -628,7 +517,6 @@ class Manager:
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self.inputs.get(gpio.pin),  # for reload actions.
-                actions=self.parse_actions(gpio.pin, gpio.actions),
                 gpio_manager=self.gpio_manager,
             )
             if input:
@@ -833,7 +721,7 @@ class Manager:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt.
         """
-        actions = gpio.get_actions_of_click(click_type=x)
+        actions = gpio.actions.get(x, [])
         topic = f"{self.config.mqtt.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
         def generate_payload():
@@ -843,61 +731,77 @@ class Manager:
                 return {"event_type": x}
             return x
 
-        for action_definition in actions:
-            entity_id = action_definition.get("pin")
-            action = action_definition.get("action")
-
-            if action == MQTT:
-                action_topic = action_definition.get(TOPIC)
-                action_payload = action_definition.get("action_mqtt_msg")
-                if action_topic and action_payload:
-                    self.message_bus.send_message(
-                        topic=action_topic, payload=action_payload, retain=False
-                    )
+        for action in actions:
+            if isinstance(action, MqttActionConfig):
+                self.message_bus.send_message(
+                    topic=action.topic, payload=action.action_mqtt_msg, retain=False
+                )
                 continue
-            elif action == OUTPUT:
-                output = self.outputs.get(entity_id, self.output_groups.get(entity_id))
-                action_to_execute = action_definition.get("action_to_execute")
+            elif isinstance(action, OutputActionConfig):
+                output = self.outputs.get(
+                    action.pin, self.output_groups.get(action.pin)
+                )
                 duration = None
                 if start_time is not None:
                     duration = time.time() - start_time
                 _LOGGER.debug(
                     "Executing action %s for output %s. Duration: %s",
-                    action_to_execute,
+                    action.action_output,
                     output.name,
                     duration,
                 )
-                _f = getattr(output, action_to_execute)
-                await _f()
-            elif action == COVER:
-                cover = self.covers.get(entity_id)
-                action_to_execute = action_definition.get("action_to_execute")
-                extra_data = action_definition.get("extra_data", {})
+                if action.action_output == "toggle":
+                    await output.async_toggle()
+                elif action.action_output == "on":
+                    await output.async_turn_on()
+                elif action.action_output == "off":
+                    await output.async_turn_off()
+                else:
+                    raise ValueError("Wrong action output type!")
+            elif isinstance(action, CoverActionConfig):
+                cover = self.covers.get(action.pin)
                 duration = None
                 if start_time is not None:
                     duration = time.time() - start_time
                 _LOGGER.debug(
                     "Executing action %s for cover %s. Duration: %s",
-                    action_to_execute,
+                    action.action_cover,
                     cover.name,
                     duration,
                 )
-                _f = getattr(cover, action_to_execute)
-                await _f(**extra_data)
-            elif action == OUTPUT_OVER_MQTT:
-                boneio_id = action_definition.get("boneio_id")
+                match action.action_cover:
+                    case "close":
+                        await cover.close()
+                    case "open":
+                        await cover.open()
+                    case "toggle":
+                        await cover.toggle()
+                    case "stop":
+                        await cover.stop()
+                    case "toggle_open":
+                        await cover.toggle_open()
+                    case "toggle_close":
+                        await cover.toggle_close()
+                    case "tilt_open":
+                        await cover.tilt_open()
+                    case "tilt_close":
+                        await cover.tilt_close()
+                    case _:
+                        raise ValueError("Wrong action cover type!")
+            elif isinstance(action, OutputOverMqttActionConfig):
                 self.message_bus.send_message(
-                    topic=f"{boneio_id}/cmd/relay/{entity_id}/set",
-                    payload=action_definition.get("action_output"),
+                    topic=f"{action.boneio_id}/cmd/relay/{action.pin}/set",
+                    payload=action.action_output,
                     retain=False,
                 )
-            elif action == COVER_OVER_MQTT:
-                boneio_id = action_definition.get("boneio_id")
+            elif isinstance(action, CoverOverMqttActionConfig):
                 self.message_bus.send_message(
-                    topic=f"{boneio_id}/cmd/cover/{entity_id}/set",
-                    payload=action_definition.get("action_cover"),
+                    topic=f"{action.boneio_id}/cmd/cover/{action.pin}/set",
+                    payload=action.action_cover,
                     retain=False,
                 )
+            else:
+                raise ValueError("Wrong action definitiony type!")
 
         payload = generate_payload()
         _LOGGER.debug("Sending message %s for input %s", payload, topic)

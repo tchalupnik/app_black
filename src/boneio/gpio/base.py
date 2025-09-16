@@ -6,14 +6,13 @@ import subprocess
 import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any
+from typing import Any, Literal, TypeAlias
 
-from boneio.config import BinarySensorActionTypes, EventActionTypes
+from boneio.config import ActionConfig, BinarySensorActionTypes, EventActionTypes
 from boneio.const import (
     CONFIG_PIN,
     PRESSED,
     RELEASED,
-    ClickTypes,
 )
 from boneio.const import GPIO as GPIO_STR
 from boneio.gpio_manager import GpioManager
@@ -21,6 +20,8 @@ from boneio.helper.events import EventBus
 from boneio.models import InputState
 
 _LOGGER = logging.getLogger(__name__)
+
+ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
 
 
 def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
@@ -46,7 +47,7 @@ class GpioBase:
             Awaitable[None],
         ],
         name: str,
-        actions: dict[EventActionTypes | BinarySensorActionTypes, list[dict[str, Any]]],
+        actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]],
         input_type,
         empty_message_after: bool,
         event_bus: EventBus,
@@ -62,7 +63,7 @@ class GpioBase:
         self._loop = asyncio.get_running_loop()
         self._manager_press_callback = manager_press_callback
         self.name = name
-        self._actions = actions
+        self.actions = actions
         self.input_type = input_type
         self._empty_message_after = empty_message_after
         self.boneio_input = boneio_input
@@ -134,11 +135,6 @@ class GpioBase:
                 {"event_type": "input", "entity_id": self.pin, "event_state": event}
             )
         _LOGGER.debug("[%s] Released lock for event '%s'", self.name, click_type)
-
-    def get_actions_of_click(
-        self, click_type: EventActionTypes | BinarySensorActionTypes
-    ) -> list[dict[str, Any]]:
-        return self._actions.get(click_type, [])
 
     def is_pressed(self) -> bool:
         """Is button pressed."""

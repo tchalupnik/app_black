@@ -7,7 +7,7 @@ import time
 import typing
 from collections.abc import Callable
 
-from boneio.config import BinarySensorActionTypes, BinarySensorConfig, EventActionTypes
+from boneio.config import BinarySensorConfig
 from boneio.const import INPUT_SENSOR, PRESSED, RELEASED
 from boneio.gpio_manager import GpioManager
 
@@ -26,9 +26,6 @@ class GpioInputBinarySensorNew(GpioBase):
         self,
         config: BinarySensorConfig,
         manager_press_callback: Callable,
-        actions: dict[
-            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-        ],
         event_bus: EventBus,
         gpio_manager: GpioManager,
     ) -> None:
@@ -37,7 +34,7 @@ class GpioInputBinarySensorNew(GpioBase):
             pin=config.pin,
             manager_press_callback=manager_press_callback,
             name=config.identifier(),
-            actions=actions,
+            actions=config.actions,
             input_type=INPUT_SENSOR,
             empty_message_after=config.clear_message,
             event_bus=event_bus,
@@ -46,7 +43,6 @@ class GpioInputBinarySensorNew(GpioBase):
             gpio_mode=config.gpio_mode,
             gpio_manager=gpio_manager,
         )
-        self._state = self.is_pressed()
         self.button_pressed_time = 0.0
         self._click_type = (
             (RELEASED, PRESSED) if config.inverted else (PRESSED, RELEASED)

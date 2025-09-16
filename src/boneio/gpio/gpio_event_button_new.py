@@ -8,7 +8,7 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
-from boneio.config import BinarySensorActionTypes, EventActionTypes, EventConfig
+from boneio.config import EventConfig
 from boneio.const import DOUBLE, INPUT, LONG, SINGLE
 from boneio.gpio_manager import GpioManager
 from boneio.helper import ClickTimer
@@ -33,9 +33,6 @@ class GpioEventButtonNew(GpioBase):
         config: EventConfig,
         gpio_manager: GpioManager,
         manager_press_callback: Callable,
-        actions: dict[
-            EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-        ],
         event_bus: EventBus,
     ) -> None:
         """Setup GPIO Input Button"""
@@ -43,7 +40,7 @@ class GpioEventButtonNew(GpioBase):
             pin=config.pin,
             manager_press_callback=manager_press_callback,
             name=config.identifier(),
-            actions=actions,
+            actions=config.actions,
             input_type=INPUT,
             empty_message_after=config.clear_message,
             event_bus=event_bus,
@@ -52,7 +49,6 @@ class GpioEventButtonNew(GpioBase):
             gpio_manager=gpio_manager,
             bounce_time=config.bounce_time,
         )
-        self._state = self.is_pressed()
         self.button_pressed_time = 0.0
         self.last_click_time = 0.0
 

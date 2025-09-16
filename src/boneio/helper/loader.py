@@ -398,9 +398,6 @@ def configure_event_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
-    actions: dict[
-        EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-    ],
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
@@ -415,13 +412,12 @@ def configure_event_sensor(
                 "You reconfigured type of input. It's forbidden. Please restart boneIO."
             )
             return input
-        input.actions = actions
+        input.actions = event_config.actions
     else:
         try:
             if event_config.detection_type == "new":
                 input = GpioEventButtonNew(
                     config=event_config,
-                    actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
                     gpio_manager=gpio_manager,
@@ -429,7 +425,6 @@ def configure_event_sensor(
             else:
                 input = GpioEventButtonOld(
                     config=event_config,
-                    actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
                     gpio_manager=gpio_manager,
@@ -454,9 +449,6 @@ def configure_binary_sensor(
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
     gpio_manager: GpioManager,
-    actions: dict[
-        EventActionTypes | BinarySensorActionTypes, list[dict[str, typing.Any]]
-    ],
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
@@ -471,13 +463,12 @@ def configure_binary_sensor(
                 "You preconfigured type of input. It's forbidden. Please restart boneIO."
             )
             return input
-        input.actions = actions
+        input.actions = sensor_config.actions
     else:
         try:
             if sensor_config.detection_type == "new":
                 input = GpioInputBinarySensorNew(
                     config=sensor_config,
-                    actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
                     gpio_manager=gpio_manager,
@@ -485,7 +476,6 @@ def configure_binary_sensor(
             else:
                 input = GpioInputBinarySensorOld(
                     config=sensor_config,
-                    actions=actions,
                     manager_press_callback=manager_press_callback,
                     event_bus=event_bus,
                     gpio_manager=gpio_manager,

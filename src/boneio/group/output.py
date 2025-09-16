@@ -22,18 +22,17 @@ class OutputGroup(BasicRelay):
         message_bus: MessageBus,
         state_manager: StateManager,
         topic_prefix: str,
-        relay_id: str,
         event_bus: EventBus,
         members: list[BasicRelay],
     ) -> None:
         """Initialize cover class."""
         self._loop = asyncio.get_event_loop()
         super().__init__(
-            config=config,
+            id=config.id,
             message_bus=message_bus,
             state_manager=state_manager,
             topic_prefix=topic_prefix,
-            relay_id=relay_id,
+            relay_id=config.identifier(),
             event_bus=event_bus,
             members=members,
             output_type=SWITCH,
