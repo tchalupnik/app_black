@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import AsyncGenerator, Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
