@@ -148,37 +148,41 @@ class GpioManager:
         debounce_period: timedelta = timedelta(milliseconds=100),
     ) -> None:
         _LOGGER.debug("add_event_callback, pin: %s", pin)
+        gpio_pin = self.pins[pin]
+
+        if gpio_pin.configured is None or gpio_pin.request_line is None:
+            raise ValueError(f"Pin {pin} is not configured!")
+
+        if gpio_pin.configured == "out":
+            gpio_pin.request_line.reconfigure_lines(
+                config={
+                    gpio_pin.offset: gpiod.LineSettings(
+                        direction=gpiod.line.Direction.INPUT,
+                        edge_detection=gpiod.line.Edge.BOTH,
+                        # debounce_period=debounce_period,
+                    )
+                }
+            )
 
         asyncio.create_task(
             self._add_event_callback(
-                pin=pin, edge=edge, callback=callback, debounce_period=debounce_period
+                pin=pin,
+                request=gpio_pin.request_line,
+                edge=edge,
+                callback=callback,
+                debounce_period=debounce_period,
             )
         )
 
     async def _add_event_callback(
         self,
         pin: str,
+        request: gpiod.LineRequest,
         edge: Edge,
         callback: Callable[[], None],
         debounce_period: timedelta,
     ) -> None:
         """Add detection for RISING and FALLING events."""
-        line = self.pins[pin]
-
-        chip = self.chips.get(line.chip_path)
-        if chip is None:
-            chip = self.stack.enter_context(gpiod.Chip(line.chip_path))
-            self.chips[line.chip_path] = chip
-        if line.configured is None:
-            request = chip.request_lines(
-                config={
-                    line.offset: gpiod.LineSettings(
-                        edge_detection=gpiod.line.Edge.BOTH,
-                        # debounce_period=debounce_period,
-                    )
-                },
-            )
-
         fut = self._loop.create_future()
 
         def c() -> None:
