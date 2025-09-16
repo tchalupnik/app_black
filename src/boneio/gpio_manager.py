@@ -63,6 +63,16 @@ class GpioManager:
         """Set up a GPIO as input."""
 
         if mode == "in":
+            if pull_mode == "gpio":
+                bias = gpiod.line.Bias.DISABLED
+            elif pull_mode == "gpio_pu":
+                bias = gpiod.line.Bias.PULL_DOWN
+            elif pull_mode == "gpio_pd":
+                bias = gpiod.line.Bias.PULL_UP
+            elif pull_mode == "gpio_input":
+                bias = gpiod.line.Bias.DISABLED
+            else:
+                raise ValueError("Wrong gpio pull mode!")
             direction = gpiod.line.Direction.INPUT
         elif mode == "out":
             if pull_mode is not None:
@@ -72,17 +82,6 @@ class GpioManager:
             direction = gpiod.line.Direction.OUTPUT
         else:
             raise ValueError("Wrong gpio direction!")
-
-        if pull_mode == "gpio":
-            bias = gpiod.line.Bias.DISABLED
-        elif pull_mode == "gpio_pu":
-            bias = gpiod.line.Bias.PULL_DOWN
-        elif pull_mode == "gpio_pd":
-            bias = gpiod.line.Bias.PULL_UP
-        elif pull_mode == "gpio_input":
-            bias = gpiod.line.Bias.DISABLED
-        else:
-            raise ValueError("Wrong gpio pull mode!")
 
         gpio_pin = self.pins[pin]
         config: dict[Iterable[int | str] | int | str, gpiod.LineSettings | None] = {
