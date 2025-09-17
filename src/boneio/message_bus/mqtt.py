@@ -258,7 +258,7 @@ class MQTTClient(MessageBus):
         self,
         messages: AsyncGenerator[Message, None],
         callback: Callable[[str, str], Awaitable[None]],
-    ):
+    ) -> None:
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
             payload = message.payload.decode()
