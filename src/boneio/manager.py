@@ -459,7 +459,8 @@ class Manager:
             try:
                 if _id in self.covers:
                     _cover = self.covers[_id]
-                    _cover.update_config_times(cover)
+                    if isinstance(_cover, VenetianCover):
+                        _cover.update_config_times(cover)
                     continue
                 self.covers[_id] = configure_cover(
                     message_bus=self.message_bus,

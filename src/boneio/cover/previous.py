@@ -9,7 +9,6 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
-from boneio.config import CoverConfig
 from boneio.const import COVER
 from boneio.helper.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
@@ -279,6 +278,3 @@ class PreviousCover:
             await self.stop()
         else:
             await self.close()
-
-    def update_config_times(self, config: CoverConfig) -> None:
-        pass

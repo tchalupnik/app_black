@@ -7,7 +7,6 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
-from boneio.config import CoverConfig
 from boneio.cover.cover import BaseCover
 from boneio.helper.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
@@ -147,6 +146,3 @@ class TimeBasedCover(BaseCover):
                 args=(CoverDirection.CLOSE, self._close_time, target_position),
             )
             self._movement_thread.start()
-
-    def update_config_times(self, config: CoverConfig) -> None:
-        pass
