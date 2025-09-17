@@ -8,7 +8,7 @@ import os
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from yaml import MarkedYAMLError
@@ -82,11 +82,11 @@ def run(
         typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
     ] = 0,
     mqttusername: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Mqtt username to use if you don't want provide in file."),
     ] = None,
     mqttpassword: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Mqtt password to use if you don't want provide in file."),
     ] = None,
 ) -> None:
@@ -122,17 +122,15 @@ def modbus_set(
         typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
     ] = 0,
     new_address: Annotated[
-        Optional[int], typer.Option(help="Set new address (hex or integer / 1 - 253/)")
+        int | None, typer.Option(help="Set new address (hex or integer / 1 - 253/)")
     ] = None,
     new_baudrate: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(help="Choose new baudrate to set. CWT doesn't work on 1200."),
     ] = None,
-    custom_value: Annotated[
-        Optional[int], typer.Option(help="Set Custom value")
-    ] = None,
+    custom_value: Annotated[int | None, typer.Option(help="Set Custom value")] = None,
     custom_register_address: Annotated[
-        Optional[int], typer.Option(help="Register address for custom value")
+        int | None, typer.Option(help="Register address for custom value")
     ] = None,
 ) -> None:
     """Set modbus device parameters."""
@@ -178,10 +176,10 @@ def modbus_get(
         typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
     ] = 0,
     register_address: Annotated[
-        Optional[int], typer.Option(help="Single register address to read")
+        int | None, typer.Option(help="Single register address to read")
     ] = None,
     register_range: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Register address range in format 'start-stop' (e.g., '1-230')"
         ),
@@ -257,7 +255,7 @@ def version_callback(value: bool) -> None:
 def main_callback(
     ctx: typer.Context,
     version: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--version",
             callback=version_callback,
