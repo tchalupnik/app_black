@@ -17,12 +17,10 @@ from boneio.logger import configure_logger, setup_logging
 from boneio.version import __version__
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
-TASK_CANCELATION_TIMEOUT = 1
 
 _LOGGER = logging.getLogger(__name__)
 
 
-# Define enums for choices
 class UartChoice(str, Enum):
     uart1 = "uart1"
     uart4 = "uart4"
@@ -57,10 +55,8 @@ class ValueTypeChoice(str, Enum):
     S_DWORD_R = "S_DWORD_R"
 
 
-# Create the main typer app
 app = typer.Typer(help="boneIO app for BeagleBone Black.")
 
-# Create the modbus subcommand group
 modbus_app = typer.Typer(help="Modbus commands")
 app.add_typer(modbus_app, name="modbus")
 
