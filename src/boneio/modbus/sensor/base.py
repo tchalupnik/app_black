@@ -37,7 +37,7 @@ class BaseSensor(Filter):
         self.name = name
         self._parent = parent
         self._decoded_name = self.name.replace(" ", "")
-        self._decoded_name_low = self.name.replace(" ", "").lower()
+        self.decoded_name = self.name.replace(" ", "").lower()
         self.unit_of_measurement = unit_of_measurement
         self._state_class = state_class
         self._device_class = device_class
@@ -52,8 +52,9 @@ class BaseSensor(Filter):
         self.last_timestamp = time.time()
         self._topic = (
             f"{self.config.mqtt.ha_discovery.topic_prefix}/{self._ha_type_}/{self.config.mqtt.topic_prefix}{self._parent[ID]}"
-            f"/{self._parent[ID]}{self._decoded_name_low.replace('_', '')}/config"
+            f"/{self._parent[ID]}{self.decoded_name.replace('_', '')}/config"
         )
+        self.write_address: int | None = None
 
     def set_user_filters(self, user_filters: list[dict[Filters, float]]) -> None:
         self._user_filters = user_filters
@@ -76,16 +77,8 @@ class BaseSensor(Filter):
         return self._value
 
     @property
-    def decoded_name(self) -> str:
-        return self._decoded_name_low
-
-    @property
-    def write_address(self) -> int | None:
-        return None
-
-    @property
     def id(self) -> str:
-        return f"{self._parent[ID]}{self._decoded_name_low}"
+        return f"{self._parent[ID]}{self.decoded_name}"
 
     def send_ha_discovery(self):
         payload = self.discovery_message()
