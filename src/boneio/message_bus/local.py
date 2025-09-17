@@ -18,7 +18,7 @@ class LocalMessageBus(MessageBus):
 
     def __init__(self):
         """Initialize local message bus."""
-        self.state = True
+        self.connection_established = True
         self._subscribers: dict[str, set[Callable]] = {}
         self._retain_values: dict[str, str | dict] = {}
         self.manager: Manager | None = None
@@ -56,3 +56,6 @@ class LocalMessageBus(MessageBus):
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
+
+    def is_connection_established(self) -> bool:
+        return self.connection_established

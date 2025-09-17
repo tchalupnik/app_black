@@ -250,7 +250,7 @@ class MQTTClient(MessageBus):
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
 
-    def state(self) -> bool:
+    def is_connection_established(self) -> bool:
         """State of MQTT Client."""
         return self._connection_established
 

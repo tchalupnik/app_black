@@ -16,9 +16,8 @@ class MessageBus(ABC):
     ) -> None:
         """Send a message."""
 
-    @property
     @abstractmethod
-    def state(self) -> bool:
+    def is_connection_established(self) -> bool:
         """Get bus state."""
 
     @abstractmethod

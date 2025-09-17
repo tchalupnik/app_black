@@ -209,7 +209,9 @@ class HostData:
                             "col": 3,
                         },
                         "MQTT": {
-                            "data": "CONN" if manager.message_bus.state else "DOWN",
+                            "data": "CONN"
+                            if manager.message_bus.is_connection_established()
+                            else "DOWN",
                             "fontSize": "small",
                             "row": 3,
                             "col": 60,
