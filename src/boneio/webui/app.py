@@ -898,32 +898,28 @@ async def update_section_content(section: str, data: dict = Body(...)) -> dict:
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
 
-def on_exit(self) -> None:
-    asyncio.create_task(app.state.websocket_manager.close_all())
-
-
-async def input_state_changed(input_: InputState):
+async def input_state_changed(input_: InputState) -> None:
     """Callback when input state changes."""
     await app.state.websocket_manager.broadcast_state("input", input_)
 
 
-async def output_state_changed(event: OutputState):
+async def output_state_changed(event: OutputState) -> None:
     """Callback when output state changes."""
     await app.state.websocket_manager.broadcast_state("output", event)
 
 
-async def cover_state_changed(event: CoverState):
+async def cover_state_changed(event: CoverState) -> None:
     """Callback when cover state changes."""
     await app.state.websocket_manager.broadcast_state("cover", event)
 
 
-async def sensor_state_changed(event: SensorState):
-    """Callback when output state changes."""
+async def sensor_state_changed(event: SensorState) -> None:
+    """Callback when sensor state changes."""
     await app.state.websocket_manager.broadcast_state("sensor", event)
 
 
-async def modbus_device_state_changed(event: SensorState):
-    """Callback when output state changes."""
+async def modbus_device_state_changed(event: SensorState) -> None:
+    """Callback when modbus device state changes."""
     await app.state.websocket_manager.broadcast_state("modbus_device", event)
 
 
