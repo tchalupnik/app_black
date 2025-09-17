@@ -4,6 +4,7 @@ import logging
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 UTC = dt.timezone.utc
@@ -19,7 +20,7 @@ time_tracker_utcnow = utcnow
 
 
 def _async_create_timer(
-    loop: asyncio.AbstractEventLoop, event_callback
+    loop: asyncio.AbstractEventLoop, event_callback: Callable[[dt.datetime], None]
 ) -> CALLBACK_TYPE:
     """Create a timer that will start on BoneIO start."""
     handle = None
@@ -48,21 +49,21 @@ def _async_create_timer(
 class ListenerJob:
     """Listener to represent jobs during runtime."""
 
-    def __init__(self, target) -> None:
+    def __init__(self, target: Callable) -> None:
         """Initialize listener."""
         self.target = target
         self._handle = None
 
-    def add_handle(self, handle):
+    def add_handle(self, handle: Any) -> None:
         """Add handle to listener."""
         self._handle = handle
 
-    def set_target(self, target) -> None:
+    def set_target(self, target: Callable) -> None:
         """Set target."""
         self.target = target
 
     @property
-    def handle(self):
+    def handle(self) -> Any:
         """Return handle."""
         return self._handle
 
@@ -126,7 +127,7 @@ class EventBus:
             finally:
                 self._event_queue.task_done()
 
-    async def _handle_event(self, event: dict):
+    async def _handle_event(self, event: dict[str, Any]) -> None:
         """
         Dispatch event to registered listeners.
         :param event: dict or object with at least 'event_type' field
@@ -149,7 +150,7 @@ class EventBus:
             except Exception as exc:
                 _LOGGER.error("Listener error: %s", exc)
 
-    def trigger_event(self, event):
+    def trigger_event(self, event: dict[str, Any]) -> None:
         """
         Put event into the queue for async processing.
         :param event: dict or object with at least 'event_type' field
@@ -238,7 +239,7 @@ class EventBus:
         self._sigterm_listeners.append(target)
 
     def add_event_listener(
-        self, event_type: str, entity_id: str, listener_id: str, target
+        self, event_type: str, entity_id: str, listener_id: str, target: Callable
     ) -> ListenerJob:
         """Add event listener.
 

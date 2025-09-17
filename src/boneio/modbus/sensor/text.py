@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import logging
-
 from boneio.config import Config
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
 
 from .base import BaseSensor
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ModbusTextSensor(BaseSensor):
@@ -82,11 +78,11 @@ class ModbusTextSensor(BaseSensor):
         """Give rounded value of temperature."""
         return self._value or ""
 
-    def set_value(self, value, timestamp: float) -> None:
+    def set_value(self, value: str, timestamp: float) -> None:
         self._timestamp = timestamp
         self._value = self._value_mapping.get(str(value), "Unknown")
 
-    def discovery_message(self):
+    def discovery_message(self) -> dict:
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
             "sensor_id": self.name,

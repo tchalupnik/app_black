@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import tempfile
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Response,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -224,7 +226,9 @@ origins = [
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         # Skip auth for login endpoint and static files
         if (
             not request.url.path.startswith("/api")
@@ -288,7 +292,7 @@ async def login(
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
-def create_token(data: dict) -> str:
+def create_token(data: dict[str, str]) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)  # Token expires in 7 days
     to_encode.update({"exp": expire})
@@ -311,7 +315,7 @@ def _clean_ansi(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
-def _decode_ascii_list(ascii_list: list) -> str:
+def _decode_ascii_list(ascii_list: list[int]) -> str:
     """Decode a list of ASCII codes into a string and clean ANSI codes."""
     try:
         # Convert ASCII codes to string
@@ -323,7 +327,7 @@ def _decode_ascii_list(ascii_list: list) -> str:
         return str(ascii_list)
 
 
-def _parse_systemd_log_entry(entry: dict) -> dict:
+def _parse_systemd_log_entry(entry: dict[str, str]) -> dict[str, str]:
     """Parse a systemd journal log entry."""
     # Handle MESSAGE field if it's a list of ASCII codes
     if isinstance(entry.get("MESSAGE"), list):
@@ -607,7 +611,7 @@ async def restart_service(background_tasks: BackgroundTasks) -> StatusResponse:
     if not is_running_as_service():
         return StatusResponse(status="not available")
 
-    async def shutdown_and_restart():
+    async def shutdown_and_restart() -> None:
         # First stop the web server
         if app.state.web_server:
             await asyncio.sleep(0.1)  # Allow time for the response to be sent
@@ -650,7 +654,7 @@ async def check_update() -> UpdateCheckResponse:
             )
 
         # Function to filter out prereleases if needed
-        def not_prerelease(release):
+        def not_prerelease(release: dict[str, bool]) -> bool:
             return not release.get("prerelease", False)
 
         # Get the latest release (you can choose to include or exclude prereleases)
@@ -704,7 +708,7 @@ async def update_boneio(background_tasks: BackgroundTasks) -> StatusWithMessageR
             message="Update is only available when running as a service",
         )
 
-    async def update_and_restart():
+    async def update_and_restart() -> None:
         try:
             # Allow time for the response to be sent
             await asyncio.sleep(0.5)
@@ -797,7 +801,7 @@ async def list_files(path: str | None = None) -> FilesResponse:
     if not base_dir.is_dir():
         raise HTTPException(status_code=400, detail="Path is not a directory")
 
-    def scan_directory(directory: Path):
+    def scan_directory(directory: Path) -> list[dict[str, str]]:
         items = []
         for entry in os.scandir(directory):
             if entry.name == ".git" or entry.name.startswith("venv"):
@@ -958,7 +962,7 @@ def init_app(
     return app
 
 
-def add_listener_for_all_outputs(boneio_manager: Manager):
+def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
     for output in boneio_manager.outputs.values():
         if output.output_type == COVER or output.output_type == NONE:
             continue
@@ -970,13 +974,13 @@ def add_listener_for_all_outputs(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_outputs(boneio_manager: Manager):
+def remove_listener_for_all_outputs(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(
         event_type="output", listener_id="ws"
     )
 
 
-def add_listener_for_all_covers(boneio_manager: Manager):
+def add_listener_for_all_covers(boneio_manager: Manager) -> None:
     for cover in boneio_manager.covers.values():
         boneio_manager.event_bus.add_event_listener(
             event_type="cover",
@@ -986,11 +990,11 @@ def add_listener_for_all_covers(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_covers(boneio_manager: Manager):
+def remove_listener_for_all_covers(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(event_type="cover")
 
 
-def add_listener_for_all_inputs(boneio_manager: Manager):
+def add_listener_for_all_inputs(boneio_manager: Manager) -> None:
     for input in boneio_manager.inputs.values():
         boneio_manager.event_bus.add_event_listener(
             event_type="input",
@@ -1000,11 +1004,11 @@ def add_listener_for_all_inputs(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_inputs(boneio_manager: Manager):
+def remove_listener_for_all_inputs(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener("input")
 
 
-def sensor_listener_for_all_sensors(boneio_manager: Manager):
+def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
     for modbus_coordinator in boneio_manager.modbus_coordinators.values():
         if not modbus_coordinator:
             continue
@@ -1033,7 +1037,7 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_sensors(boneio_manager: Manager):
+def remove_listener_for_all_sensors(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(listener_id="ws")
     boneio_manager.event_bus.remove_event_listener(
         event_type="sensor", listener_id="ws"

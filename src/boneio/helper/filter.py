@@ -21,7 +21,7 @@ FILTERS = {
 
 
 class Filter:
-    _filters = []
+    _filters: list[dict[Filters, float]] = []
 
     def _apply_filters(
         self, value: float | None, filters: list[dict[Filters, float]] | None = None

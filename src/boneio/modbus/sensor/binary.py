@@ -54,7 +54,7 @@ class ModbusBinarySensor(ModbusBaseSensor):
         self._payload_off = payload_off
         self._payload_on = payload_on
 
-    def discovery_message(self):
+    def discovery_message(self) -> dict:
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"
         kwargs = {
             "value_template": value_template,

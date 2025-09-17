@@ -24,7 +24,7 @@ class StateManager:
         self._file_uptodate = False
         self._save_attributes_callback = None
 
-    def load_states(self) -> dict:
+    def load_states(self) -> dict[str, Any]:
         """Load state file."""
         try:
             with self._file_path.open() as state_file:

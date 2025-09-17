@@ -42,7 +42,7 @@ class ModbusDerivedSelect(BaseSensor):
         """Give rounded value of temperature."""
         return self._value or ""
 
-    def discovery_message(self):
+    def discovery_message(self) -> dict:
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
             "entity_id": self.name,

@@ -33,7 +33,7 @@ async def async_run(
     """Run BoneIO."""
     configure_logger(log_config=config.logger, debug=debug)
     web_server: WebServer | None = None
-    tasks: set[asyncio.Task] = set()
+    tasks: set[asyncio.Task[None]] = set()
     event_bus = EventBus(loop=asyncio.get_event_loop())
     shutdown_event = asyncio.Event()
     loop = asyncio.get_event_loop()

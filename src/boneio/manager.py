@@ -10,10 +10,10 @@ from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from adafruit_mcp230xx.mcp23017 import MCP23017
-from adafruit_pca9685 import PCA9685
-from busio import I2C
-from w1thermsensor.errors import KernelModuleLoadError
+from adafruit_mcp230xx.mcp23017 import MCP23017  # type: ignore
+from adafruit_pca9685 import PCA9685  # type: ignore
+from busio import I2C  # type: ignore
+from w1thermsensor.errors import KernelModuleLoadError  # type: ignore
 
 from boneio.config import (
     AdcConfig,
@@ -160,11 +160,11 @@ class Manager:
         self.output_groups: dict[str, OutputGroup] = {}
         self.interlock_manager = SoftwareInterlockManager()
 
-        self.tasks: list[asyncio.Task] = []
+        self.tasks: list[asyncio.Task[None]] = []
         self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self.temp_sensors: list[TempSensor] = []
         self.ina219_sensors: list[INA219] = []
-        self.modbus_coordinators = {}
+        self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         self.modbus: Modbus | None = None
 
         if config.modbus is not None:
@@ -523,10 +523,12 @@ class Manager:
             if input:
                 self.inputs[input.pin] = input
 
-    def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Task:
+    def append_task(
+        self, coro: Coroutine[None, None, None], name: str = "Unknown"
+    ) -> asyncio.Task[None]:
         """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
-        task: asyncio.Task = asyncio.create_task(coro)
+        task: asyncio.Task[None] = asyncio.create_task(coro)
         self.tasks.append(task)
         return task
 
@@ -566,7 +568,7 @@ class Manager:
             from boneio.helper.loader import configure_dallas
 
             try:
-                from w1thermsensor.kernel import load_kernel_modules
+                from w1thermsensor.kernel import load_kernel_modules  # type: ignore
 
                 load_kernel_modules()
 

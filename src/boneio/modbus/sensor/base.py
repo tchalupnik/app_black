@@ -34,11 +34,11 @@ class BaseSensor(Filter):
             user_filters = []
         if filters is None:
             filters = []
-        self._name = name
+        self.name = name
         self._parent = parent
-        self._decoded_name = self._name.replace(" ", "")
-        self._decoded_name_low = self._name.replace(" ", "").lower()
-        self._unit_of_measurement = unit_of_measurement
+        self._decoded_name = self.name.replace(" ", "")
+        self._decoded_name_low = self.name.replace(" ", "").lower()
+        self.unit_of_measurement = unit_of_measurement
         self._state_class = state_class
         self._device_class = device_class
         self._message_bus = message_bus
@@ -46,10 +46,10 @@ class BaseSensor(Filter):
         self._user_filters = user_filters
         self._filters = filters
         self._value = None
-        self._return_type = return_type
-        self._value_type = value_type
+        self.return_type = return_type
+        self.value_type = value_type
         self._ha_filter = ha_filter
-        self._timestamp = time.time()
+        self.last_timestamp = time.time()
         self._topic = (
             f"{self.config.mqtt.ha_discovery.topic_prefix}/{self._ha_type_}/{self.config.mqtt.topic_prefix}{self._parent[ID]}"
             f"/{self._parent[ID]}{self._decoded_name_low.replace('_', '')}/config"
@@ -58,25 +58,17 @@ class BaseSensor(Filter):
     def set_user_filters(self, user_filters: list[dict[Filters, float]]) -> None:
         self._user_filters = user_filters
 
-    def set_value(self, value, timestamp: float) -> None:
+    def set_value(self, value: float | None, timestamp: float) -> None:
         value = self._apply_filters(value=value)
         value = self._apply_filters(
             value=value,
             filters=self._user_filters,
         )
         self._value = value
-        self._timestamp = timestamp
+        self.last_timestamp = timestamp
 
-    @property
-    def return_type(self) -> str:
-        return self._return_type
-
-    def get_value(self):
+    def get_value(self) -> float | None:
         return self._value
-
-    @property
-    def value_type(self) -> str:
-        return self._value_type
 
     @property
     def state(self) -> str | float:
@@ -86,19 +78,6 @@ class BaseSensor(Filter):
     @property
     def decoded_name(self) -> str:
         return self._decoded_name_low
-
-    @property
-    def name(self) -> str:
-        """Return name of the sensor."""
-        return self._name
-
-    @property
-    def unit_of_measurement(self) -> str:
-        return self._unit_of_measurement
-
-    @property
-    def last_timestamp(self) -> float:
-        return self._timestamp
 
     @property
     def write_address(self) -> int | None:
@@ -113,7 +92,7 @@ class BaseSensor(Filter):
         _LOGGER.debug(
             "Sending %s discovery message for %s of %s",
             self._ha_type_,
-            self._name,
+            self.name,
             self._parent[ID],
         )
         self.config.mqtt.autodiscovery_messages.add_message(
@@ -122,7 +101,7 @@ class BaseSensor(Filter):
         )
         self._message_bus.send_message(topic=self._topic, payload=payload)
 
-    def discovery_message(self):
+    def discovery_message(self) -> dict:
         value_template = (
             f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}"
             if self._ha_filter
@@ -198,13 +177,5 @@ class ModbusBaseSensor(BaseSensor):
             user_filters=user_filters,
             ha_filter=ha_filter,
         )
-        self._register_address = register_address
-        self._base_address = base_address
-
-    @property
-    def address(self) -> int:
-        return self._register_address
-
-    @property
-    def base_address(self) -> int:
-        return self._base_address
+        self.address = register_address
+        self.base_address = base_address
