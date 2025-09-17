@@ -15,7 +15,6 @@ from yaml import MarkedYAMLError
 
 from boneio.logger import configure_logger, setup_logging
 from boneio.version import __version__
-from boneio.yaml import ConfigurationError, load_config
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 TASK_CANCELATION_TIMEOUT = 1
@@ -278,6 +277,7 @@ def run_boneio(
 ) -> int:
     """Run BoneIO."""
     from boneio.runner import async_run
+    from boneio.yaml import ConfigurationError, load_config
 
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
@@ -317,6 +317,7 @@ def run_modbus_set_helper(
 ) -> int:
     """Run modbus set command helper."""
     from boneio.modbus.modbuscli import async_run_modbus_set
+    from boneio.yaml import ConfigurationError
 
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
@@ -358,6 +359,7 @@ def run_modbus_get_helper(
 ) -> int:
     """Run modbus get command helper."""
     from boneio.modbus.modbuscli import async_run_modbus_get
+    from boneio.yaml import ConfigurationError
 
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
@@ -395,6 +397,7 @@ def run_modbus_search_helper(
 ) -> int:
     """Run modbus search command helper."""
     from boneio.modbus.modbuscli import async_run_modbus_search
+    from boneio.yaml import ConfigurationError
 
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
