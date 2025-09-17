@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Literal
 
 from boneio.const import REGISTERS, UARTS
 
@@ -99,7 +100,7 @@ class ModbusHelper:
             _LOGGER.info("Operation succeeded. Now restart device by disconnecting it.")
             return 0
 
-    def set_new_address(self, new_address: int):
+    def set_new_address(self, new_address: int) -> None:
         if 0 < new_address < 253:
             _LOGGER.debug("New address register is %s", self._model[SET_ADDRESS])
             result = self._modbus.client.write_register(
@@ -116,7 +117,7 @@ class ModbusHelper:
         else:
             _LOGGER.error("Invalid new address.")
 
-    def set_custom_command(self, register_address: int, value: int | float):
+    def set_custom_command(self, register_address: int, value: int | float) -> None:
         result = self._modbus.client.write_register(
             address=register_address,
             value=value,
@@ -140,7 +141,7 @@ async def async_run_modbus_set(
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
-):
+) -> Literal[0, 1]:
     """Run Modbus Set Function."""
     if new_address and new_baudrate:
         _LOGGER.error("Can't set both methods new_address and new_baudrate.")
@@ -206,7 +207,7 @@ async def async_run_modbus_search(
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
-):
+) -> Literal[0]:
     """Run Modbus Search Function."""
     _modbus = Modbus(
         uart=UARTS[uart],
@@ -248,7 +249,7 @@ async def async_run_modbus_get(
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
-):
+) -> Literal[0, 1]:
     """Run Modbus Get Function."""
     _LOGGER.debug(
         "Connecting with params uart: %s, baudrate: %s, stopbits: %s, bytesize: %s, parity: %s.",
