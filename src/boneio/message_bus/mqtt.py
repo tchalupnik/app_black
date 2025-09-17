@@ -25,7 +25,6 @@ from boneio.const import (
     PAHO,
     STATE,
 )
-from boneio.helper.events import GracefulExit
 from boneio.helper.queue import UniqueQueue
 
 if TYPE_CHECKING:
@@ -202,7 +201,7 @@ class MQTTClient(MessageBus):
                     self.publish_queue.set_connected(False)
                     await asyncio.sleep(self.reconnect_interval)
                     self.create_client()  # reset connect/reconnect futures
-        except (asyncio.CancelledError, GracefulExit):
+        except asyncio.CancelledError:
             _LOGGER.info("MQTT client shutting down...")
             await self.asyncio_client.disconnect(timeout=1.0)
             # raise

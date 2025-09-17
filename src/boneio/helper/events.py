@@ -45,14 +45,6 @@ def _async_create_timer(
     return stop_timer
 
 
-class GracefulExit(SystemExit):
-    """Graceful exit."""
-
-    def __init__(self, msg=None, code=None):
-        super(GracefulExit, self).__init__(msg)
-        self.code = code
-
-
 class ListenerJob:
     """Listener to represent jobs during runtime."""
 

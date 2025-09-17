@@ -11,8 +11,7 @@ from pathlib import Path
 
 from boneio.config import Config
 from boneio.gpio_manager import GpioManager
-from boneio.helper.events import EventBus, GracefulExit
-from boneio.helper.exceptions import RestartRequestException
+from boneio.helper.events import EventBus
 from boneio.logger import configure_logger
 from boneio.manager import Manager
 from boneio.message_bus import LocalMessageBus, MQTTClient
@@ -120,8 +119,6 @@ async def async_run(
         return 0
     except asyncio.CancelledError:
         _LOGGER.info("Main task cancelled")
-    except (RestartRequestException, GracefulExit):
-        _LOGGER.info("Restart or graceful exit requested")
     except Exception as e:
         _LOGGER.error("Unexpected error: %s - %s", type(e).__name__, e)
     except BaseException as e:

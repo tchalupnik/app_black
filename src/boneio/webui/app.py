@@ -37,7 +37,6 @@ from starlette.websockets import WebSocketState
 from boneio.config import Config
 from boneio.const import COVER, NONE
 from boneio.cover.venetian import VenetianCover
-from boneio.helper.events import GracefulExit
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -110,7 +109,7 @@ class BoneIOApp(FastAPI):
                                 {"type": "lifespan.shutdown.failed", "message": str(e)}
                             )
                         return
-            except (asyncio.CancelledError, GracefulExit):
+            except asyncio.CancelledError:
                 # Handle graceful exit during lifespan
                 _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
                 await self.shutdown_handler()

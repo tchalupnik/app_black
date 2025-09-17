@@ -2,12 +2,7 @@
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.helper.click_timer import ClickTimer
-from boneio.helper.exceptions import (
-    CoverConfigurationError,
-    GPIOInputException,
-    GPIOOutputException,
-    I2CError,
-)
+from boneio.helper.exceptions import CoverConfigurationError, I2CError
 from boneio.helper.ha_discovery import (
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
@@ -39,8 +34,6 @@ __all__ = [
     "ha_event_availabilty_message",
     "ha_led_availabilty_message",
     "CoverConfigurationError",
-    "GPIOInputException",
-    "GPIOOutputException",
     "I2CError",
     "StateManager",
     "AsyncUpdater",
