@@ -71,7 +71,6 @@ from boneio.gpio import GpioEventButtonsAndSensors
 from boneio.gpio_manager import GpioManager
 from boneio.group.output import OutputGroup
 from boneio.helper import (
-    GPIOInputException,
     HostData,
     I2CError,
     StateManager,
@@ -148,7 +147,6 @@ class Manager:
 
         self._loop = asyncio.get_event_loop()
         self.config = config
-        self._host_data: HostData | None = None
         self._config_file_path = config_file_path
         self.event_bus = event_bus
         self.message_bus = message_bus
@@ -346,17 +344,20 @@ class Manager:
             devices=config.modbus_devices
         )
 
+        self._host_data = HostData(
+            manager=self,
+            event_bus=self.event_bus,
+            enabled_screens=config.oled.screens if config.oled is not None else [],
+            output=self.grouped_outputs_by_expander,
+            inputs=self.inputs,
+            temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
+            ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
+            extra_sensors=config.oled.extra_screen_sensors
+            if config.oled is not None
+            else [],
+        )
+
         if config.oled is not None and config.oled.enabled:
-            self._host_data = HostData(
-                manager=self,
-                event_bus=self.event_bus,
-                enabled_screens=config.oled.screens,
-                output=self.grouped_outputs_by_expander,
-                inputs=self.inputs,
-                temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
-                ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
-                extra_sensors=config.oled.extra_screen_sensors,
-            )
             try:
                 oled = Oled(
                     host_data=self._host_data,
@@ -366,7 +367,7 @@ class Manager:
                     event_bus=self.event_bus,
                     gpio_manager=self.gpio_manager,
                 )
-            except (GPIOInputException, I2CError) as err:
+            except I2CError as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
             else:
                 oled.render_display()
@@ -971,15 +972,15 @@ class Manager:
         **kwargs,
     ) -> None:
         """Send HA autodiscovery information for each relay."""
+        if self.config.mqtt is None:
+            return
         if not self.config.mqtt.ha_discovery.enabled:
             return
         topic_prefix = topic_prefix or self.config.mqtt.topic_prefix
         web_url = None
         if self.config.web is not None:
             network_state = get_network_info()
-            if self._host_data is not None:
-                web_url = self._host_data.web_url
-            elif IP in network_state:
+            if IP in network_state:
                 web_url = f"http://{network_state[IP]}:{self.config.web.port}"
         payload = availability_msg_func(
             topic=topic_prefix,

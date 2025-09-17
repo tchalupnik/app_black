@@ -60,19 +60,15 @@ def display_time(seconds: float) -> str:
 
 def get_network_info():
     """Fetch network info."""
-
-    def retrieve_from_psutil():
-        addrs = psutil.net_if_addrs()["eth0"]
-        out = {IP: NONE, MASK: NONE, MAC: NONE}
-        for addr in addrs:
-            if addr.family == socket.AF_INET:
-                out["ip"] = addr.address
-                out["mask"] = addr.netmask if addr.netmask is not None else ""
-            elif addr.family == psutil.AF_LINK:
-                out["mac"] = addr.address
-        return out
-
-    return retrieve_from_psutil()
+    addrs = psutil.net_if_addrs()["eth0"]
+    out = {IP: NONE, MASK: NONE, MAC: NONE}
+    for addr in addrs:
+        if addr.family == socket.AF_INET:
+            out["ip"] = addr.address
+            out["mask"] = addr.netmask if addr.netmask is not None else ""
+        elif addr.family == psutil.AF_LINK:
+            out["mac"] = addr.address
+    return out
 
 
 def get_cpu_info() -> dict[str, str]:
