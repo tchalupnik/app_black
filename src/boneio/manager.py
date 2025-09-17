@@ -150,7 +150,7 @@ class Manager:
         self.config = config
         self._host_data: HostData | None = None
         self._config_file_path = config_file_path
-        self._event_bus = event_bus
+        self.event_bus = event_bus
         self.message_bus = message_bus
         self.inputs: dict[str, GpioEventButtonsAndSensors] = {}
         from board import SCL, SDA  # type: ignore
@@ -306,12 +306,12 @@ class Manager:
                 name=output.id,
                 restore_state=output.restore_state,
                 relay_id=_id,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
             )
             if out is None:
                 continue
             if output.restore_state:
-                self._event_bus.add_event_listener(
+                self.event_bus.add_event_listener(
                     event_type="output",
                     entity_id=out.id,
                     listener_id="manager",
@@ -349,7 +349,7 @@ class Manager:
         if config.oled is not None and config.oled.enabled:
             self._host_data = HostData(
                 manager=self,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 enabled_screens=config.oled.screens,
                 output=self.grouped_outputs_by_expander,
                 inputs=self.inputs,
@@ -363,7 +363,7 @@ class Manager:
                     screen_order=config.oled.screens,
                     grouped_outputs_by_expander=self.grouped_outputs_by_expander.keys(),
                     sleep_timeout=config.oled.screensaver_timeout,
-                    event_bus=self._event_bus,
+                    event_bus=self.event_bus,
                     gpio_manager=self.gpio_manager,
                 )
             except (GPIOInputException, I2CError) as err:
@@ -403,7 +403,7 @@ class Manager:
                 message_bus=self.message_bus,
                 state_manager=self.state_manager,
                 topic_prefix=self.config.mqtt.topic_prefix,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 members=members,
                 config=group,
             )
@@ -468,7 +468,7 @@ class Manager:
                     config=cover,
                     open_relay=open_relay,
                     close_relay=close_relay,
-                    event_bus=self._event_bus,
+                    event_bus=self.event_bus,
                     send_ha_autodiscovery=self.send_ha_autodiscovery,
                     topic_prefix=self.config.mqtt.topic_prefix,
                 )
@@ -501,7 +501,7 @@ class Manager:
             input = configure_event_sensor(
                 event_config=gpio,
                 manager_press_callback=self.press_callback,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self.inputs.get(gpio.pin),  # for reload actions.
                 gpio_manager=self.gpio_manager,
@@ -515,7 +515,7 @@ class Manager:
             input = configure_binary_sensor(
                 sensor_config=gpio,
                 manager_press_callback=self.press_callback,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self.inputs.get(gpio.pin),  # for reload actions.
                 gpio_manager=self.gpio_manager,
@@ -645,7 +645,7 @@ class Manager:
             return create_modbus_coordinators(
                 manager=self,
                 message_bus=self.message_bus,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 entries=devices,
                 modbus=self.modbus,
                 config=self.config,
@@ -658,20 +658,13 @@ class Manager:
         topic = f"{self.config.mqtt.topic_prefix}/{STATE}"
         self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
 
-    @property
-    def event_bus(self) -> EventBus:
-        return self._event_bus
-
     async def _relay_callback(
         self,
         event: OutputState,
     ) -> None:
         """Relay callback function."""
-        self.state_manager.save_attribute(
-            attr_type=RELAY,
-            attribute=event.id,
-            value=event.state == ON,
-        )
+        self.state_manager.state.relay[event.id] = {"state": event.state == ON}
+        self.state_manager.save()
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
@@ -833,7 +826,7 @@ class Manager:
         if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
             if message == ONLINE:
                 await self.resend_autodiscovery()
-                self._event_bus.signal_ha_online()
+                self.event_bus.signal_ha_online()
             return
         try:
             assert topic.startswith(self.config.mqtt.cmd_topic_prefix())

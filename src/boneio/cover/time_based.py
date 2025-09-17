@@ -8,16 +8,16 @@ from collections.abc import Callable
 from datetime import timedelta
 
 from boneio.config import CoverConfig
-from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.cover.cover import BaseCover
 from boneio.helper.events import EventBus
+from boneio.helper.state_manager import CoverStateEntry
+from boneio.models import CoverDirection, CoverStateOperation
 from boneio.relay import MCPRelay
 
 if typing.TYPE_CHECKING:
     from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
-DEFAULT_RESTORED_STATE = {"position": 100}
 
 
 class TimeBasedCover(BaseCover):
@@ -28,18 +28,15 @@ class TimeBasedCover(BaseCover):
         id: str,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
-        state_save: Callable,
+        state_save: Callable[[CoverStateEntry], None],
         open_time: timedelta,
         close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
-        restored_state: dict = DEFAULT_RESTORED_STATE,
-        position: int = 100,
+        restored_state: CoverStateEntry,
     ) -> None:
-        position = int(
-            restored_state.get("position", DEFAULT_RESTORED_STATE["position"])
-        )
+        position = int(restored_state.position)
         super().__init__(
             id=id,
             open_relay=open_relay,
@@ -54,23 +51,24 @@ class TimeBasedCover(BaseCover):
         )
 
     def _move_cover(
-        self, direction: str, duration: float, target_position: int | None = None
+        self,
+        direction: CoverDirection,
+        duration: float,
+        target_position: int | None = None,
     ):
         """Metoda uruchamiana w oddzielnym wątku do fizycznego ruchu rolety."""
-        if direction == OPEN:
+        if direction == CoverDirection.OPEN:
             relay = self._open_relay
             total_steps = 100 - self._position
-        elif direction == CLOSE:
+        elif direction == CoverDirection.CLOSE:
             relay = self._close_relay
             total_steps = self._position
         else:
             return
 
         if total_steps == 0 or duration == 0:
-            self._current_operation = IDLE
-            self._loop.call_soon_threadsafe(
-                self.send_state(self.state, self.json_position)
-            )
+            self._current_operation = CoverStateOperation.IDLE
+            self._loop.call_soon_threadsafe(self.send_state)
             return
 
         relay.turn_on()
@@ -85,21 +83,23 @@ class TimeBasedCover(BaseCover):
             ) * 1000  # Konwersja na milisekundy
             progress = elapsed_time / duration
 
-            if direction == OPEN:
+            if direction == CoverDirection.OPEN:
                 self._position = min(100.0, self._initial_position + progress * 100)
-            elif direction == CLOSE:
+            elif direction == CoverDirection.CLOSE:
                 self._position = max(0.0, self._initial_position - progress * 100)
 
-            self._last_timestamp = current_time  # Użyj pobranego czasu
+            self.timestamp = current_time  # Użyj pobranego czasu
             if current_time - self._last_update_time >= 1:
-                self._loop.call_soon_threadsafe(
-                    self.send_state(self.state, self.json_position)
-                )
+                self._loop.call_soon_threadsafe(self.send_state)
                 self._last_update_time = current_time
 
             if target_position is not None:
-                if (direction == OPEN and self._position >= target_position) or (
-                    direction == CLOSE and self._position <= target_position
+                if (
+                    direction == CoverDirection.OPEN
+                    and self._position >= target_position
+                ) or (
+                    direction == CoverDirection.CLOSE
+                    and self._position <= target_position
                 ):
                     break
 
@@ -108,19 +108,22 @@ class TimeBasedCover(BaseCover):
 
             time.sleep(0.05)  # Małe opóźnienie, aby nie blokować CPU
         relay.turn_off()
-        self._current_operation = IDLE
-        self._loop.call_soon_threadsafe(self.send_state_and_save(self.json_position))
+        self._current_operation = CoverStateOperation.IDLE
+        self._loop.call_soon_threadsafe(self.send_state_and_save)
         self._last_update_time = (
             time.monotonic()
         )  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
     async def run_cover(
-        self, current_operation: str, target_position: int | None = None
+        self,
+        current_operation: CoverStateOperation,
+        target_position: int | None = None,
+        target_tilt: float | None = None,
     ) -> None:
         if (
             self._movement_thread
             and self._movement_thread.is_alive()
-            or current_operation == STOP
+            or current_operation == CoverStateOperation.STOP
         ):
             _LOGGER.warning("Ruch rolety już trwa. Najpierw zatrzymaj.")
             await self.stop()
@@ -132,15 +135,16 @@ class TimeBasedCover(BaseCover):
             time.monotonic() - 1
         )  # Inicjalizacja czasu ostatniej aktualizacji
 
-        if current_operation == OPENING:
-            self._movement_thread = threading.Thread(
-                target=self._move_cover, args=("open", self._open_time, target_position)
-            )
-            self._movement_thread.start()
-        elif current_operation == CLOSING:
+        if current_operation == CoverStateOperation.OPENING:
             self._movement_thread = threading.Thread(
                 target=self._move_cover,
-                args=("close", self._close_time, target_position),
+                args=(CoverDirection.OPEN, self._open_time, target_position),
+            )
+            self._movement_thread.start()
+        elif current_operation == CoverStateOperation.CLOSING:
+            self._movement_thread = threading.Thread(
+                target=self._move_cover,
+                args=(CoverDirection.CLOSE, self._close_time, target_position),
             )
             self._movement_thread.start()
 

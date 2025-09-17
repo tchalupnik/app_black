@@ -1,5 +1,3 @@
-from typing import Literal
-
 BONEIO = "boneio"
 NONE = "none"
 
@@ -141,25 +139,6 @@ CLOSED = "closed"
 OPEN = "open"
 CLOSE = "close"
 STOP = "stop"
-
-# TYPING
-ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
-ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
-DEVICE_CLASS = "device_class"
-DallasBusTypes = Literal[DS2482, DALLAS]
-FILTERS = "filters"
-
-cover_actions = {
-    "OPEN": "open",
-    "CLOSE": "close",
-    "TOGGLE": "toggle",
-    "STOP": "stop",
-    "TOGGLE_OPEN": "toggle_open",
-    "TOGGLE_CLOSE": "toggle_close",
-    "TILT": "set_tilt",
-    "TILT_OPEN": "tilt_open",
-    "TILT_CLOSE": "tilt_close",
-}
 
 INA219 = "ina219"
 PINS = {

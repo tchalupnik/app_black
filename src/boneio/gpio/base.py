@@ -6,7 +6,7 @@ import subprocess
 import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any, Literal, TypeAlias
+from typing import Literal, TypeAlias
 
 from boneio.config import ActionConfig, BinarySensorActionTypes, EventActionTypes
 from boneio.const import (

@@ -26,7 +26,6 @@ from boneio.const import (
     LM75,
     MCP_TEMP_9808,
     NONE,
-    RELAY,
     SENSOR,
 )
 from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
@@ -64,6 +63,7 @@ from boneio.helper.onewire import (
     OneWireAddress,
     OneWireBus,
 )
+from boneio.helper.state_manager import CoverStateEntry
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -223,14 +223,13 @@ def configure_relay(
 ) -> BasicRelay | None:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
-        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
-        if restore_state
-        else False
+        state_manager.state.relay.get(relay_id, False) if restore_state else False
     )
-    if output_config.output_type == NONE and state_manager.get(
-        attr_type=RELAY, attr=relay_id
+    if (
+        output_config.output_type == NONE
+        and state_manager.state.relay.get(relay_id) is not None
     ):
-        state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
+        state_manager.remove_relay_from_state(relay_id)
         restored_state = False
 
     if isinstance(output_config.interlock_group, str):
@@ -497,13 +496,10 @@ def configure_cover(
 ) -> PreviousCover | TimeBasedCover | VenetianCover:
     platform = config.platform or "previous"
 
-    def state_save(value: dict[str, int]):
+    def state_save(value: CoverStateEntry) -> None:
         if config.restore_state:
-            state_manager.save_attribute(
-                attr_type=COVER,
-                attribute=cover_id,
-                value=value,
-            )
+            state_manager.state.cover[cover_id] = value
+            state_manager.save()
 
     if platform == "venetian":
         if not config.tilt_duration:
@@ -511,13 +507,9 @@ def configure_cover(
                 "Tilt duration must be configured for tilt cover."
             )
         _LOGGER.debug("Configuring tilt cover %s", cover_id)
-        restored_state: dict = state_manager.get(
-            attr_type=COVER,
-            attr=cover_id,
-            default_value={"position": 100, "tilt_position": 100},
+        restored_state = state_manager.state.cover.get(
+            cover_id, CoverStateEntry(position=100, tilt=100)
         )
-        if isinstance(restored_state, (float, int)):
-            restored_state = {"position": restored_state, "tilt_position": 100}
         cover = VenetianCover(
             id=cover_id,
             state_save=state_save,
@@ -535,11 +527,9 @@ def configure_cover(
         availability_msg_func = ha_cover_with_tilt_availabilty_message
     elif platform == "time_based":
         _LOGGER.debug("Configuring time-based cover %s", cover_id)
-        restored_state: dict = state_manager.get(
-            attr_type=COVER, attr=cover_id, default_value={"position": 100}
+        restored_state = state_manager.state.cover.get(
+            cover_id, CoverStateEntry(position=100)
         )
-        if isinstance(restored_state, (float, int)):
-            restored_state = {"position": restored_state}
         cover = TimeBasedCover(
             id=cover_id,
             state_save=state_save,
@@ -555,11 +545,9 @@ def configure_cover(
         availability_msg_func = ha_cover_availabilty_message
     else:
         _LOGGER.debug("Configuring previous cover %s", cover_id)
-        restored_state: dict = state_manager.get(
-            attr_type=COVER, attr=cover_id, default_value={"position": 100}
+        restored_state = state_manager.state.cover.get(
+            cover_id, CoverStateEntry(position=100)
         )
-        if isinstance(restored_state, (float, int)):
-            restored_state = {"position": restored_state}
         cover = PreviousCover(
             id=cover_id,
             state_save=state_save,

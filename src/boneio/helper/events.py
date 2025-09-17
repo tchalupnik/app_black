@@ -52,20 +52,15 @@ class ListenerJob:
     def __init__(self, target: Callable) -> None:
         """Initialize listener."""
         self.target = target
-        self._handle = None
+        self.handle = None
 
     def add_handle(self, handle: Any) -> None:
         """Add handle to listener."""
-        self._handle = handle
+        self.handle = handle
 
     def set_target(self, target: Callable) -> None:
         """Set target."""
         self.target = target
-
-    @property
-    def handle(self) -> Any:
-        """Return handle."""
-        return self._handle
 
 
 class EventBus:

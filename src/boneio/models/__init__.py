@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import Enum
+
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
@@ -33,14 +35,35 @@ class OutputState(BaseModel):
     timestamp: float | None = None
 
 
+class CoverDirection(Enum):
+    OPEN = "OPEN"
+    CLOSE = "CLOSE"
+
+
+class CoverStateState(Enum):
+    OPEN = "OPEN"
+    OPENING = "OPENING"
+    CLOSED = "CLOSED"
+    CLOSING = "CLOSING"
+
+
+class CoverStateOperation(Enum):
+    """Cover state states."""
+
+    OPENING = "OPENING"
+    CLOSING = "CLOSING"
+    IDLE = "IDLE"
+    STOP = "STOP"
+
+
 class CoverState(BaseModel):
     """Cover state model."""
 
     id: str
     name: str
-    state: str
+    state: CoverStateState
     position: int
-    current_operation: str
+    current_operation: CoverStateOperation
     timestamp: float | None = None
     tilt: int = 0  # Tilt position (0-100)
 
