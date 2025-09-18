@@ -40,7 +40,6 @@ from boneio.gpio import (
 from boneio.gpio_manager import GpioManager
 from boneio.helper import (
     CoverConfigurationError,
-    GPIOInputException,
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
@@ -402,24 +401,20 @@ def configure_event_sensor(
             return input
         input.actions = event_config.actions
     else:
-        try:
-            if event_config.detection_type == "new":
-                input = GpioEventButtonNew(
-                    config=event_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-            else:
-                input = GpioEventButtonOld(
-                    config=event_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-        except GPIOInputException as err:
-            _LOGGER.error("This PIN %s can't be configured. %s", event_config.pin, err)
-            raise
+        if event_config.detection_type == "new":
+            input = GpioEventButtonNew(
+                config=event_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
+        else:
+            input = GpioEventButtonOld(
+                config=event_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
     if event_config.show_in_ha:
         send_ha_autodiscovery(
             id=event_config.pin,
@@ -453,24 +448,20 @@ def configure_binary_sensor(
             return input
         input.actions = sensor_config.actions
     else:
-        try:
-            if sensor_config.detection_type == "new":
-                input = GpioInputBinarySensorNew(
-                    config=sensor_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-            else:
-                input = GpioInputBinarySensorOld(
-                    config=sensor_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-        except GPIOInputException as err:
-            _LOGGER.error("This PIN %s can't be configured. %s", sensor_config.pin, err)
-            raise
+        if sensor_config.detection_type == "new":
+            input = GpioInputBinarySensorNew(
+                config=sensor_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
+        else:
+            input = GpioInputBinarySensorOld(
+                config=sensor_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
 
     if sensor_config.show_in_ha:
         send_ha_autodiscovery(
