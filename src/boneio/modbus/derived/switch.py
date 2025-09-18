@@ -50,7 +50,7 @@ class ModbusDerivedSwitch(BaseSensor):
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
             "entity_id": self.name,
-            "command_topic": f"{self.config.mqtt.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
+            "command_topic": f"{self.config.get_topic_prefix()}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "'
             + self.decoded_name
             + '", "value": "{{ value }}"}',
@@ -58,7 +58,7 @@ class ModbusDerivedSwitch(BaseSensor):
             "payload_on": self._payload_on,
         }
         msg = modbus_availabilty_message(
-            topic=self.config.mqtt.topic_prefix,
+            topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

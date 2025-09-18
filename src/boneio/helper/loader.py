@@ -10,7 +10,6 @@ from boneio.config import (
     AdcConfig,
     BinarySensorConfig,
     Config,
-    CoverConfig,
     EventConfig,
     ModbusDeviceConfig,
     OutputConfig,
@@ -19,7 +18,6 @@ from boneio.config import (
 )
 from boneio.const import (
     BINARY_SENSOR,
-    COVER,
     EVENT_ENTITY,
     GPIO,
     LM75,
@@ -27,7 +25,6 @@ from boneio.const import (
     NONE,
     SENSOR,
 )
-from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
 from boneio.gpio import (
     GpioEventButtonNew,
     GpioEventButtonOld,
@@ -38,7 +35,6 @@ from boneio.gpio import (
 )
 from boneio.gpio_manager import GpioManager
 from boneio.helper import (
-    CoverConfigurationError,
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
@@ -48,8 +44,6 @@ from boneio.helper import (
 )
 from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import (
-    ha_cover_availabilty_message,
-    ha_cover_with_tilt_availabilty_message,
     ha_sensor_availabilty_message,
     ha_virtual_energy_sensor_discovery_message,
 )
@@ -60,7 +54,6 @@ from boneio.helper.onewire import (
     OneWireAddress,
     OneWireBus,
 )
-from boneio.helper.state_manager import CoverStateEntry
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -469,88 +462,6 @@ def configure_binary_sensor(
             availability_msg_func=ha_binary_sensor_availabilty_message,
         )
     return input
-
-
-def configure_cover(
-    message_bus: MessageBus,
-    cover_id: str,
-    state_manager: StateManager,
-    send_ha_autodiscovery: Callable,
-    config: CoverConfig,
-    open_relay: BasicRelay,
-    close_relay: BasicRelay,
-    event_bus: EventBus,
-    topic_prefix: str,
-) -> PreviousCover | TimeBasedCover | VenetianCover:
-    def state_save(value: CoverStateEntry) -> None:
-        if config.restore_state:
-            state_manager.state.cover[cover_id] = value
-            state_manager.save()
-
-    if config.platform == "venetian":
-        if not config.tilt_duration:
-            raise CoverConfigurationError(
-                "Tilt duration must be configured for tilt cover."
-            )
-        _LOGGER.debug("Configuring tilt cover %s", cover_id)
-        state = state_manager.state.cover.get(
-            cover_id, CoverStateEntry(position=100, tilt=100)
-        )
-        cover = VenetianCover(
-            id=cover_id,
-            config=config,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=state,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_with_tilt_availabilty_message
-    elif config.platform == "time_based":
-        _LOGGER.debug("Configuring time-based cover %s", cover_id)
-        state = state_manager.state.cover.get(cover_id, CoverStateEntry(position=100))
-        cover = TimeBasedCover(
-            id=cover_id,
-            config=config,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=state,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_availabilty_message
-    elif config.platform == "previous":
-        _LOGGER.debug("Configuring previous cover %s", cover_id)
-        state = state_manager.state.cover.get(cover_id, CoverStateEntry(position=100))
-        cover = PreviousCover(
-            id=cover_id,
-            config=config,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=state,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_availabilty_message
-    else:
-        raise ValueError(f"Wrong cover platform: {config.platform}")
-
-    if config.show_in_ha:
-        send_ha_autodiscovery(
-            id=cover.id,
-            name=cover.name,
-            ha_type=COVER,
-            device_class=config.device_class,
-            availability_msg_func=availability_msg_func,
-        )
-    _LOGGER.debug("Configured cover %s", cover_id)
-    return cover
 
 
 def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:

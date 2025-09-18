@@ -63,7 +63,7 @@ class ModbusBinarySensor(ModbusBaseSensor):
             "payload_on": self._payload_on,
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self.config.mqtt.topic_prefix,
+            topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

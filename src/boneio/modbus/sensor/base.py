@@ -51,7 +51,7 @@ class BaseSensor(Filter):
         self._ha_filter = ha_filter
         self.last_timestamp = time.time()
         self._topic = (
-            f"{self.config.mqtt.ha_discovery.topic_prefix}/{self._ha_type_}/{self.config.mqtt.topic_prefix}{self._parent[ID]}"
+            f"{self.config.mqtt.ha_discovery.topic_prefix}/{self._ha_type_}/{self.config.get_topic_prefix()}{self._parent[ID]}"
             f"/{self._parent[ID]}{self.decoded_name.replace('_', '')}/config"
         )
         self.write_address: int | None = None
@@ -110,7 +110,7 @@ class BaseSensor(Filter):
         if self._device_class:
             kwargs["device_class"] = self._device_class
         return modbus_sensor_availabilty_message(
-            topic=self.config.mqtt.topic_prefix,
+            topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

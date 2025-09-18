@@ -30,6 +30,7 @@ from boneio.helper import AsyncUpdater
 from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
 from boneio.helper.util import open_json, strip_accents
+from boneio.message_bus.basic import MessageBus
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
@@ -67,13 +68,15 @@ class ModbusCoordinator(AsyncUpdater, Filter):
         modbus: Modbus,
         config: Config,
         event_bus: EventBus,
+        message_bus: MessageBus,
     ):
         """Initialize Modbus coordinator class."""
         self.id = device_config.identifier()
         self._send_topic = (
-            f"{config.mqtt.topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
+            f"{config.get_topic_prefix()}/{SENSOR}/{strip_accents(self.id)}"
         )
         self.config = config
+        self.message_bus = message_bus
         self._modbus = modbus
         self._db = open_json(path=Path(__file__).parent, model=device_config.model)
         self._model = self._db[MODEL]
@@ -493,7 +496,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
         if (
             not self._discovery_sent
             or (datetime.now(timezone.utc) - self._discovery_sent).seconds > 3600
-        ) and self.config.mqtt.topic_prefix:
+        ) and self.config.get_topic_prefix():
             self._discovery_sent = False
             first_register_base = self._db[REGISTERS_BASE][0]
             register_method = first_register_base.get("register_type", "input")
@@ -532,7 +535,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                 _LOGGER.info("Sending online payload about device %s.", self.name)
                 self._payload_online = ONLINE
                 self.message_bus.send_message(
-                    topic=f"{self.config.mqtt.topic_prefix}/{self.id}/{STATE}",
+                    topic=f"{self.config.get_topic_prefix()}/{self.id}/{STATE}",
                     payload=self._payload_online,
                 )
             if not values:
@@ -543,7 +546,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self.message_bus.send_message(
-                        topic=f"{self.config.mqtt.topic_prefix}/{self.id}/{STATE}",
+                        topic=f"{self.config.get_topic_prefix()}/{self.id}/{STATE}",
                         payload=self._payload_online,
                     )
                     self._discovery_sent = False

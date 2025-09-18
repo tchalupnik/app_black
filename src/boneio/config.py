@@ -659,3 +659,8 @@ class Config(BaseModel):
     modbus: ModbusConfig | None = None
     dallas: DallasConfig | None = None
     logger: LoggerConfig | None = None
+
+    def get_topic_prefix(self) -> str:
+        if self.mqtt is not None:
+            return self.mqtt.topic_prefix
+        return "boneio"
