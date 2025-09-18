@@ -189,7 +189,7 @@ class MQTTClient(MessageBus):
         try:
             while True:
                 try:
-                    await self._subscribe_manager(self.manager)
+                    await self._subscribe_manager()
                 except MqttError as err:
                     self.reconnect_interval = min(self.reconnect_interval * 2, 60)
                     _LOGGER.error(
@@ -206,7 +206,7 @@ class MQTTClient(MessageBus):
             await self.asyncio_client.disconnect(timeout=1.0)
             # raise
 
-    async def _subscribe_manager(self, manager: Manager) -> None:
+    async def _subscribe_manager(self) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(self.asyncio_client)
@@ -228,11 +228,11 @@ class MQTTClient(MessageBus):
             messages = await stack.enter_async_context(self.asyncio_client.messages())
 
             messages_task = asyncio.create_task(
-                self.handle_messages(messages, manager.receive_message)
+                self.handle_messages(messages, self.manager.receive_message)
             )
             if not self._connection_established:
                 self._connection_established = True
-                reconnect_task = asyncio.create_task(manager.reconnect_callback())
+                reconnect_task = asyncio.create_task(self.manager.reconnect_callback())
                 tasks.add(reconnect_task)
             tasks.add(messages_task)
 
