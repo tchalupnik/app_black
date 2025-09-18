@@ -19,7 +19,6 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 COVER_MOVE_UPDATE_INTERVAL = 50  # ms
 TILT_MOVE_UPDATE_INTERVAL = 10  # ms
-DEFAULT_RESTORED_STATE = {"position": 100, "tilt": 100}
 
 
 class VenetianCover(BaseCover):

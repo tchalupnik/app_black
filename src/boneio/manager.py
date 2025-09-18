@@ -742,7 +742,7 @@ class Manager:
         event: OutputState,
     ) -> None:
         """Relay callback function."""
-        self.state_manager.state.relay[event.id] = {"state": event.state == ON}
+        self.state_manager.state.relay[event.id] = event.state == ON
         self.state_manager.save()
 
     def _logger_reload(self) -> None:
