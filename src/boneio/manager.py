@@ -64,7 +64,6 @@ from boneio.const import (
     SWITCH,
     TOPIC,
     VALVE,
-    relay_actions,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
@@ -864,14 +863,16 @@ class Manager:
             return
         if msg_type == RELAY and command == "set":
             target_device = self.outputs.get(device_id)
-
-            if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.upper())
-                if action_from_msg:
-                    _f = getattr(target_device, action_from_msg)
-                    await _f()
-                else:
-                    _LOGGER.debug("Action not exist %s.", message.upper())
+            if target_device is not None and target_device.output_type != NONE:
+                match message.upper():
+                    case "ON":
+                        await target_device.async_turn_on()
+                    case "OFF":
+                        await target_device.async_turn_off()
+                    case "TOGGLE":
+                        await target_device.async_toggle()
+                    case _:
+                        _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
@@ -914,12 +915,16 @@ class Manager:
                         _LOGGER.warning(err)
         elif msg_type == "group" and command == "set":
             target_device = self.output_groups.get(device_id)
-            if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.upper())
-                if action_from_msg:
-                    asyncio.create_task(getattr(target_device, action_from_msg)())
-                else:
-                    _LOGGER.debug("Action not exist %s.", message.upper())
+            if target_device is not None and target_device.output_type != NONE:
+                match message.upper():
+                    case "ON":
+                        await target_device.async_turn_on()
+                    case "OFF":
+                        await target_device.async_turn_off()
+                    case "TOGGLE":
+                        await target_device.async_toggle()
+                    case _:
+                        _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == BUTTON and command == "set":
