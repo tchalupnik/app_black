@@ -12,7 +12,6 @@ from boneio.config import (
     Config,
     CoverConfig,
     EventConfig,
-    Ina219Config,
     ModbusDeviceConfig,
     OutputConfig,
     SensorConfig,
@@ -45,7 +44,6 @@ from boneio.helper import (
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
-    ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.events import EventBus
@@ -69,7 +67,6 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.relay.basic import BasicRelay
 from boneio.sensor import DallasSensorDS2482, GpioADCSensor
-from boneio.sensor.ina219 import INA219
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -617,29 +614,3 @@ def create_dallas_sensor(
             unit_of_measurement=config.unit_of_measurement,
         )
     return sensor
-
-
-def create_ina219_sensor(
-    manager: Manager,
-    message_bus: MessageBus,
-    topic_prefix: str,
-    config: Ina219Config,
-) -> INA219:
-    """Create INA219 sensor in manager."""
-    ina219 = INA219(
-        manager=manager,
-        message_bus=message_bus,
-        topic_prefix=topic_prefix,
-        config=config,
-    )
-
-    for sensor in ina219.sensors.values():
-        manager.send_ha_autodiscovery(
-            id=sensor.id,
-            name=sensor.name,
-            ha_type=SENSOR,
-            availability_msg_func=ha_sensor_ina_availabilty_message,
-            unit_of_measurement=sensor.unit_of_measurement,
-            device_class=sensor.device_class,
-        )
-    return ina219

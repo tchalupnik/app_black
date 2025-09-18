@@ -57,6 +57,7 @@ from boneio.const import (
     OPEN,
     OUTPUT,
     RELAY,
+    SENSOR,
     SET_BRIGHTNESS,
     STATE,
     STOP,
@@ -82,6 +83,7 @@ from boneio.helper import (
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
 from boneio.helper.ha_discovery import (
+    ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
     ha_valve_availabilty_message,
 )
@@ -94,7 +96,6 @@ from boneio.helper.loader import (
     configure_relay,
     create_adc,
     create_dallas_sensor,
-    create_ina219_sensor,
     create_modbus_coordinators,
     create_serial_number_sensor,
 )
@@ -631,12 +632,22 @@ class Manager:
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
         for sensor_config in sensors:
-            ina219 = create_ina219_sensor(
-                topic_prefix=self.config.mqtt.topic_prefix,
+            ina219 = INA219(
                 manager=self,
                 message_bus=self.message_bus,
+                topic_prefix=self.config.mqtt.topic_prefix,
                 config=sensor_config,
             )
+
+            for sensor in ina219.sensors.values():
+                self.send_ha_autodiscovery(
+                    id=sensor.id,
+                    name=sensor.name,
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_sensor_ina_availabilty_message,
+                    unit_of_measurement=sensor.unit_of_measurement,
+                    device_class=sensor.device_class,
+                )
             if ina219:
                 self.ina219_sensors.append(ina219)
 
