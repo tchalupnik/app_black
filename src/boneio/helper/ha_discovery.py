@@ -451,8 +451,9 @@ def ha_valve_availabilty_message(
 
 def ha_event_availabilty_message(
     id: str,
+    name: str,
+    device_class: str,
     topic: str = "boneIO",
-    name: str | None = None,
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
@@ -470,9 +471,10 @@ def ha_event_availabilty_message(
     event_message = HaEventMessage(
         availability=availability,
         device=device_info,
-        name=name or f"Event {id}",
+        name=name,
         state_topic=f"{topic}/{INPUT}/{id}",
         unique_id=f"{topic}{INPUT}{id}",
+        device_class=device_class,
     )
 
     result = event_message.model_dump(exclude_none=True)
