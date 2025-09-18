@@ -40,6 +40,7 @@ def ha_sensor_availabilty_message(
     device_class: str | None = None,
     state_class: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create SENSOR availability topic for HA."""
     device_info = HaDeviceInfo(
