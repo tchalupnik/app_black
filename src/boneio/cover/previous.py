@@ -130,7 +130,7 @@ class PreviousCover:
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=self.state
+            topic=f"{self._send_topic}/state", payload=self.state.value
         )
         pos = round(self._position, 0)
         self.message_bus.send_message(
@@ -199,7 +199,7 @@ class PreviousCover:
 
         self._requested_closing = True
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=str(CoverStateState.CLOSING)
+            topic=f"{self._send_topic}/state", payload=CoverStateState.CLOSING.value
         )
         await self.run_cover(
             current_operation=CoverStateOperation.CLOSING,
@@ -216,7 +216,7 @@ class PreviousCover:
 
         self._requested_closing = False
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=str(CoverStateState.OPENING)
+            topic=f"{self._send_topic}/state", payload=CoverStateState.OPENING.value
         )
         await self.run_cover(
             current_operation=CoverStateOperation.OPENING,
@@ -244,7 +244,7 @@ class PreviousCover:
             current_operation,
         )
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=str(current_operation)
+            topic=f"{self._send_topic}/state", payload=current_operation.value
         )
         await self.run_cover(
             current_operation=current_operation,

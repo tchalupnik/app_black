@@ -129,7 +129,7 @@ class BaseCover(BaseCoverABC):
         _LOGGER.info("Opening cover %s.", self.id)
         await self.run_cover(current_operation=CoverStateOperation.OPENING)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=str(CoverStateState.OPENING)
+            topic=f"{self._send_topic}/state", payload=CoverStateState.OPENING.value
         )
 
     async def close(self) -> None:
@@ -138,7 +138,7 @@ class BaseCover(BaseCoverABC):
         _LOGGER.info("Closing cover %s.", self.id)
         await self.run_cover(current_operation=CoverStateOperation.CLOSING)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=str(CoverStateState.CLOSING)
+            topic=f"{self._send_topic}/state", payload=CoverStateState.CLOSING.value
         )
 
     async def set_cover_position(self, position: int) -> None:
@@ -203,7 +203,7 @@ class BaseCover(BaseCoverABC):
             {"event_type": "cover", "entity_id": self.id, "event_state": event}
         )
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=str(self.state)
+            topic=f"{self._send_topic}/state", payload=self.state.value
         )
         self.message_bus.send_message(
             topic=f"{self._send_topic}/pos",

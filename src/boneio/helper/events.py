@@ -76,7 +76,7 @@ class EventBus:
         """
         self._loop = loop or asyncio.get_event_loop()
         self._event_queue = asyncio.Queue()
-        self._event_listeners = {
+        self._event_listeners: dict[str, dict[str, dict[str, ListenerJob]]] = {
             "input": {},
             "output": {},
             "cover": {},
@@ -84,7 +84,7 @@ class EventBus:
             "sensor": {},
             "host": {},
         }
-        self._listener_id_index = {}
+        self._listener_id_index: dict[str, list[tuple[str, str]]] = {}
         self._worker_task = None
         self._every_second_listeners = {}
         self._shutting_down = False
