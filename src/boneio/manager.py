@@ -110,6 +110,7 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.oled import Oled
 from boneio.relay.basic import BasicRelay
+from boneio.relay.pca import PWMPCA
 from boneio.sensor.ina219 import INA219
 from boneio.sensor.temp import TempSensor
 from boneio.sensor.temp.lm75 import LM75Sensor
@@ -875,7 +876,11 @@ class Manager:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self.outputs.get(device_id)
-            if target_device and target_device.output_type != NONE and message != "":
+            if (
+                isinstance(target_device, PWMPCA)
+                and target_device.output_type != NONE
+                and message != ""
+            ):
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
