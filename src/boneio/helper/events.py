@@ -3,7 +3,7 @@ import datetime as dt
 import logging
 import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def _async_create_timer(
     def fire_time_event() -> None:
         """Fire next time event."""
         now = utcnow()
-        event_callback(now)
+        event_callback()
         schedule_tick(now)
 
     def stop_timer() -> None:
@@ -86,7 +86,7 @@ class EventBus:
         }
         self._listener_id_index: dict[str, list[tuple[str, str]]] = {}
         self._worker_task = None
-        self._every_second_listeners = {}
+        self._every_second_listeners: dict[str, ListenerJob] = {}
         self._shutting_down = False
         self._sigterm_listeners = []
         self._haonline_listeners = []
@@ -176,19 +176,18 @@ class EventBus:
                 _LOGGER.info("Event bus worker cancelled.")
         _LOGGER.info("Shutdown EventBus gracefully.")
 
-    def _run_second_event(self, time):
+    def _run_second_event(self) -> None:
         """Run event every second."""
         for key, listener in self._every_second_listeners.items():
             if listener.target:
                 self._every_second_listeners[key].add_handle(
-                    self._loop.call_soon(listener.target, time)
+                    self._loop.call_soon(listener.target)
                 )
 
-    def _timer_handle(self):
+    def _timer_handle(self) -> None:
         """Handle timer event."""
-        time = datetime.now(tz=timezone.utc)
         for listener in self._every_second_listeners.values():
-            self._loop.call_soon(listener.target, time)
+            self._loop.call_soon(listener.target)
 
     async def _handle_sigterm_listeners(self):
         """Handle all sigterm listeners, supporting both async and sync listeners."""
