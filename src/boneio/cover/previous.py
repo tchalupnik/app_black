@@ -25,7 +25,6 @@ if typing.TYPE_CHECKING:
     from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
-DEFAULT_RESTORED_STATE = {"position": 100}
 
 
 class RelayHelper:
@@ -136,7 +135,7 @@ class PreviousCover:
         self.message_bus.send_message(
             topic=f"{self._send_topic}/pos", payload={"position": str(pos)}
         )
-        self._state_save(value={"position": pos})
+        self._state_save(CoverStateEntry(position=pos))
 
     def _stop_cover(self, on_exit=False) -> None:
         """Stop cover."""

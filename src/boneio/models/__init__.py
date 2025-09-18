@@ -3,7 +3,6 @@ from __future__ import annotations
 from enum import Enum
 
 from pydantic import BaseModel
-from typing_extensions import TypedDict
 
 
 class InputState(BaseModel):
@@ -104,8 +103,3 @@ class StateUpdate(BaseModel):
 
     type: str  # 'input' or 'output' or 'cover'
     data: InputState | OutputState | SensorState | CoverState
-
-
-class PositionDict(TypedDict, total=False):
-    position: int
-    tilt: int
