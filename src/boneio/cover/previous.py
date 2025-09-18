@@ -9,6 +9,7 @@ import typing
 from collections.abc import Callable
 from datetime import timedelta
 
+from boneio.config import CoverConfig
 from boneio.const import COVER
 from boneio.helper.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
@@ -42,11 +43,10 @@ class PreviousCover:
     def __init__(
         self,
         id: str,
+        config: CoverConfig,
         open_relay: BasicRelay,
         close_relay: BasicRelay,
         state_save: Callable[[CoverStateEntry], None],
-        open_time: timedelta,
-        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
@@ -60,8 +60,8 @@ class PreviousCover:
         self._send_topic = f"{topic_prefix}/{COVER}/{strip_accents(self.id)}"
         self._lock = asyncio.Lock()
         self._state_save = state_save
-        self._open = RelayHelper(relay=open_relay, time=open_time)
-        self._close = RelayHelper(relay=close_relay, time=close_time)
+        self._open = RelayHelper(relay=open_relay, time=config.open_time)
+        self._close = RelayHelper(relay=close_relay, time=config.close_time)
         self._set_position = None
         self.current_operation = CoverStateOperation.IDLE
         self._position = restored_state.position

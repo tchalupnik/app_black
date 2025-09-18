@@ -5,8 +5,8 @@ import threading
 import time
 import typing
 from collections.abc import Callable
-from datetime import timedelta
 
+from boneio.config import CoverConfig
 from boneio.cover.cover import BaseCover
 from boneio.helper.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
@@ -25,11 +25,10 @@ class TimeBasedCover(BaseCover):
     def __init__(
         self,
         id: str,
+        config: CoverConfig,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable[[CoverStateEntry], None],
-        open_time: timedelta,
-        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
@@ -41,8 +40,8 @@ class TimeBasedCover(BaseCover):
             open_relay=open_relay,
             close_relay=close_relay,
             state_save=state_save,
-            open_time=open_time,
-            close_time=close_time,
+            open_time=config.open_time,
+            close_time=config.close_time,
             event_bus=event_bus,
             message_bus=message_bus,
             topic_prefix=topic_prefix,

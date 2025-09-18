@@ -252,6 +252,7 @@ def ha_virtual_energy_sensor_discovery_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate MQTT autodiscovery messages for Home Assistant for virtual power and energy sensors.
@@ -279,6 +280,7 @@ def ha_light_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create LIGHT availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -312,6 +314,7 @@ def ha_led_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create LED availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -348,6 +351,7 @@ def ha_button_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create BUTTON availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -383,6 +387,7 @@ def ha_switch_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create SWITCH availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -417,6 +422,7 @@ def ha_valve_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Valve availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -450,6 +456,7 @@ def ha_event_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create EVENT availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -482,6 +489,7 @@ def ha_adc_sensor_availabilty_message(
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create ADC SENSOR availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -518,6 +526,7 @@ def ha_binary_sensor_availabilty_message(
     model: str = "boneIO Relay Board",
     device_name: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -555,6 +564,7 @@ def ha_sensor_ina_availabilty_message(
     unit_of_measurement: str | None = None,
     device_class: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -592,6 +602,7 @@ def ha_sensor_temp_availabilty_message(
     device_name: str | None = None,
     unit_of_measurement: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -633,6 +644,7 @@ def modbus_availabilty_message(
     device_class: str | None = None,
     state_class: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Modbus availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -673,6 +685,7 @@ def modbus_sensor_availabilty_message(
     device_class: str | None = None,
     state_class: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Modbus Sensor availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -711,6 +724,7 @@ def modbus_select_availabilty_message(
     device_type: str = SELECT,
     options: list[str] | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Modbus Select availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -751,6 +765,7 @@ def modbus_numeric_availabilty_message(
     step: float | None = None,
     unit_of_measurement: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Modbus Numeric availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -791,6 +806,7 @@ def ha_cover_availabilty_message(
     model: str = "boneIO Relay Board",
     device_name: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Cover availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -836,6 +852,7 @@ def ha_cover_with_tilt_availabilty_message(
     model: str = "boneIO Relay Board",
     device_name: str | None = None,
     entity_category: str | None = None,
+    web_url: str | None = None,
 ) -> dict[str, Any]:
     """Create Cover with tilt availability topic for HA."""
     device_info = HaDeviceInfo(

@@ -26,22 +26,6 @@ class BaseCoverABC(ABC):
     """Base cover class."""
 
     @abstractmethod
-    def __init__(
-        self,
-        id: str,
-        open_relay: MCPRelay,
-        close_relay: MCPRelay,
-        state_save: Callable[[CoverStateEntry], None],
-        open_time: timedelta,
-        close_time: timedelta,
-        event_bus: EventBus,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        position: int = 100,
-    ) -> None:
-        pass
-
-    @abstractmethod
     async def stop(self) -> None:
         """Stop cover."""
 

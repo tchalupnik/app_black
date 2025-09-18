@@ -503,15 +503,12 @@ def configure_cover(
         )
         cover = VenetianCover(
             id=cover_id,
+            config=config,
             state_save=state_save,
             message_bus=message_bus,
             restored_state=restored_state,
-            tilt_duration=config.tilt_duration,
-            actuator_activation_duration=config.actuator_activation_duration,
             open_relay=open_relay,
             close_relay=close_relay,
-            open_time=config.open_time,
-            close_time=config.close_time,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )
@@ -523,13 +520,12 @@ def configure_cover(
         )
         cover = TimeBasedCover(
             id=cover_id,
+            config=config,
             state_save=state_save,
             message_bus=message_bus,
             restored_state=restored_state,
             open_relay=open_relay,
             close_relay=close_relay,
-            open_time=config.open_time,
-            close_time=config.close_time,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )
@@ -541,13 +537,12 @@ def configure_cover(
         )
         cover = PreviousCover(
             id=cover_id,
+            config=config,
             state_save=state_save,
             message_bus=message_bus,
             restored_state=restored_state,
             open_relay=open_relay,
             close_relay=close_relay,
-            open_time=config.open_time,
-            close_time=config.close_time,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )

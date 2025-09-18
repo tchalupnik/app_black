@@ -618,6 +618,9 @@ class CoverConfig(BaseModel):
     ) = None
     show_in_ha: bool = True
 
+    def identifier(self) -> str:
+        return self.id.replace(" ", "")
+
 
 class Ds2482Config(BaseModel):
     address: str
@@ -625,7 +628,7 @@ class Ds2482Config(BaseModel):
 
     def identifier(self) -> str:
         if self.id:
-            return (self.id).replace(" ", "")
+            return self.id.replace(" ", "")
         return self.address
 
 

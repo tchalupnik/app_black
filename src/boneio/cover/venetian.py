@@ -5,7 +5,6 @@ import threading
 import time
 import typing
 from collections.abc import Callable
-from datetime import timedelta
 
 from boneio.config import CoverConfig
 from boneio.cover.cover import BaseCover
@@ -30,21 +29,20 @@ class VenetianCover(BaseCover):
     def __init__(
         self,
         id: str,
+        config: CoverConfig,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable[[CoverStateEntry], None],
-        open_time: timedelta,
-        close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
-        tilt_duration: timedelta,  # ms
         restored_state: CoverStateEntry,
     ) -> None:
         self._tilt_duration = (
-            tilt_duration.total_seconds() * 1000
+            config.tilt_duration.total_seconds() * 1000
         )  # Czas trwania ruchu lameli
         self._initial_tilt_position = None
+        self.actuator_activation_duration = config.actuator_activation_duration
 
         position = int(restored_state.position)
         # --- TILT ---
@@ -58,8 +56,8 @@ class VenetianCover(BaseCover):
             open_relay=open_relay,
             close_relay=close_relay,
             state_save=state_save,
-            open_time=open_time,
-            close_time=close_time,
+            open_time=config.open_time,
+            close_time=config.close_time,
             event_bus=event_bus,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
@@ -238,8 +236,8 @@ class VenetianCover(BaseCover):
         await self.set_tilt(tilt_position=0)
 
     def update_config_times(self, config: CoverConfig) -> None:
-        self._actuator_activation_duration = (
-            config.actuator_activation_duration or self._actuator_activation_duration
+        self.actuator_activation_duration = (
+            config.actuator_activation_duration or self.actuator_activation_duration
         )
         self._tilt_duration = config.tilt_duration or self._tilt_duration
 
