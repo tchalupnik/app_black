@@ -482,20 +482,18 @@ def configure_cover(
     event_bus: EventBus,
     topic_prefix: str,
 ) -> PreviousCover | TimeBasedCover | VenetianCover:
-    platform = config.platform or "previous"
-
     def state_save(value: CoverStateEntry) -> None:
         if config.restore_state:
             state_manager.state.cover[cover_id] = value
             state_manager.save()
 
-    if platform == "venetian":
+    if config.platform == "venetian":
         if not config.tilt_duration:
             raise CoverConfigurationError(
                 "Tilt duration must be configured for tilt cover."
             )
         _LOGGER.debug("Configuring tilt cover %s", cover_id)
-        restored_state = state_manager.state.cover.get(
+        state = state_manager.state.cover.get(
             cover_id, CoverStateEntry(position=100, tilt=100)
         )
         cover = VenetianCover(
@@ -503,24 +501,37 @@ def configure_cover(
             config=config,
             state_save=state_save,
             message_bus=message_bus,
-            restored_state=restored_state,
+            restored_state=state,
             open_relay=open_relay,
             close_relay=close_relay,
             event_bus=event_bus,
             topic_prefix=topic_prefix,
         )
         availability_msg_func = ha_cover_with_tilt_availabilty_message
-    elif platform == "time_based":
+    elif config.platform == "time_based":
         _LOGGER.debug("Configuring time-based cover %s", cover_id)
-        restored_state = state_manager.state.cover.get(
-            cover_id, CoverStateEntry(position=100)
-        )
+        state = state_manager.state.cover.get(cover_id, CoverStateEntry(position=100))
         cover = TimeBasedCover(
             id=cover_id,
             config=config,
             state_save=state_save,
             message_bus=message_bus,
-            restored_state=restored_state,
+            restored_state=state,
+            open_relay=open_relay,
+            close_relay=close_relay,
+            event_bus=event_bus,
+            topic_prefix=topic_prefix,
+        )
+        availability_msg_func = ha_cover_availabilty_message
+    elif config.platform == "previous":
+        _LOGGER.debug("Configuring previous cover %s", cover_id)
+        state = state_manager.state.cover.get(cover_id, CoverStateEntry(position=100))
+        cover = PreviousCover(
+            id=cover_id,
+            config=config,
+            state_save=state_save,
+            message_bus=message_bus,
+            restored_state=state,
             open_relay=open_relay,
             close_relay=close_relay,
             event_bus=event_bus,
@@ -528,22 +539,8 @@ def configure_cover(
         )
         availability_msg_func = ha_cover_availabilty_message
     else:
-        _LOGGER.debug("Configuring previous cover %s", cover_id)
-        restored_state = state_manager.state.cover.get(
-            cover_id, CoverStateEntry(position=100)
-        )
-        cover = PreviousCover(
-            id=cover_id,
-            config=config,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=restored_state,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_availabilty_message
+        raise ValueError(f"Wrong cover platform: {config.platform}")
+
     if config.show_in_ha:
         send_ha_autodiscovery(
             id=cover.id,
