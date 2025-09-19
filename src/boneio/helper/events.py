@@ -21,7 +21,7 @@ time_tracker_utcnow = utcnow
 
 def _async_create_timer(
     loop: asyncio.AbstractEventLoop, event_callback: Callable[[dt.datetime], None]
-) -> CALLBACK_TYPE:
+) -> Callable[[], None]:
     """Create a timer that will start on BoneIO start."""
     handle = None
 
