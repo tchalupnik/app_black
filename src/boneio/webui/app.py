@@ -594,7 +594,7 @@ async def set_cover_tilt(
     cover = manager.covers.get(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
-    if isinstance(cover, VenetianCover):
+    if not isinstance(cover, VenetianCover):
         raise HTTPException(status_code=400, detail="Invalid cover type")
     tilt = tilt_data.tilt
     if tilt < 0 or tilt > 100:
