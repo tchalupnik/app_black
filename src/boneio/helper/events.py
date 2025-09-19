@@ -91,7 +91,7 @@ class EventBus:
         self._every_second_listeners: dict[str, ListenerJob] = {}
         self._shutting_down = False
         self._sigterm_listeners: list[Callable] = []
-        self._haonline_listeners = []
+        self._haonline_listeners: list[Callable[[], None]] = []
         self._timer_handle = _async_create_timer(self._loop, self._run_second_event)
         self._shutting_down = False
         self._monitor_task = None
@@ -311,11 +311,11 @@ class EventBus:
                     for lid in list(self._event_listeners[event_type][ent_id].keys()):
                         self.remove_event_listener(event_type, ent_id, lid)
 
-    def add_haonline_listener(self, target: Callable) -> None:
+    def add_haonline_listener(self, target: Callable[[], None]) -> None:
         """Add HA Online listener."""
         self._haonline_listeners.append(target)
 
-    def signal_ha_online(self):
+    def signal_ha_online(self) -> None:
         """Call events if HA goes online."""
         for target in self._haonline_listeners:
             target()

@@ -902,7 +902,9 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
+        if topic.startswith(
+            f"{self.config.get_ha_autodiscovery_topic_prefix()}/status"
+        ):
             if message == ONLINE:
                 await self.resend_autodiscovery()
                 self.event_bus.signal_ha_online()
@@ -1078,7 +1080,7 @@ class Manager:
             web_url=web_url,
             **kwargs,
         )
-        topic = f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{topic_prefix}/{id}/config"
+        topic = f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
         self.config.mqtt.autodiscovery_messages.add_message(
             message=MqttAutodiscoveryMessage(topic=topic, payload=payload),

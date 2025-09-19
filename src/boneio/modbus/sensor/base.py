@@ -51,7 +51,7 @@ class BaseSensor(Filter):
         self._ha_filter = ha_filter
         self.last_timestamp = time.time()
         self._topic = (
-            f"{self.config.mqtt.ha_discovery.topic_prefix}/{self._ha_type_}/{self.config.get_topic_prefix()}{self._parent[ID]}"
+            f"{self.config.get_ha_autodiscovery_topic_prefix()}/{self._ha_type_}/{self.config.get_topic_prefix()}{self._parent[ID]}"
             f"/{self._parent[ID]}{self.decoded_name.replace('_', '')}/config"
         )
         self.write_address: int | None = None

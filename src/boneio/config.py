@@ -664,3 +664,8 @@ class Config(BaseModel):
         if self.mqtt is not None:
             return self.mqtt.topic_prefix
         return "boneio"
+
+    def get_ha_autodiscovery_topic_prefix(self) -> str:
+        if self.mqtt is not None:
+            return self.mqtt.ha_discovery.topic_prefix
+        return "homeassistant"
