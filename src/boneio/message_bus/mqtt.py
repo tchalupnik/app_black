@@ -25,7 +25,6 @@ from boneio.const import (
     PAHO,
     STATE,
 )
-from boneio.helper.events import GracefulExit
 from boneio.helper.queue import UniqueQueue
 
 if TYPE_CHECKING:
@@ -190,7 +189,7 @@ class MQTTClient(MessageBus):
         try:
             while True:
                 try:
-                    await self._subscribe_manager(self.manager)
+                    await self._subscribe_manager()
                 except MqttError as err:
                     self.reconnect_interval = min(self.reconnect_interval * 2, 60)
                     _LOGGER.error(
@@ -202,12 +201,12 @@ class MQTTClient(MessageBus):
                     self.publish_queue.set_connected(False)
                     await asyncio.sleep(self.reconnect_interval)
                     self.create_client()  # reset connect/reconnect futures
-        except (asyncio.CancelledError, GracefulExit):
+        except asyncio.CancelledError:
             _LOGGER.info("MQTT client shutting down...")
             await self.asyncio_client.disconnect(timeout=1.0)
             # raise
 
-    async def _subscribe_manager(self, manager: Manager) -> None:
+    async def _subscribe_manager(self) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(self.asyncio_client)
@@ -229,11 +228,11 @@ class MQTTClient(MessageBus):
             messages = await stack.enter_async_context(self.asyncio_client.messages())
 
             messages_task = asyncio.create_task(
-                self.handle_messages(messages, manager.receive_message)
+                self.handle_messages(messages, self.manager.receive_message)
             )
             if not self._connection_established:
                 self._connection_established = True
-                reconnect_task = asyncio.create_task(manager.reconnect_callback())
+                reconnect_task = asyncio.create_task(self.manager.reconnect_callback())
                 tasks.add(reconnect_task)
             tasks.add(messages_task)
 
@@ -251,7 +250,7 @@ class MQTTClient(MessageBus):
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
 
-    def state(self) -> bool:
+    def is_connection_established(self) -> bool:
         """State of MQTT Client."""
         return self._connection_established
 
@@ -259,7 +258,7 @@ class MQTTClient(MessageBus):
         self,
         messages: AsyncGenerator[Message, None],
         callback: Callable[[str, str], Awaitable[None]],
-    ):
+    ) -> None:
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
             payload = message.payload.decode()

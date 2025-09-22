@@ -10,10 +10,10 @@ from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from adafruit_mcp230xx.mcp23017 import MCP23017
-from adafruit_pca9685 import PCA9685
-from busio import I2C
-from w1thermsensor.errors import KernelModuleLoadError
+from adafruit_mcp230xx.mcp23017 import MCP23017  # type: ignore
+from adafruit_pca9685 import PCA9685  # type: ignore
+from busio import I2C  # type: ignore
+from w1thermsensor.errors import KernelModuleLoadError  # type: ignore
 
 from boneio.config import (
     AdcConfig,
@@ -57,13 +57,13 @@ from boneio.const import (
     OPEN,
     OUTPUT,
     RELAY,
+    SENSOR,
     SET_BRIGHTNESS,
     STATE,
     STOP,
     SWITCH,
     TOPIC,
     VALVE,
-    relay_actions,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
@@ -71,7 +71,6 @@ from boneio.gpio import GpioEventButtonsAndSensors
 from boneio.gpio_manager import GpioManager
 from boneio.group.output import OutputGroup
 from boneio.helper import (
-    GPIOInputException,
     HostData,
     I2CError,
     StateManager,
@@ -83,24 +82,26 @@ from boneio.helper import (
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
 from boneio.helper.ha_discovery import (
+    ha_cover_availabilty_message,
+    ha_cover_with_tilt_availabilty_message,
+    ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
     ha_valve_availabilty_message,
 )
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
     configure_binary_sensor,
-    configure_cover,
     configure_ds2482,
     configure_event_sensor,
     configure_relay,
     create_adc,
     create_dallas_sensor,
-    create_ina219_sensor,
     create_modbus_coordinators,
     create_serial_number_sensor,
 )
 from boneio.helper.onewire.onewire import OneWireAddress
 from boneio.helper.pcf8575 import PCF8575
+from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.logger import configure_logger
@@ -110,6 +111,7 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.oled import Oled
 from boneio.relay.basic import BasicRelay
+from boneio.relay.pca import PWMPCA
 from boneio.sensor.ina219 import INA219
 from boneio.sensor.temp import TempSensor
 from boneio.sensor.temp.lm75 import LM75Sensor
@@ -148,9 +150,8 @@ class Manager:
 
         self._loop = asyncio.get_event_loop()
         self.config = config
-        self._host_data: HostData | None = None
         self._config_file_path = config_file_path
-        self._event_bus = event_bus
+        self.event_bus = event_bus
         self.message_bus = message_bus
         self.inputs: dict[str, GpioEventButtonsAndSensors] = {}
         from board import SCL, SDA  # type: ignore
@@ -160,11 +161,11 @@ class Manager:
         self.output_groups: dict[str, OutputGroup] = {}
         self.interlock_manager = SoftwareInterlockManager()
 
-        self.tasks: list[asyncio.Task] = []
+        self.tasks: list[asyncio.Task[None]] = []
         self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self.temp_sensors: list[TempSensor] = []
         self.ina219_sensors: list[INA219] = []
-        self.modbus_coordinators = {}
+        self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         self.modbus: Modbus | None = None
 
         if config.modbus is not None:
@@ -180,7 +181,7 @@ class Manager:
                     address=sensor.address,
                     manager=self,
                     message_bus=message_bus,
-                    topic_prefix=self.config.mqtt.topic_prefix,
+                    topic_prefix=self.config.get_topic_prefix(),
                     update_interval=sensor.update_interval,
                     filters=sensor.filters,
                     unit_of_measurement=sensor.unit_of_measurement,
@@ -208,7 +209,7 @@ class Manager:
                     address=sensor.address,
                     manager=self,
                     message_bus=message_bus,
-                    topic_prefix=self.config.mqtt.topic_prefix,
+                    topic_prefix=self.config.get_topic_prefix(),
                     update_interval=sensor.update_interval,
                     filters=sensor.filters,
                     unit_of_measurement=sensor.unit_of_measurement,
@@ -290,7 +291,7 @@ class Manager:
         create_adc(
             manager=self,
             message_bus=self.message_bus,
-            topic_prefix=self.config.mqtt.topic_prefix,
+            topic_prefix=self.config.get_topic_prefix(),
             adc=self.config.adc,
         )
 
@@ -302,16 +303,16 @@ class Manager:
                 output_config=output,
                 message_bus=message_bus,
                 state_manager=self.state_manager,
-                topic_prefix=self.config.mqtt.topic_prefix,
+                topic_prefix=self.config.get_topic_prefix(),
                 name=output.id,
                 restore_state=output.restore_state,
                 relay_id=_id,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
             )
             if out is None:
                 continue
             if output.restore_state:
-                self._event_bus.add_event_listener(
+                self.event_bus.add_event_listener(
                     event_type="output",
                     entity_id=out.id,
                     listener_id="manager",
@@ -340,33 +341,36 @@ class Manager:
         self._serial_number_sensor = create_serial_number_sensor(
             manager=self,
             message_bus=self.message_bus,
-            topic_prefix=self.config.mqtt.topic_prefix,
+            topic_prefix=self.config.get_topic_prefix(),
         )
         self.modbus_coordinators = self._configure_modbus_coordinators(
             devices=config.modbus_devices
         )
 
+        self._host_data = HostData(
+            manager=self,
+            event_bus=self.event_bus,
+            enabled_screens=config.oled.screens if config.oled is not None else [],
+            output=self.grouped_outputs_by_expander,
+            inputs=self.inputs,
+            temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
+            ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
+            extra_sensors=config.oled.extra_screen_sensors
+            if config.oled is not None
+            else [],
+        )
+
         if config.oled is not None and config.oled.enabled:
-            self._host_data = HostData(
-                manager=self,
-                event_bus=self._event_bus,
-                enabled_screens=config.oled.screens,
-                output=self.grouped_outputs_by_expander,
-                inputs=self.inputs,
-                temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
-                ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
-                extra_sensors=config.oled.extra_screen_sensors,
-            )
             try:
                 oled = Oled(
                     host_data=self._host_data,
                     screen_order=config.oled.screens,
                     grouped_outputs_by_expander=self.grouped_outputs_by_expander.keys(),
                     sleep_timeout=config.oled.screensaver_timeout,
-                    event_bus=self._event_bus,
+                    event_bus=self.event_bus,
                     gpio_manager=self.gpio_manager,
                 )
-            except (GPIOInputException, I2CError) as err:
+            except I2CError as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
             else:
                 oled.render_display()
@@ -402,8 +406,8 @@ class Manager:
             output_group = OutputGroup(
                 message_bus=self.message_bus,
                 state_manager=self.state_manager,
-                topic_prefix=self.config.mqtt.topic_prefix,
-                event_bus=self._event_bus,
+                topic_prefix=self.config.get_topic_prefix(),
+                event_bus=self.event_bus,
                 members=members,
                 config=group,
             )
@@ -431,20 +435,20 @@ class Manager:
         if reload_config:
             self.config.cover = load_config(self._config_file_path).cover
             self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
-        for cover in self.config.cover:
-            _id = strip_accents(cover.id)
-            open_relay = self.outputs.get(cover.open_relay)
-            close_relay = self.outputs.get(cover.close_relay)
+        for cover_config in self.config.cover:
+            _id = strip_accents(cover_config.id)
+            open_relay = self.outputs.get(cover_config.open_relay)
+            close_relay = self.outputs.get(cover_config.close_relay)
             if not open_relay:
                 _LOGGER.error(
                     "Can't configure cover %s. This relay doesn't exist.",
-                    cover.open_relay,
+                    cover_config.open_relay,
                 )
                 continue
             if not close_relay:
                 _LOGGER.error(
                     "Can't configure cover %s. This relay doesn't exist.",
-                    cover.close_relay,
+                    cover_config.close_relay,
                 )
                 continue
             if open_relay.output_type != COVER or close_relay.output_type != COVER:
@@ -459,19 +463,84 @@ class Manager:
             try:
                 if _id in self.covers:
                     _cover = self.covers[_id]
-                    _cover.update_config_times(cover)
+                    if isinstance(_cover, VenetianCover):
+                        _cover.update_config_times(cover_config)
                     continue
-                self.covers[_id] = configure_cover(
-                    message_bus=self.message_bus,
-                    cover_id=_id,
-                    state_manager=self.state_manager,
-                    config=cover,
-                    open_relay=open_relay,
-                    close_relay=close_relay,
-                    event_bus=self._event_bus,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
-                    topic_prefix=self.config.mqtt.topic_prefix,
-                )
+
+                def state_save(value: CoverStateEntry) -> None:
+                    if cover_config.restore_state:
+                        self.state_manager.state.cover[_id] = value
+                        self.state_manager.save()
+
+                if cover_config.platform == "venetian":
+                    if not cover_config.tilt_duration:
+                        raise CoverConfigurationError(
+                            "Tilt duration must be configured for tilt cover."
+                        )
+                    _LOGGER.debug("Configuring tilt cover %s", _id)
+                    state = self.state_manager.state.cover.get(
+                        _id, CoverStateEntry(position=100, tilt=100)
+                    )
+                    cover = VenetianCover(
+                        id=_id,
+                        config=cover_config,
+                        state_save=state_save,
+                        message_bus=self.message_bus,
+                        restored_state=state,
+                        open_relay=open_relay,
+                        close_relay=close_relay,
+                        event_bus=self.event_bus,
+                        topic_prefix=self.config.get_topic_prefix(),
+                    )
+                    availability_msg_func = ha_cover_with_tilt_availabilty_message
+                elif cover_config.platform == "time_based":
+                    _LOGGER.debug("Configuring time-based cover %s", _id)
+                    state = self.state_manager.state.cover.get(
+                        _id, CoverStateEntry(position=100)
+                    )
+                    cover = TimeBasedCover(
+                        id=_id,
+                        config=cover_config,
+                        state_save=state_save,
+                        message_bus=self.message_bus,
+                        restored_state=state,
+                        open_relay=open_relay,
+                        close_relay=close_relay,
+                        event_bus=self.event_bus,
+                        topic_prefix=self.config.get_topic_prefix(),
+                    )
+                    availability_msg_func = ha_cover_availabilty_message
+                elif cover_config.platform == "previous":
+                    _LOGGER.debug("Configuring previous cover %s", _id)
+                    state = self.state_manager.state.cover.get(
+                        _id, CoverStateEntry(position=100)
+                    )
+                    cover = PreviousCover(
+                        id=_id,
+                        config=cover_config,
+                        state_save=state_save,
+                        message_bus=self.message_bus,
+                        restored_state=state,
+                        open_relay=open_relay,
+                        close_relay=close_relay,
+                        event_bus=self.event_bus,
+                        topic_prefix=self.config.get_topic_prefix(),
+                    )
+                    availability_msg_func = ha_cover_availabilty_message
+                else:
+                    raise ValueError(f"Wrong cover platform: {cover_config.platform}")
+
+                if cover_config.show_in_ha:
+                    self.send_ha_autodiscovery(
+                        id=cover.id,
+                        name=cover.name,
+                        ha_type=COVER,
+                        device_class=cover_config.device_class,
+                        availability_msg_func=availability_msg_func,
+                    )
+                _LOGGER.debug("Configured cover %s", _id)
+
+                self.covers[_id] = cover
 
             except CoverConfigurationError as err:
                 _LOGGER.error("Can't configure cover %s. %s", _id, err)
@@ -501,7 +570,7 @@ class Manager:
             input = configure_event_sensor(
                 event_config=gpio,
                 manager_press_callback=self.press_callback,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self.inputs.get(gpio.pin),  # for reload actions.
                 gpio_manager=self.gpio_manager,
@@ -515,7 +584,7 @@ class Manager:
             input = configure_binary_sensor(
                 sensor_config=gpio,
                 manager_press_callback=self.press_callback,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self.inputs.get(gpio.pin),  # for reload actions.
                 gpio_manager=self.gpio_manager,
@@ -523,10 +592,12 @@ class Manager:
             if input:
                 self.inputs[input.pin] = input
 
-    def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Task:
+    def append_task(
+        self, coro: Coroutine[None, None, None], name: str = "Unknown"
+    ) -> asyncio.Task[None]:
         """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
-        task: asyncio.Task = asyncio.create_task(coro)
+        task: asyncio.Task[None] = asyncio.create_task(coro)
         self.tasks.append(task)
         return task
 
@@ -566,7 +637,7 @@ class Manager:
             from boneio.helper.loader import configure_dallas
 
             try:
-                from w1thermsensor.kernel import load_kernel_modules
+                from w1thermsensor.kernel import load_kernel_modules  # type: ignore
 
                 load_kernel_modules()
 
@@ -593,7 +664,7 @@ class Manager:
                     manager=self,
                     message_bus=self.message_bus,
                     address=address,
-                    topic_prefix=self.config.mqtt.topic_prefix,
+                    topic_prefix=self.config.get_topic_prefix(),
                     config=sensor,
                     bus=bus,
                 )
@@ -603,7 +674,7 @@ class Manager:
         create_adc(
             manager=self,
             message_bus=self.message_bus,
-            topic_prefix=self.config.mqtt.topic_prefix,
+            topic_prefix=self.config.get_topic_prefix(),
             adc=adc,
         )
 
@@ -627,12 +698,22 @@ class Manager:
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
         for sensor_config in sensors:
-            ina219 = create_ina219_sensor(
-                topic_prefix=self.config.mqtt.topic_prefix,
+            ina219 = INA219(
                 manager=self,
                 message_bus=self.message_bus,
+                topic_prefix=self.config.get_topic_prefix(),
                 config=sensor_config,
             )
+
+            for sensor in ina219.sensors.values():
+                self.send_ha_autodiscovery(
+                    id=sensor.id,
+                    name=sensor.name,
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_sensor_ina_availabilty_message,
+                    unit_of_measurement=sensor.unit_of_measurement,
+                    device_class=sensor.device_class,
+                )
             if ina219:
                 self.ina219_sensors.append(ina219)
 
@@ -643,7 +724,7 @@ class Manager:
             return create_modbus_coordinators(
                 manager=self,
                 message_bus=self.message_bus,
-                event_bus=self._event_bus,
+                event_bus=self.event_bus,
                 entries=devices,
                 modbus=self.modbus,
                 config=self.config,
@@ -653,23 +734,16 @@ class Manager:
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
-        topic = f"{self.config.mqtt.topic_prefix}/{STATE}"
+        topic = f"{self.config.get_topic_prefix()}/{STATE}"
         self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
-
-    @property
-    def event_bus(self) -> EventBus:
-        return self._event_bus
 
     async def _relay_callback(
         self,
         event: OutputState,
     ) -> None:
         """Relay callback function."""
-        self.state_manager.save_attribute(
-            attr_type=RELAY,
-            attribute=event.id,
-            value=event.state == ON,
-        )
+        self.state_manager.state.relay[event.id] = event.state == ON
+        self.state_manager.save()
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
@@ -723,7 +797,7 @@ class Manager:
         If relay input map is provided also toggle action on relay or cover or mqtt.
         """
         actions = gpio.actions.get(x, [])
-        topic = f"{self.config.mqtt.topic_prefix}/{gpio.input_type}/{gpio.pin}"
+        topic = f"{self.config.get_topic_prefix()}/{gpio.input_type}/{gpio.pin}"
 
         def generate_payload():
             if gpio.input_type == INPUT:
@@ -828,10 +902,12 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
+        if topic.startswith(
+            f"{self.config.get_ha_autodiscovery_topic_prefix()}/status"
+        ):
             if message == ONLINE:
                 await self.resend_autodiscovery()
-                self._event_bus.signal_ha_online()
+                self.event_bus.signal_ha_online()
             return
         try:
             assert topic.startswith(self.config.mqtt.cmd_topic_prefix())
@@ -855,19 +931,25 @@ class Manager:
             return
         if msg_type == RELAY and command == "set":
             target_device = self.outputs.get(device_id)
-
-            if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.upper())
-                if action_from_msg:
-                    _f = getattr(target_device, action_from_msg)
-                    await _f()
-                else:
-                    _LOGGER.debug("Action not exist %s.", message.upper())
+            if target_device is not None and target_device.output_type != NONE:
+                match message.upper():
+                    case "ON":
+                        await target_device.async_turn_on()
+                    case "OFF":
+                        await target_device.async_turn_off()
+                    case "TOGGLE":
+                        await target_device.async_toggle()
+                    case _:
+                        _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self.outputs.get(device_id)
-            if target_device and target_device.output_type != NONE and message != "":
+            if (
+                isinstance(target_device, PWMPCA)
+                and target_device.output_type != NONE
+                and message != ""
+            ):
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
@@ -901,12 +983,16 @@ class Manager:
                         _LOGGER.warning(err)
         elif msg_type == "group" and command == "set":
             target_device = self.output_groups.get(device_id)
-            if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.upper())
-                if action_from_msg:
-                    asyncio.create_task(getattr(target_device, action_from_msg)())
-                else:
-                    _LOGGER.debug("Action not exist %s.", message.upper())
+            if target_device is not None and target_device.output_type != NONE:
+                match message.upper():
+                    case "ON":
+                        await target_device.async_turn_on()
+                    case "OFF":
+                        await target_device.async_turn_off()
+                    case "TOGGLE":
+                        await target_device.async_toggle()
+                    case _:
+                        _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == BUTTON and command == "set":
@@ -975,15 +1061,15 @@ class Manager:
         **kwargs,
     ) -> None:
         """Send HA autodiscovery information for each relay."""
+        if self.config.mqtt is None:
+            return
         if not self.config.mqtt.ha_discovery.enabled:
             return
-        topic_prefix = topic_prefix or self.config.mqtt.topic_prefix
+        topic_prefix = topic_prefix or self.config.get_topic_prefix()
         web_url = None
         if self.config.web is not None:
             network_state = get_network_info()
-            if self._host_data is not None:
-                web_url = self._host_data.web_url
-            elif IP in network_state:
+            if IP in network_state:
                 web_url = f"http://{network_state[IP]}:{self.config.web.port}"
         payload = availability_msg_func(
             topic=topic_prefix,
@@ -994,7 +1080,7 @@ class Manager:
             web_url=web_url,
             **kwargs,
         )
-        topic = f"{self.config.mqtt.ha_discovery.topic_prefix}/{ha_type}/{topic_prefix}/{id}/config"
+        topic = f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
         self.config.mqtt.autodiscovery_messages.add_message(
             message=MqttAutodiscoveryMessage(topic=topic, payload=payload),

@@ -9,9 +9,9 @@ import os
 import re
 import secrets
 import tempfile
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Literal
 
 import httpx
 from fastapi import (
@@ -20,6 +20,7 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Response,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -37,7 +38,6 @@ from starlette.websockets import WebSocketState
 from boneio.config import Config
 from boneio.const import COVER, NONE
 from boneio.cover.venetian import VenetianCover
-from boneio.helper.events import GracefulExit
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -67,12 +67,71 @@ class CoverTilt(BaseModel):
     tilt: int
 
 
+class AuthRequiredResponse(BaseModel):
+    required: bool
+
+
+class LoginResponse(BaseModel):
+    token: str
+
+
+class StatusResponse(BaseModel):
+    status: str
+
+
+class StatusWithMessageResponse(BaseModel):
+    status: str
+    message: str
+
+
+class VersionResponse(BaseModel):
+    version: str
+
+
+class NameResponse(BaseModel):
+    name: str
+
+
+class UpdateCheckResponse(BaseModel):
+    status: str
+    current_version: str
+    latest_version: str | None = None
+    update_available: bool | None = None
+    release_url: str | None = None
+    published_at: str | None = None
+    is_prerelease: bool | None = None
+    message: str | None = None
+
+
+class ConfigResponse(BaseModel):
+    config: Config
+
+
+class FileItem(BaseModel):
+    name: str
+    path: str
+    type: str
+    children: list["FileItem"] | None = None
+
+
+class FilesResponse(BaseModel):
+    items: list[FileItem]
+
+
+class FileContentResponse(BaseModel):
+    content: str
+
+
+# Update forward references for recursive models
+FileItem.model_rebuild()
+
+
 class BoneIOApp(FastAPI):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._loop = asyncio.get_event_loop()
 
-    async def shutdown_handler(self):
+    async def shutdown_handler(self) -> None:
         """Handle application shutdown."""
         _LOGGER.debug("Shutting down All WebSocket connections...")
         if hasattr(self.state, "websocket_manager"):
@@ -110,7 +169,7 @@ class BoneIOApp(FastAPI):
                                 {"type": "lifespan.shutdown.failed", "message": str(e)}
                             )
                         return
-            except (asyncio.CancelledError, GracefulExit):
+            except asyncio.CancelledError:
                 # Handle graceful exit during lifespan
                 _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
                 await self.shutdown_handler()
@@ -138,7 +197,7 @@ JWT_SECRET = os.getenv(
 
 
 # Dependency to get manager instance
-def get_manager():
+def get_manager() -> Manager:
     """Get manager instance."""
     return app.state.manager
 
@@ -150,10 +209,10 @@ def get_config() -> Config:
 
 # Add auth required endpoint
 @app.get("/api/auth/required")
-async def auth_required(config: Config = Depends(get_config)):
+async def auth_required(config: Config = Depends(get_config)) -> AuthRequiredResponse:
     """Check if authentication is required."""
     assert config.web is not None, "Web config must be provided"
-    return {"required": config.web.is_auth_required()}
+    return AuthRequiredResponse(required=config.web.is_auth_required())
 
 
 # Configure CORS
@@ -167,7 +226,9 @@ origins = [
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         # Skip auth for login endpoint and static files
         if (
             not request.url.path.startswith("/api")
@@ -219,19 +280,19 @@ async def login(
     username: str = Body(...),
     password: str = Body(...),
     config: Config = Depends(get_config),
-):
+) -> LoginResponse:
     assert config.web is not None, "Web config must be provided"
     if not config.web.is_auth_required():
         token = create_token({"sub": "default"})
-        return {"token": token}
+        return LoginResponse(token=token)
 
     if config.web.validate_auth(username, password):
         token = create_token({"sub": username})
-        return {"token": token}
+        return LoginResponse(token=token)
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
-def create_token(data: dict):
+def create_token(data: dict[str, str]) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)  # Token expires in 7 days
     to_encode.update({"exp": expire})
@@ -239,7 +300,7 @@ def create_token(data: dict):
     return encoded_jwt
 
 
-def is_running_as_service():
+def is_running_as_service() -> bool:
     """Check if running as a systemd service."""
     try:
         with Path("/proc/1/comm").open("r") as f:
@@ -254,7 +315,7 @@ def _clean_ansi(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
-def _decode_ascii_list(ascii_list: list) -> str:
+def _decode_ascii_list(ascii_list: list[int]) -> str:
     """Decode a list of ASCII codes into a string and clean ANSI codes."""
     try:
         # Convert ASCII codes to string
@@ -266,7 +327,7 @@ def _decode_ascii_list(ascii_list: list) -> str:
         return str(ascii_list)
 
 
-def _parse_systemd_log_entry(entry: dict) -> dict:
+def _parse_systemd_log_entry(entry: dict[str, str]) -> dict[str, str]:
     """Parse a systemd journal log entry."""
     # Handle MESSAGE field if it's a list of ASCII codes
     if isinstance(entry.get("MESSAGE"), list):
@@ -471,21 +532,23 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
 
 
 @app.post("/api/outputs/{output_id}/toggle")
-async def toggle_output(output_id: str, manager: Manager = Depends(get_manager)):
+async def toggle_output(
+    output_id: str, manager: Manager = Depends(get_manager)
+) -> StatusResponse:
     """Toggle output state."""
     if output_id not in manager.outputs:
         raise HTTPException(status_code=404, detail="Output not found")
     status = await manager.toggle_output(output_id=output_id)
     if status:
-        return {"status": status}
+        return StatusResponse(status=status)
     else:
-        return {"status": "error"}
+        return StatusResponse(status="error")
 
 
 @app.post("/api/covers/{cover_id}/action")
 async def cover_action(
     cover_id: str, action_data: CoverAction, manager: Manager = Depends(get_manager)
-):
+) -> StatusResponse:
     """Control cover with specific action (open, close, stop)."""
     cover = manager.covers.get(cover_id)
     if not cover:
@@ -502,13 +565,13 @@ async def cover_action(
     elif action == "stop":
         await cover.stop()
 
-    return {"status": "success"}
+    return StatusResponse(status="success")
 
 
 @app.post("/api/covers/{cover_id}/set_position")
 async def set_cover_position(
     cover_id: str, position_data: CoverPosition, manager: Manager = Depends(get_manager)
-):
+) -> StatusResponse:
     """Control cover with specific action (open, close, stop)."""
     cover = manager.covers.get(cover_id)
     if not cover:
@@ -520,18 +583,18 @@ async def set_cover_position(
 
     await cover.set_cover_position(position)
 
-    return {"status": "success"}
+    return StatusResponse(status="success")
 
 
 @app.post("/api/covers/{cover_id}/set_tilt")
 async def set_cover_tilt(
     cover_id: str, tilt_data: CoverTilt, manager: Manager = Depends(get_manager)
-):
+) -> StatusResponse:
     """Control cover with specific action (open, close, stop)."""
     cover = manager.covers.get(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
-    if isinstance(cover, VenetianCover):
+    if not isinstance(cover, VenetianCover):
         raise HTTPException(status_code=400, detail="Invalid cover type")
     tilt = tilt_data.tilt
     if tilt < 0 or tilt > 100:
@@ -539,27 +602,27 @@ async def set_cover_tilt(
 
     await cover.set_tilt(tilt)
 
-    return {"status": "success"}
+    return StatusResponse(status="success")
 
 
 @app.post("/api/restart")
-async def restart_service(background_tasks: BackgroundTasks):
+async def restart_service(background_tasks: BackgroundTasks) -> StatusResponse:
     """Restart the BoneIO service."""
     if not is_running_as_service():
-        return {"status": "not available"}
+        return StatusResponse(status="not available")
 
-    async def shutdown_and_restart():
+    async def shutdown_and_restart() -> None:
         # First stop the web server
         if app.state.web_server:
             await asyncio.sleep(0.1)  # Allow time for the response to be sent
             os._exit(0)  # Terminate the process
 
     background_tasks.add_task(shutdown_and_restart)
-    return {"status": "success"}
+    return StatusResponse(status="success")
 
 
 @app.get("/api/check_update")
-async def check_update():
+async def check_update() -> UpdateCheckResponse:
     """Check if there is a newer version of BoneIO available from GitHub releases."""
     from packaging import version
 
@@ -575,23 +638,23 @@ async def check_update():
             response = await client.get(api_url)
 
         if response.status_code != 200:
-            return {
-                "status": "error",
-                "message": f"Failed to fetch releases: {response.text}",
-                "current_version": current_version,
-            }
+            return UpdateCheckResponse(
+                status="error",
+                message=f"Failed to fetch releases: {response.text}",
+                current_version=current_version,
+            )
 
         releases = response.json()
 
         if not releases:
-            return {
-                "status": "error",
-                "message": "No releases found on GitHub",
-                "current_version": current_version,
-            }
+            return UpdateCheckResponse(
+                status="error",
+                message="No releases found on GitHub",
+                current_version=current_version,
+            )
 
         # Function to filter out prereleases if needed
-        def not_prerelease(release):
+        def not_prerelease(release: dict[str, bool]) -> bool:
             return not release.get("prerelease", False)
 
         # Get the latest release (you can choose to include or exclude prereleases)
@@ -603,11 +666,11 @@ async def check_update():
             # Find the first non-prerelease
             latest_release = next(filter(not_prerelease, releases), None)
             if not latest_release:
-                return {
-                    "status": "error",
-                    "message": "No stable releases found on GitHub",
-                    "current_version": current_version,
-                }
+                return UpdateCheckResponse(
+                    status="error",
+                    message="No stable releases found on GitHub",
+                    current_version=current_version,
+                )
 
         # Extract version from tag name (usually in format 'v1.2.3')
         latest_version_str = latest_release["tag_name"]
@@ -619,33 +682,33 @@ async def check_update():
             current_version
         )
 
-        return {
-            "status": "success",
-            "current_version": current_version,
-            "latest_version": latest_version_str,
-            "update_available": is_update_available,
-            "release_url": latest_release["html_url"],
-            "published_at": latest_release["published_at"],
-            "is_prerelease": latest_release.get("prerelease", False),
-        }
+        return UpdateCheckResponse(
+            status="success",
+            current_version=current_version,
+            latest_version=latest_version_str,
+            update_available=is_update_available,
+            release_url=latest_release["html_url"],
+            published_at=latest_release["published_at"],
+            is_prerelease=latest_release.get("prerelease", False),
+        )
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Error checking for updates: {str(e)}",
-            "current_version": current_version,
-        }
+        return UpdateCheckResponse(
+            status="error",
+            message=f"Error checking for updates: {str(e)}",
+            current_version=current_version,
+        )
 
 
 @app.post("/api/update")
-async def update_boneio(background_tasks: BackgroundTasks):
+async def update_boneio(background_tasks: BackgroundTasks) -> StatusWithMessageResponse:
     """Update the BoneIO package and restart the service."""
     if not is_running_as_service():
-        return {
-            "status": "not available",
-            "message": "Update is only available when running as a service",
-        }
+        return StatusWithMessageResponse(
+            status="not available",
+            message="Update is only available when running as a service",
+        )
 
-    async def update_and_restart():
+    async def update_and_restart() -> None:
         try:
             # Allow time for the response to be sent
             await asyncio.sleep(0.5)
@@ -682,42 +745,42 @@ async def update_boneio(background_tasks: BackgroundTasks):
             _LOGGER.error("Error during update process: %s", e)
 
     background_tasks.add_task(update_and_restart)
-    return {"status": "success", "message": "Update process started"}
+    return StatusWithMessageResponse(status="success", message="Update process started")
 
 
 @app.get("/api/version")
-async def get_version():
+async def get_version() -> VersionResponse:
     """Get application version."""
-    return {"version": __version__}
+    return VersionResponse(version=__version__)
 
 
 @app.get("/api/name")
-async def get_name(config: Config = Depends(get_config)) -> dict[str, str]:
+async def get_name(config: Config = Depends(get_config)) -> NameResponse:
     """Get application name."""
-    return {"name": config.boneio.name}
+    return NameResponse(name=config.boneio.name)
 
 
 @app.get("/api/check_configuration")
-async def check_configuration():
+async def check_configuration() -> StatusWithMessageResponse:
     """Check if the configuration is valid."""
     try:
         load_config(config_file=app.state.yaml_config_file)
-        return {"status": "success"}
+        return StatusWithMessageResponse(status="success", message="")
     except ConfigurationError as e:
-        return {"status": "error", "message": str(e)}
+        return StatusWithMessageResponse(status="error", message=str(e))
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return StatusWithMessageResponse(status="error", message=str(e))
 
 
 @app.get("/api/config")
-async def get_parsed_config() -> dict[Literal["config"], Config]:
+async def get_parsed_config() -> ConfigResponse:
     """Get parsed configuration data with !include resolved."""
     try:
         # Load config using BoneIOLoader which handles !include
         config_data = load_config(app.state.yaml_config_file)
 
         _LOGGER.info("Successfully loaded parsed configuration")
-        return {"config": config_data}
+        return ConfigResponse(config=config_data)
 
     except Exception as e:
         _LOGGER.error("Error loading parsed configuration: %s", str(e))
@@ -727,7 +790,7 @@ async def get_parsed_config() -> dict[Literal["config"], Config]:
 
 
 @app.get("/api/files")
-async def list_files(path: str | None = None):
+async def list_files(path: str | None = None) -> FilesResponse:
     """List files in the config directory."""
     config_dir = Path(app.state.yaml_config_file).parent
     base_dir = config_dir / path if path else config_dir
@@ -738,7 +801,7 @@ async def list_files(path: str | None = None):
     if not base_dir.is_dir():
         raise HTTPException(status_code=400, detail="Path is not a directory")
 
-    def scan_directory(directory: Path):
+    def scan_directory(directory: Path) -> list[dict[str, str]]:
         items = []
         for entry in os.scandir(directory):
             if entry.name == ".git" or entry.name.startswith("venv"):
@@ -748,36 +811,36 @@ async def list_files(path: str | None = None):
                 children = scan_directory(Path(entry.path))
                 if children:  # Only include directories that have yaml files in them
                     items.append(
-                        {
-                            "name": entry.name,
-                            "path": relative_path,
-                            "type": "directory",
-                            "children": children,
-                        }
+                        FileItem(
+                            name=entry.name,
+                            path=str(relative_path),
+                            type="directory",
+                            children=children,
+                        )
                     )
             elif entry.is_file():
                 if entry.name.endswith((".yaml", ".yml")):
                     items.append(
-                        {"name": entry.name, "path": relative_path, "type": "file"}
+                        FileItem(name=entry.name, path=str(relative_path), type="file")
                     )
         return items
 
     try:
         items = [
-            {
-                "name": "config",
-                "path": "",
-                "type": "directory",
-                "children": scan_directory(base_dir),
-            }
+            FileItem(
+                name="config",
+                path="",
+                type="directory",
+                children=scan_directory(base_dir),
+            )
         ]
-        return {"items": items}
+        return FilesResponse(items=items)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/files/{file_path:path}")
-async def get_file_content(file_path: str):
+async def get_file_content(file_path: str) -> FileContentResponse:
     """Get content of a file."""
     config_dir = Path(app.state.yaml_config_file).parent
     full_path = config_dir / file_path
@@ -794,13 +857,15 @@ async def get_file_content(file_path: str):
     try:
         with full_path.open("r") as f:
             content = f.read()
-        return {"content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    return FileContentResponse(content=content)
 
 
 @app.put("/api/files/{file_path:path}")
-async def update_file_content(file_path: str, content: dict = Body(...)):
+async def update_file_content(
+    file_path: str, content: dict = Body(...)
+) -> StatusResponse:
     """Update content of a file."""
     config_dir = Path(app.state.yaml_config_file).parent
     full_path = config_dir / file_path
@@ -817,13 +882,13 @@ async def update_file_content(file_path: str, content: dict = Body(...)):
     try:
         with full_path.open("w") as f:
             f.write(content["content"])
-        return {"status": "success"}
+        return StatusResponse(status="success")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/api/config/{section}")
-async def update_section_content(section: str, data: dict = Body(...)):
+async def update_section_content(section: str, data: dict = Body(...)) -> dict:
     """Update content of a configuration section."""
 
     try:
@@ -837,32 +902,28 @@ async def update_section_content(section: str, data: dict = Body(...)):
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
 
-def on_exit(self) -> None:
-    asyncio.create_task(app.state.websocket_manager.close_all())
-
-
-async def input_state_changed(input_: InputState):
+async def input_state_changed(input_: InputState) -> None:
     """Callback when input state changes."""
     await app.state.websocket_manager.broadcast_state("input", input_)
 
 
-async def output_state_changed(event: OutputState):
+async def output_state_changed(event: OutputState) -> None:
     """Callback when output state changes."""
     await app.state.websocket_manager.broadcast_state("output", event)
 
 
-async def cover_state_changed(event: CoverState):
+async def cover_state_changed(event: CoverState) -> None:
     """Callback when cover state changes."""
     await app.state.websocket_manager.broadcast_state("cover", event)
 
 
-async def sensor_state_changed(event: SensorState):
-    """Callback when output state changes."""
+async def sensor_state_changed(event: SensorState) -> None:
+    """Callback when sensor state changes."""
     await app.state.websocket_manager.broadcast_state("sensor", event)
 
 
-async def modbus_device_state_changed(event: SensorState):
-    """Callback when output state changes."""
+async def modbus_device_state_changed(event: SensorState) -> None:
+    """Callback when modbus device state changes."""
     await app.state.websocket_manager.broadcast_state("modbus_device", event)
 
 
@@ -901,7 +962,7 @@ def init_app(
     return app
 
 
-def add_listener_for_all_outputs(boneio_manager: Manager):
+def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
     for output in boneio_manager.outputs.values():
         if output.output_type == COVER or output.output_type == NONE:
             continue
@@ -913,13 +974,13 @@ def add_listener_for_all_outputs(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_outputs(boneio_manager: Manager):
+def remove_listener_for_all_outputs(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(
         event_type="output", listener_id="ws"
     )
 
 
-def add_listener_for_all_covers(boneio_manager: Manager):
+def add_listener_for_all_covers(boneio_manager: Manager) -> None:
     for cover in boneio_manager.covers.values():
         boneio_manager.event_bus.add_event_listener(
             event_type="cover",
@@ -929,11 +990,11 @@ def add_listener_for_all_covers(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_covers(boneio_manager: Manager):
+def remove_listener_for_all_covers(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(event_type="cover")
 
 
-def add_listener_for_all_inputs(boneio_manager: Manager):
+def add_listener_for_all_inputs(boneio_manager: Manager) -> None:
     for input in boneio_manager.inputs.values():
         boneio_manager.event_bus.add_event_listener(
             event_type="input",
@@ -943,11 +1004,11 @@ def add_listener_for_all_inputs(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_inputs(boneio_manager: Manager):
+def remove_listener_for_all_inputs(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener("input")
 
 
-def sensor_listener_for_all_sensors(boneio_manager: Manager):
+def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
     for modbus_coordinator in boneio_manager.modbus_coordinators.values():
         if not modbus_coordinator:
             continue
@@ -976,7 +1037,7 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
         )
 
 
-def remove_listener_for_all_sensors(boneio_manager: Manager):
+def remove_listener_for_all_sensors(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(listener_id="ws")
     boneio_manager.event_bus.remove_event_listener(
         event_type="sensor", listener_id="ws"
@@ -1053,16 +1114,9 @@ async def websocket_endpoint(
                 # Send covers
                 for cover in boneio_manager.covers.values():
                     try:
-                        cover_state = CoverState(
-                            id=cover.id,
-                            name=cover.name,
-                            state=cover.state,
-                            position=cover.position,
-                            timestamp=cover.last_timestamp,
-                            current_operation=cover.current_operation,
-                            tilt=cover.tilt if isinstance(cover, VenetianCover) else 0,
+                        update = StateUpdate(
+                            type="cover", data=CoverState.model_validate(cover)
                         )
-                        update = StateUpdate(type="cover", data=cover_state)
                         if not await send_state_update(update):
                             return
 

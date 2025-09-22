@@ -10,6 +10,7 @@ from luma.core.render import canvas
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
+from boneio.config import OledScreens
 from boneio.const import OLED_PIN, UPTIME, WHITE
 from boneio.gpio_manager import Edge, GpioManager
 from boneio.helper import (
@@ -54,7 +55,7 @@ class Oled:
         host_data: HostData,
         grouped_outputs_by_expander: list[str],
         sleep_timeout: timedelta,
-        screen_order: list[str],
+        screen_order: list[OledScreens],
         event_bus: EventBus,
         gpio_manager: GpioManager,
     ) -> None:

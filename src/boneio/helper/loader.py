@@ -10,9 +10,7 @@ from boneio.config import (
     AdcConfig,
     BinarySensorConfig,
     Config,
-    CoverConfig,
     EventConfig,
-    Ina219Config,
     ModbusDeviceConfig,
     OutputConfig,
     SensorConfig,
@@ -20,16 +18,13 @@ from boneio.config import (
 )
 from boneio.const import (
     BINARY_SENSOR,
-    COVER,
     EVENT_ENTITY,
     GPIO,
     LM75,
     MCP_TEMP_9808,
     NONE,
-    RELAY,
     SENSOR,
 )
-from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
 from boneio.gpio import (
     GpioEventButtonNew,
     GpioEventButtonOld,
@@ -40,20 +35,15 @@ from boneio.gpio import (
 )
 from boneio.gpio_manager import GpioManager
 from boneio.helper import (
-    CoverConfigurationError,
-    GPIOInputException,
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
-    ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import (
-    ha_cover_availabilty_message,
-    ha_cover_with_tilt_availabilty_message,
     ha_sensor_availabilty_message,
     ha_virtual_energy_sensor_discovery_message,
 )
@@ -70,7 +60,6 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.relay.basic import BasicRelay
 from boneio.sensor import DallasSensorDS2482, GpioADCSensor
-from boneio.sensor.ina219 import INA219
 from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -223,14 +212,13 @@ def configure_relay(
 ) -> BasicRelay | None:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
-        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
-        if restore_state
-        else False
+        state_manager.state.relay.get(relay_id, False) if restore_state else False
     )
-    if output_config.output_type == NONE and state_manager.get(
-        attr_type=RELAY, attr=relay_id
+    if (
+        output_config.output_type == NONE
+        and state_manager.state.relay.get(relay_id) is not None
     ):
-        state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
+        state_manager.remove_relay_from_state(relay_id)
         restored_state = False
 
     if isinstance(output_config.interlock_group, str):
@@ -403,24 +391,20 @@ def configure_event_sensor(
             return input
         input.actions = event_config.actions
     else:
-        try:
-            if event_config.detection_type == "new":
-                input = GpioEventButtonNew(
-                    config=event_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-            else:
-                input = GpioEventButtonOld(
-                    config=event_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-        except GPIOInputException as err:
-            _LOGGER.error("This PIN %s can't be configured. %s", event_config.pin, err)
-            raise
+        if event_config.detection_type == "new":
+            input = GpioEventButtonNew(
+                config=event_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
+        else:
+            input = GpioEventButtonOld(
+                config=event_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
     if event_config.show_in_ha:
         send_ha_autodiscovery(
             id=event_config.pin,
@@ -454,24 +438,20 @@ def configure_binary_sensor(
             return input
         input.actions = sensor_config.actions
     else:
-        try:
-            if sensor_config.detection_type == "new":
-                input = GpioInputBinarySensorNew(
-                    config=sensor_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-            else:
-                input = GpioInputBinarySensorOld(
-                    config=sensor_config,
-                    manager_press_callback=manager_press_callback,
-                    event_bus=event_bus,
-                    gpio_manager=gpio_manager,
-                )
-        except GPIOInputException as err:
-            _LOGGER.error("This PIN %s can't be configured. %s", sensor_config.pin, err)
-            raise
+        if sensor_config.detection_type == "new":
+            input = GpioInputBinarySensorNew(
+                config=sensor_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
+        else:
+            input = GpioInputBinarySensorOld(
+                config=sensor_config,
+                manager_press_callback=manager_press_callback,
+                event_bus=event_bus,
+                gpio_manager=gpio_manager,
+            )
 
     if sensor_config.show_in_ha:
         send_ha_autodiscovery(
@@ -482,107 +462,6 @@ def configure_binary_sensor(
             availability_msg_func=ha_binary_sensor_availabilty_message,
         )
     return input
-
-
-def configure_cover(
-    message_bus: MessageBus,
-    cover_id: str,
-    state_manager: StateManager,
-    send_ha_autodiscovery: Callable,
-    config: CoverConfig,
-    open_relay: BasicRelay,
-    close_relay: BasicRelay,
-    event_bus: EventBus,
-    topic_prefix: str,
-) -> PreviousCover | TimeBasedCover | VenetianCover:
-    platform = config.platform or "previous"
-
-    def state_save(value: dict[str, int]):
-        if config.restore_state:
-            state_manager.save_attribute(
-                attr_type=COVER,
-                attribute=cover_id,
-                value=value,
-            )
-
-    if platform == "venetian":
-        if not config.tilt_duration:
-            raise CoverConfigurationError(
-                "Tilt duration must be configured for tilt cover."
-            )
-        _LOGGER.debug("Configuring tilt cover %s", cover_id)
-        restored_state: dict = state_manager.get(
-            attr_type=COVER,
-            attr=cover_id,
-            default_value={"position": 100, "tilt_position": 100},
-        )
-        if isinstance(restored_state, (float, int)):
-            restored_state = {"position": restored_state, "tilt_position": 100}
-        cover = VenetianCover(
-            id=cover_id,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=restored_state,
-            tilt_duration=config.tilt_duration,
-            actuator_activation_duration=config.actuator_activation_duration,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            open_time=config.open_time,
-            close_time=config.close_time,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_with_tilt_availabilty_message
-    elif platform == "time_based":
-        _LOGGER.debug("Configuring time-based cover %s", cover_id)
-        restored_state: dict = state_manager.get(
-            attr_type=COVER, attr=cover_id, default_value={"position": 100}
-        )
-        if isinstance(restored_state, (float, int)):
-            restored_state = {"position": restored_state}
-        cover = TimeBasedCover(
-            id=cover_id,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=restored_state,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            open_time=config.open_time,
-            close_time=config.close_time,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_availabilty_message
-    else:
-        _LOGGER.debug("Configuring previous cover %s", cover_id)
-        restored_state: dict = state_manager.get(
-            attr_type=COVER, attr=cover_id, default_value={"position": 100}
-        )
-        if isinstance(restored_state, (float, int)):
-            restored_state = {"position": restored_state}
-        cover = PreviousCover(
-            id=cover_id,
-            state_save=state_save,
-            message_bus=message_bus,
-            restored_state=restored_state,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            open_time=config.open_time,
-            close_time=config.close_time,
-            event_bus=event_bus,
-            topic_prefix=topic_prefix,
-        )
-        availability_msg_func = ha_cover_availabilty_message
-    if config.show_in_ha:
-        send_ha_autodiscovery(
-            id=cover.id,
-            name=cover.name,
-            ha_type=COVER,
-            device_class=config.device_class,
-            availability_msg_func=availability_msg_func,
-        )
-    _LOGGER.debug("Configured cover %s", cover_id)
-    return cover
 
 
 def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
@@ -643,29 +522,3 @@ def create_dallas_sensor(
             unit_of_measurement=config.unit_of_measurement,
         )
     return sensor
-
-
-def create_ina219_sensor(
-    manager: Manager,
-    message_bus: MessageBus,
-    topic_prefix: str,
-    config: Ina219Config,
-) -> INA219:
-    """Create INA219 sensor in manager."""
-    ina219 = INA219(
-        manager=manager,
-        message_bus=message_bus,
-        topic_prefix=topic_prefix,
-        config=config,
-    )
-
-    for sensor in ina219.sensors.values():
-        manager.send_ha_autodiscovery(
-            id=sensor.id,
-            name=sensor.name,
-            ha_type=SENSOR,
-            availability_msg_func=ha_sensor_ina_availabilty_message,
-            unit_of_measurement=sensor.unit_of_measurement,
-            device_class=sensor.device_class,
-        )
-    return ina219

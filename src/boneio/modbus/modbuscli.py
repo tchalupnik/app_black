@@ -4,7 +4,8 @@ import logging
 from pathlib import Path
 from typing import Literal
 
-from boneio.const import REGISTERS, UARTS
+from boneio.config import UartsConfig
+from boneio.const import REGISTERS
 
 from ..helper.util import open_json
 from .client import Modbus
@@ -36,7 +37,7 @@ class ModbusHelper:
     ) -> None:
         """Initialize Modbus Helper."""
         self._modbus = Modbus(
-            uart=UARTS[uart],
+            uart=UartsConfig[uart],
             baudrate=baudrate,
             stopbits=stopbits,
             bytesize=bytesize,
@@ -210,7 +211,7 @@ async def async_run_modbus_search(
 ) -> Literal[0]:
     """Run Modbus Search Function."""
     _modbus = Modbus(
-        uart=UARTS[uart],
+        uart=UartsConfig[uart],
         baudrate=baudrate,
         stopbits=stopbits,
         bytesize=bytesize,
@@ -260,7 +261,7 @@ async def async_run_modbus_get(
         parity,
     )
     _modbus = Modbus(
-        uart=UARTS[uart],
+        uart=UartsConfig[uart],
         baudrate=baudrate,
         stopbits=stopbits,
         bytesize=bytesize,

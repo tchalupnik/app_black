@@ -27,7 +27,7 @@ _nameToLevel = {
 def configure_logger(debug: int, log_config: LoggerConfig | None = None) -> None:
     """Configure logger based on config yaml."""
 
-    def debug_logger():
+    def debug_logger() -> None:
         if debug == 0:
             logging.getLogger().setLevel(logging.INFO)
         if debug > 0:
@@ -71,7 +71,7 @@ def get_log_level(level_name: str) -> int:
     return _nameToLevel.get(level_name.upper(), logging.INFO)
 
 
-def is_running_under_systemd():
+def is_running_under_systemd() -> bool:
     """Check if the process is running under systemd."""
     return os.getenv("JOURNAL_STREAM") is not None
 

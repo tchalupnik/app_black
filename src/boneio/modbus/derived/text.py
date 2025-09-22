@@ -37,21 +37,17 @@ class ModbusDerivedTextSensor(BaseSensor):
         )
         self.context = context_config
         self.base_address = source_sensor_base_address
-        self._source_sensor_decoded_name = source_sensor_decoded_name
+        self.source_sensor_decoded_name = source_sensor_decoded_name
         self._value_mapping = value_mapping
+        self.state = ""
 
-    @property
-    def state(self) -> str:
-        """Give rounded value of temperature."""
-        return self._value or ""
-
-    def discovery_message(self):
+    def discovery_message(self) -> dict:
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
             "sensor_id": self.name,
         }
         return modbus_sensor_availabilty_message(
-            topic=self.config.mqtt.topic_prefix,
+            topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
@@ -59,12 +55,8 @@ class ModbusDerivedTextSensor(BaseSensor):
             **kwargs,
         )
 
-    @property
-    def source_sensor_decoded_name(self) -> str:
-        return self._source_sensor_decoded_name
-
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float
     ) -> None:
         self._timestamp = timestamp
-        self._value = self._value_mapping.get(str(source_sensor_value), "Unknown")
+        self.state = self._value_mapping.get(str(source_sensor_value), "Unknown")

@@ -2,211 +2,279 @@
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import logging
 import os
 import sys
+from enum import Enum
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from yaml import MarkedYAMLError
 
-from boneio.const import ACTION
-from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import RestartRequestException
 from boneio.logger import configure_logger, setup_logging
-from boneio.modbus.client import VALUE_TYPES
-from boneio.modbus.modbuscli import (
-    async_run_modbus_get,
-    async_run_modbus_search,
-    async_run_modbus_set,
-)
-from boneio.runner import async_run
 from boneio.version import __version__
-from boneio.yaml import ConfigurationError, load_config
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
-TASK_CANCELATION_TIMEOUT = 1
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_arguments() -> argparse.Namespace:
-    """Get parsed passed in arguments."""
-
-    parser = argparse.ArgumentParser(
-        description="boneIO app for BeagleBone Black.",
-    )
-    subparsers = parser.add_subparsers(dest=ACTION, required=True)
-    run_parser = subparsers.add_parser("run")
-    run_parser.add_argument(
-        "--debug",
-        "-d",
-        action="count",
-        help="Start boneIO in debug mode",
-        default=0,
-    )
-    run_parser.add_argument(
-        "-c",
-        "--config",
-        metavar="path_to_config_dir",
-        default="./config.yaml",
-        help="File which contains boneIO configuration",
-    )
-    run_parser.add_argument(
-        "--mqttusername",
-        help="Mqtt username to use if you don't want provide in file.",
-    )
-    run_parser.add_argument(
-        "--mqttpassword",
-        help="Mqtt password to use if you don't want provide in file.",
-    )
-    modbus_parser = subparsers.add_parser("modbus")
-    modbus_parser.add_argument(
-        "--debug",
-        "-d",
-        action="count",
-        help="Start boneIO in debug mode",
-        default=0,
-    )
-    modbus_parser.add_argument(
-        "--uart",
-        type=str,
-        choices=["uart1", "uart4"],
-        help="Choose UART",
-        required=True,
-    )
-    modbus_parser.add_argument(
-        "--address",
-        type=lambda x: int(x, 0),
-        required=False,
-        default=1,
-        help="Current device address (hex or integer)",
-    )
-    modbus_parser.add_argument(
-        "--baudrate",
-        type=int,
-        choices=[1200, 2400, 4800, 9600, 14400, 19200],
-        required=True,
-        help="Current baudrate",
-    )
-
-    modbus_parser.add_argument(
-        "--bytesize",
-        type=int,
-        required=False,
-        default=8,
-        help="Bytesize",
-    )
-
-    modbus_parser.add_argument(
-        "--stopbits",
-        type=int,
-        required=False,
-        default=1,
-        help="stopbits",
-    )
-
-    modbus_parser.add_argument(
-        "--parity",
-        type=str,
-        choices=["P", "E", "N"],
-        default="N",
-        required=False,
-        help="Parity",
-    )
-
-    modbus_sub_parser = modbus_parser.add_subparsers(
-        dest="modbus_action", required=True
-    )
-    set_modbus_parser = modbus_sub_parser.add_parser("set")
-    set_modbus_parser.add_argument(
-        "--custom-value",
-        type=int,
-        help="Set Custom value",
-    )
-    set_modbus_parser.add_argument(
-        "--custom-register-address",
-        type=int,
-        help="Register address for custom value",
-    )
-    set_modbus_parser.add_argument(
-        "--device",
-        type=str,
-        choices=["cwt", "r4dcb08", "liquid-sensor", "sht20", "sht30", "custom"],
-        help="Choose device to set modbus address/baudrate. For custom you must provide --custom-value and --custom-register-address",
-        required=True,
-    )
-    set_modbus_parser_group = set_modbus_parser.add_mutually_exclusive_group()
-    set_modbus_parser_group.add_argument(
-        "--new-address",
-        type=lambda x: int(x, 0),
-        help="Set new address (hex or integer / 1 - 253/)",
-    )
-
-    set_modbus_parser_group.add_argument(
-        "--new-baudrate",
-        type=int,
-        choices=[1200, 2400, 4800, 9600, 19200],
-        help="Choose new baudrate to set. CWT doesn't work on 1200.",
-    )
-
-    get_modbus_parser = modbus_sub_parser.add_parser("get")
-    register_group = get_modbus_parser.add_mutually_exclusive_group(required=True)
-    register_group.add_argument(
-        "--register-address",
-        type=int,
-        help="Single register address to read",
-    )
-    register_group.add_argument(
-        "--register-range",
-        type=str,
-        help="Register address range in format 'start-stop' (e.g., '1-230')",
-    )
-    get_modbus_parser.add_argument(
-        "--register-type",
-        type=str,
-        choices=["input", "holding"],
-        help="Register type",
-        required=True,
-    )
-    get_modbus_parser.add_argument(
-        "--value-type",
-        type=str,
-        choices=VALUE_TYPES.keys(),
-        help="Value types",
-        required=True,
-    )
-    search_modbus_parser = modbus_sub_parser.add_parser(
-        name="search",
-        help="Search for device. Iterate over every address 1-253 with provided register address",
-    )
-    search_modbus_parser.add_argument(
-        "--register-address",
-        type=int,
-        help="Register address",
-        required=True,
-    )
-    search_modbus_parser.add_argument(
-        "--register-type",
-        type=str,
-        choices=["input", "holding"],
-        help="Register type",
-        required=True,
-    )
-    parser.add_argument("--version", action="version", version=__version__)
-    arguments = parser.parse_args()
-
-    return arguments
+class UartChoice(str, Enum):
+    uart1 = "uart1"
+    uart4 = "uart4"
 
 
+class ParityChoice(str, Enum):
+    P = "P"
+    E = "E"
+    N = "N"
+
+
+class RegisterTypeChoice(str, Enum):
+    input = "input"
+    holding = "holding"
+
+
+class DeviceChoice(str, Enum):
+    cwt = "cwt"
+    r4dcb08 = "r4dcb08"
+    liquid_sensor = "liquid-sensor"
+    sht20 = "sht20"
+    sht30 = "sht30"
+    custom = "custom"
+
+
+class ValueTypeChoice(str, Enum):
+    U_WORD = "U_WORD"
+    S_WORD = "S_WORD"
+    U_DWORD = "U_DWORD"
+    S_DWORD = "S_DWORD"
+    U_DWORD_R = "U_DWORD_R"
+    S_DWORD_R = "S_DWORD_R"
+
+
+app = typer.Typer(help="boneIO app for BeagleBone Black.")
+
+modbus_app = typer.Typer(help="Modbus commands")
+app.add_typer(modbus_app, name="modbus")
+
+
+@app.command()
 def run(
+    config: Annotated[
+        str,
+        typer.Option(
+            "-c",
+            "--config",
+            metavar="path_to_config_dir",
+            help="File which contains boneIO configuration",
+        ),
+    ] = "./config.yaml",
+    debug: Annotated[
+        int,
+        typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
+    ] = 0,
+    mqttusername: Annotated[
+        str | None,
+        typer.Option(help="Mqtt username to use if you don't want provide in file."),
+    ] = None,
+    mqttpassword: Annotated[
+        str | None,
+        typer.Option(help="Mqtt password to use if you don't want provide in file."),
+    ] = None,
+) -> None:
+    """Run BoneIO."""
+    exit_code = run_boneio(
+        config_file=Path(config),
+        mqttusername=mqttusername,
+        mqttpassword=mqttpassword,
+        debug=debug,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
+@modbus_app.command("set")
+def modbus_set(
+    uart: Annotated[UartChoice, typer.Option(help="Choose UART")],
+    baudrate: Annotated[int, typer.Option(help="Current baudrate")],
+    device: Annotated[
+        DeviceChoice,
+        typer.Option(
+            help="Choose device to set modbus address/baudrate. For custom you must provide --custom-value and --custom-register-address"
+        ),
+    ],
+    address: Annotated[
+        int, typer.Option(help="Current device address (hex or integer)")
+    ] = 1,
+    bytesize: Annotated[int, typer.Option(help="Bytesize")] = 8,
+    stopbits: Annotated[int, typer.Option(help="stopbits")] = 1,
+    parity: Annotated[ParityChoice, typer.Option(help="Parity")] = ParityChoice.N,
+    debug: Annotated[
+        int,
+        typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
+    ] = 0,
+    new_address: Annotated[
+        int | None, typer.Option(help="Set new address (hex or integer / 1 - 253/)")
+    ] = None,
+    new_baudrate: Annotated[
+        int | None,
+        typer.Option(help="Choose new baudrate to set. CWT doesn't work on 1200."),
+    ] = None,
+    custom_value: Annotated[int | None, typer.Option(help="Set Custom value")] = None,
+    custom_register_address: Annotated[
+        int | None, typer.Option(help="Register address for custom value")
+    ] = None,
+) -> None:
+    """Set modbus device parameters."""
+    if new_address is not None and new_baudrate is not None:
+        typer.echo(
+            "Error: Cannot set both new address and new baudrate at the same time",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    exit_code = run_modbus_set_helper(
+        device=device.value,
+        uart=uart.value,
+        address=address,
+        baudrate=baudrate,
+        parity=parity.value,
+        bytesize=bytesize,
+        stopbits=stopbits,
+        new_baudrate=new_baudrate,
+        new_address=new_address,
+        custom_address=custom_register_address,
+        custom_value=custom_value,
+        debug=debug,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
+@modbus_app.command("get")
+def modbus_get(
+    uart: Annotated[UartChoice, typer.Option(help="Choose UART")],
+    baudrate: Annotated[int, typer.Option(help="Current baudrate")],
+    register_type: Annotated[RegisterTypeChoice, typer.Option(help="Register type")],
+    value_type: Annotated[ValueTypeChoice, typer.Option(help="Value types")],
+    address: Annotated[
+        int, typer.Option(help="Current device address (hex or integer)")
+    ] = 1,
+    bytesize: Annotated[int, typer.Option(help="Bytesize")] = 8,
+    stopbits: Annotated[int, typer.Option(help="stopbits")] = 1,
+    parity: Annotated[ParityChoice, typer.Option(help="Parity")] = ParityChoice.N,
+    debug: Annotated[
+        int,
+        typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
+    ] = 0,
+    register_address: Annotated[
+        int | None, typer.Option(help="Single register address to read")
+    ] = None,
+    register_range: Annotated[
+        str | None,
+        typer.Option(
+            help="Register address range in format 'start-stop' (e.g., '1-230')"
+        ),
+    ] = None,
+) -> None:
+    """Get modbus register values."""
+    if register_address is None and register_range is None:
+        typer.echo(
+            "Error: Either --register-address or --register-range is required", err=True
+        )
+        raise typer.Exit(1)
+    if register_address is not None and register_range is not None:
+        typer.echo(
+            "Error: Cannot specify both --register-address and --register-range",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    exit_code = run_modbus_get_helper(
+        uart=uart.value,
+        device_address=address,
+        baudrate=baudrate,
+        register_address=register_address,
+        register_type=register_type.value,
+        parity=parity.value,
+        bytesize=bytesize,
+        stopbits=stopbits,
+        value_type=value_type.value,
+        register_range=register_range,
+        debug=debug,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
+@modbus_app.command("search")
+def modbus_search(
+    uart: Annotated[UartChoice, typer.Option(help="Choose UART")],
+    baudrate: Annotated[int, typer.Option(help="Current baudrate")],
+    register_address: Annotated[int, typer.Option(help="Register address")],
+    register_type: Annotated[RegisterTypeChoice, typer.Option(help="Register type")],
+    bytesize: Annotated[int, typer.Option(help="Bytesize")] = 8,
+    stopbits: Annotated[int, typer.Option(help="stopbits")] = 1,
+    parity: Annotated[ParityChoice, typer.Option(help="Parity")] = ParityChoice.N,
+    debug: Annotated[
+        int,
+        typer.Option("-d", "--debug", count=True, help="Start boneIO in debug mode"),
+    ] = 0,
+) -> None:
+    """Search for device. Iterate over every address 1-253 with provided register address."""
+    exit_code = run_modbus_search_helper(
+        uart=uart.value,
+        baudrate=baudrate,
+        register_address=register_address,
+        register_type=register_type.value,
+        stopbits=stopbits,
+        bytesize=bytesize,
+        parity=parity.value,
+        debug=debug,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
+def version_callback(value: bool) -> None:
+    """Print version and exit."""
+    if value:
+        typer.echo(__version__)
+        raise typer.Exit()
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = None,
+) -> None:
+    """boneIO app for BeagleBone Black."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(0)
+
+
+def run_boneio(
     config_file: Path,
     debug: int,
     mqttusername: str | None = None,
     mqttpassword: str | None = None,
 ) -> int:
     """Run BoneIO."""
+    from boneio.runner import async_run
+    from boneio.yaml import ConfigurationError, load_config
+
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
@@ -224,101 +292,137 @@ def run(
         return ret
     except KeyboardInterrupt:
         return 0
-    except GracefulExit as err:
-        _LOGGER.info("Message: %s", err)
-        return 0
     except (ConfigurationError, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         return 1
 
 
-def run_modbus_command(
-    args: argparse.Namespace,
+def run_modbus_set_helper(
+    device: str,
+    uart: str,
+    address: int,
+    baudrate: int,
+    parity: str,
+    bytesize: int,
+    stopbits: int,
+    new_baudrate: int | None,
+    new_address: int | None,
+    custom_address: int | None,
+    custom_value: int | None,
+    debug: int,
 ) -> int:
-    """Run BoneIO."""
-    setup_logging(debug_level=args.debug)
+    """Run modbus set command helper."""
+    from boneio.modbus.modbuscli import async_run_modbus_set
+    from boneio.yaml import ConfigurationError
+
+    setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
-        configure_logger(debug=args.debug)
-        ret = 0
-        if args.modbus_action == "set":
-            ret = asyncio.run(
-                async_run_modbus_set(
-                    device=args.device,
-                    uart=args.uart,
-                    address=args.address,
-                    baudrate=args.baudrate,
-                    parity=args.parity,
-                    bytesize=args.bytesize,
-                    stopbits=args.stopbits,
-                    new_baudrate=args.new_baudrate,
-                    new_address=args.new_address,
-                    custom_address=args.custom_register_address,
-                    custom_value=args.custom_value,
-                ),
-            )
-        elif args.modbus_action == "get":
-            ret = asyncio.run(
-                async_run_modbus_get(
-                    uart=args.uart,
-                    device_address=args.address,
-                    baudrate=args.baudrate,
-                    register_address=args.register_address,
-                    register_type=args.register_type,
-                    parity=args.parity,
-                    bytesize=args.bytesize,
-                    stopbits=args.stopbits,
-                    value_type=args.value_type,
-                    register_range=args.register_range,
-                ),
-            )
-        else:
-            ret = asyncio.run(
-                async_run_modbus_search(
-                    uart=args.uart,
-                    baudrate=args.baudrate,
-                    register_address=args.register_address,
-                    register_type=args.register_type,
-                    stopbits=args.stopbits,
-                    bytesize=args.bytesize,
-                    parity=args.parity,
-                ),
-            )
+        configure_logger(debug=debug)
+        ret = asyncio.run(
+            async_run_modbus_set(
+                device=device,
+                uart=uart,
+                address=address,
+                baudrate=baudrate,
+                parity=parity,
+                bytesize=bytesize,
+                stopbits=stopbits,
+                new_baudrate=new_baudrate,
+                new_address=new_address,
+                custom_address=custom_address,
+                custom_value=custom_value,
+            ),
+        )
         return ret
-    except (RestartRequestException, GracefulExit) as err:
-        if err is not None:
-            _LOGGER.info(err)
-        return 0
+    except (ConfigurationError, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        return 1
+
+
+def run_modbus_get_helper(
+    uart: str,
+    device_address: int,
+    baudrate: int,
+    register_address: int | None,
+    register_type: str,
+    parity: str,
+    bytesize: int,
+    stopbits: int,
+    value_type: str,
+    register_range: str | None,
+    debug: int,
+) -> int:
+    """Run modbus get command helper."""
+    from boneio.modbus.modbuscli import async_run_modbus_get
+    from boneio.yaml import ConfigurationError
+
+    setup_logging(debug_level=debug)
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        configure_logger(debug=debug)
+        ret = asyncio.run(
+            async_run_modbus_get(
+                uart=uart,
+                device_address=device_address,
+                baudrate=baudrate,
+                register_address=register_address,
+                register_type=register_type,
+                parity=parity,
+                bytesize=bytesize,
+                stopbits=stopbits,
+                value_type=value_type,
+                register_range=register_range,
+            ),
+        )
+        return ret
+    except (ConfigurationError, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        return 1
+
+
+def run_modbus_search_helper(
+    uart: str,
+    baudrate: int,
+    register_address: int,
+    register_type: str,
+    stopbits: int,
+    bytesize: int,
+    parity: str,
+    debug: int,
+) -> int:
+    """Run modbus search command helper."""
+    from boneio.modbus.modbuscli import async_run_modbus_search
+    from boneio.yaml import ConfigurationError
+
+    setup_logging(debug_level=debug)
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        configure_logger(debug=debug)
+        ret = asyncio.run(
+            async_run_modbus_search(
+                uart=uart,
+                baudrate=baudrate,
+                register_address=register_address,
+                register_type=register_type,
+                stopbits=stopbits,
+                bytesize=bytesize,
+                parity=parity,
+            ),
+        )
+        return ret
     except (ConfigurationError, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         return 1
 
 
 def main() -> int:
-    """Start boneIO."""
-
-    args = get_arguments()
-    debug = args.debug
-
-    exit_code = 0
-    if args.action == "run":
-        exit_code = run(
-            config_file=Path(args.config),
-            mqttusername=args.mqttusername,
-            mqttpassword=args.mqttpassword,
-            debug=debug,
-        )
-    elif args.action == "modbus":
-        _LOGGER.info("BoneIO Modbus helper %s .", __version__)
-        exit_code = run_modbus_command(
-            args=args,
-        )
-
-    if exit_code == 0:
-        _LOGGER.info("Exiting with exit code %s", exit_code)
-    else:
-        _LOGGER.error("Exiting with exit code %s", exit_code)
-    return exit_code
+    """Start boneIO with typer."""
+    try:
+        app()
+        return 0
+    except typer.Exit as e:
+        return e.exit_code if e.exit_code is not None else 0
 
 
 if __name__ == "__main__":

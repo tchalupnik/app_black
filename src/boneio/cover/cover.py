@@ -9,17 +9,11 @@ from collections.abc import Callable
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from boneio.const import (
-    CLOSED,
-    CLOSING,
-    COVER,
-    IDLE,
-    OPEN,
-    OPENING,
-)
+from boneio.const import COVER
 from boneio.helper.events import EventBus
+from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.util import strip_accents
-from boneio.models import CoverState, PositionDict
+from boneio.models import CoverState, CoverStateOperation, CoverStateState
 from boneio.relay import MCPRelay
 
 if TYPE_CHECKING:
@@ -30,22 +24,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class BaseCoverABC(ABC):
     """Base cover class."""
-
-    @abstractmethod
-    def __init__(
-        self,
-        id: str,
-        open_relay: MCPRelay,
-        close_relay: MCPRelay,
-        state_save: Callable,
-        open_time: timedelta,
-        close_time: timedelta,
-        event_bus: EventBus,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        position: int = 100,
-    ) -> None:
-        pass
 
     @abstractmethod
     async def stop(self) -> None:
@@ -75,67 +53,18 @@ class BaseCoverABC(ABC):
     async def set_cover_position(self, position: int) -> None:
         """Set cover position."""
 
-    @property
-    @abstractmethod
-    def state(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
-    def position(self) -> int:
-        pass
-
-    @property
-    @abstractmethod
-    def current_operation(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
-    def last_timestamp(self) -> float:
-        pass
-
     @abstractmethod
     async def run_cover(
         self,
-        current_operation: str,
+        current_operation: CoverStateOperation,
         target_position: float | None = None,
         target_tilt: float | None = None,
     ) -> None:
         """This function is called to run cover after calling open, close, toggle, toggle_open, toggle_close, set_cover_position"""
 
     @abstractmethod
-    async def send_state(self, state: str, position: float) -> None:
+    async def send_state(self) -> None:
         pass
-
-
-class BaseVenetianCoverABC:
-    @property
-    @abstractmethod
-    def tilt_position(self) -> int:
-        pass
-
-    @property
-    @abstractmethod
-    def tilt_current_operation(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
-    def last_tilt_timestamp(self) -> float:
-        pass
-
-    @abstractmethod
-    async def set_cover_tilt_position(self, position: int) -> None:
-        """Set cover tilt position."""
-
-    @abstractmethod
-    async def tilt_open(self) -> None:
-        """Open cover tilt."""
-
-    @abstractmethod
-    async def tilt_close(self) -> None:
-        """Close cover tilt."""
 
 
 class BaseCover(BaseCoverABC):
@@ -144,13 +73,13 @@ class BaseCover(BaseCoverABC):
         id: str,
         open_relay: MCPRelay,
         close_relay: MCPRelay,
-        state_save: Callable,
+        state_save: Callable[[CoverStateEntry], None],
         open_time: timedelta,
         close_time: timedelta,
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
-        position: int = 100,
+        position: int,
     ) -> None:
         self.id = id.replace(" ", "")
         self.name = id
@@ -164,10 +93,11 @@ class BaseCover(BaseCoverABC):
         self._open_time = open_time.total_seconds() * 1000
         self._close_time = close_time.total_seconds() * 1000
         self.position = position
+        self.tilt: int = 0
         self._initial_position = None
-        self.current_operation = IDLE
+        self.current_operation = CoverStateOperation.IDLE
 
-        self.last_timestamp = time.monotonic()
+        self.timestamp = time.monotonic()
 
         self._last_update_time = 0
         self._closed = position <= 0
@@ -177,9 +107,7 @@ class BaseCover(BaseCoverABC):
 
         self._event_bus.add_sigterm_listener(self.on_exit)
 
-        self._loop.call_soon_threadsafe(
-            self._loop.call_later, 0.5, self.send_state, self.state, self.json_position
-        )
+        self._loop.call_soon_threadsafe(self._loop.call_later, 0.5, self.send_state)
 
     async def on_exit(self) -> None:
         """Stop on exit."""
@@ -191,26 +119,26 @@ class BaseCover(BaseCoverABC):
             self._movement_thread.join(timeout=0.5)
             self._open_relay.turn_off()
             self._close_relay.turn_off()
-            self.current_operation = IDLE
+            self.current_operation = CoverStateOperation.IDLE
             if not on_exit:
-                self.send_state(self.state, self.json_position)
+                self.send_state()
 
     async def open(self) -> None:
         if self.position >= 100:
             return
         _LOGGER.info("Opening cover %s.", self.id)
-        await self.run_cover(current_operation=OPENING)
+        await self.run_cover(current_operation=CoverStateOperation.OPENING)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=OPENING
+            topic=f"{self._send_topic}/state", payload=CoverStateState.OPENING.value
         )
 
     async def close(self) -> None:
         if self.position <= 0:
             return
         _LOGGER.info("Closing cover %s.", self.id)
-        await self.run_cover(current_operation=CLOSING)
+        await self.run_cover(current_operation=CoverStateOperation.CLOSING)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=CLOSING
+            topic=f"{self._send_topic}/state", payload=CoverStateState.CLOSING.value
         )
 
     async def set_cover_position(self, position: int) -> None:
@@ -221,9 +149,13 @@ class BaseCover(BaseCoverABC):
             return
 
         if position > self.position:
-            await self.run_cover(current_operation=OPENING, target_position=position)
+            await self.run_cover(
+                current_operation=CoverStateOperation.OPENING, target_position=position
+            )
         elif position < self.position:
-            await self.run_cover(current_operation=CLOSING, target_position=position)
+            await self.run_cover(
+                current_operation=CoverStateOperation.CLOSING, target_position=position
+            )
 
     async def toggle(self) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self.id)
@@ -234,49 +166,50 @@ class BaseCover(BaseCoverABC):
 
     async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self.id)
-        if self.current_operation != IDLE:
+        if self.current_operation != CoverStateOperation.IDLE:
             await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self.id)
-        if self.current_operation != IDLE:
+        if self.current_operation != CoverStateOperation.IDLE:
             await self.stop()
         else:
             await self.close()
 
     @property
-    def state(self) -> str:
-        if self.current_operation == OPENING:
-            return OPENING
-        elif self.current_operation == CLOSING:
-            return CLOSING
+    def state(self) -> CoverStateState:
+        if self.current_operation == CoverStateOperation.OPENING:
+            return CoverStateState.OPENING
+        elif self.current_operation == CoverStateOperation.CLOSING:
+            return CoverStateState.CLOSING
         else:
-            return CLOSED if self.position == 0 else OPEN
+            return (
+                CoverStateState.CLOSED if self.position == 0 else CoverStateState.OPEN
+            )
 
-    @property
-    def json_position(self) -> PositionDict:
-        return {"position": self.position}
-
-    def send_state(self, state: str, json_position: PositionDict) -> None:
+    def send_state(self) -> None:
         event = CoverState(
             id=self.id,
             name=self.name,
-            state=state,
-            timestamp=self.last_timestamp,
+            state=self.state,
+            timestamp=self.timestamp,
             current_operation=self.current_operation,
-            position=json_position["position"],
-            tilt=json_position["tilt"],
+            position=self.position,
+            tilt=self.tilt,
         )
         self._event_bus.trigger_event(
             {"event_type": "cover", "entity_id": self.id, "event_state": event}
         )
-        self.message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/pos", payload=json_position
+            topic=f"{self._send_topic}/state", payload=self.state.value
+        )
+        self.message_bus.send_message(
+            topic=f"{self._send_topic}/pos",
+            payload={"position": self.position, "tilt": self.tilt},
         )
 
-    def send_state_and_save(self, json_position: PositionDict):
-        self.send_state(self.state, json_position)
-        self._state_save(json_position)
+    def send_state_and_save(self) -> None:
+        self.send_state()
+        self._state_save(CoverStateEntry(position=self.position))

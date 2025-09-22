@@ -3,7 +3,8 @@ import datetime as dt
 import logging
 import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 UTC = dt.timezone.utc
@@ -19,8 +20,8 @@ time_tracker_utcnow = utcnow
 
 
 def _async_create_timer(
-    loop: asyncio.AbstractEventLoop, event_callback
-) -> CALLBACK_TYPE:
+    loop: asyncio.AbstractEventLoop, event_callback: Callable[[dt.datetime], None]
+) -> Callable[[], None]:
     """Create a timer that will start on BoneIO start."""
     handle = None
 
@@ -33,7 +34,7 @@ def _async_create_timer(
     def fire_time_event() -> None:
         """Fire next time event."""
         now = utcnow()
-        event_callback(now)
+        event_callback()
         schedule_tick(now)
 
     def stop_timer() -> None:
@@ -45,34 +46,21 @@ def _async_create_timer(
     return stop_timer
 
 
-class GracefulExit(SystemExit):
-    """Graceful exit."""
-
-    def __init__(self, msg=None, code=None):
-        super(GracefulExit, self).__init__(msg)
-        self.code = code
-
-
 class ListenerJob:
     """Listener to represent jobs during runtime."""
 
-    def __init__(self, target) -> None:
+    def __init__(self, target: Callable) -> None:
         """Initialize listener."""
         self.target = target
-        self._handle = None
+        self.handle = None
 
-    def add_handle(self, handle):
+    def add_handle(self, handle: Any) -> None:
         """Add handle to listener."""
-        self._handle = handle
+        self.handle = handle
 
-    def set_target(self, target) -> None:
+    def set_target(self, target: Callable) -> None:
         """Set target."""
         self.target = target
-
-    @property
-    def handle(self):
-        """Return handle."""
-        return self._handle
 
 
 class EventBus:
@@ -81,14 +69,16 @@ class EventBus:
     Obsługuje wiele typów eventów oraz asynchroniczne kolejkowanie i dispatching.
     """
 
-    def __init__(self, loop: asyncio.AbstractEventLoop = None) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """
         Initialize the event bus.
         :param loop: asyncio event loop
         """
-        self._loop = loop or asyncio.get_event_loop()
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        self._loop = loop
         self._event_queue = asyncio.Queue()
-        self._event_listeners = {
+        self._event_listeners: dict[str, dict[str, dict[str, ListenerJob]]] = {
             "input": {},
             "output": {},
             "cover": {},
@@ -96,17 +86,17 @@ class EventBus:
             "sensor": {},
             "host": {},
         }
-        self._listener_id_index = {}
-        self._worker_task = None
-        self._every_second_listeners = {}
+        self._listener_id_index: dict[str, list[tuple[str, str]]] = {}
+        self._worker_task: asyncio.Task | None = None
+        self._every_second_listeners: dict[str, ListenerJob] = {}
         self._shutting_down = False
-        self._sigterm_listeners = []
-        self._haonline_listeners = []
+        self._sigterm_listeners: list[Callable] = []
+        self._haonline_listeners: list[Callable[[], None]] = []
         self._timer_handle = _async_create_timer(self._loop, self._run_second_event)
         self._shutting_down = False
         self._monitor_task = None
 
-    async def start(self):
+    async def start(self) -> None:
         """
         Start the event bus worker.
         """
@@ -116,7 +106,7 @@ class EventBus:
         self._worker_task = asyncio.create_task(self._event_worker())
         _LOGGER.info("Event bus worker started.")
 
-    async def _event_worker(self):
+    async def _event_worker(self) -> None:
         """
         Background task to process events from the queue.
         """
@@ -134,7 +124,7 @@ class EventBus:
             finally:
                 self._event_queue.task_done()
 
-    async def _handle_event(self, event: dict):
+    async def _handle_event(self, event: dict[str, Any]) -> None:
         """
         Dispatch event to registered listeners.
         :param event: dict or object with at least 'event_type' field
@@ -157,20 +147,20 @@ class EventBus:
             except Exception as exc:
                 _LOGGER.error("Listener error: %s", exc)
 
-    def trigger_event(self, event):
+    def trigger_event(self, event: dict[str, Any]) -> None:
         """
         Put event into the queue for async processing.
         :param event: dict or object with at least 'event_type' field
         """
         self._event_queue.put_nowait(event)
 
-    def request_stop(self):
+    def request_stop(self) -> None:
         """Request the event bus to stop."""
         if self._worker_task and not self._shutting_down:
             self._shutting_down = True
             self._worker_task.cancel()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """
         Stop the event bus and worker task gracefully.
         """
@@ -188,21 +178,20 @@ class EventBus:
                 _LOGGER.info("Event bus worker cancelled.")
         _LOGGER.info("Shutdown EventBus gracefully.")
 
-    def _run_second_event(self, time):
+    def _run_second_event(self) -> None:
         """Run event every second."""
         for key, listener in self._every_second_listeners.items():
             if listener.target:
                 self._every_second_listeners[key].add_handle(
-                    self._loop.call_soon(listener.target, time)
+                    self._loop.call_soon(listener.target)
                 )
 
-    def _timer_handle(self):
+    def _timer_handle(self) -> None:
         """Handle timer event."""
-        time = datetime.now(tz=timezone.utc)
         for listener in self._every_second_listeners.values():
-            self._loop.call_soon(listener.target, time)
+            self._loop.call_soon(listener.target)
 
-    async def _handle_sigterm_listeners(self):
+    async def _handle_sigterm_listeners(self) -> None:
         """Handle all sigterm listeners, supporting both async and sync listeners."""
         for target in self._sigterm_listeners:
             try:
@@ -214,18 +203,18 @@ class EventBus:
             except Exception as e:
                 _LOGGER.error("Error in sigterm listener %s: %s", target, e)
 
-    def ask_exit(self):
+    def ask_exit(self) -> None:
         """Function to call on exit. Should invoke all sigterm listeners."""
         if self._shutting_down:
             return
         self._shutting_down = True
         _LOGGER.debug("EventBus Exiting process started.")
 
-        def task_done_callback(task):
+        def task_done_callback(task) -> None:
             task.result()  # Retrieve the result to handle any raised exception
             raise asyncio.CancelledError
 
-        async def cleanup_and_exit():
+        async def cleanup_and_exit() -> None:
             try:
                 await asyncio.sleep(2)
                 await self.ask_stop()
@@ -241,13 +230,13 @@ class EventBus:
         self._every_second_listeners[name] = ListenerJob(target=target)
         return self._every_second_listeners[name]
 
-    def add_sigterm_listener(self, target):
+    def add_sigterm_listener(self, target: Callable) -> None:
         """Add sigterm listener."""
         self._sigterm_listeners.append(target)
 
     def add_event_listener(
-        self, event_type: str, entity_id: str, listener_id: str, target
-    ) -> ListenerJob:
+        self, event_type: str, entity_id: str, listener_id: str, target: Callable
+    ) -> ListenerJob | None:
         """Add event listener.
 
         listener_id is typically group_id for group outputs or ws (websocket)
@@ -273,7 +262,10 @@ class EventBus:
         return listener_job
 
     def remove_event_listener(
-        self, event_type: str = None, entity_id: str = None, listener_id: str = None
+        self,
+        event_type: str | None = None,
+        entity_id: str | None = None,
+        listener_id: str | None = None,
     ) -> None:
         """Remove event listener. Can remove by event_type, listener_id, or both."""
         if listener_id and listener_id in self._listener_id_index:
@@ -319,11 +311,11 @@ class EventBus:
                     for lid in list(self._event_listeners[event_type][ent_id].keys()):
                         self.remove_event_listener(event_type, ent_id, lid)
 
-    def add_haonline_listener(self, target: Callable) -> None:
+    def add_haonline_listener(self, target: Callable[[], None]) -> None:
         """Add HA Online listener."""
         self._haonline_listeners.append(target)
 
-    def signal_ha_online(self):
+    def signal_ha_online(self) -> None:
         """Call events if HA goes online."""
         for target in self._haonline_listeners:
             target()
@@ -346,7 +338,7 @@ def _as_utc(dattim: dt.datetime) -> dt.datetime:
 
 def async_track_point_in_time(
     loop: asyncio.AbstractEventLoop, job, point_in_time: datetime, **kwargs
-) -> CALLBACK_TYPE:
+) -> Callable[[], None]:
     """Add a listener that fires once after a specific point in UTC time."""
     # Ensure point_in_time is UTC
     utc_point_in_time = _as_utc(point_in_time)

@@ -10,33 +10,21 @@ from collections.abc import Callable
 from datetime import timedelta
 
 from boneio.config import CoverConfig
-from boneio.const import (
-    CLOSE,
-    CLOSED,
-    CLOSING,
-    COVER,
-    IDLE,
-    OPEN,
-    OPENING,
-    STOP,
-)
+from boneio.const import COVER
 from boneio.helper.events import EventBus
+from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.util import strip_accents
-from boneio.models import CoverState
+from boneio.models import (
+    CoverState,
+    CoverStateOperation,
+    CoverStateState,
+)
 from boneio.relay.basic import BasicRelay
 
 if typing.TYPE_CHECKING:
     from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
-DEFAULT_RESTORED_STATE = {"position": 100}
-COVER_COMMANDS = {
-    OPEN: "open_cover",
-    CLOSE: "close_cover",
-    STOP: "stop",
-    "toggle": "toggle",
-    "toggle_open": "toggle_open",
-}
 
 
 class RelayHelper:
@@ -54,15 +42,14 @@ class PreviousCover:
     def __init__(
         self,
         id: str,
+        config: CoverConfig,
         open_relay: BasicRelay,
         close_relay: BasicRelay,
-        state_save: Callable,
-        open_time: timedelta,
-        close_time: timedelta,
+        state_save: Callable[[CoverStateEntry], None],
         event_bus: EventBus,
         message_bus: MessageBus,
         topic_prefix: str,
-        restored_state: dict = DEFAULT_RESTORED_STATE,
+        restored_state: CoverStateEntry,
     ) -> None:
         """Initialize cover class."""
         self._loop = asyncio.get_event_loop()
@@ -72,21 +59,19 @@ class PreviousCover:
         self._send_topic = f"{topic_prefix}/{COVER}/{strip_accents(self.id)}"
         self._lock = asyncio.Lock()
         self._state_save = state_save
-        self._open = RelayHelper(relay=open_relay, time=open_time)
-        self._close = RelayHelper(relay=close_relay, time=close_time)
+        self._open = RelayHelper(relay=open_relay, time=config.open_time)
+        self._close = RelayHelper(relay=close_relay, time=config.close_time)
         self._set_position = None
-        self.current_operation = IDLE
-        self._position = float(
-            restored_state.get("position", DEFAULT_RESTORED_STATE["position"])
-        )
+        self.current_operation = CoverStateOperation.IDLE
+        self._position = restored_state.position
         self._requested_closing = True
         self._event_bus = event_bus
         self._timer_handle = None
-        self.last_timestamp = 0.0
-        if self._position is None:
-            self._closed = True
-        else:
-            self._closed = self._position <= 0
+        self.timestamp = 0.0
+        self.tilt = None
+        self.state = (
+            CoverStateState.CLOSED if self._position == 0 else CoverStateState.OPEN
+        )
         self._event_bus.add_sigterm_listener(self.on_exit)
         self._loop.call_soon_threadsafe(
             self._loop.call_later,
@@ -94,17 +79,14 @@ class PreviousCover:
             self.send_state,
         )
 
-    async def run_cover(
-        self,
-        current_operation: str,
-    ) -> None:
+    async def run_cover(self, current_operation: CoverStateOperation) -> None:
         """Run cover engine."""
-        if self.current_operation != IDLE:
+        if self.current_operation != CoverStateOperation.IDLE:
             self._stop_cover()
         self.current_operation = current_operation
 
-        def get_relays():
-            if current_operation == OPENING:
+        def get_relays() -> tuple[BasicRelay, BasicRelay]:
+            if current_operation == CoverStateOperation.OPENING:
                 return (self._open.relay, self._close.relay)
             else:
                 return (self._close.relay, self._open.relay)
@@ -122,27 +104,22 @@ class PreviousCover:
         """Stop on exit."""
         self._stop_cover(on_exit=True)
 
-    @property
-    def state(self) -> str:
-        """Current state of cover."""
-        return CLOSED if self._closed else OPEN
-
     async def stop(self) -> None:
         """Public Stop cover graceful."""
         _LOGGER.info("Stopping cover %s.", self.name)
-        if self.current_operation != IDLE:
+        if self.current_operation != CoverStateOperation.IDLE:
             self._stop_cover(on_exit=False)
         await self.async_send_state()
 
     async def async_send_state(self) -> None:
         """Send state to Websocket on action asynchronously."""
-        self.last_timestamp = time.time()
+        self.timestamp = time.time()
         event = CoverState(
             id=self.id,
             name=self.name,
             state=self.state,
             position=round(self._position, 0),
-            timestamp=self.last_timestamp,
+            timestamp=self.timestamp,
             current_operation=self.current_operation,
         )
         self._event_bus.trigger_event(
@@ -152,13 +129,13 @@ class PreviousCover:
     def send_state(self) -> None:
         """Send state of cover to mqtt."""
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=self.state
+            topic=f"{self._send_topic}/state", payload=self.state.value
         )
         pos = round(self._position, 0)
         self.message_bus.send_message(
             topic=f"{self._send_topic}/pos", payload={"position": str(pos)}
         )
-        self._state_save(value={"position": pos})
+        self._state_save(CoverStateEntry(position=pos))
 
     def _stop_cover(self, on_exit=False) -> None:
         """Stop cover."""
@@ -170,19 +147,14 @@ class PreviousCover:
             self._set_position = None
             if not on_exit:
                 self.send_state()
-        self.current_operation = IDLE
+        self.current_operation = CoverStateOperation.IDLE
 
-    @property
-    def current_cover_position(self) -> int:
-        """Return the current position of the cover."""
-        return round(self._position, 0)
-
-    def listen_cover(self, *args) -> None:
+    def listen_cover(self) -> None:
         """Listen for change in cover."""
-        if self.current_operation == IDLE:
+        if self.current_operation == CoverStateOperation.IDLE:
             return
 
-        def get_step():
+        def get_step() -> float:
             """Get step for current operation."""
             if self._requested_closing:
                 return -self._close.steps
@@ -206,31 +178,30 @@ class PreviousCover:
             topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)}
         )
         asyncio.create_task(self.async_send_state())
+        self.state = (
+            CoverStateState.CLOSED if self._position <= 0 else CoverStateState.OPEN
+        )
         if rounded_pos == self._set_position or (
             self._set_position is None and (rounded_pos >= 100 or rounded_pos <= 0)
         ):
             self._position = rounded_pos
-            self._closed = self.current_cover_position <= 0
             self._stop_cover()
-            return
-
-        self._closed = self.current_cover_position <= 0
 
     async def close_cover(self) -> None:
         """Close cover."""
         if self._position == 0:
             return
         if self._position is None:
-            self._closed = True
+            self.state = CoverStateState.CLOSED
             return
         _LOGGER.info("Closing cover %s.", self.name)
 
         self._requested_closing = True
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=CLOSING
+            topic=f"{self._send_topic}/state", payload=CoverStateState.CLOSING.value
         )
         await self.run_cover(
-            current_operation=CLOSING,
+            current_operation=CoverStateOperation.CLOSING,
         )
 
     async def open_cover(self) -> None:
@@ -238,16 +209,16 @@ class PreviousCover:
         if self._position == 100:
             return
         if self._position is None:
-            self._closed = False
+            self.state = CoverStateState.OPEN
             return
         _LOGGER.info("Opening cover %s.", self.name)
 
         self._requested_closing = False
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=OPENING
+            topic=f"{self._send_topic}/state", payload=CoverStateState.OPENING.value
         )
         await self.run_cover(
-            current_operation=OPENING,
+            current_operation=CoverStateOperation.OPENING,
         )
 
     async def set_cover_position(self, position: int) -> None:
@@ -261,14 +232,18 @@ class PreviousCover:
         self._set_position = set_position
 
         self._requested_closing = set_position < self._position
-        current_operation = CLOSING if self._requested_closing else OPENING
+        current_operation = (
+            CoverStateOperation.CLOSING
+            if self._requested_closing
+            else CoverStateOperation.OPENING
+        )
         _LOGGER.debug(
             "Requested set position %s. Operation %s",
             set_position,
             current_operation,
         )
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=current_operation
+            topic=f"{self._send_topic}/state", payload=current_operation.value
         )
         await self.run_cover(
             current_operation=current_operation,
@@ -284,28 +259,21 @@ class PreviousCover:
 
     async def toggle(self) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self.name)
-        if self.state == CLOSED:
+        if self.state == CoverStateState.CLOSED:
             await self.close()
         else:
             await self.open()
 
     async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self.name)
-        if self.current_operation != IDLE:
+        if self.current_operation != CoverStateOperation.IDLE:
             await self.stop()
         else:
             await self.open()
 
     async def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self.name)
-        if self.current_operation != IDLE:
+        if self.current_operation != CoverStateOperation.IDLE:
             await self.stop()
         else:
             await self.close()
-
-    @property
-    def position(self) -> int:
-        return round(self._position, 0)
-
-    def update_config_times(self, config: CoverConfig) -> None:
-        pass

@@ -618,6 +618,9 @@ class CoverConfig(BaseModel):
     ) = None
     show_in_ha: bool = True
 
+    def identifier(self) -> str:
+        return self.id.replace(" ", "")
+
 
 class Ds2482Config(BaseModel):
     address: str
@@ -625,7 +628,7 @@ class Ds2482Config(BaseModel):
 
     def identifier(self) -> str:
         if self.id:
-            return (self.id).replace(" ", "")
+            return self.id.replace(" ", "")
         return self.address
 
 
@@ -656,3 +659,13 @@ class Config(BaseModel):
     modbus: ModbusConfig | None = None
     dallas: DallasConfig | None = None
     logger: LoggerConfig | None = None
+
+    def get_topic_prefix(self) -> str:
+        if self.mqtt is not None:
+            return self.mqtt.topic_prefix
+        return "boneio"
+
+    def get_ha_autodiscovery_topic_prefix(self) -> str:
+        if self.mqtt is not None:
+            return self.mqtt.ha_discovery.topic_prefix
+        return "homeassistant"
