@@ -197,7 +197,7 @@ class EventBus:
         async with anyio.create_task_group() as tg:
             this = cls(tg)
             tg.start_soon(this._event_worker)
-            _async_create_timer(tg, this._run_second_event)
+            tg.start_soon(_async_create_timer, tg, this._run_second_event)
             _LOGGER.info("Event bus worker started.")
             yield this
 
