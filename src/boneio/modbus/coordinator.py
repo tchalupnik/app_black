@@ -14,7 +14,6 @@ from boneio.const import (
     BINARY_SENSOR,
     ID,
     LENGTH,
-    MODBUS_DEVICE,
     MODEL,
     NAME,
     OFFLINE,
@@ -47,7 +46,7 @@ from boneio.modbus.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
 )
-from boneio.models import SensorState
+from boneio.models import ModbusDeviceEvent, SensorState
 
 from .client import VALUE_TYPES, Modbus
 from .utils import CONVERT_METHODS, REGISTERS_BASE
@@ -472,17 +471,16 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                     output[additional_sensor.decoded_name] = additional_sensor.state
                 output[modbus_sensor.decoded_name] = modbus_sensor.state
         self._event_bus.trigger_event(
-            {
-                "event_type": MODBUS_DEVICE,
-                "entity_id": modbus_sensor.id,
-                "event": SensorState(
+            ModbusDeviceEvent(
+                entity_id=modbus_sensor.id,
+                event_state=SensorState(
                     id=modbus_sensor.id,
                     name=modbus_sensor.name,
                     state=modbus_sensor.state,
                     unit=modbus_sensor.unit_of_measurement,
                     timestamp=modbus_sensor.last_timestamp,
                 ),
-            }
+            )
         )
         self._timestamp = timestamp
         self.message_bus.send_message(
@@ -602,17 +600,16 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                             )
                 output[sensor.decoded_name] = sensor.state
                 self._event_bus.trigger_event(
-                    {
-                        "event_type": MODBUS_DEVICE,
-                        "entity_id": sensor.id,
-                        "event_state": SensorState(
+                    ModbusDeviceEvent(
+                        entity_id=sensor.id,
+                        event_state=SensorState(
                             id=sensor.id,
                             name=sensor.name,
                             state=sensor.state,
                             unit=sensor.unit_of_measurement,
                             timestamp=sensor.last_timestamp,
                         ),
-                    }
+                    )
                 )
 
             self._timestamp = timestamp

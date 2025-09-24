@@ -6,7 +6,7 @@ import asyncio
 import logging
 import signal
 import warnings
-from contextlib import ExitStack
+from contextlib import AsyncExitStack
 from pathlib import Path
 
 from boneio.config import Config
@@ -34,9 +34,10 @@ async def async_run(
     configure_logger(log_config=config.logger, debug=debug)
     web_server: WebServer | None = None
     tasks: set[asyncio.Task[None]] = set()
-    event_bus = EventBus(loop=asyncio.get_event_loop())
-    shutdown_event = asyncio.Event()
     loop = asyncio.get_event_loop()
+    stack = AsyncExitStack()
+    event_bus = await stack.enter_async_context(EventBus.create())
+    shutdown_event = asyncio.Event()
     if debug >= 2:
         loop.set_debug(True)
 
@@ -49,10 +50,6 @@ async def async_run(
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, signal_handler)
 
-    event_bus_task = asyncio.create_task(event_bus.start())
-    tasks.add(event_bus_task)
-    event_bus_task.add_done_callback(tasks.discard)
-
     # Initialize message bus based on config
     if config.mqtt is not None:
         if mqttusername is not None:
@@ -63,7 +60,6 @@ async def async_run(
     else:
         message_bus = LocalMessageBus()
 
-    stack = ExitStack()
     gpio_manager = stack.enter_context(GpioManager.create())
     manager = Manager(
         config=config,

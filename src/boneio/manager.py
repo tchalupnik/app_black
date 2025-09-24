@@ -907,7 +907,7 @@ class Manager:
         ):
             if message == ONLINE:
                 await self.resend_autodiscovery()
-                self.event_bus.signal_ha_online()
+                await self.event_bus.signal_ha_online()
             return
         try:
             assert topic.startswith(self.config.mqtt.cmd_topic_prefix())

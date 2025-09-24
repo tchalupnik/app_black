@@ -14,7 +14,7 @@ from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.helper.util import strip_accents
-from boneio.models import SensorState
+from boneio.models import SensorEvent, SensorState
 
 if typing.TYPE_CHECKING:
     from boneio.manager import Manager
@@ -105,15 +105,14 @@ class INA219(AsyncUpdater):
                 sensor.raw_state = value
                 sensor.update(timestamp=timestamp)
                 self.manager.event_bus.trigger_event(
-                    {
-                        "event_type": "sensor",
-                        "entity_id": sensor.id,
-                        "event_state": SensorState(
+                    SensorEvent(
+                        entity_id=sensor.id,
+                        event_state=SensorState(
                             id=sensor.id,
                             name=sensor.name,
                             state=sensor.state,
                             unit=sensor.unit_of_measurement,
                             timestamp=sensor.last_timestamp,
                         ),
-                    }
+                    )
                 )

@@ -14,7 +14,7 @@ from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
-from boneio.models import OutputState
+from boneio.models import OutputEvent, OutputState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -284,17 +284,19 @@ class BasicRelay:
         if optimized_value:
             return
         self.last_timestamp = time.time()
-        event = OutputState(
-            id=self.id,
-            name=self.name,
-            state=state,
-            type=self.output_type,
-            pin=self.pin_id,
-            timestamp=self.last_timestamp,
-            expander_id=self.expander_id,
-        )
         self._event_bus.trigger_event(
-            {"event_type": "output", "entity_id": self.id, "event_state": event}
+            OutputEvent(
+                entity_id=self.id,
+                event_state=OutputState(
+                    id=self.id,
+                    name=self.name,
+                    state=state,
+                    type=self.output_type,
+                    pin=self.pin_id,
+                    timestamp=self.last_timestamp,
+                    expander_id=self.expander_id,
+                ),
+            )
         )
 
     def check_interlock(self) -> bool:

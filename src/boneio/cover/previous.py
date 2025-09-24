@@ -15,6 +15,7 @@ from boneio.helper.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.util import strip_accents
 from boneio.models import (
+    CoverEvent,
     CoverState,
     CoverStateOperation,
     CoverStateState,
@@ -114,16 +115,18 @@ class PreviousCover:
     async def async_send_state(self) -> None:
         """Send state to Websocket on action asynchronously."""
         self.timestamp = time.time()
-        event = CoverState(
-            id=self.id,
-            name=self.name,
-            state=self.state,
-            position=round(self._position, 0),
-            timestamp=self.timestamp,
-            current_operation=self.current_operation,
-        )
         self._event_bus.trigger_event(
-            {"event_type": "cover", "entity_id": self.id, "event_state": event}
+            CoverEvent(
+                entity_id=self.id,
+                event_state=CoverState(
+                    id=self.id,
+                    name=self.name,
+                    state=self.state,
+                    position=round(self._position, 0),
+                    timestamp=self.timestamp,
+                    current_operation=self.current_operation,
+                ),
+            )
         )
 
     def send_state(self) -> None:

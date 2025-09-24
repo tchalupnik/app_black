@@ -4,6 +4,41 @@ from enum import Enum
 
 from pydantic import BaseModel
 
+# Import events
+from boneio.models.events import (  # noqa: E402
+    BaseEvent,
+    CoverEvent,
+    EventType,
+    HostEvent,
+    InputEvent,
+    ModbusDeviceEvent,
+    OutputEvent,
+    SensorEvent,
+)
+
+__all__ = [
+    "InputState",
+    "InputsResponse",
+    "OutputState",
+    "CoverDirection",
+    "CoverStateState",
+    "CoverStateOperation",
+    "CoverState",
+    "SensorState",
+    "HostSensorState",
+    "OutputsResponse",
+    "CoverResponse",
+    "StateUpdate",
+    "BaseEvent",
+    "CoverEvent",
+    "EventType",
+    "HostEvent",
+    "InputEvent",
+    "ModbusDeviceEvent",
+    "OutputEvent",
+    "SensorEvent",
+]
+
 
 class InputState(BaseModel):
     """Input state model."""

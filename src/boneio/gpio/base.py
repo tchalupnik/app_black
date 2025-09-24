@@ -6,7 +6,7 @@ import subprocess
 import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Literal, TypeAlias
+from typing import Final, Literal, TypeAlias
 
 from boneio.config import ActionConfig, BinarySensorActionTypes, EventActionTypes
 from boneio.const import (
@@ -17,9 +17,9 @@ from boneio.const import (
 from boneio.const import GPIO as GPIO_STR
 from boneio.gpio_manager import GpioManager
 from boneio.helper.events import EventBus
-from boneio.models import InputState
+from boneio.models import InputEvent, InputState
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: Final = logging.getLogger(__name__)
 
 ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
 
@@ -123,16 +123,17 @@ class GpioBase:
                 duration,
                 start_time,
             )
-            event = InputState(
-                name=self.name,
-                pin=self.pin,
-                state=self.last_state,
-                type=self.input_type,
-                timestamp=self.last_press_timestamp,
-                boneio_input=self.boneio_input,
-            )
             self._event_bus.trigger_event(
-                {"event_type": "input", "entity_id": self.pin, "event_state": event}
+                InputEvent(
+                    entity_id=self.pin,
+                    event_state=InputState(
+                        name=self.name,
+                        state=self.last_state,
+                        type=self.input_type,
+                        timestamp=self.last_press_timestamp,
+                        boneio_input=self.boneio_input,
+                    ),
+                )
             )
         _LOGGER.debug("[%s] Released lock for event '%s'", self.name, click_type)
 

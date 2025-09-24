@@ -13,7 +13,7 @@ from boneio.const import COVER
 from boneio.helper.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.util import strip_accents
-from boneio.models import CoverState, CoverStateOperation, CoverStateState
+from boneio.models import CoverEvent, CoverState, CoverStateOperation, CoverStateState
 from boneio.relay import MCPRelay
 
 if TYPE_CHECKING:
@@ -190,17 +190,19 @@ class BaseCover(BaseCoverABC):
             )
 
     def send_state(self) -> None:
-        event = CoverState(
-            id=self.id,
-            name=self.name,
-            state=self.state,
-            timestamp=self.timestamp,
-            current_operation=self.current_operation,
-            position=self.position,
-            tilt=self.tilt,
-        )
         self._event_bus.trigger_event(
-            {"event_type": "cover", "entity_id": self.id, "event_state": event}
+            CoverEvent(
+                entity_id=self.id,
+                event_state=CoverState(
+                    id=self.id,
+                    name=self.name,
+                    state=self.state,
+                    timestamp=self.timestamp,
+                    current_operation=self.current_operation,
+                    position=self.position,
+                    tilt=self.tilt,
+                ),
+            )
         )
         self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=self.state.value

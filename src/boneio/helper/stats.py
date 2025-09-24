@@ -28,7 +28,7 @@ from boneio.const import (
     UPTIME,
 )
 from boneio.helper.events import EventBus
-from boneio.models import HostSensorState
+from boneio.models import HostEvent, HostSensorState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 
@@ -138,14 +138,16 @@ class HostSensor(AsyncUpdater):
 
     async def async_update(self, timestamp: float) -> None:
         self._state = self.host_stat.f()
-        sensor_state = HostSensorState(
-            id=self.id,
-            name=self._type,
-            state="new_state",  # doesn't matter here, as we fetch everything in Oled.
-            timestamp=timestamp,
-        )
         self._event_bus.trigger_event(
-            {"event_type": "host", "entity_id": self.id, "event_state": sensor_state}
+            HostEvent(
+                entity_id=self.id,
+                event_state=HostSensorState(
+                    id=self.id,
+                    name=self._type,
+                    state="new_state",  # doesn't matter here, as we fetch everything in Oled.
+                    timestamp=timestamp,
+                ),
+            )
         )
 
     @property

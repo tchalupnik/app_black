@@ -13,7 +13,7 @@ from boneio.const import SENSOR, STATE
 from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
 from boneio.helper.util import strip_accents
-from boneio.models import SensorState
+from boneio.models import SensorEvent, SensorState
 
 if typing.TYPE_CHECKING:
     from boneio.manager import Manager
@@ -51,7 +51,7 @@ class TempSensor(ABC, AsyncUpdater, Filter):
         Filter.__init__(self)
 
         self._filters = filters
-        self._unit_of_measurement = unit_of_measurement
+        self.unit_of_measurement = unit_of_measurement
         self._state: float | None = None
 
     @abstractmethod
@@ -62,10 +62,6 @@ class TempSensor(ABC, AsyncUpdater, Filter):
     def state(self) -> float:
         """Give rounded value of temperature."""
         return self._state if self._state is not None else -1
-
-    @property
-    def unit_of_measurement(self) -> str:
-        return self._unit_of_measurement
 
     async def async_update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
@@ -79,17 +75,16 @@ class TempSensor(ABC, AsyncUpdater, Filter):
         self._state = _temp
         self._timestamp = timestamp
         self.manager.event_bus.trigger_event(
-            {
-                "event_type": "sensor",
-                "entity_id": self.id,
-                "event_state": SensorState(
+            SensorEvent(
+                entity_id=self.id,
+                event_state=SensorState(
                     id=self.id,
                     name=self.name,
                     state=self.state,
                     unit=self.unit_of_measurement,
                     timestamp=self.last_timestamp,
                 ),
-            }
+            )
         )
         self.message_bus.send_message(
             topic=self._send_topic,
