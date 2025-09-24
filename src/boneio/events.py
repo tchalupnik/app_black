@@ -115,14 +115,12 @@ async def _async_create_timer(
     tg: anyio.abc.TaskGroup, event_callback: Callable[[], None]
 ) -> None:
     """Create a timer that will start on BoneIO start."""
-    handle = None
 
     async def schedule_tick(now: dt.datetime) -> None:
         """Schedule a timer tick when the next second rolls around."""
-        nonlocal handle
         slp_seconds = 1 - (now.microsecond / 10**6)
         await anyio.sleep(slp_seconds)
-        handle = tg.start_soon(fire_time_event)
+        tg.start_soon(fire_time_event)
 
     async def fire_time_event() -> None:
         """Fire next time event."""
@@ -130,13 +128,7 @@ async def _async_create_timer(
         event_callback()
         await schedule_tick(now)
 
-    async def stop_timer() -> None:
-        """Stop the timer."""
-        if handle is not None:
-            handle.cancel()
-
     await schedule_tick(utcnow())
-    return stop_timer
 
 
 class ListenerJob:
