@@ -156,25 +156,25 @@ class EventBus(BaseModel):
     Simple event bus with async queue for multiple event types.
     """
 
-    _tg: anyio.abc.TaskGroup
+    tg: anyio.abc.TaskGroup
 
-    _shutting_down: bool = Field(False, init=False)
-    _event_queue: asyncio.Queue[Event] = Field(
+    shutting_down: bool = Field(False, init=False)
+    event_queue: asyncio.Queue[Event] = Field(
         default_factory=lambda: asyncio.Queue(), init=False
     )
-    _listener_id_index: dict[str, list[tuple[EventType, str]]] = Field(
+    listener_id_index: dict[str, list[tuple[EventType, str]]] = Field(
         default_factory=dict, init=False
     )
-    _every_second_listeners: dict[str, ListenerJob] = Field(
+    every_second_listeners: dict[str, ListenerJob] = Field(
         default_factory=dict, init=False
     )
-    _sigterm_listeners: list[Callable[[], Coroutine[Any, Any, None] | None]] = Field(
+    sigterm_listeners: list[Callable[[], Coroutine[Any, Any, None] | None]] = Field(
         default_factory=list, init=False
     )
-    _haonline_listeners: list[Callable[[], None]] = Field(
+    haonline_listeners: list[Callable[[], None]] = Field(
         default_factory=list, init=False
     )
-    _event_listeners: dict[EventType, dict[EntityId, dict[ListenerId, ListenerJob]]] = (
+    event_listeners: dict[EventType, dict[EntityId, dict[ListenerId, ListenerJob]]] = (
         Field(
             default_factory=lambda: {
                 EventType.INPUT: {},
@@ -202,9 +202,9 @@ class EventBus(BaseModel):
         """
         Background task to process events from the queue.
         """
-        while not self._shutting_down:
+        while not self.shutting_down:
             try:
-                event = await self._event_queue.get()
+                event = await self.event_queue.get()
             except asyncio.CancelledError:
                 _LOGGER.info("Event bus worker cancelled.")
                 await self.stop()
@@ -214,14 +214,14 @@ class EventBus(BaseModel):
             except Exception as exc:
                 _LOGGER.error("Error handling event: %s", exc)
             finally:
-                self._event_queue.task_done()
+                self.event_queue.task_done()
 
     async def _handle_event(self, event: Event) -> None:
         """
         Dispatch event to registered listeners.
         :param event: BaseEvent model
         """
-        entity_id_listeners = self._event_listeners.get(event.event_type, {}).get(
+        entity_id_listeners = self.event_listeners.get(event.event_type, {}).get(
             event.entity_id, {}
         )
         for listener in entity_id_listeners.values():
@@ -238,35 +238,35 @@ class EventBus(BaseModel):
         Put event into the queue for async processing.
         :param event: Event model
         """
-        self._event_queue.put_nowait(event)
+        self.event_queue.put_nowait(event)
 
     def request_stop(self) -> None:
         """Request the event bus to stop."""
-        if not self._shutting_down:
-            self._shutting_down = True
-            self._tg.cancel_scope.cancel()
+        if not self.shutting_down:
+            self.shutting_down = True
+            self.tg.cancel_scope.cancel()
 
     async def stop(self) -> None:
         """
         Stop the event bus and worker task gracefully.
         """
-        if self._shutting_down:
+        if self.shutting_down:
             return
-        self._shutting_down = True
+        self.shutting_down = True
         await self._handle_sigterm_listeners()
-        for listener in self._every_second_listeners.values():
+        for listener in self.every_second_listeners.values():
             listener.target(None)
-        self._tg.cancel_scope.cancel()
+        self.tg.cancel_scope.cancel()
         _LOGGER.info("Shutdown EventBus gracefully.")
 
     def _run_second_event(self) -> None:
         """Run event every second."""
-        for listener in self._every_second_listeners.values():
-            self._tg.start_soon(listener.target)
+        for listener in self.every_second_listeners.values():
+            self.tg.start_soon(listener.target)
 
     async def _handle_sigterm_listeners(self) -> None:
         """Handle all sigterm listeners, supporting both async and sync listeners."""
-        for target in self._sigterm_listeners:
+        for target in self.sigterm_listeners:
             try:
                 _LOGGER.debug("Invoking sigterm listener %s", target)
                 if asyncio.iscoroutinefunction(target):
@@ -280,14 +280,14 @@ class EventBus(BaseModel):
         self, name: str, target: Callable[[], None]
     ) -> ListenerJob:
         """Add listener on every second job."""
-        self._every_second_listeners[name] = ListenerJob(target=target)
-        return self._every_second_listeners[name]
+        self.every_second_listeners[name] = ListenerJob(target=target)
+        return self.every_second_listeners[name]
 
     def add_sigterm_listener(
         self, target: Callable[[], Coroutine[Any, Any, None] | None]
     ) -> None:
         """Add sigterm listener."""
-        self._sigterm_listeners.append(target)
+        self.sigterm_listeners.append(target)
 
     def add_event_listener(
         self,
@@ -300,21 +300,21 @@ class EventBus(BaseModel):
 
         listener_id is typically group_id for group outputs or ws (websocket)
         """
-        if entity_id not in self._event_listeners[event_type]:
-            self._event_listeners[event_type][entity_id] = {}
-        if listener_id in self._event_listeners[event_type][entity_id]:
-            listener = self._event_listeners[event_type][entity_id][listener_id]
+        if entity_id not in self.event_listeners[event_type]:
+            self.event_listeners[event_type][entity_id] = {}
+        if listener_id in self.event_listeners[event_type][entity_id]:
+            listener = self.event_listeners[event_type][entity_id][listener_id]
             listener.set_target(target)
             return listener
 
         # Add to main listeners
         listener_job = ListenerJob(target=target)
-        self._event_listeners[event_type][entity_id][listener_id] = listener_job
+        self.event_listeners[event_type][entity_id][listener_id] = listener_job
 
         # Add to index
-        if listener_id not in self._listener_id_index:
-            self._listener_id_index[listener_id] = []
-        self._listener_id_index[listener_id].append((event_type, entity_id))
+        if listener_id not in self.listener_id_index:
+            self.listener_id_index[listener_id] = []
+        self.listener_id_index[listener_id].append((event_type, entity_id))
 
         return listener_job
 
@@ -325,55 +325,53 @@ class EventBus(BaseModel):
         listener_id: str | None = None,
     ) -> None:
         """Remove event listener. Can remove by event_type, listener_id, or both."""
-        if listener_id is not None and listener_id in self._listener_id_index:
+        if listener_id is not None and listener_id in self.listener_id_index:
             # Remove by listener_id
-            for evt_type, ent_id in self._listener_id_index[listener_id]:
+            for evt_type, ent_id in self.listener_id_index[listener_id]:
                 if evt_type != event_type or ent_id != entity_id:
                     continue
 
-                if ent_id in self._event_listeners[evt_type]:
-                    if listener_id in self._event_listeners[evt_type][ent_id]:
-                        del self._event_listeners[evt_type][ent_id][listener_id]
-                    if not self._event_listeners[evt_type][ent_id]:
-                        del self._event_listeners[evt_type][ent_id]
+                if ent_id in self.event_listeners[evt_type]:
+                    if listener_id in self.event_listeners[evt_type][ent_id]:
+                        del self.event_listeners[evt_type][ent_id][listener_id]
+                    if not self.event_listeners[evt_type][ent_id]:
+                        del self.event_listeners[evt_type][ent_id]
 
             if event_type is None and entity_id is None:
                 # If removing all references to this listener_id
-                del self._listener_id_index[listener_id]
+                del self.listener_id_index[listener_id]
             else:
                 # Update index to remove only specific references
-                self._listener_id_index[listener_id] = [
+                self.listener_id_index[listener_id] = [
                     (evt_type, ent_id)
-                    for evt_type, ent_id in self._listener_id_index[listener_id]
+                    for evt_type, ent_id in self.listener_id_index[listener_id]
                     if (event_type and evt_type != event_type)
                     or (entity_id and ent_id != entity_id)
                 ]
-                if not self._listener_id_index[listener_id]:
-                    del self._listener_id_index[listener_id]
+                if not self.listener_id_index[listener_id]:
+                    del self.listener_id_index[listener_id]
 
         elif event_type is not None:
             # Remove by event_type
             if entity_id:
                 # Remove specific entity
-                if entity_id in self._event_listeners[event_type]:
-                    for lid in list(
-                        self._event_listeners[event_type][entity_id].keys()
-                    ):
+                if entity_id in self.event_listeners[event_type]:
+                    for lid in list(self.event_listeners[event_type][entity_id].keys()):
                         self.remove_event_listener(event_type, entity_id, lid)
-                    del self._event_listeners[event_type][entity_id]
+                    del self.event_listeners[event_type][entity_id]
             else:
                 # Remove entire event_type
-                for ent_id in self._event_listeners[event_type].keys():
-                    for lid in self._event_listeners[event_type][ent_id].keys():
+                for ent_id in self.event_listeners[event_type].keys():
+                    for lid in self.event_listeners[event_type][ent_id].keys():
                         self.remove_event_listener(event_type, ent_id, lid)
 
     def add_haonline_listener(self, target: Callable[[], None]) -> None:
         """Add HA Online listener."""
-        self._haonline_listeners.append(target)
+        self.haonline_listeners.append(target)
 
     async def signal_ha_online(self) -> None:
         """Call events if HA goes online."""
-        for target in self._haonline_listeners:
+        for target in self.haonline_listeners:
             if asyncio.iscoroutinefunction(target):
                 await target()
             else:
@@ -381,8 +379,8 @@ class EventBus(BaseModel):
 
     def remove_every_second_listener(self, name: str) -> None:
         """Remove regular listener."""
-        if name in self._every_second_listeners:
-            del self._every_second_listeners[name]
+        if name in self.every_second_listeners:
+            del self.every_second_listeners[name]
 
 
 def _as_utc(dattim: dt.datetime) -> dt.datetime:
