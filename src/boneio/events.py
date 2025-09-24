@@ -7,13 +7,14 @@ import time
 from abc import ABC
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAlias
 
 import anyio
 import anyio.abc
-from pydantic import BaseModel, Discriminator, Field
+from pydantic import BaseModel, Discriminator
 
 from boneio.models import (
     CoverState,
@@ -110,30 +111,31 @@ def utcnow() -> dt.datetime:
     return dt.datetime.now(UTC)
 
 
-def _async_create_timer(
+async def _async_create_timer(
     tg: anyio.abc.TaskGroup, event_callback: Callable[[], None]
 ) -> None:
     """Create a timer that will start on BoneIO start."""
     handle = None
 
-    def schedule_tick(now: dt.datetime) -> None:
+    async def schedule_tick(now: dt.datetime) -> None:
         """Schedule a timer tick when the next second rolls around."""
         nonlocal handle
         slp_seconds = 1 - (now.microsecond / 10**6)
-        handle = tg.start_soon(slp_seconds, fire_time_event)
+        await anyio.sleep(slp_seconds)
+        handle = tg.start_soon(fire_time_event)
 
-    def fire_time_event() -> None:
+    async def fire_time_event() -> None:
         """Fire next time event."""
         now = utcnow()
         event_callback()
-        schedule_tick(now)
+        await schedule_tick(now)
 
-    def stop_timer() -> None:
+    async def stop_timer() -> None:
         """Stop the timer."""
         if handle is not None:
             handle.cancel()
 
-    schedule_tick(utcnow())
+    await schedule_tick(utcnow())
     return stop_timer
 
 
@@ -151,31 +153,32 @@ class ListenerJob:
         self.target = target
 
 
-class EventBus(BaseModel):
+@dataclass
+class EventBus:
     """
     Simple event bus with async queue for multiple event types.
     """
 
     tg: anyio.abc.TaskGroup
 
-    shutting_down: bool = Field(False, init=False)
-    event_queue: asyncio.Queue[Event] = Field(
+    shutting_down: bool = field(default=False, init=False)
+    event_queue: asyncio.Queue[Event] = field(
         default_factory=lambda: asyncio.Queue(), init=False
     )
-    listener_id_index: dict[str, list[tuple[EventType, str]]] = Field(
+    listener_id_index: dict[str, list[tuple[EventType, str]]] = field(
         default_factory=dict, init=False
     )
-    every_second_listeners: dict[str, ListenerJob] = Field(
+    every_second_listeners: dict[str, ListenerJob] = field(
         default_factory=dict, init=False
     )
-    sigterm_listeners: list[Callable[[], Coroutine[Any, Any, None] | None]] = Field(
+    sigterm_listeners: list[Callable[[], Coroutine[Any, Any, None] | None]] = field(
         default_factory=list, init=False
     )
-    haonline_listeners: list[Callable[[], None]] = Field(
+    haonline_listeners: list[Callable[[], None]] = field(
         default_factory=list, init=False
     )
     event_listeners: dict[EventType, dict[EntityId, dict[ListenerId, ListenerJob]]] = (
-        Field(
+        field(
             default_factory=lambda: {
                 EventType.INPUT: {},
                 EventType.OUTPUT: {},
