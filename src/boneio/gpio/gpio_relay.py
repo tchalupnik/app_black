@@ -6,8 +6,8 @@ Created just in case.
 import logging
 
 from boneio.const import SWITCH
+from boneio.events import EventBus
 from boneio.gpio_manager import GpioManager
-from boneio.helper.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay

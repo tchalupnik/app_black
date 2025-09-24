@@ -11,11 +11,10 @@ from datetime import timedelta
 
 from boneio.config import CoverConfig
 from boneio.const import COVER
-from boneio.helper.events import EventBus
+from boneio.events import CoverEvent, EventBus
 from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.util import strip_accents
 from boneio.models import (
-    CoverEvent,
     CoverState,
     CoverStateOperation,
     CoverStateState,

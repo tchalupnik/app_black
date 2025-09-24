@@ -67,6 +67,7 @@ from boneio.const import (
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
+from boneio.events import EventBus
 from boneio.gpio import GpioEventButtonsAndSensors
 from boneio.gpio_manager import GpioManager
 from boneio.group.output import OutputGroup
@@ -79,7 +80,6 @@ from boneio.helper import (
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
 )
-from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
 from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,

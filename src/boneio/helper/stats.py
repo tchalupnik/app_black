@@ -27,8 +27,8 @@ from boneio.const import (
     SWAP,
     UPTIME,
 )
-from boneio.helper.events import EventBus
-from boneio.models import HostEvent, HostSensorState
+from boneio.events import EventBus, HostEvent
+from boneio.models import HostSensorState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 

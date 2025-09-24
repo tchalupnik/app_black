@@ -25,6 +25,7 @@ from boneio.const import (
     NONE,
     SENSOR,
 )
+from boneio.events import EventBus
 from boneio.gpio import (
     GpioEventButtonNew,
     GpioEventButtonOld,
@@ -42,7 +43,6 @@ from boneio.helper import (
     ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
-from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import (
     ha_sensor_availabilty_message,
     ha_virtual_energy_sensor_discovery_message,

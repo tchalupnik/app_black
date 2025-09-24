@@ -6,7 +6,7 @@ import asyncio
 
 from boneio.config import OutputGroupConfig
 from boneio.const import COVER, OFF, ON, SWITCH
-from boneio.helper.events import EventBus
+from boneio.events import EventBus
 from boneio.helper.state_manager import StateManager
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState

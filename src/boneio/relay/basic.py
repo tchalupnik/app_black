@@ -10,11 +10,11 @@ from datetime import timedelta
 from pydantic import BaseModel, ValidationError
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
-from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
+from boneio.events import EventBus, OutputEvent, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
-from boneio.models import OutputEvent, OutputState
+from boneio.models import OutputState
 
 _LOGGER = logging.getLogger(__name__)
 

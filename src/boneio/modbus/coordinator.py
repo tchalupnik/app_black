@@ -25,8 +25,8 @@ from boneio.const import (
     SWITCH,
     TEXT_SENSOR,
 )
+from boneio.events import EventBus, ModbusDeviceEvent
 from boneio.helper import AsyncUpdater
-from boneio.helper.events import EventBus
 from boneio.helper.filter import Filter
 from boneio.helper.util import open_json, strip_accents
 from boneio.message_bus.basic import MessageBus
@@ -46,7 +46,7 @@ from boneio.modbus.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
 )
-from boneio.models import ModbusDeviceEvent, SensorState
+from boneio.models import SensorState
 
 from .client import VALUE_TYPES, Modbus
 from .utils import CONVERT_METHODS, REGISTERS_BASE

@@ -5,7 +5,7 @@ import logging
 from adafruit_pcf8575 import DigitalInOut
 
 from boneio.const import NONE, OFF, ON, SWITCH
-from boneio.helper.events import EventBus
+from boneio.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.pcf8575 import PCF8575
 from boneio.message_bus.basic import MessageBus

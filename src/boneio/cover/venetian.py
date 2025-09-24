@@ -12,7 +12,7 @@ from boneio.helper.state_manager import CoverStateEntry
 from boneio.models import CoverDirection, CoverStateOperation
 
 if typing.TYPE_CHECKING:
-    from boneio.helper.events import EventBus
+    from boneio.events import EventBus
     from boneio.message_bus.basic import MessageBus
     from boneio.relay import MCPRelay
 

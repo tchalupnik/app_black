@@ -10,10 +10,10 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from boneio.const import COVER
-from boneio.helper.events import EventBus
+from boneio.events import CoverEvent, EventBus
 from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.util import strip_accents
-from boneio.models import CoverEvent, CoverState, CoverStateOperation, CoverStateState
+from boneio.models import CoverState, CoverStateOperation, CoverStateState
 from boneio.relay import MCPRelay
 
 if TYPE_CHECKING:

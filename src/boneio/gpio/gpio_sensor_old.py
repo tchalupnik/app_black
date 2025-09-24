@@ -14,7 +14,7 @@ from boneio.gpio_manager import GpioManager
 from .base import GpioBase
 
 if typing.TYPE_CHECKING:
-    from boneio.helper.events import EventBus
+    from boneio.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 

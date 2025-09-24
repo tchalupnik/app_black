@@ -5,7 +5,7 @@ import logging
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
 
 from boneio.const import COVER, OFF, ON, SWITCH
-from boneio.helper.events import EventBus
+from boneio.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay

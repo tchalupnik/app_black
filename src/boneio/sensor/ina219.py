@@ -10,11 +10,12 @@ from datetime import datetime
 
 from boneio.config import Filters, Ina219Config, Ina219DeviceClass
 from boneio.const import SENSOR, STATE
+from boneio.events import SensorEvent
 from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.helper.util import strip_accents
-from boneio.models import SensorEvent, SensorState
+from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
     from boneio.manager import Manager

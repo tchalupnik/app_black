@@ -7,7 +7,7 @@ import logging
 from adafruit_pca9685 import PCA9685, PCAChannels
 
 from boneio.const import BRIGHTNESS, LED, OFF, ON, STATE, SWITCH
-from boneio.helper.events import EventBus
+from boneio.events import EventBus
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.message_bus.basic import MessageBus
 from boneio.relay.basic import BasicRelay

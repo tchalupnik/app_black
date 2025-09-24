@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from boneio.config import CoverConfig
 from boneio.cover.cover import BaseCover
-from boneio.helper.events import EventBus
+from boneio.events import EventBus
 from boneio.helper.state_manager import CoverStateEntry
 from boneio.models import CoverDirection, CoverStateOperation
 from boneio.relay import MCPRelay

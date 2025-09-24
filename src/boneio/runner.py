@@ -10,8 +10,8 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 
 from boneio.config import Config
+from boneio.events import EventBus
 from boneio.gpio_manager import GpioManager
-from boneio.helper.events import EventBus
 from boneio.logger import configure_logger
 from boneio.manager import Manager
 from boneio.message_bus import LocalMessageBus, MQTTClient

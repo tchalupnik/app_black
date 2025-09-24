@@ -15,9 +15,9 @@ from boneio.const import (
     RELEASED,
 )
 from boneio.const import GPIO as GPIO_STR
+from boneio.events import EventBus, InputEvent
 from boneio.gpio_manager import GpioManager
-from boneio.helper.events import EventBus
-from boneio.models import InputEvent, InputState
+from boneio.models import InputState
 
 _LOGGER: Final = logging.getLogger(__name__)
 
