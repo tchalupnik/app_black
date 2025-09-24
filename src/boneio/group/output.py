@@ -6,7 +6,7 @@ import asyncio
 
 from boneio.config import OutputGroupConfig
 from boneio.const import COVER, OFF, ON, SWITCH
-from boneio.events import EventBus
+from boneio.events import EventBus, EventType
 from boneio.helper.state_manager import StateManager
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
@@ -45,7 +45,7 @@ class OutputGroup(BasicRelay):
 
         for member in self._group_members:
             self._event_bus.add_event_listener(
-                event_type="output",
+                event_type=EventType.OUTPUT,
                 entity_id=member.id,
                 listener_id=self.id,
                 target=self.event_listener,

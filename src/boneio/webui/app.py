@@ -38,6 +38,7 @@ from starlette.websockets import WebSocketState
 from boneio.config import Config
 from boneio.const import COVER, NONE
 from boneio.cover.venetian import VenetianCover
+from boneio.events import EventType
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -967,7 +968,7 @@ def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
         if output.output_type == COVER or output.output_type == NONE:
             continue
         boneio_manager.event_bus.add_event_listener(
-            event_type="output",
+            event_type=EventType.OUTPUT,
             entity_id=output.id,
             listener_id="ws",
             target=output_state_changed,
@@ -976,14 +977,14 @@ def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
 
 def remove_listener_for_all_outputs(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(
-        event_type="output", listener_id="ws"
+        event_type=EventType.OUTPUT, listener_id="ws"
     )
 
 
 def add_listener_for_all_covers(boneio_manager: Manager) -> None:
     for cover in boneio_manager.covers.values():
         boneio_manager.event_bus.add_event_listener(
-            event_type="cover",
+            event_type=EventType.COVER,
             entity_id=cover.id,
             listener_id="ws",
             target=cover_state_changed,
@@ -997,7 +998,7 @@ def remove_listener_for_all_covers(boneio_manager: Manager) -> None:
 def add_listener_for_all_inputs(boneio_manager: Manager) -> None:
     for input in boneio_manager.inputs.values():
         boneio_manager.event_bus.add_event_listener(
-            event_type="input",
+            event_type=EventType.INPUT,
             entity_id=input.pin,
             listener_id="ws",
             target=input_state_changed,
@@ -1005,7 +1006,7 @@ def add_listener_for_all_inputs(boneio_manager: Manager) -> None:
 
 
 def remove_listener_for_all_inputs(boneio_manager: Manager) -> None:
-    boneio_manager.event_bus.remove_event_listener("input")
+    boneio_manager.event_bus.remove_event_listener(EventType.INPUT)
 
 
 def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
@@ -1015,7 +1016,7 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
         for entities in modbus_coordinator.get_all_entities():
             for entity in entities.values():
                 boneio_manager.event_bus.add_event_listener(
-                    event_type="modbus_device",
+                    event_type=EventType.MODBUS_DEVICE,
                     entity_id=entity.id,
                     listener_id="ws",
                     target=modbus_device_state_changed,
@@ -1023,14 +1024,14 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
     for single_ina_device in boneio_manager.ina219_sensors:
         for ina in single_ina_device.sensors.values():
             boneio_manager.event_bus.add_event_listener(
-                event_type="sensor",
+                event_type=EventType.SENSOR,
                 entity_id=ina.id,
                 listener_id="ws",
                 target=sensor_state_changed,
             )
     for sensor in boneio_manager.temp_sensors:
         boneio_manager.event_bus.add_event_listener(
-            event_type="sensor",
+            event_type=EventType.SENSOR,
             entity_id=sensor.id,
             listener_id="ws",
             target=sensor_state_changed,
@@ -1040,7 +1041,7 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
 def remove_listener_for_all_sensors(boneio_manager: Manager) -> None:
     boneio_manager.event_bus.remove_event_listener(listener_id="ws")
     boneio_manager.event_bus.remove_event_listener(
-        event_type="sensor", listener_id="ws"
+        event_type=EventType.SENSOR, listener_id="ws"
     )
 
 

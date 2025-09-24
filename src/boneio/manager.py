@@ -67,7 +67,7 @@ from boneio.const import (
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
-from boneio.events import EventBus
+from boneio.events import EventBus, EventType
 from boneio.gpio import GpioEventButtonsAndSensors
 from boneio.gpio_manager import GpioManager
 from boneio.group.output import OutputGroup
@@ -313,7 +313,7 @@ class Manager:
                 continue
             if output.restore_state:
                 self.event_bus.add_event_listener(
-                    event_type="output",
+                    event_type=EventType.OUTPUT,
                     entity_id=out.id,
                     listener_id="manager",
                     target=self._relay_callback,

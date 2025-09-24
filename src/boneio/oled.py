@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw
 
 from boneio.config import OledScreens
 from boneio.const import OLED_PIN, UPTIME, WHITE
-from boneio.events import EventBus, async_track_point_in_time, utcnow
+from boneio.events import EventBus, EventType, async_track_point_in_time, utcnow
 from boneio.gpio_manager import Edge, GpioManager
 from boneio.helper import (
     HostData,
@@ -227,7 +227,7 @@ class Oled:
                         self._draw_output(data, draw)
                         for id in data.keys():
                             self._event_bus.add_event_listener(
-                                event_type="output",
+                                event_type=EventType.OUTPUT,
                                 entity_id=id,
                                 listener_id=f"oled_{self._current_screen}",
                                 target=self._output_callback,
@@ -235,7 +235,7 @@ class Oled:
                     elif self._current_screen == UPTIME:
                         self._draw_uptime(data, draw)
                         self._event_bus.add_event_listener(
-                            event_type="host",
+                            event_type=EventType.HOST,
                             entity_id=f"{self._current_screen}_hoststats",
                             listener_id=f"oled_{self._current_screen}",
                             target=self._standard_callback,
@@ -246,7 +246,7 @@ class Oled:
                     ):
                         for id in data.keys():
                             self._event_bus.add_event_listener(
-                                event_type="input",
+                                event_type=EventType.INPUT,
                                 entity_id=id,
                                 listener_id=f"oled_{self._current_screen}",
                                 target=self._input_callback,
@@ -255,7 +255,7 @@ class Oled:
                     else:
                         self._draw_standard(data, draw)
                         self._event_bus.add_event_listener(
-                            event_type="host",
+                            event_type=EventType.HOST,
                             entity_id=f"{self._current_screen}_hoststats",
                             listener_id=f"oled_{self._current_screen}",
                             target=self._standard_callback,
