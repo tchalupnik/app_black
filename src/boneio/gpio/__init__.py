@@ -1,6 +1,5 @@
 """Input classes."""
 
-from .base import configure_pin
 from .gpio_event_button_new import GpioEventButtonNew
 from .gpio_event_button_old import GpioEventButton as GpioEventButtonOld
 from .gpio_relay import GpioRelay
@@ -21,5 +20,5 @@ __all__ = [
     "GpioInputBinarySensorOld",
     "GpioInputBinarySensorNew",
     "GpioEventButtonsAndSensors",
-    "configure_pin",
+    "",
 ]

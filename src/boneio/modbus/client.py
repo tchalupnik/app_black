@@ -19,7 +19,7 @@ from pymodbus.pdu import ModbusResponse
 from pymodbus.register_read_message import ReadInputRegistersResponse
 
 from boneio.config import UartConfig
-from boneio.const import REGISTERS, UART
+from boneio.const import REGISTERS
 from boneio.helper.exceptions import ModbusUartException
 
 _LOGGER = logging.getLogger(__name__)
@@ -101,7 +101,6 @@ class Modbus:
         timeout: float = 3,
     ) -> None:
         """Initialize the Modbus hub."""
-        from boneio.gpio import configure_pin
 
         if uart.rx is None:
             raise ModbusUartException
@@ -113,8 +112,6 @@ class Modbus:
             stopbits,
             bytesize,
         )
-        configure_pin(pin=uart.rx, mode=UART)
-        configure_pin(pin=uart.tx, mode=UART)
 
         # generic configuration
         self._client: BaseModbusClient | None = None

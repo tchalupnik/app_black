@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import subprocess
 import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
@@ -10,11 +9,9 @@ from typing import Final, Literal, TypeAlias
 
 from boneio.config import ActionConfig, BinarySensorActionTypes, EventActionTypes
 from boneio.const import (
-    CONFIG_PIN,
     PRESSED,
     RELEASED,
 )
-from boneio.const import GPIO as GPIO_STR
 from boneio.events import EventBus, InputEvent
 from boneio.gpio_manager import GpioManager
 from boneio.models import InputState
@@ -22,17 +19,6 @@ from boneio.models import InputState
 _LOGGER: Final = logging.getLogger(__name__)
 
 ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
-
-
-def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
-    pin = f"{pin[0:3]}0{pin[3]}" if len(pin) == 4 else pin
-    _LOGGER.debug("Configuring pin %s for mode %s.", pin, mode)
-    subprocess.run(
-        [CONFIG_PIN, pin, mode],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
-        timeout=1,
-    )
 
 
 class GpioBase:
