@@ -74,12 +74,16 @@ class GpioEventButtonNew(GpioBase):
     def single_click_callback(self) -> None:
         """Called when double click window expires without second click."""
         if not self._state:  # Only trigger if button is released
-            self.press_callback(click_type="single", duration=None)
+            self.press_callback(
+                click_type="single", duration=None, start_time=self.button_pressed_time
+            )
         self._double_click_possible = False
 
     def double_click_callback(self) -> None:
         """Handle double click."""
-        self.press_callback(click_type="double", duration=None)
+        self.press_callback(
+            click_type="double", duration=None, start_time=self.button_pressed_time
+        )
         self._double_click_possible = False
         self._timer_double.reset()  # Cancel pending single click
 
@@ -87,9 +91,17 @@ class GpioEventButtonNew(GpioBase):
         """Handle long press."""
         self._double_click_possible = False  # Cancel any pending clicks
         self._timer_double.reset()
-        self.press_callback(click_type="long", duration=duration)
+        self.press_callback(
+            click_type="long", duration=duration, start_time=self.button_pressed_time
+        )
 
     def check_state(self) -> None:
+        """Check state - called from GPIO interrupt (different thread)."""
+        # Schedule the actual state handling in the main event loop
+        self._loop.call_soon_threadsafe(self._handle_state_change)
+
+    def _handle_state_change(self) -> None:
+        """Handle state change in the main event loop thread."""
         time_now = time.time()
         self._state = self.is_pressed()
 
