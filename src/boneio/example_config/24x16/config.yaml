@@ -30,4 +30,5 @@ boneio:
   device_type: "24x16A"
 
 web:
+  enabled: true
 # adc: !include adc.yaml Uncomment only if needed.

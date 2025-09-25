@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
 import time
 from collections import deque
-from collections.abc import Callable, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from adafruit_mcp230xx.mcp23017 import MCP23017  # type: ignore
-from adafruit_pca9685 import PCA9685  # type: ignore
-from busio import I2C  # type: ignore
-from w1thermsensor.errors import KernelModuleLoadError  # type: ignore
+import anyio
+import anyio.abc
+from adafruit_mcp230xx.mcp23017 import MCP23017
+from adafruit_pca9685 import PCA9685
+from busio import I2C
+from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
     AdcConfig,
@@ -68,8 +70,7 @@ from boneio.const import (
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
 from boneio.events import EventBus, EventType
-from boneio.gpio import GpioEventButtonsAndSensors
-from boneio.gpio_manager import GpioManager
+from boneio.gpio_manager_mock import GpioManagerMock
 from boneio.group.output import OutputGroup
 from boneio.helper import (
     HostData,
@@ -109,7 +110,6 @@ from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
-from boneio.oled import Oled
 from boneio.relay.basic import BasicRelay
 from boneio.relay.pca import PWMPCA
 from boneio.sensor.ina219 import INA219
@@ -119,7 +119,9 @@ from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
 
 if TYPE_CHECKING:
+    from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.gpio.base import GpioBase
+    from boneio.gpio_manager import GpioManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -134,34 +136,61 @@ AVAILABILITY_FUNCTION_CHOOSER = {
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
 
+    @classmethod
+    @asynccontextmanager
+    async def create(
+        cls,
+        tg: anyio.abc.TaskGroup,
+        config: Config,
+        message_bus: MessageBus,
+        event_bus: EventBus,
+        config_file_path: Path,
+        dry: bool = False,
+    ) -> AsyncGenerator[Manager]:
+        if dry:
+            _LOGGER.warning("Running in dry mode, no changes will be made.")
+            GpioManagerClass = GpioManagerMock
+        else:
+            from boneio.gpio_manager import GpioManager
+
+            GpioManagerClass = GpioManager
+        with GpioManagerClass.create() as gpio_manager:
+            this = cls(
+                tg=tg,
+                config=config,
+                message_bus=message_bus,
+                event_bus=event_bus,
+                config_file_path=config_file_path,
+                gpio_manager=gpio_manager,
+                dry=dry,
+            )
+            yield this
+
     def __init__(
         self,
+        tg: anyio.abc.TaskGroup,
         config: Config,
         message_bus: MessageBus,
         event_bus: EventBus,
         config_file_path: Path,
         gpio_manager: GpioManager,
+        dry: bool = False,
     ) -> None:
+        self.tg = tg
         self.gpio_manager = gpio_manager
         self.state_manager = StateManager(
             state_file_path=config_file_path.parent / "state.json"
         )
         _LOGGER.info("Initializing manager module.")
 
-        self._loop = asyncio.get_event_loop()
         self.config = config
         self._config_file_path = config_file_path
         self.event_bus = event_bus
         self.message_bus = message_bus
         self.inputs: dict[str, GpioEventButtonsAndSensors] = {}
-        from board import SCL, SDA  # type: ignore
-
-        self.i2c = I2C(SCL, SDA)
         self.outputs: dict[str, BasicRelay] = {}
         self.output_groups: dict[str, OutputGroup] = {}
         self.interlock_manager = SoftwareInterlockManager()
-
-        self.tasks: list[asyncio.Task[None]] = []
         self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self.temp_sensors: list[TempSensor] = []
         self.ina219_sensors: list[INA219] = []
@@ -170,6 +199,14 @@ class Manager:
 
         if config.modbus is not None:
             self._configure_modbus(modbus=config.modbus)
+
+        if dry:
+            _LOGGER.warning("Dry run mode. Not configuring GPIO, ADC, I2C devices.")
+            return
+
+        from board import SCL, SDA  # type: ignore
+
+        self.i2c = I2C(SCL, SDA)
 
         for sensor in config.lm75:
             id = sensor.identifier()
@@ -328,7 +365,7 @@ class Manager:
                         out.output_type, ha_switch_availabilty_message
                     ),
                 )
-            self._loop.create_task(self._delayed_send_state(out))
+            self.tg.start_soon(self._delayed_send_state, out)
 
         if self.outputs:
             self._configure_covers()
@@ -361,6 +398,8 @@ class Manager:
         )
 
         if config.oled is not None and config.oled.enabled:
+            from boneio.oled import Oled
+
             try:
                 oled = Oled(
                     host_data=self._host_data,
@@ -594,12 +633,10 @@ class Manager:
 
     def append_task(
         self, coro: Coroutine[None, None, None], name: str = "Unknown"
-    ) -> asyncio.Task[None]:
+    ) -> None:
         """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
-        task: asyncio.Task[None] = asyncio.create_task(coro)
-        self.tasks.append(task)
-        return task
+        self.tg.start_soon(coro)
 
     def _configure_sensors(
         self,
@@ -735,7 +772,7 @@ class Manager:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
         topic = f"{self.config.get_topic_prefix()}/{STATE}"
-        self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
+        await self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
 
     async def _relay_callback(
         self,
@@ -747,7 +784,7 @@ class Manager:
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
-        _config = load_config(config_file=self._config_file_path)
+        _config = load_config(config_file_path=self._config_file_path)
         configure_logger(log_config=_config.logger, debug=-1)
 
     def prepare_ha_buttons(self) -> None:
@@ -883,9 +920,8 @@ class Manager:
         self.message_bus.send_message(topic=topic, payload=payload, retain=False)
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
-            self._loop.call_soon_threadsafe(
-                self._loop.call_later, 0.2, self.message_bus.send_message, topic, ""
-            )
+            await anyio.sleep(0.2)
+            await self.message_bus.send_message(topic=topic, payload="")
 
     async def toggle_output(self, output_id: str) -> str:
         """Toggle output state."""
@@ -1023,7 +1059,7 @@ class Manager:
 
     async def _delayed_send_state(self, output: BasicRelay) -> None:
         """Send state after a delay."""
-        await asyncio.sleep(0.5)
+        await anyio.sleep(0.5)
         await output.async_send_state()
 
     async def handle_actions(self, actions: dict) -> None:

@@ -26,15 +26,6 @@ from boneio.const import (
     SENSOR,
 )
 from boneio.events import EventBus
-from boneio.gpio import (
-    GpioEventButtonNew,
-    GpioEventButtonOld,
-    GpioEventButtonsAndSensors,
-    GpioInputBinarySensorNew,
-    GpioInputBinarySensorOld,
-    GpioRelay,
-)
-from boneio.gpio_manager import GpioManager
 from boneio.helper import (
     I2CError,
     StateManager,
@@ -64,7 +55,9 @@ from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 if TYPE_CHECKING:
-    from ..manager import Manager
+    from boneio.gpio import GpioEventButtonsAndSensors
+    from boneio.gpio_manager import GpioManager
+    from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -225,6 +218,8 @@ def configure_relay(
         output_config.interlock_group = [output_config.interlock_group]
 
     if output_config.kind == "gpio":
+        from boneio.gpio import GpioRelay
+
         if GPIO not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[GPIO] = {}
         expander_id = output_config.id
@@ -378,6 +373,8 @@ def configure_event_sensor(
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
+    from boneio.gpio import GpioEventButtonNew, GpioEventButtonOld
+
     if input:
         GpioEventButtonClass = (
             GpioEventButtonNew
@@ -425,6 +422,8 @@ def configure_binary_sensor(
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""
+    from boneio.gpio import GpioInputBinarySensorNew, GpioInputBinarySensorOld
+
     if input:
         GpioInputBinarySensorClass = (
             GpioInputBinarySensorNew

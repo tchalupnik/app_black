@@ -30,4 +30,5 @@ boneio:
   device_type: "32x10A"
 
 web:
+  enabled: true
 # adc: !include adc.yaml Uncomment only if needed.

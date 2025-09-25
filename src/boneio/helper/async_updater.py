@@ -17,8 +17,8 @@ class AsyncUpdater:
     ) -> None:
         self.manager = manager
         self._update_interval = update_interval
-        self.manager.append_task(coro=self._refresh(), name=self.id)
-        self._timestamp = time.time()
+        self.manager.append_task(coro=self._refresh, name=self.id)
+        self.last_timestamp = time.time()
 
     async def _refresh(self) -> None:
         try:
@@ -36,7 +36,3 @@ class AsyncUpdater:
                 await asyncio.sleep(update_interval)
         except asyncio.CancelledError:
             raise
-
-    @property
-    def last_timestamp(self) -> float:
-        return self._timestamp

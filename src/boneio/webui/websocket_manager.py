@@ -25,7 +25,6 @@ class WebSocketManager:
         self.active_connections: list[WebSocket] = []
         self._lock = asyncio.Lock()
         self._closing = False
-        self._cleanup_tasks: list[asyncio.Task] = []
         self._jwt_secret = jwt_secret
         self._auth_required = auth_required
 

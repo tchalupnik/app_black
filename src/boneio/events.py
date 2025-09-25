@@ -185,13 +185,16 @@ class EventBus:
 
     @classmethod
     @asynccontextmanager
-    async def create(cls) -> AsyncGenerator[EventBus]:
-        async with anyio.create_task_group() as tg:
-            this = cls(tg)
-            tg.start_soon(this._event_worker)
-            tg.start_soon(_async_create_timer, tg, this._run_second_event)
-            _LOGGER.info("Event bus worker started.")
+    async def create(cls, tg: anyio.abc.TaskGroup) -> AsyncGenerator[EventBus]:
+        this = cls(tg)
+        tg.start_soon(this._event_worker)
+        tg.start_soon(_async_create_timer, tg, this._run_second_event)
+        _LOGGER.info("Event bus worker started.")
+        try:
             yield this
+        finally:
+            # Ensure proper cleanup
+            this.shutting_down = True
 
     async def _event_worker(self) -> None:
         """
@@ -239,7 +242,12 @@ class EventBus:
         """Request the event bus to stop."""
         if not self.shutting_down:
             self.shutting_down = True
-            self.tg.cancel_scope.cancel()
+            try:
+                self.tg.cancel_scope.cancel()
+            except RuntimeError as e:
+                _LOGGER.debug(
+                    "Task group already cancelled or in different context: %s", e
+                )
 
     async def stop(self) -> None:
         """
@@ -250,8 +258,17 @@ class EventBus:
         self.shutting_down = True
         await self._handle_sigterm_listeners()
         for listener in self.every_second_listeners.values():
-            listener.target(None)
-        self.tg.cancel_scope.cancel()
+            try:
+                if asyncio.iscoroutinefunction(listener.target):
+                    await listener.target()
+                else:
+                    listener.target()
+            except Exception as e:
+                _LOGGER.error("Error stopping listener: %s", e)
+        try:
+            self.tg.cancel_scope.cancel()
+        except RuntimeError as e:
+            _LOGGER.debug("Task group already cancelled or in different context: %s", e)
         _LOGGER.info("Shutdown EventBus gracefully.")
 
     def _run_second_event(self) -> None:

@@ -688,13 +688,13 @@ def _load_config_from_string(config_str: str) -> dict:
     return merged_doc
 
 
-def load_config(config_file: Path) -> Config:
+def load_config(config_file_path: Path) -> Config:
     try:
-        config_yaml = load_yaml_file(config_file)
+        config_yaml = load_yaml_file(config_file_path)
     except FileNotFoundError as err:
         raise ConfigurationError(err)
     if not config_yaml:
-        raise ValueError(f"Empty configuration file: {config_file}")
+        raise ValueError(f"Empty configuration file: {config_file_path}")
     return Config.model_validate(_load_config_from_string(config_yaml))
 
 

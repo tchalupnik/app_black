@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import sys
@@ -10,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
+import anyio
 import typer
 from yaml import MarkedYAMLError
 
@@ -84,13 +84,20 @@ def run(
         str | None,
         typer.Option(help="Mqtt password to use if you don't want provide in file."),
     ] = None,
+    dry: Annotated[
+        bool,
+        typer.Option(
+            help="Run in dry mode, no changes will be made. Useful for testing configuration."
+        ),
+    ] = False,
 ) -> None:
     """Run BoneIO."""
     exit_code = run_boneio(
-        config_file=Path(config),
+        config_file_path=Path(config).resolve(),
         mqttusername=mqttusername,
         mqttpassword=mqttpassword,
         debug=debug,
+        dry=dry,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)
@@ -266,10 +273,11 @@ def main_callback(
 
 
 def run_boneio(
-    config_file: Path,
+    config_file_path: Path,
     debug: int,
     mqttusername: str | None = None,
     mqttpassword: str | None = None,
+    dry: bool = False,
 ) -> int:
     """Run BoneIO."""
     from boneio.runner import async_run
@@ -278,15 +286,20 @@ def run_boneio(
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
-        config = load_config(config_file=config_file)
-        ret = asyncio.run(
-            async_run(
-                config=config,
-                config_file=config_file,
-                mqttusername=mqttusername,
-                mqttpassword=mqttpassword,
-                debug=debug,
+        config = load_config(config_file_path=config_file_path)
+        backend_options = {}
+        if debug >= 2:
+            backend_options["debug"] = True
+        ret = anyio.run(
+            lambda: async_run(
+                config,
+                config_file_path,
+                mqttusername,
+                mqttpassword,
+                debug,
+                dry,
             ),
+            backend_options=backend_options,
         )
         _LOGGER.info("BoneIO %s exiting.", __version__)
         return ret
@@ -319,20 +332,19 @@ def run_modbus_set_helper(
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         configure_logger(debug=debug)
-        ret = asyncio.run(
-            async_run_modbus_set(
-                device=device,
-                uart=uart,
-                address=address,
-                baudrate=baudrate,
-                parity=parity,
-                bytesize=bytesize,
-                stopbits=stopbits,
-                new_baudrate=new_baudrate,
-                new_address=new_address,
-                custom_address=custom_address,
-                custom_value=custom_value,
-            ),
+        ret = anyio.run(
+            async_run_modbus_set,
+            device,
+            uart,
+            address,
+            baudrate,
+            parity,
+            bytesize,
+            stopbits,
+            new_baudrate,
+            new_address,
+            custom_address,
+            custom_value,
         )
         return ret
     except (ConfigurationError, MarkedYAMLError) as err:
@@ -361,19 +373,18 @@ def run_modbus_get_helper(
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         configure_logger(debug=debug)
-        ret = asyncio.run(
-            async_run_modbus_get(
-                uart=uart,
-                device_address=device_address,
-                baudrate=baudrate,
-                register_address=register_address,
-                register_type=register_type,
-                parity=parity,
-                bytesize=bytesize,
-                stopbits=stopbits,
-                value_type=value_type,
-                register_range=register_range,
-            ),
+        ret = anyio.run(
+            async_run_modbus_get,
+            uart,
+            device_address,
+            baudrate,
+            register_address,
+            register_type,
+            parity,
+            bytesize,
+            stopbits,
+            value_type,
+            register_range,
         )
         return ret
     except (ConfigurationError, MarkedYAMLError) as err:
@@ -399,16 +410,15 @@ def run_modbus_search_helper(
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         configure_logger(debug=debug)
-        ret = asyncio.run(
-            async_run_modbus_search(
-                uart=uart,
-                baudrate=baudrate,
-                register_address=register_address,
-                register_type=register_type,
-                stopbits=stopbits,
-                bytesize=bytesize,
-                parity=parity,
-            ),
+        ret = anyio.run(
+            async_run_modbus_search,
+            uart,
+            baudrate,
+            register_address,
+            register_type,
+            stopbits,
+            bytesize,
+            parity,
         )
         return ret
     except (ConfigurationError, MarkedYAMLError) as err:

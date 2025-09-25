@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import anyio
 import httpx
 from fastapi import (
     BackgroundTasks,
@@ -32,7 +33,6 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
 from boneio.config import Config
@@ -128,59 +128,55 @@ FileItem.model_rebuild()
 
 
 class BoneIOApp(FastAPI):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._loop = asyncio.get_event_loop()
+    # async def shutdown_handler(self) -> None:
+    #     """Handle application shutdown."""
+    #     _LOGGER.debug("Shutting down All WebSocket connections...")
+    #     if hasattr(self.state, "websocket_manager"):
+    #         await self.state.websocket_manager.close_all()
 
-    async def shutdown_handler(self) -> None:
-        """Handle application shutdown."""
-        _LOGGER.debug("Shutting down All WebSocket connections...")
-        if hasattr(self.state, "websocket_manager"):
-            await asyncio.sleep(1)
-            await self.state.websocket_manager.close_all()
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Handle ASGI calls with proper lifespan support."""
-        message = None
-        if scope["type"] == "lifespan":
-            try:
-                while True:
-                    message = await receive()
-                    if message["type"] == "lifespan.startup":
-                        try:
-                            await send({"type": "lifespan.startup.complete"})
-                        except Exception as e:
-                            await send(
-                                {"type": "lifespan.startup.failed", "message": str(e)}
-                            )
-                    elif message["type"] == "lifespan.shutdown":
-                        try:
-                            # First shutdown all WebSocket connections
-                            _LOGGER.debug("Starting lifespan shutdown...")
-                            await self.shutdown_handler()
-                            _LOGGER.debug(
-                                "WebSocket connections closed, sending shutdown complete..."
-                            )
-                            # Only after WebSocket cleanup is done, send shutdown complete
-                            await send({"type": "lifespan.shutdown.complete"})
-                            _LOGGER.debug("Lifespan shutdown complete sent.")
-                        except Exception as e:
-                            _LOGGER.error("Error during lifespan shutdown: %s", e)
-                            await send(
-                                {"type": "lifespan.shutdown.failed", "message": str(e)}
-                            )
-                        return
-            except asyncio.CancelledError:
-                # Handle graceful exit during lifespan
-                _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
-                await self.shutdown_handler()
-                # await send({"type": "lifespan.shutdown.complete"})
-                _LOGGER.debug("Lifespan cleanup complete.")
-                return
-        try:
-            await super().__call__(scope, receive, send)
-        except Exception:
-            pass
+    # async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+    #     """Handle ASGI calls with proper lifespan support."""
+    #     message = None
+    #     if scope["type"] == "lifespan":
+    #         try:
+    #             while True:
+    #                 message = await receive()
+    #                 if message["type"] == "lifespan.startup":
+    #                     try:
+    #                         await send({"type": "lifespan.startup.complete"})
+    #                     except Exception as e:
+    #                         await send(
+    #                             {"type": "lifespan.startup.failed", "message": str(e)}
+    #                         )
+    #                 elif message["type"] == "lifespan.shutdown":
+    #                     try:
+    #                         # First shutdown all WebSocket connections
+    #                         _LOGGER.debug("Starting lifespan shutdown...")
+    #                         await self.shutdown_handler()
+    #                         _LOGGER.debug(
+    #                             "WebSocket connections closed, sending shutdown complete..."
+    #                         )
+    #                         # Only after WebSocket cleanup is done, send shutdown complete
+    #                         await send({"type": "lifespan.shutdown.complete"})
+    #                         _LOGGER.debug("Lifespan shutdown complete sent.")
+    #                     except Exception as e:
+    #                         _LOGGER.error("Error during lifespan shutdown: %s", e)
+    #                         await send(
+    #                             {"type": "lifespan.shutdown.failed", "message": str(e)}
+    #                         )
+    #                     return
+    #         except asyncio.CancelledError:
+    #             # Handle graceful exit during lifespan
+    #             _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
+    #             await self.shutdown_handler()
+    #             # await send({"type": "lifespan.shutdown.complete"})
+    #             _LOGGER.debug("Lifespan cleanup complete.")
+    #             raise
+    #     try:
+    #         await super().__call__(scope, receive, send)
+    #     except Exception:
+    #         pass
+    pass
 
 
 # Create FastAPI application
@@ -615,7 +611,7 @@ async def restart_service(background_tasks: BackgroundTasks) -> StatusResponse:
     async def shutdown_and_restart() -> None:
         # First stop the web server
         if app.state.web_server:
-            await asyncio.sleep(0.1)  # Allow time for the response to be sent
+            await anyio.sleep(0.1)  # Allow time for the response to be sent
             os._exit(0)  # Terminate the process
 
     background_tasks.add_task(shutdown_and_restart)
@@ -712,7 +708,7 @@ async def update_boneio(background_tasks: BackgroundTasks) -> StatusWithMessageR
     async def update_and_restart() -> None:
         try:
             # Allow time for the response to be sent
-            await asyncio.sleep(0.5)
+            await anyio.sleep(0.5)
 
             # Get the virtual environment path
             venv_path = Path("~/boneio/venv").expanduser()
@@ -765,7 +761,7 @@ async def get_name(config: Config = Depends(get_config)) -> NameResponse:
 async def check_configuration() -> StatusWithMessageResponse:
     """Check if the configuration is valid."""
     try:
-        load_config(config_file=app.state.yaml_config_file)
+        load_config(config_file_path=app.state.yaml_config_file)
         return StatusWithMessageResponse(status="success", message="")
     except ConfigurationError as e:
         return StatusWithMessageResponse(status="error", message=str(e))

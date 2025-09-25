@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
+
+import anyio
 
 if TYPE_CHECKING:
-    from boneio.manager import Manager
+    pass
 
+from boneio.const import ONLINE, STATE
 from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,10 +21,10 @@ class LocalMessageBus(MessageBus):
 
     def __init__(self):
         """Initialize local message bus."""
+        _LOGGER.info("Starting LOCAL message bus!")
         self.connection_established = True
         self._subscribers: dict[str, set[Callable]] = {}
         self._retain_values: dict[str, str | dict] = {}
-        self.manager: Manager | None = None
 
     async def send_message(
         self, topic: str, payload: str | dict, retain: bool = False
@@ -50,12 +53,22 @@ class LocalMessageBus(MessageBus):
     async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
         while True:
-            if self.manager is not None:
-                await self.manager.reconnect_callback()
-            await asyncio.sleep(60)  # Run reconnect callback every minute like MQTT
+            _LOGGER.info("Sending online state.")
+            await self.send_message(
+                topic=f"boneio/{STATE}", payload=ONLINE, retain=True
+            )
+            await anyio.sleep(60)  # Run reconnect callback every minute like MQTT
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
 
     def is_connection_established(self) -> bool:
         return self.connection_established
+
+    async def subscribe_and_listen(
+        self, topic: str, callback: Callable[[str], Coroutine[Any, Any, None]]
+    ) -> None:
+        """Subscribe to a topic and listen for messages."""
+
+    async def unsubscribe_and_stop_listen(self, topic: str) -> None:
+        """Unsubscribe from a topic and stop listening."""

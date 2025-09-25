@@ -5,6 +5,7 @@ import logging
 import secrets
 from pathlib import Path
 
+from anyio import Event, move_on_after, sleep
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
 
@@ -19,18 +20,17 @@ class WebServer:
     def __init__(
         self,
         config: Config,
-        config_file: Path,
+        config_file_path: Path,
         manager: Manager,
     ) -> None:
         """Initialize the web server."""
         self.config = config
         assert self.config.web is not None, "Web config must be provided"
-        self.config_file = config_file
         self.manager = manager
         self._shutdown_event = asyncio.Event()
 
         # Get yaml config file path
-        self._yaml_config_file = (config_file.parent / "config.yaml").resolve()
+        self._yaml_config_file_path = config_file_path
 
         # Set up JWT secret
         self.jwt_secret = self._get_jwt_secret_or_generate()
@@ -38,7 +38,7 @@ class WebServer:
         # Initialize FastAPI app
         self.app: BoneIOApp = init_app(
             manager=self.manager,
-            yaml_config_file=self._yaml_config_file,
+            yaml_config_file=self._yaml_config_file_path,
             jwt_secret=self.jwt_secret,
             config=self.config,
             web_server=self,
@@ -67,11 +67,10 @@ class WebServer:
         # self._server = hypercorn.asyncio.serve(self.app, self._hypercorn_config)
         # Override the server's install_signal_handlers to prevent it from handling signals
         # self._server.install_signal_handlers = lambda: None
-        self._server_running = False
         # self.manager.event_bus.add_sigterm_listener(self.stop_webserver)
 
     def _get_jwt_secret_or_generate(self):
-        config_dir = Path(self._yaml_config_file).parent
+        config_dir = Path(self._yaml_config_file_path).parent
         jwt_secret_file = config_dir / "jwt_secret"
 
         try:
@@ -101,39 +100,30 @@ class WebServer:
     async def start_webserver(self) -> None:
         """Start the web server."""
         _LOGGER.info("Starting HYPERCORN web server...")
-        self._server_running = True
 
-        async def shutdown_trigger() -> None:
-            """Shutdown trigger for hypercorn"""
-            await self._shutdown_event.wait()
+        async def run() -> None:
+            try:
+                await serve(
+                    self.app,
+                    self._hypercorn_config,
+                    shutdown_trigger=Event().wait,
+                )
+            finally:
+                _LOGGER.info("HTTP server stopped")
 
-        server_task = asyncio.create_task(
-            serve(self.app, self._hypercorn_config, shutdown_trigger=shutdown_trigger)
-        )
+        webserver_task = asyncio.create_task(run())
         try:
-            await server_task
-        except asyncio.CancelledError:
-            pass  # Expected due to cancellation
+            while not webserver_task.done():
+                await sleep(1)
 
-    async def trigger_shutdown(self) -> None:
-        """Signal the web server to start its shutdown sequence."""
-        _LOGGER.info("Web server shutdown triggered.")
-        self._shutdown_event.set()
-
-    async def _wait_shutdown(self):
-        await self._shutdown_event.wait()
-        _LOGGER.info("Shutdown signal received")
-
-    async def stop_webserver(self) -> None:
-        """Stop the web server."""
-        if not self._server_running:
-            return
-        _LOGGER.info("Shutting down HYPERCORN web server...")
-        self._server_running = False
-        self._shutdown_event.set()
-
-    async def stop_webserver2(self) -> None:
-        """Stop the web server."""
-        _LOGGER.info("Shutting down HYPERCORN web server...")
-        self._server_running = False
-        # await self.app.shutdown_handler()
+            webserver_exception = webserver_task.exception()
+            if webserver_exception is not None:
+                raise webserver_exception
+        finally:
+            if not webserver_task.done():
+                with move_on_after(1, shield=True):
+                    webserver_task.cancel()
+                    try:
+                        await webserver_task
+                    except asyncio.CancelledError:
+                        pass

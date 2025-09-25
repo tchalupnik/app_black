@@ -31,4 +31,5 @@ boneio:
   device_type: "cover"
 
 web:
+  enabled: true
 # adc: !include adc.yaml Uncomment only if needed.

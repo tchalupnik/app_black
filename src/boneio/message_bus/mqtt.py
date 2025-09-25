@@ -39,6 +39,7 @@ class MQTTClient(MessageBus):
 
     def __init__(self, config: MqttConfig) -> None:
         """Set up client."""
+        _LOGGER.info("Starting MQTT message bus!")
         self.manager: Manager | None = None
         self.config = config
         self.asyncio_client: AsyncioClient = None
