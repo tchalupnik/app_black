@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
-from collections import deque
+from abc import ABC
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar, assert_never
 
 import anyio
 import anyio.abc
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
 from busio import I2C
+from pydantic import BaseModel, Field, RootModel, TypeAdapter
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
@@ -42,7 +42,6 @@ from boneio.config import (
 from boneio.const import (
     BINARY_SENSOR,
     BUTTON,
-    CLOSE,
     COVER,
     DALLAS,
     DS2482,
@@ -56,13 +55,8 @@ from boneio.const import (
     NONE,
     ON,
     ONLINE,
-    OPEN,
     OUTPUT,
-    RELAY,
     SENSOR,
-    SET_BRIGHTNESS,
-    STATE,
-    STOP,
     SWITCH,
     TOPIC,
     VALVE,
@@ -131,6 +125,95 @@ AVAILABILITY_FUNCTION_CHOOSER = {
     SWITCH: ha_switch_availabilty_message,
     VALVE: ha_valve_availabilty_message,
 }
+
+
+class MqttMessage(ABC, BaseModel):
+    type_: str
+    device_id: str
+    command: str
+    message: str
+
+
+class RelaySetMqttMessage(MqttMessage):
+    type_: Literal["relay"] = "relay"
+    command: Literal["set"] = "set"
+    message: Literal["ON", "OFF", "TOGGLE"]
+
+
+class RelaySetBrightnessMqttMessage(MqttMessage):
+    type_: Literal["relay"] = "relay"
+    command: Literal["set_brightness"] = "set_brightness"
+    message: int
+
+
+_RelayMqttMessage: TypeAlias = RelaySetMqttMessage | RelaySetBrightnessMqttMessage
+
+
+class RelayMqttMessage(RootModel[_RelayMqttMessage]):
+    root: _RelayMqttMessage = Field(discriminator="command")
+
+
+class CoverSetMqttMessage(MqttMessage):
+    type_: Literal["cover"] = "cover"
+    command: Literal["set"] = "set"
+    message: Literal["open", "close", "stop", "toggle", "toggle_open", "toggle_close"]
+
+
+class CoverPosMqttMessage(MqttMessage):
+    type_: Literal["cover"] = "cover"
+    command: Literal["pos"] = "pos"
+    message: int
+
+
+class CoverTiltMqttMessage(MqttMessage):
+    type_: Literal["cover"] = "cover"
+    command: Literal["tilt"] = "tilt"
+    message: int | Literal["stop"]
+
+
+_CoverMqttMessage: TypeAlias = (
+    CoverSetMqttMessage | CoverPosMqttMessage | CoverTiltMqttMessage
+)
+
+
+class CoverMqttMessage(RootModel[_CoverMqttMessage]):
+    root: _CoverMqttMessage = Field(discriminator="command")
+
+
+class GroupMqttMessage(MqttMessage):
+    type_: Literal["group"] = "group"
+    command: Literal["set"] = "set"
+    message: Literal["ON", "OFF", "TOGGLE"]
+
+
+class ButtonMqttMessage(MqttMessage):
+    type_: Literal["button"] = "button"
+    command: Literal["set"] = "set"
+    message: Literal["reload", "restart", "inputs_reload", "cover_reload"]
+
+
+class ModbusMqttMessageValue(BaseModel):
+    device: str
+    value: int | float | str
+
+
+class ModbusMqttMessage(MqttMessage):
+    type_: Literal["modbus"] = "modbus"
+    command: Literal["set"] = "set"
+    message: ModbusMqttMessageValue
+
+
+_MqqtMessage: TypeAlias = (
+    RelayMqttMessage
+    | CoverMqttMessage
+    | GroupMqttMessage
+    | ButtonMqttMessage
+    | ModbusMqttMessage
+)
+
+
+class MqttMessage(RootModel[_MqqtMessage]):
+    root: _MqqtMessage = Field(discriminator="type_")
 
 
 class Manager:
@@ -768,12 +851,6 @@ class Manager:
             )
         return {}
 
-    def reconnect_callback(self) -> None:
-        """Function to invoke when connection to MQTT is (re-)established."""
-        _LOGGER.info("Sending online state.")
-        topic = f"{self.config.get_topic_prefix()}/{STATE}"
-        self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
-
     async def _relay_callback(
         self,
         event: OutputState,
@@ -938,6 +1015,7 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
+
         if topic.startswith(
             f"{self.config.get_ha_autodiscovery_topic_prefix()}/status"
         ):
@@ -951,76 +1029,74 @@ class Manager:
             _LOGGER.error("Wrong topic %s. Error %s", topic, err)
             return
         topic_parts_raw = topic[len(self.config.mqtt.cmd_topic_prefix()) :].split("/")
-        topic_parts = deque(topic_parts_raw)
-        try:
-            msg_type = topic_parts.popleft()
-            device_id = topic_parts.popleft()
-            command = topic_parts.pop()
-            _LOGGER.debug(
-                "Divide topic to: msg_type: %s, device_id: %s, command: %s",
-                msg_type,
-                device_id,
-                command,
+        mqtt_message = (
+            TypeAdapter(MqttMessage)
+            .validate_python(
+                {
+                    "type_": topic_parts_raw[0],
+                    "device_id": topic_parts_raw[1],
+                    "command": topic_parts_raw[2],
+                    "message": message,
+                }
             )
-        except IndexError:
-            _LOGGER.error("Part of topic is missing. Not invoking command.")
-            return
-        if msg_type == RELAY and command == "set":
-            target_device = self.outputs.get(device_id)
-            if target_device is not None and target_device.output_type != NONE:
-                match message.upper():
-                    case "ON":
-                        await target_device.async_turn_on()
-                    case "OFF":
-                        await target_device.async_turn_off()
-                    case "TOGGLE":
-                        await target_device.async_toggle()
-                    case _:
-                        _LOGGER.debug("Action not exist %s.", message.upper())
-            else:
-                _LOGGER.debug("Target device not found %s.", device_id)
-        elif msg_type == RELAY and command == SET_BRIGHTNESS:
-            target_device = self.outputs.get(device_id)
-            if (
-                isinstance(target_device, PWMPCA)
-                and target_device.output_type != NONE
-                and message != ""
-            ):
-                target_device.set_brightness(int(message))
-            else:
-                _LOGGER.debug("Target device not found %s.", device_id)
-        elif msg_type == COVER:
-            cover = self.covers.get(device_id)
-            if not cover:
-                return
-            if command == "set":
-                if message in (
-                    OPEN,
-                    CLOSE,
-                    STOP,
-                    "toggle",
-                    "toggle_open",
-                    "toggle_close",
+            .root
+        )
+
+        if isinstance(mqtt_message, RelayMqttMessage):
+            relay_message = mqtt_message.root
+            if isinstance(relay_message, RelaySetMqttMessage):
+                target_device = self.outputs.get(relay_message.device_id)
+                if target_device is not None and target_device.output_type != NONE:
+                    match relay_message.message:
+                        case "ON":
+                            await target_device.async_turn_on()
+                        case "OFF":
+                            await target_device.async_turn_off()
+                        case "TOGGLE":
+                            await target_device.async_toggle()
+                        case _:
+                            assert_never(relay_message)
+            elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
+                target_device = self.outputs.get(relay_message.device_id)
+                if (
+                    isinstance(target_device, PWMPCA)
+                    and target_device.output_type != NONE
                 ):
-                    _f = getattr(cover, message.lower())
-                    await _f()
-            elif command == "pos":
-                try:
-                    await cover.set_cover_position(position=int(message))
-                except ValueError as err:
-                    _LOGGER.warning(err)
-            elif command == "tilt":
-                if message == STOP:
-                    await cover.stop()
+                    target_device.set_brightness(relay_message.message)
+            else:
+                assert_never(relay_message)
+        elif isinstance(mqtt_message, CoverMqttMessage):
+            cover_message = mqtt_message.root
+            cover = self.covers.get(cover_message.device_id)
+            if cover is None:
+                return
+            if isinstance(cover_message, CoverSetMqttMessage):
+                match cover_message.message:
+                    case "stop":
+                        self.tg.start_soon(cover.stop)
+                    case "open":
+                        self.tg.start_soon(cover.open)
+                    case "close":
+                        self.tg.start_soon(cover.close)
+                    case "toggle":
+                        self.tg.start_soon(cover.toggle)
+                    case "toggle_open":
+                        self.tg.start_soon(cover.toggle_open)
+                    case "toggle_close":
+                        self.tg.start_soon(cover.toggle_close)
+                    case _:
+                        assert_never(cover_message)
+            elif isinstance(cover_message, CoverPosMqttMessage):
+                await cover.set_cover_position(position=cover_message.message)
+            elif isinstance(cover_message, CoverTiltMqttMessage):
+                if isinstance(cover_message.message, int):
+                    await cover.set_tilt(tilt_position=cover_message.message)
                 else:
-                    try:
-                        await cover.set_tilt(tilt_position=int(message))
-                    except ValueError as err:
-                        _LOGGER.warning(err)
-        elif msg_type == "group" and command == "set":
-            target_device = self.output_groups.get(device_id)
+                    await cover.stop()
+        elif isinstance(mqtt_message, GroupMqttMessage):
+            target_device = self.output_groups.get(mqtt_message.device_id)
             if target_device is not None and target_device.output_type != NONE:
-                match message.upper():
+                match mqtt_message.message:
                     case "ON":
                         await target_device.async_turn_on()
                     case "OFF":
@@ -1028,30 +1104,39 @@ class Manager:
                     case "TOGGLE":
                         await target_device.async_toggle()
                     case _:
-                        _LOGGER.debug("Action not exist %s.", message.upper())
+                        assert_never(mqtt_message)
             else:
-                _LOGGER.debug("Target device not found %s.", device_id)
-        elif msg_type == BUTTON and command == "set":
-            if device_id == "logger" and message == "reload":
+                _LOGGER.debug("Target device not found %s.", mqtt_message.device_id)
+        elif isinstance(mqtt_message, ButtonMqttMessage):
+            if mqtt_message.device_id == "logger" and mqtt_message.message == "reload":
                 _LOGGER.info("Reloading logger configuration.")
                 self._logger_reload()
-            elif device_id == "restart" and message == "restart":
+            elif (
+                mqtt_message.device_id == "restart"
+                and mqtt_message.message == "restart"
+            ):
                 await self.restart_request()
-            elif device_id == "inputs_reload" and message == "inputs_reload":
+            elif (
+                mqtt_message.device_id == "inputs_reload"
+                and mqtt_message.message == "inputs_reload"
+            ):
                 _LOGGER.info("Reloading events and binary sensors actions")
                 self.configure_inputs(reload_config=True)
-            elif device_id == "cover_reload" and message == "cover_reload":
+            elif (
+                mqtt_message.device_id == "cover_reload"
+                and mqtt_message.message == "cover_reload"
+            ):
                 _LOGGER.info("Reloading covers actions")
                 self._configure_covers(reload_config=True)
-        elif msg_type == "modbus" and command == "set":
-            target_device = self.modbus_coordinators.get(device_id)
-            if target_device:
-                if isinstance(message, str):
-                    message = json.loads(message)
-                    if "device" in message and "value" in message:
-                        await target_device.write_register(
-                            value=message["value"], entity=message["device"]
-                        )
+            else:
+                assert_never(mqtt_message)
+
+        elif isinstance(mqtt_message, ModbusMqttMessage):
+            target_device = self.modbus_coordinators.get(mqtt_message.device_id)
+            if target_device is not None:
+                await target_device.write_register(
+                    value=mqtt_message.message.value, entity=mqtt_message.message.device
+                )
 
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")

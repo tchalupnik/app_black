@@ -24,6 +24,7 @@ from paho.mqtt.subscribeoptions import SubscribeOptions
 from boneio.config import MqttConfig
 from boneio.const import (
     OFFLINE,
+    ONLINE,
     PAHO,
     STATE,
 )
@@ -245,7 +246,9 @@ class MQTTClient(MessageBus):
             )
             if not self._connection_established:
                 self._connection_established = True
-                self.manager.reconnect_callback()
+                _LOGGER.info("Sending online state.")
+                topic = f"{self.config.topic_prefix}/{STATE}"
+                self.send_message(topic=topic, payload=ONLINE, retain=True)
 
             # Add cancel_future to tasks
             tg.start_soon(wait_for_cancel)
