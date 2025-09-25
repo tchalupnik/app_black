@@ -11,7 +11,7 @@ class MessageBus(ABC):
     """Base class for message handling."""
 
     @abstractmethod
-    async def send_message(
+    def send_message(
         self, topic: str, payload: str | dict, retain: bool = False
     ) -> None:
         """Send a message."""
@@ -19,10 +19,6 @@ class MessageBus(ABC):
     @abstractmethod
     def is_connection_established(self) -> bool:
         """Get bus state."""
-
-    @abstractmethod
-    async def start_client(self) -> None:
-        """Start the message bus client."""
 
     @abstractmethod
     async def announce_offline(self) -> None:

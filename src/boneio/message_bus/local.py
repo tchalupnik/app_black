@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import anyio
+import anyio.abc
 
 if TYPE_CHECKING:
     pass
@@ -19,14 +21,15 @@ _LOGGER = logging.getLogger(__name__)
 class LocalMessageBus(MessageBus):
     """Local message bus that doesn't use MQTT."""
 
-    def __init__(self):
+    def __init__(self, tg: anyio.abc.TaskGroup) -> None:
         """Initialize local message bus."""
         _LOGGER.info("Starting LOCAL message bus!")
+        self._tg = tg
         self.connection_established = True
         self._subscribers: dict[str, set[Callable]] = {}
         self._retain_values: dict[str, str | dict] = {}
 
-    async def send_message(
+    def send_message(
         self, topic: str, payload: str | dict, retain: bool = False
     ) -> None:
         """Route message locally."""
@@ -36,7 +39,7 @@ class LocalMessageBus(MessageBus):
         if topic in self._subscribers:
             for callback in self._subscribers[topic]:
                 try:
-                    await callback(topic, payload)
+                    self._tg.start_soon(callback, topic, payload)
                 except Exception as e:
                     _LOGGER.error("Error in local message callback: %s", e)
 
@@ -50,14 +53,25 @@ class LocalMessageBus(MessageBus):
         if topic in self._retain_values:
             asyncio.create_task(callback(topic, self._retain_values[topic]))
 
-    async def start_client(self) -> None:
-        """Keep the event loop alive and process any periodic tasks."""
-        while True:
-            _LOGGER.info("Sending online state.")
-            await self.send_message(
-                topic=f"boneio/{STATE}", payload=ONLINE, retain=True
-            )
-            await anyio.sleep(60)  # Run reconnect callback every minute like MQTT
+    @classmethod
+    @asynccontextmanager
+    async def create(cls) -> AsyncGenerator[LocalMessageBus]:
+        async with anyio.create_task_group() as tg:
+            this = cls(tg)
+            """Keep the event loop alive and process any periodic tasks."""
+
+            async def run() -> None:
+                while True:
+                    _LOGGER.info("Sending online state.")
+                    this.send_message(
+                        topic=f"boneio/{STATE}", payload=ONLINE, retain=True
+                    )
+                    await anyio.sleep(
+                        60
+                    )  # Run reconnect callback every minute like MQTT
+
+            tg.start_soon(run)
+            yield this
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""

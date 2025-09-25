@@ -58,9 +58,9 @@ async def async_run(
             config.mqtt.username = mqttusername
         if mqttpassword is not None:
             config.mqtt.password = mqttpassword
-        message_bus = MQTTClient(config=config.mqtt)
+        message_bus = await stack.enter_async_context(MQTTClient.create(config.mqtt))
     else:
-        message_bus = LocalMessageBus()
+        message_bus = await stack.enter_async_context(LocalMessageBus.create())
 
     manager = await stack.enter_async_context(
         Manager.create(
@@ -73,8 +73,6 @@ async def async_run(
         )
     )
     message_bus.manager = manager
-
-    tg.start_soon(message_bus.start_client)
 
     # Start web server if configured
     if config.web is not None:
@@ -92,6 +90,6 @@ async def async_run(
         await anyio.sleep_forever()
     finally:
         _LOGGER.info("Cleaning up resources...")
-        await message_bus.announce_offline()
+        # await message_bus.announce_offline()
         _LOGGER.info("Shutdown complete")
     return 0

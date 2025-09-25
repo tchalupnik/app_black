@@ -10,9 +10,11 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
+import anyio
+import anyio.abc
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
 from aiomqtt import Message, MqttError, Will
@@ -26,10 +28,10 @@ from boneio.const import (
     STATE,
 )
 from boneio.helper.queue import UniqueQueue
+from boneio.message_bus import MessageBus
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
-from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,9 +39,10 @@ _LOGGER = logging.getLogger(__name__)
 class MQTTClient(MessageBus):
     """Represent an MQTT client."""
 
-    def __init__(self, config: MqttConfig) -> None:
+    def __init__(self, config: MqttConfig, tg: anyio.abc.TaskGroup) -> None:
         """Set up client."""
         _LOGGER.info("Starting MQTT message bus!")
+        self._tg = tg
         self.manager: Manager | None = None
         self.config = config
         self.asyncio_client: AsyncioClient = None
@@ -185,32 +188,44 @@ class MQTTClient(MessageBus):
             retain=True,
         )
 
-    async def start_client(self) -> None:
+    @classmethod
+    @asynccontextmanager
+    async def create(cls, config: MqttConfig) -> AsyncGenerator[MQTTClient]:
         """Keep the event loop alive and process any periodic tasks."""
-        try:
-            while True:
+        async with anyio.create_task_group() as tg:
+            this = cls(config, tg)
+
+            async def run() -> None:
                 try:
-                    await self._subscribe_manager()
-                except MqttError as err:
-                    self.reconnect_interval = min(self.reconnect_interval * 2, 60)
-                    _LOGGER.error(
-                        "MQTT error: %s. Reconnecting in %s seconds",
-                        err,
-                        self.reconnect_interval,
-                    )
-                    self._connection_established = False
-                    self.publish_queue.set_connected(False)
-                    await asyncio.sleep(self.reconnect_interval)
-                    self.create_client()  # reset connect/reconnect futures
-        except asyncio.CancelledError:
-            _LOGGER.info("MQTT client shutting down...")
-            await self.asyncio_client.disconnect(timeout=1.0)
-            # raise
+                    while True:
+                        try:
+                            await this._subscribe_manager()
+                        except MqttError as err:
+                            this.reconnect_interval = min(
+                                this.reconnect_interval * 2, 60
+                            )
+                            _LOGGER.error(
+                                "MQTT error: %s. Reconnecting in %s seconds",
+                                err,
+                                this.reconnect_interval,
+                            )
+                            this._connection_established = False
+                            this.publish_queue.set_connected(False)
+                            await asyncio.sleep(this.reconnect_interval)
+                            this.create_client()  # reset connect/reconnect futures
+                except asyncio.CancelledError:
+                    _LOGGER.info("MQTT client shutting down...")
+                    await this.asyncio_client.disconnect(timeout=1.0)
+                    raise
+
+            tg.start_soon(run)
+            yield this
 
     async def _subscribe_manager(self) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(self.asyncio_client)
+            tg = await stack.enter_async_context(anyio.create_task_group())
             self.publish_queue.set_connected(True)
             # Create a new future for this run
             self._cancel_future = asyncio.Future()
@@ -220,26 +235,20 @@ class MQTTClient(MessageBus):
                 # When future completes, raise CancelledError to stop other tasks
                 raise asyncio.CancelledError("Stop requested")
 
-            tasks: set[asyncio.Task] = set()
-
-            publish_task = asyncio.create_task(self._handle_publish())
-            tasks.add(publish_task)
+            tg.start_soon(self._handle_publish)
 
             # Messages that doesn't match a filter will get logged and handled here.
             messages = await stack.enter_async_context(self.asyncio_client.messages())
 
-            messages_task = asyncio.create_task(
-                self.handle_messages(messages, self.manager.receive_message)
+            tg.start_soon(
+                lambda: self.handle_messages(messages, self.manager.receive_message)
             )
             if not self._connection_established:
                 self._connection_established = True
-                reconnect_task = asyncio.create_task(self.manager.reconnect_callback())
-                tasks.add(reconnect_task)
-            tasks.add(messages_task)
+                self.manager.reconnect_callback()
 
             # Add cancel_future to tasks
-            cancel_task = asyncio.create_task(wait_for_cancel())
-            tasks.add(cancel_task)
+            tg.start_soon(wait_for_cancel)
 
             topics = (
                 self._topics
@@ -247,9 +256,6 @@ class MQTTClient(MessageBus):
                 + self._discovery_topics
             )
             await self.subscribe(topics=topics)
-
-            # Wait for everything to complete (or fail due to, e.g., network errors).
-            await asyncio.gather(*tasks)
 
     def is_connection_established(self) -> bool:
         """State of MQTT Client."""

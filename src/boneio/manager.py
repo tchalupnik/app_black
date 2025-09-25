@@ -768,11 +768,11 @@ class Manager:
             )
         return {}
 
-    async def reconnect_callback(self) -> None:
+    def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
         topic = f"{self.config.get_topic_prefix()}/{STATE}"
-        await self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
+        self.message_bus.send_message(topic=topic, payload=ONLINE, retain=True)
 
     async def _relay_callback(
         self,
@@ -921,7 +921,7 @@ class Manager:
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
             await anyio.sleep(0.2)
-            await self.message_bus.send_message(topic=topic, payload="")
+            self.message_bus.send_message(topic=topic, payload="")
 
     async def toggle_output(self, output_id: str) -> str:
         """Toggle output state."""
