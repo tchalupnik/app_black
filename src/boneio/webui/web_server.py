@@ -27,7 +27,6 @@ class WebServer:
         self.config = config
         assert self.config.web is not None, "Web config must be provided"
         self.manager = manager
-        self._shutdown_event = asyncio.Event()
 
         # Get yaml config file path
         self._yaml_config_file_path = config_file_path
