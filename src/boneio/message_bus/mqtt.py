@@ -67,7 +67,7 @@ class MQTTClient(MessageBus):
             "homeassistant/status",
         ]
         self._running = True
-        self._cancel_future: asyncio.Future | None = None
+        self._cancel_future = anyio.Event()
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -228,13 +228,10 @@ class MQTTClient(MessageBus):
             await stack.enter_async_context(self.asyncio_client)
             tg = await stack.enter_async_context(anyio.create_task_group())
             self.publish_queue.set_connected(True)
-            # Create a new future for this run
-            self._cancel_future = asyncio.Future()
 
             async def wait_for_cancel():
-                await self._cancel_future
-                # When future completes, raise CancelledError to stop other tasks
-                raise asyncio.CancelledError("Stop requested")
+                await self._cancel_future.wait()
+                tg.cancel_scope.cancel()
 
             tg.start_soon(self._handle_publish)
 
