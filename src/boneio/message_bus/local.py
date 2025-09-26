@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
@@ -51,7 +50,7 @@ class LocalMessageBus(MessageBus):
 
         # Send retained value if exists
         if topic in self._retain_values:
-            asyncio.create_task(callback(topic, self._retain_values[topic]))
+            self._tg.start_soon(callback, topic, self._retain_values[topic])
 
     @classmethod
     @asynccontextmanager
@@ -59,18 +58,8 @@ class LocalMessageBus(MessageBus):
         async with anyio.create_task_group() as tg:
             this = cls(tg)
             """Keep the event loop alive and process any periodic tasks."""
-
-            async def run() -> None:
-                while True:
-                    _LOGGER.info("Sending online state.")
-                    this.send_message(
-                        topic=f"boneio/{STATE}", payload=ONLINE, retain=True
-                    )
-                    await anyio.sleep(
-                        60
-                    )  # Run reconnect callback every minute like MQTT
-
-            tg.start_soon(run)
+            _LOGGER.info("Sending online state.")
+            this.send_message(topic=f"boneio/{STATE}", payload=ONLINE, retain=True)
             yield this
 
     async def announce_offline(self) -> None:

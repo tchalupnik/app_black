@@ -1049,11 +1049,11 @@ class Manager:
                 if target_device is not None and target_device.output_type != NONE:
                     match relay_message.message:
                         case "ON":
-                            self.tg.start_soon(target_device.async_turn_on)
+                            await target_device.async_turn_on()
                         case "OFF":
-                            self.tg.start_soon(target_device.async_turn_off)
+                            await target_device.async_turn_off()
                         case "TOGGLE":
-                            self.tg.start_soon(target_device.async_toggle)
+                            await target_device.async_toggle()
                         case _:
                             assert_never(relay_message)
             elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
@@ -1073,40 +1073,36 @@ class Manager:
             if isinstance(cover_message, CoverSetMqttMessage):
                 match cover_message.message:
                     case "stop":
-                        self.tg.start_soon(cover.stop)
+                        await cover.stop()
                     case "open":
-                        self.tg.start_soon(cover.open)
+                        await cover.open()
                     case "close":
-                        self.tg.start_soon(cover.close)
+                        await cover.close()
                     case "toggle":
-                        self.tg.start_soon(cover.toggle)
+                        await cover.toggle()
                     case "toggle_open":
-                        self.tg.start_soon(cover.toggle_open)
+                        await cover.toggle_open()
                     case "toggle_close":
-                        self.tg.start_soon(cover.toggle_close)
+                        await cover.toggle_close()
                     case _:
                         assert_never(cover_message)
             elif isinstance(cover_message, CoverPosMqttMessage):
-                self.tg.start_soon(
-                    lambda: cover.set_cover_position(position=cover_message.message)
-                )
+                await cover.set_cover_position(position=cover_message.message)
             elif isinstance(cover_message, CoverTiltMqttMessage):
                 if isinstance(cover_message.message, int):
-                    self.tg.start_soon(
-                        lambda: cover.set_tilt(tilt_position=cover_message.message)
-                    )
+                    await cover.set_tilt(tilt_position=cover_message.message)
                 else:
-                    self.tg.start_soon(cover.stop)
+                    await cover.stop()
         elif isinstance(mqtt_message, GroupMqttMessage):
             target_device = self.output_groups.get(mqtt_message.device_id)
             if target_device is not None and target_device.output_type != NONE:
                 match mqtt_message.message:
                     case "ON":
-                        self.tg.start_soon(target_device.async_turn_on)
+                        await target_device.async_turn_on()
                     case "OFF":
-                        self.tg.start_soon(target_device.async_turn_off)
+                        await target_device.async_turn_off()
                     case "TOGGLE":
-                        self.tg.start_soon(target_device.async_toggle)
+                        await target_device.async_toggle()
                     case _:
                         assert_never(mqtt_message)
             else:
@@ -1119,7 +1115,7 @@ class Manager:
                 mqtt_message.device_id == "restart"
                 and mqtt_message.message == "restart"
             ):
-                self.tg.start_soon(self.restart_request)
+                await self.restart_request()
             elif (
                 mqtt_message.device_id == "inputs_reload"
                 and mqtt_message.message == "inputs_reload"
@@ -1138,11 +1134,9 @@ class Manager:
         elif isinstance(mqtt_message, ModbusMqttMessage):
             target_device = self.modbus_coordinators.get(mqtt_message.device_id)
             if target_device is not None:
-                self.tg.start_soon(
-                    lambda: target_device.write_register(
-                        value=mqtt_message.message.value,
-                        entity=mqtt_message.message.device,
-                    )
+                await target_device.write_register(
+                    value=mqtt_message.message.value,
+                    entity=mqtt_message.message.device,
                 )
         else:
             assert_never(mqtt_message)

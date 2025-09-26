@@ -153,7 +153,6 @@ class EventBus:
 
     tg: anyio.abc.TaskGroup
 
-    shutting_down: bool = field(default=False, init=False)
     event_queue: asyncio.Queue[Event] = field(
         default_factory=lambda: asyncio.Queue(), init=False
     )
@@ -193,26 +192,19 @@ class EventBus:
         try:
             yield this
         finally:
-            # Ensure proper cleanup
-            this.shutting_down = True
+            await this._handle_sigterm_listeners()
 
     async def _event_worker(self) -> None:
         """
         Background task to process events from the queue.
         """
-        while not self.shutting_down:
-            try:
-                event = await self.event_queue.get()
-            except asyncio.CancelledError:
-                _LOGGER.info("Event bus worker cancelled.")
-                await self.stop()
-                raise
-            try:
-                await self._handle_event(event)
-            except Exception as exc:
-                _LOGGER.error("Error handling event: %s", exc)
-            finally:
-                self.event_queue.task_done()
+        event = await self.event_queue.get()
+        try:
+            await self._handle_event(event)
+        except Exception as exc:
+            _LOGGER.error("Error handling event: %s", exc)
+        finally:
+            self.event_queue.task_done()
 
     async def _handle_event(self, event: Event) -> None:
         """
@@ -237,28 +229,6 @@ class EventBus:
         :param event: Event model
         """
         self.event_queue.put_nowait(event)
-
-    async def stop(self) -> None:
-        """
-        Stop the event bus and worker task gracefully.
-        """
-        if self.shutting_down:
-            return
-        self.shutting_down = True
-        await self._handle_sigterm_listeners()
-        for listener in self.every_second_listeners.values():
-            try:
-                if asyncio.iscoroutinefunction(listener.target):
-                    await listener.target()
-                else:
-                    listener.target()
-            except Exception as e:
-                _LOGGER.error("Error stopping listener: %s", e)
-        try:
-            self.tg.cancel_scope.cancel()
-        except RuntimeError as e:
-            _LOGGER.debug("Task group already cancelled or in different context: %s", e)
-        _LOGGER.info("Shutdown EventBus gracefully.")
 
     def _run_second_event(self) -> None:
         """Run event every second."""
