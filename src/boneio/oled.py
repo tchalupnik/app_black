@@ -62,9 +62,9 @@ class Oled:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
         self._event_bus = event_bus
-        self.grouped_outputs_by_expander = None
+        self.grouped_outputs_by_expander: list[str] = []
         self.gpio_manager = gpio_manager
-        self._input_groups = []
+        self._input_groups: list[str] = []
         self._host_data = host_data
 
         def configure_outputs() -> None:
@@ -220,10 +220,7 @@ class Oled:
                 self.draw_qr_code(url=data)
             else:
                 with canvas(self._device) as draw:
-                    if (
-                        self.grouped_outputs_by_expander
-                        and self._current_screen in self.grouped_outputs_by_expander
-                    ):
+                    if self._current_screen in self.grouped_outputs_by_expander:
                         self._draw_output(data, draw)
                         for id in data.keys():
                             self._event_bus.add_event_listener(
@@ -270,10 +267,7 @@ class Oled:
             )
 
     async def _output_callback(self, event: OutputState) -> None:
-        if (
-            self.grouped_outputs_by_expander
-            and self._current_screen in self.grouped_outputs_by_expander
-        ):
+        if self._current_screen in self.grouped_outputs_by_expander:
             self.handle_data_update(type=self._current_screen)
 
     async def _standard_callback(self, event: SensorState) -> None:
