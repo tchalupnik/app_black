@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from datetime import timedelta
+from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -217,7 +218,7 @@ class BasicRelay:
         if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
-        self.state = ON if restored_state else OFF
+        self.state: Literal["ON", "OFF"] = "ON" if restored_state else "OFF"
         self._momentary_action = None
         self.last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
@@ -263,7 +264,7 @@ class BasicRelay:
     def payload(self) -> dict:
         return {STATE: self.state}
 
-    async def async_send_state(self, optimized_value: str | None = None) -> None:
+    def send_state(self, optimized_value: str | None = None) -> None:
         """Send state to Mqtt on action asynchronously."""
         if optimized_value:
             state = optimized_value
@@ -308,27 +309,27 @@ class BasicRelay:
         """Turn on the relay asynchronously."""
         can_turn_on = self.check_interlock()
         if can_turn_on:
-            await self._loop.run_in_executor(None, self.turn_on, timestamp)
+            self.turn_on(timestamp)
         else:
             _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             # Workaround for HA is sendind state ON/OFF without physically changing the relay.
-            asyncio.create_task(self.async_send_state(optimized_value=ON))
+            self.send_state(optimized_value=ON)
             await asyncio.sleep(0.01)
-        asyncio.create_task(self.async_send_state())
+        self.send_state()
 
     async def async_turn_off(self, timestamp=None) -> None:
         """Turn off the relay asynchronously."""
-        await self._loop.run_in_executor(None, self.turn_off, timestamp)
-        await self.async_send_state()
+        self.turn_off(timestamp)
+        self.send_state()
 
-    async def async_toggle(self, timestamp=None) -> None:
+    async def async_toggle(self) -> None:
         """Toggle relay."""
         now = time.time()
         _LOGGER.debug("Toggle relay %s, state: %s, at %s.", self.name, self.state, now)
-        if self.state == ON:
-            await self.async_turn_off(timestamp=timestamp)
+        if self.state == "ON":
+            await self.async_turn_off()
         else:
-            await self.async_turn_on(timestamp=timestamp)
+            await self.async_turn_on()
 
     def turn_on(self, timestamp=None) -> None:
         """Call turn on action."""
@@ -338,14 +339,14 @@ class BasicRelay:
         """Call turn off action."""
         raise NotImplementedError
 
-    def _execute_momentary_turn(self, momentary_type: str) -> None:
+    def _execute_momentary_turn(self, momentary_type: Literal["ON", "OFF"]) -> None:
         """Execute momentary action."""
         if self._momentary_action:
             _LOGGER.debug("Cancelling momentary action for %s", self.name)
             self._momentary_action()
         (action, delayed_action) = (
             (self.async_turn_off, self._momentary_turn_on)
-            if momentary_type == ON
+            if momentary_type == "ON"
             else (self.async_turn_on, self._momentary_turn_off)
         )
         if delayed_action:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from busio import I2C
 
@@ -19,7 +19,6 @@ from boneio.config import (
 from boneio.const import (
     BINARY_SENSOR,
     EVENT_ENTITY,
-    GPIO,
     LM75,
     MCP_TEMP_9808,
     NONE,
@@ -202,7 +201,7 @@ def configure_relay(
     output_config: OutputConfig,
     event_bus: EventBus,
     restore_state: bool = False,
-) -> BasicRelay | None:
+) -> BasicRelay:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
         state_manager.state.relay.get(relay_id, False) if restore_state else False
@@ -217,12 +216,33 @@ def configure_relay(
     if isinstance(output_config.interlock_group, str):
         output_config.interlock_group = [output_config.interlock_group]
 
-    if output_config.kind == "gpio":
+    if output_config.kind == "mock":
+        from boneio.relay.mock import MockRelay
+
+        expander_id = "mock"
+
+        if expander_id not in manager.grouped_outputs_by_expander:
+            manager.grouped_outputs_by_expander[expander_id] = {}
+
+        relay = MockRelay(
+            pin=output_config.pin,
+            message_bus=message_bus,
+            topic_prefix=topic_prefix,
+            id=relay_id,
+            restored_state=restored_state,
+            interlock_manager=manager.interlock_manager,
+            interlock_groups=output_config.interlock_group,
+            name=name,
+            event_bus=event_bus,
+            output_type=output_config.output_type,
+            expander_id=expander_id,
+        )
+    elif output_config.kind == "gpio":
         from boneio.gpio import GpioRelay
 
-        if GPIO not in manager.grouped_outputs_by_expander:
-            manager.grouped_outputs_by_expander[GPIO] = {}
-        expander_id = output_config.id
+        if "gpio" not in manager.grouped_outputs_by_expander:
+            manager.grouped_outputs_by_expander["gpio"] = {}
+        expander_id = "gpio"
         relay = GpioRelay(
             pin_id=output_config.pin,
             message_bus=message_bus,
@@ -306,8 +326,7 @@ def configure_relay(
             expander_id=expander_id,
         )
     else:
-        _LOGGER.error("Output kind: %s is not configured", output_config.kind)
-        return None
+        assert_never(output_config.kind)
 
     manager.interlock_manager.register(relay, output_config.interlock_group)
     manager.grouped_outputs_by_expander[expander_id][relay_id] = relay

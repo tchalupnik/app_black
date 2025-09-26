@@ -60,7 +60,7 @@ def display_time(seconds: float) -> str:
 
 def get_network_info():
     """Fetch network info."""
-    addrs = psutil.net_if_addrs()["eth0"]
+    addrs = psutil.net_if_addrs().get("eth0", [])
     out = {IP: NONE, MASK: NONE, MAC: NONE}
     for addr in addrs:
         if addr.family == socket.AF_INET:
@@ -113,7 +113,7 @@ def get_swap_info() -> dict[str, str]:
 
 def get_uptime() -> str:
     """Fetch uptime info."""
-    return display_time(time.clock_gettime(time.CLOCK_BOOTTIME))
+    return display_time(time.clock_gettime(time.CLOCK_MONOTONIC))
 
 
 class HostSensor(AsyncUpdater):

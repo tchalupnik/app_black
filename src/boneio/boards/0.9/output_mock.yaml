@@ -1,0 +1,15 @@
+output_mapping:
+  cover_01_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 7
+    output_type: cover
+  cover_01_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 6
+    output_type: cover
+  out_17:
+    kind: mock
+    pin: 8
+    output_type: light

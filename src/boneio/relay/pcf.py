@@ -48,7 +48,7 @@ class PCFRelay(BasicRelay):
             interlock_groups=interlock_groups,
             output_type=output_type,
             restored_state=restored_state,
-            expander_id=expander,
+            expander_id=expander_id,
         )
         self._active_state = False
         _LOGGER.debug("Setup PCF with pin %s", self.pin_id)

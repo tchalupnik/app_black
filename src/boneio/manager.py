@@ -13,7 +13,6 @@ import anyio
 import anyio.abc
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
-from busio import I2C
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 from w1thermsensor.errors import KernelModuleLoadError
 
@@ -113,6 +112,8 @@ from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
 
 if TYPE_CHECKING:
+    from busio import I2C
+
     from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.gpio.base import GpioBase
     from boneio.gpio_manager import GpioManager
@@ -245,9 +246,15 @@ class Manager:
                 event_bus=event_bus,
                 config_file_path=config_file_path,
                 gpio_manager=gpio_manager,
-                dry=dry,
             )
             yield this
+
+    def _get_lazy_i2c(self) -> I2C:
+        if self.i2c is None:
+            from board import SCL, SDA  # type: ignore
+
+            self.i2c = I2C(SCL, SDA)
+        return self.i2c
 
     def __init__(
         self,
@@ -257,7 +264,6 @@ class Manager:
         event_bus: EventBus,
         config_file_path: Path,
         gpio_manager: GpioManager,
-        dry: bool = False,
     ) -> None:
         self.tg = tg
         self.gpio_manager = gpio_manager
@@ -279,17 +285,10 @@ class Manager:
         self.ina219_sensors: list[INA219] = []
         self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         self.modbus: Modbus | None = None
+        self.i2c: I2C | None = None
 
         if config.modbus is not None:
             self._configure_modbus(modbus=config.modbus)
-
-        if dry:
-            _LOGGER.warning("Dry run mode. Not configuring GPIO, ADC, I2C devices.")
-            return
-
-        from board import SCL, SDA  # type: ignore
-
-        self.i2c = I2C(SCL, SDA)
 
         for sensor in config.lm75:
             id = sensor.identifier()
@@ -297,7 +296,7 @@ class Manager:
                 temp_sensor = LM75Sensor(
                     id=id,
                     name=sensor.id,
-                    i2c=self.i2c,
+                    i2c=self._get_lazy_i2c(),
                     address=sensor.address,
                     manager=self,
                     message_bus=message_bus,
@@ -325,7 +324,7 @@ class Manager:
                 temp_sensor = MCP9808Sensor(
                     id=id,
                     name=sensor.id,
-                    i2c=self.i2c,
+                    i2c=self._get_lazy_i2c(),
                     address=sensor.address,
                     manager=self,
                     message_bus=message_bus,
@@ -384,13 +383,13 @@ class Manager:
             return result
 
         def mcp23017(expander: Mcp23017Config) -> MCP23017:
-            return MCP23017(self.i2c, address=expander.address)
+            return MCP23017(self._get_lazy_i2c(), address=expander.address)
 
         def pcf8575(expander: Pcf8575Config) -> PCF8575:
-            return PCF8575(self.i2c, address=expander.address)
+            return PCF8575(self._get_lazy_i2c(), address=expander.address)
 
         def pca9685(expander: Pca9685Config) -> PCA9685:
-            return PCA9685(self.i2c, address=expander.address)
+            return PCA9685(self._get_lazy_i2c(), address=expander.address)
 
         self.mcp = create_expander(
             expanders_config=config.mcp23017,
@@ -429,8 +428,6 @@ class Manager:
                 relay_id=_id,
                 event_bus=self.event_bus,
             )
-            if out is None:
-                continue
             if output.restore_state:
                 self.event_bus.add_event_listener(
                     event_type=EventType.OUTPUT,
@@ -743,7 +740,7 @@ class Manager:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds.address)
             id = _single_ds.identifier()
             _ds_onewire_bus[id] = configure_ds2482(
-                i2cbusio=self.i2c, address=_single_ds.address
+                i2cbusio=self._get_lazy_i2c(), address=_single_ds.address
             )
             _one_wire_devices.update(
                 find_onewire_devices(
@@ -1148,7 +1145,7 @@ class Manager:
     async def _delayed_send_state(self, output: BasicRelay) -> None:
         """Send state after a delay."""
         await anyio.sleep(0.5)
-        await output.async_send_state()
+        output.send_state()
 
     async def handle_actions(self, actions: dict) -> None:
         """Handle actions."""

@@ -413,7 +413,7 @@ class OutputConfig(BaseModel):
     id: str
     pin: int
     output_type: Literal["cover", "light", "switch", "valve", "none"]
-    kind: Literal["gpio", "mcp", "pca", "pcf"]
+    kind: Literal["gpio", "mcp", "pca", "pcf", "mock"]
     boneio_output: str | None = None
     momentary_turn_on: timedelta | None = None
     momentary_turn_off: timedelta | None = None
@@ -462,6 +462,7 @@ class BoneIOConfig(BaseModel):
         "cm",
         "32x10a",
         "24x16a",
+        "mock",
     ] = "cover"
     version: float = 0.9
 

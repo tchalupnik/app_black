@@ -474,7 +474,7 @@ output:
       kind:
         type: string
         required: False
-        allowed: ['gpio', 'mcp', 'pca', 'pcf']
+        allowed: ['gpio', 'mcp', 'pca', 'pcf', "mock"]
         meta:
           label: Output kind (mcp, gpio, etc)
       mcp_id:
@@ -486,7 +486,7 @@ output:
         type: string
         required: False
         meta:
-          label: PCA ID to connect
+          label: PCA ID to connecto
       pcf_id:
         type: string
         required: False
@@ -1006,7 +1006,7 @@ boneio:
     device_type:
       type: string
       required: False
-      allowed: ['32x10A', '32x10', '32', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '24x16a']
+      allowed: ['32x10A', '32x10', '32', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '24x16a', 'mock']
       coerce:
         - str
         - lower
