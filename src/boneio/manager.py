@@ -127,20 +127,20 @@ AVAILABILITY_FUNCTION_CHOOSER = {
 }
 
 
-class MqttMessage(ABC, BaseModel):
+class MqttMessageBase(ABC, BaseModel):
     type_: str
     device_id: str
     command: str
     message: str
 
 
-class RelaySetMqttMessage(MqttMessage):
+class RelaySetMqttMessage(MqttMessageBase):
     type_: Literal["relay"] = "relay"
     command: Literal["set"] = "set"
     message: Literal["ON", "OFF", "TOGGLE"]
 
 
-class RelaySetBrightnessMqttMessage(MqttMessage):
+class RelaySetBrightnessMqttMessage(MqttMessageBase):
     type_: Literal["relay"] = "relay"
     command: Literal["set_brightness"] = "set_brightness"
     message: int
@@ -153,19 +153,19 @@ class RelayMqttMessage(RootModel[_RelayMqttMessage]):
     root: _RelayMqttMessage = Field(discriminator="command")
 
 
-class CoverSetMqttMessage(MqttMessage):
+class CoverSetMqttMessage(MqttMessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["set"] = "set"
     message: Literal["open", "close", "stop", "toggle", "toggle_open", "toggle_close"]
 
 
-class CoverPosMqttMessage(MqttMessage):
+class CoverPosMqttMessage(MqttMessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["pos"] = "pos"
     message: int
 
 
-class CoverTiltMqttMessage(MqttMessage):
+class CoverTiltMqttMessage(MqttMessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["tilt"] = "tilt"
     message: int | Literal["stop"]
@@ -180,13 +180,13 @@ class CoverMqttMessage(RootModel[_CoverMqttMessage]):
     root: _CoverMqttMessage = Field(discriminator="command")
 
 
-class GroupMqttMessage(MqttMessage):
+class GroupMqttMessage(MqttMessageBase):
     type_: Literal["group"] = "group"
     command: Literal["set"] = "set"
     message: Literal["ON", "OFF", "TOGGLE"]
 
 
-class ButtonMqttMessage(MqttMessage):
+class ButtonMqttMessage(MqttMessageBase):
     type_: Literal["button"] = "button"
     command: Literal["set"] = "set"
     message: Literal["reload", "restart", "inputs_reload", "cover_reload"]
@@ -197,7 +197,7 @@ class ModbusMqttMessageValue(BaseModel):
     value: int | float | str
 
 
-class ModbusMqttMessage(MqttMessage):
+class ModbusMqttMessage(MqttMessageBase):
     type_: Literal["modbus"] = "modbus"
     command: Literal["set"] = "set"
     message: ModbusMqttMessageValue
@@ -456,7 +456,7 @@ class Manager:
         self._configure_output_group()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
-        self.configure_inputs(reload_config=False)
+        self.configure_inputs()
 
         self._serial_number_sensor = create_serial_number_sensor(
             manager=self,
@@ -1033,9 +1033,9 @@ class Manager:
             TypeAdapter(MqttMessage)
             .validate_python(
                 {
-                    "type_": topic_parts_raw[0],
-                    "device_id": topic_parts_raw[1],
-                    "command": topic_parts_raw[2],
+                    "type_": topic_parts_raw[-3],
+                    "device_id": topic_parts_raw[-2],
+                    "command": topic_parts_raw[-1],
                     "message": message,
                 }
             )
