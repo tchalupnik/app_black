@@ -1025,10 +1025,8 @@ class Manager:
 
                 self.event_bus.signal_ha_online()
             return
-        try:
-            assert topic.startswith(self.config.mqtt.cmd_topic_prefix())
-        except AssertionError as err:
-            _LOGGER.error("Wrong topic %s. Error %s", topic, err)
+        if not topic.startswith(self.config.mqtt.cmd_topic_prefix()):
+            _LOGGER.error("Wrong topic %s!", topic)
             return
         topic_parts_raw = topic[len(self.config.mqtt.cmd_topic_prefix()) :].split("/")
         mqtt_message = (
