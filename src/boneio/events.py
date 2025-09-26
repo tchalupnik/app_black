@@ -238,17 +238,6 @@ class EventBus:
         """
         self.event_queue.put_nowait(event)
 
-    def request_stop(self) -> None:
-        """Request the event bus to stop."""
-        if not self.shutting_down:
-            self.shutting_down = True
-            try:
-                self.tg.cancel_scope.cancel()
-            except RuntimeError as e:
-                _LOGGER.debug(
-                    "Task group already cancelled or in different context: %s", e
-                )
-
     async def stop(self) -> None:
         """
         Stop the event bus and worker task gracefully.
