@@ -381,13 +381,10 @@ class EventBus:
         """Add HA Online listener."""
         self.haonline_listeners.append(target)
 
-    async def signal_ha_online(self) -> None:
+    def signal_ha_online(self) -> None:
         """Call events if HA goes online."""
         for target in self.haonline_listeners:
-            if asyncio.iscoroutinefunction(target):
-                await target()
-            else:
-                target()
+            target()
 
     def remove_every_second_listener(self, name: str) -> None:
         """Remove regular listener."""

@@ -1020,8 +1020,10 @@ class Manager:
             f"{self.config.get_ha_autodiscovery_topic_prefix()}/status"
         ):
             if message == ONLINE:
-                await self.resend_autodiscovery()
-                await self.event_bus.signal_ha_online()
+                for msg in self.config.mqtt.autodiscovery_messages.root.values():
+                    self.message_bus.send_message(**msg.model_dump(), retain=True)
+
+                self.event_bus.signal_ha_online()
             return
         try:
             assert topic.startswith(self.config.mqtt.cmd_topic_prefix())
@@ -1217,7 +1219,3 @@ class Manager:
             type=ha_type,
         )
         self.message_bus.send_message(topic=topic, payload=payload, retain=True)
-
-    async def resend_autodiscovery(self) -> None:
-        for msg in self.config.mqtt.autodiscovery_messages.root.values():
-            self.message_bus.send_message(**msg.model_dump(), retain=True)

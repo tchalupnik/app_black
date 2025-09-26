@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -241,9 +241,7 @@ class MQTTClient(MessageBus):
             # Messages that doesn't match a filter will get logged and handled here.
             messages = await stack.enter_async_context(self.asyncio_client.messages())
 
-            tg.start_soon(
-                lambda: self.handle_messages(messages, self.manager.receive_message)
-            )
+            tg.start_soon(lambda: self.handle_messages(messages))
             if not self._connection_established:
                 self._connection_established = True
                 _LOGGER.info("Sending online state.")
@@ -264,11 +262,7 @@ class MQTTClient(MessageBus):
         """State of MQTT Client."""
         return self._connection_established
 
-    async def handle_messages(
-        self,
-        messages: AsyncGenerator[Message, None],
-        callback: Callable[[str, str], Awaitable[None]],
-    ) -> None:
+    async def handle_messages(self, messages: AsyncGenerator[Message, None]) -> None:
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
             payload = message.payload.decode()
@@ -295,4 +289,4 @@ class MQTTClient(MessageBus):
                     message.topic,
                     payload,
                 )
-                await callback(str(message.topic), payload)
+                await self.manager.receive_message(str(message.topic), payload)
