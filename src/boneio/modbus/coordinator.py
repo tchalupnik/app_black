@@ -420,17 +420,17 @@ class ModbusCoordinator(AsyncUpdater, Filter):
 
     async def write_register(self, value: str | float | int, entity: str) -> None:
         _LOGGER.debug("Writing register %s for %s", value, entity)
-        output = {}
+        output: dict[str, float] = {}
         timestamp = time.time()
         derived_sensor = self._additional_sensors_by_name.get(entity)
-        if derived_sensor:
+        if derived_sensor is not None:
             source_sensor = self.get_entity_by_name(
                 derived_sensor.source_sensor_decoded_name
             )
             if source_sensor is None:
                 raise ValueError("Source sensor doesn't exist!")
 
-            if not source_sensor.write_address:
+            if source_sensor.write_address is None:
                 _LOGGER.error(
                     "Source sensor %s has no write address", source_sensor.name
                 )
@@ -452,7 +452,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
             )
             return
         modbus_sensor = self.get_entity_by_name(entity)
-        if not modbus_sensor.write_address:
+        if modbus_sensor.write_address is None:
             _LOGGER.error("Modbus sensor %s has no write address", modbus_sensor.name)
             return
         encoded_value = modbus_sensor.encode_value(value)

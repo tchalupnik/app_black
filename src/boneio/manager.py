@@ -1049,11 +1049,11 @@ class Manager:
                 if target_device is not None and target_device.output_type != NONE:
                     match relay_message.message:
                         case "ON":
-                            await target_device.async_turn_on()
+                            self.tg.start_soon(target_device.async_turn_on)
                         case "OFF":
-                            await target_device.async_turn_off()
+                            self.tg.start_soon(target_device.async_turn_off)
                         case "TOGGLE":
-                            await target_device.async_toggle()
+                            self.tg.start_soon(target_device.async_toggle)
                         case _:
                             assert_never(relay_message)
             elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
@@ -1087,22 +1087,26 @@ class Manager:
                     case _:
                         assert_never(cover_message)
             elif isinstance(cover_message, CoverPosMqttMessage):
-                await cover.set_cover_position(position=cover_message.message)
+                self.tg.start_soon(
+                    lambda: cover.set_cover_position(position=cover_message.message)
+                )
             elif isinstance(cover_message, CoverTiltMqttMessage):
                 if isinstance(cover_message.message, int):
-                    await cover.set_tilt(tilt_position=cover_message.message)
+                    self.tg.start_soon(
+                        lambda: cover.set_tilt(tilt_position=cover_message.message)
+                    )
                 else:
-                    await cover.stop()
+                    self.tg.start_soon(cover.stop)
         elif isinstance(mqtt_message, GroupMqttMessage):
             target_device = self.output_groups.get(mqtt_message.device_id)
             if target_device is not None and target_device.output_type != NONE:
                 match mqtt_message.message:
                     case "ON":
-                        await target_device.async_turn_on()
+                        self.tg.start_soon(target_device.async_turn_on)
                     case "OFF":
-                        await target_device.async_turn_off()
+                        self.tg.start_soon(target_device.async_turn_off)
                     case "TOGGLE":
-                        await target_device.async_toggle()
+                        self.tg.start_soon(target_device.async_toggle)
                     case _:
                         assert_never(mqtt_message)
             else:
@@ -1115,7 +1119,7 @@ class Manager:
                 mqtt_message.device_id == "restart"
                 and mqtt_message.message == "restart"
             ):
-                await self.restart_request()
+                self.tg.start_soon(self.restart_request)
             elif (
                 mqtt_message.device_id == "inputs_reload"
                 and mqtt_message.message == "inputs_reload"
@@ -1134,9 +1138,14 @@ class Manager:
         elif isinstance(mqtt_message, ModbusMqttMessage):
             target_device = self.modbus_coordinators.get(mqtt_message.device_id)
             if target_device is not None:
-                await target_device.write_register(
-                    value=mqtt_message.message.value, entity=mqtt_message.message.device
+                self.tg.start_soon(
+                    lambda: target_device.write_register(
+                        value=mqtt_message.message.value,
+                        entity=mqtt_message.message.device,
+                    )
                 )
+        else:
+            assert_never(mqtt_message)
 
     async def restart_request(self) -> None:
         _LOGGER.info("Restarting process. Systemd should restart it soon.")
