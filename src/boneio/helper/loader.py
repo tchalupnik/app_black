@@ -229,17 +229,17 @@ def configure_relay(
             manager.grouped_outputs_by_expander[expander_id] = {}
 
         relay = MockRelay(
-            pin=output_config.pin,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
             id=relay_id,
+            pin_id=output_config.pin,
+            expander_id=expander_id,
+            topic_prefix=topic_prefix,
+            message_bus=message_bus,
+            event_bus=event_bus,
+            name=output_config.id,
+            output_type=output_config.output_type,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=output_config.id,
-            event_bus=event_bus,
-            output_type=output_config.output_type,
-            expander_id=expander_id,
         )
     elif isinstance(output_config, GpioOutputConfig):
         from boneio.gpio import GpioRelay
@@ -248,16 +248,17 @@ def configure_relay(
         if expander_id not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[expander_id] = {}
         relay = GpioRelay(
-            pin_id=output_config.pin,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
             id=relay_id,
+            pin_id=output_config.pin,
+            expander_id=expander_id,
+            topic_prefix=topic_prefix,
+            message_bus=message_bus,
+            event_bus=event_bus,
+            name=output_config.id,
+            output_type=output_config.output_type,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=output_config.id,
-            event_bus=event_bus,
-            expander_id=expander_id,
         )
     elif isinstance(output_config, McpOutputConfig):
         expander_id = output_config.mcp_id
@@ -266,18 +267,18 @@ def configure_relay(
             _LOGGER.error("No such MCP configured!")
             return None
         relay = MCPRelay(
-            pin_id=output_config.pin,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
+            mcp=mcp,
             id=relay_id,
+            pin_id=output_config.pin,
+            expander_id=output_config.mcp_id,
+            topic_prefix=topic_prefix,
+            message_bus=message_bus,
+            event_bus=event_bus,
+            name=output_config.id,
+            output_type=output_config.output_type,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=output_config.id,
-            event_bus=event_bus,
-            mcp=mcp,
-            output_type=output_config.output_type,
-            expander_id=output_config.mcp_id,
         )
     elif isinstance(output_config, PcaOutputConfig):
         expander_id = output_config.pca_id
@@ -286,19 +287,18 @@ def configure_relay(
             _LOGGER.error("No such PCA configured!")
             return None
         relay = PWMPCA(
-            pin_id=output_config.pin,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
+            pca=pca,
             id=relay_id,
+            pin_id=output_config.pin,
+            expander_id=expander_id,
+            topic_prefix=topic_prefix,
+            message_bus=message_bus,
+            event_bus=event_bus,
+            name=output_config.id,
+            output_type=output_config.output_type,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=output_config.id,
-            event_bus=event_bus,
-            pca=pca,
-            pca_id=output_config.pca_id,
-            output_type=output_config.output_type,
-            expander_id=expander_id,
             percentage_default_brightness=output_config.percentage_default_brightness,
         )
     elif isinstance(output_config, PcfOutputConfig):
@@ -308,18 +308,18 @@ def configure_relay(
             _LOGGER.error("No such PCF configured!")
             return None
         relay = PCFRelay(
-            pin_id=output_config.pin,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
+            pcf=pcf,
             id=relay_id,
+            pin_id=output_config.pin,
+            expander_id=expander_id,
+            topic_prefix=topic_prefix,
+            message_bus=message_bus,
+            event_bus=event_bus,
+            name=output_config.id,
+            output_type=output_config.output_type,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=output_config.id,
-            event_bus=event_bus,
-            output_type=output_config.output_type,
-            pcf=pcf,
-            expander_id=expander_id,
         )
     else:
         assert_never(output_config.kind)

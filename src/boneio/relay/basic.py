@@ -175,10 +175,10 @@ class BasicRelay(ABC):
 
     id: str
     pin_id: int
-    event_bus: EventBus
+    expander_id: str
     topic_prefix: str
     message_bus: MessageBus
-    expander_id: str
+    event_bus: EventBus
     name: str | None = None
     output_type: OutputTypes = "switch"
     restored_state: bool = False
