@@ -182,9 +182,9 @@ class BasicRelay(ABC):
     name: str | None = None
     output_type: OutputTypes = "switch"
     restored_state: bool = False
-    topic_type: str = "relay"
     interlock_manager: SoftwareInterlockManager | None = None
     interlock_groups: list[str] = field(default_factory=list)
+    topic_type: str = "relay"
     momentary_turn_on: timedelta | None = None
     momentary_turn_off: timedelta | None = None
     virtual_power_usage: float | None = None
