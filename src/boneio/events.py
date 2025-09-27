@@ -192,8 +192,10 @@ class EventBus:
             _LOGGER.info("Event bus worker started.")
             try:
                 yield this
-            finally:
+            except BaseException:
                 await this._handle_sigterm_listeners()
+                tg.cancel_scope.cancel()
+                raise
 
     async def _event_worker(self) -> None:
         """
@@ -364,10 +366,13 @@ def _as_utc(dattim: dt.datetime) -> dt.datetime:
 
 
 def async_track_point_in_time(
-    loop: asyncio.AbstractEventLoop, job: Any, point_in_time: datetime, **kwargs: Any
+    job: Any,
+    point_in_time: datetime,
+    action: Callable[[], None] | None = None,
 ) -> Callable[[], None]:
     """Add a listener that fires once after a specific point in UTC time."""
     # Ensure point_in_time is UTC
+    loop = asyncio.get_running_loop()
     utc_point_in_time = _as_utc(point_in_time)
     expected_fire_timestamp = utc_point_in_time.timestamp()
 
@@ -392,9 +397,9 @@ def async_track_point_in_time(
             return
 
         if asyncio.iscoroutinefunction(job):
-            loop.create_task(job(utc_point_in_time, **kwargs))
+            loop.create_task(job(utc_point_in_time, action))
         else:
-            loop.call_soon(job, utc_point_in_time, **kwargs)
+            loop.call_soon(job, utc_point_in_time, action)
 
     delta = expected_fire_timestamp - time.time()
     cancel_callback = loop.call_later(delta, run_action, job)

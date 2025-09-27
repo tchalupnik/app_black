@@ -93,7 +93,7 @@ class PreviousCover:
 
         (relay, inverted_relay) = get_relays()
         async with self._lock:
-            if inverted_relay.is_active:
+            if inverted_relay.is_active():
                 inverted_relay.turn_off()
             self._timer_handle = self._event_bus.add_every_second_listener(
                 f"{COVER}{self.id}", self.listen_cover

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-from collections.abc import Callable, Generator, Iterable
-from contextlib import ExitStack, contextmanager
+from collections.abc import AsyncGenerator, Callable, Iterable
+from contextlib import ExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import Enum
 from typing import Literal
 
+import anyio
+import anyio.abc
 import gpiod
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,15 +33,13 @@ class _Pin:
 @dataclass
 class GpioManager:
     stack: ExitStack
+    tg: anyio.abc.TaskGroup
     pins: dict[str, _Pin] = field(default_factory=dict)
     chips: dict[str, gpiod.Chip] = field(default_factory=dict, init=False)
-    _loop: asyncio.AbstractEventLoop = field(
-        default_factory=asyncio.get_event_loop, init=False
-    )
 
     @classmethod
-    @contextmanager
-    def create(cls) -> Generator[GpioManager]:
+    @asynccontextmanager
+    async def create(cls) -> AsyncGenerator[GpioManager]:
         pins: dict[str, _Pin] = {}
         for entry in os.scandir("/dev/"):
             if not gpiod.is_gpiochip_device(entry.path):
@@ -52,7 +51,8 @@ class GpioManager:
                     line_name = line_info.name.split(" ")[0]
                     pins[line_name] = _Pin(chip_path=entry.path, offset=line)
         with ExitStack() as stack:
-            yield cls(stack=stack, pins=pins)
+            async with anyio.create_task_group() as tg:
+                yield cls(stack=stack, tg=tg, pins=pins)
 
     def init(
         self,
@@ -163,14 +163,13 @@ class GpioManager:
             }
         )
 
-        asyncio.create_task(
-            self._add_event_callback(
-                pin=pin,
-                request=gpio_pin.request_line,
-                edge=edge,
-                callback=callback,
-                debounce_period=debounce_period,
-            )
+        self.tg.start_soon(
+            self._add_event_callback,
+            pin,
+            gpio_pin.request_line,
+            edge,
+            callback,
+            debounce_period,
         )
 
     async def _add_event_callback(
@@ -182,45 +181,46 @@ class GpioManager:
         debounce_period: timedelta,
     ) -> None:
         """Add detection for RISING and FALLING events."""
-        fut = self._loop.create_future()
+        sender, receiver = anyio.create_memory_object_stream[str]()
 
-        def c() -> None:
-            events = request.read_edge_events()
-            if not len(events):
-                return
-            if fut.done():
-                return
+        async def c() -> None:
+            while True:
+                await anyio.wait_readable(request.fd)
+                events = request.read_edge_events()
+                if not len(events):
+                    return
 
-            if edge == Edge.FALLING:
-                events = [
-                    event
-                    for event in events
-                    if event.event_type == gpiod.edge_event.EdgeEvent.Type.FALLING_EDGE
-                ]
+                if edge == Edge.FALLING:
+                    events = [
+                        event
+                        for event in events
+                        if event.event_type
+                        == gpiod.edge_event.EdgeEvent.Type.FALLING_EDGE
+                    ]
 
-            elif edge == Edge.RISING:
-                events = [
-                    event
-                    for event in events
-                    if event.event_type == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
-                ]
+                elif edge == Edge.RISING:
+                    events = [
+                        event
+                        for event in events
+                        if event.event_type
+                        == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
+                    ]
 
-            _LOGGER.debug(
-                "Processing %s event(s) for pin %s on edge %s.",
-                len(events),
-                pin,
-                edge,
-            )
-            fut.set_result(events)
+                _LOGGER.debug(
+                    "Processing %s event(s) for pin %s on edge %s.",
+                    len(events),
+                    pin,
+                    edge,
+                )
+                await sender.send(events)
 
-        self._loop.add_reader(request.fd, c)
+        self.tg.start_soon(c)
 
-        while True:
-            await fut
-            result = fut.result()
-            # debounce_period is bugged
-            await asyncio.sleep(debounce_period.total_seconds())
-            fut = self._loop.create_future()
-            for _ in result:
-                _LOGGER.debug("add_event_callback calling callback on pin: %s", pin)
-                callback()
+        async with receiver:
+            while True:
+                result = await receiver.receive()
+                # debounce_period is bugged
+                await anyio.sleep(debounce_period.total_seconds())
+                for _ in result:
+                    _LOGGER.debug("add_event_callback calling callback on pin: %s", pin)
+                    callback()

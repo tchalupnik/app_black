@@ -60,7 +60,11 @@ class LocalMessageBus(MessageBus):
             """Keep the event loop alive and process any periodic tasks."""
             _LOGGER.info("Sending online state.")
             this.send_message(topic=f"boneio/{STATE}", payload=ONLINE, retain=True)
-            yield this
+            try:
+                yield this
+            except BaseException:
+                tg.cancel_scope.cancel()
+                raise
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""

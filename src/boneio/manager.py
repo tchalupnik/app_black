@@ -237,11 +237,11 @@ class Manager:
             from boneio.gpio_manager import GpioManager
 
             GpioManagerClass = GpioManager
-        async with anyio.create_task_group() as tg:
-            with GpioManagerClass.create() as gpio_manager:
-                async with StateManager.create(
-                    config_file_path.parent / "state.json"
-                ) as state_manager:
+        async with GpioManagerClass.create() as gpio_manager:
+            async with StateManager.create(
+                config_file_path.parent / "state.json"
+            ) as state_manager:
+                async with anyio.create_task_group() as tg:
                     this = cls(
                         tg=tg,
                         config=config,
@@ -251,11 +251,16 @@ class Manager:
                         gpio_manager=gpio_manager,
                         state_manager=state_manager,
                     )
-                    yield this
+                    try:
+                        yield this
+                    except BaseException:
+                        tg.cancel_scope.cancel()
+                        raise
 
     def _get_lazy_i2c(self) -> I2C:
         if self.i2c is None:
             from board import SCL, SDA  # type: ignore
+            from busio import I2C
 
             self.i2c = I2C(SCL, SDA)
         return self.i2c
@@ -417,7 +422,8 @@ class Manager:
             adc=self.config.adc,
         )
 
-        for output in config.output:
+        for _output in config.output:
+            output = _output.root
             _id = strip_accents(output.id)
             _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.
@@ -426,8 +432,6 @@ class Manager:
                 message_bus=message_bus,
                 state_manager=self.state_manager,
                 topic_prefix=self.config.get_topic_prefix(),
-                name=output.id,
-                restore_state=output.restore_state,
                 relay_id=_id,
                 event_bus=self.event_bus,
             )
@@ -940,11 +944,11 @@ class Manager:
                     duration,
                 )
                 if action.action_output == "toggle":
-                    await output.async_toggle()
+                    output.toggle()
                 elif action.action_output == "on":
-                    await output.async_turn_on()
+                    output.turn_on()
                 elif action.action_output == "off":
-                    await output.async_turn_off()
+                    output.turn_off()
                 else:
                     raise ValueError("Wrong action output type!")
             elif isinstance(action, CoverActionConfig):
@@ -1008,7 +1012,7 @@ class Manager:
                 return "not_allowed"
             if not output.check_interlock():
                 return "interlock"
-            await output.async_toggle()
+            await output.toggle()
             return "success"
         return "not_found"
 
@@ -1049,11 +1053,11 @@ class Manager:
                 if target_device is not None and target_device.output_type != NONE:
                     match relay_message.message:
                         case "ON":
-                            await target_device.async_turn_on()
+                            target_device.turn_on()
                         case "OFF":
-                            await target_device.async_turn_off()
+                            target_device.turn_off()
                         case "TOGGLE":
-                            await target_device.async_toggle()
+                            target_device.toggle()
                         case _:
                             assert_never(relay_message)
             elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
@@ -1098,11 +1102,11 @@ class Manager:
             if target_device is not None and target_device.output_type != NONE:
                 match mqtt_message.message:
                     case "ON":
-                        await target_device.async_turn_on()
+                        target_device.turn_on()
                     case "OFF":
-                        await target_device.async_turn_off()
+                        target_device.turn_off()
                     case "TOGGLE":
-                        await target_device.async_toggle()
+                        target_device.toggle()
                     case _:
                         assert_never(mqtt_message)
             else:

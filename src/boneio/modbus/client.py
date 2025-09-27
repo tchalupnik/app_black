@@ -6,6 +6,7 @@ import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import anyio
 from pymodbus.client.common import (
     ReadCoilsResponse,
     ReadHoldingRegistersResponse,
@@ -116,7 +117,7 @@ class Modbus:
         # generic configuration
         self._client: BaseModbusClient | None = None
         self._loop = asyncio.get_event_loop()
-        self._lock = asyncio.Lock()
+        self._lock = anyio.Lock()
         self._executor = ThreadPoolExecutor(
             max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker"
         )

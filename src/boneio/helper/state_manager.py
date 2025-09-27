@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import anyio
@@ -32,7 +32,7 @@ class StateManager:
     state_file_path: Path
     state: State
     tg: anyio.abc.TaskGroup
-    lock: anyio.Lock = Field(default_factory=anyio.Lock)
+    lock: anyio.Lock = field(default_factory=anyio.Lock)
 
     @classmethod
     @asynccontextmanager
@@ -47,8 +47,11 @@ class StateManager:
             else:
                 _LOGGER.warning("State file found, loading state.")
                 state = State.model_validate_json(text)
-
-            yield cls(state_file_path, state, tg)
+            try:
+                yield cls(state_file_path, state, tg)
+            except BaseException:
+                tg.cancel_scope.cancel()
+                raise
 
     def remove_relay_from_state(self, relay_id: str) -> None:
         """Delete attribute"""

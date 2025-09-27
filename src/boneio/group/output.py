@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from boneio.config import OutputGroupConfig
-from boneio.const import COVER, OFF, ON, SWITCH
+from boneio.const import COVER, SWITCH
 from boneio.events import EventBus, EventType
 from boneio.helper.state_manager import StateManager
 from boneio.message_bus.basic import MessageBus
@@ -40,11 +40,10 @@ class OutputGroup(BasicRelay):
             topic_type="group",
         )
         self._group_members = [x for x in members if x.output_type != COVER]
-        self._timer_handle = None
         self.check_state()
 
         for member in self._group_members:
-            self._event_bus.add_event_listener(
+            self.event_bus.add_event_listener(
                 event_type=EventType.OUTPUT,
                 entity_id=member.id,
                 listener_id=self.id,
@@ -53,31 +52,30 @@ class OutputGroup(BasicRelay):
 
     def check_state(self) -> None:
         for x in self._group_members:
-            if x.state == ON:
-                self._state = ON
+            if x.state == "ON":
+                self._state = "ON"
                 return
 
     async def event_listener(self, event: OutputState = None) -> None:
         """Listen for events called by children relays."""
-        state = ON if any(x.state == ON for x in self._group_members) else OFF
+        state = "ON" if any(x.state == "ON" for x in self._group_members) else "OFF"
         if state != self._state or not event:
             self._state = state
             self.send_state()
 
-    async def async_turn_on(self) -> None:
+    async def turn_on(self) -> None:
         """Call turn on action."""
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_on())
+            x.turn_on()
 
-    async def async_turn_off(self) -> None:
+    async def turn_off(self) -> None:
         """Call turn off action."""
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_off())
+            x.turn_off()
 
-    @property
     def is_active(self) -> bool:
         """Is relay active."""
-        return self._state == ON
+        return self._state == "ON"
 
     def send_state(self) -> None:
         """Send state to Mqtt on action."""

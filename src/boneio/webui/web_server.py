@@ -6,12 +6,13 @@ from pathlib import Path
 
 import anyio
 from anyio import Event
+from fastapi import FastAPI
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
 
 from boneio.config import Config
 from boneio.manager import Manager
-from boneio.webui.app import BoneIOApp, init_app
+from boneio.webui.app import init_app
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class WebServer:
         self.jwt_secret = self._get_jwt_secret_or_generate()
 
         # Initialize FastAPI app
-        self.app: BoneIOApp = init_app(
+        self.app: FastAPI = init_app(
             manager=self.manager,
             yaml_config_file=self._yaml_config_file_path,
             jwt_secret=self.jwt_secret,
@@ -47,7 +48,6 @@ class WebServer:
         self._hypercorn_config = HypercornConfig()
         self._hypercorn_config.bind = [f"0.0.0.0:{self.config.web.port}"]
         self._hypercorn_config.use_reloader = False
-        self._hypercorn_config.worker_class = "asyncio"
 
         # Configure Hypercorn's logging
         hypercorn_logger = logging.getLogger("hypercorn.error")
@@ -63,10 +63,6 @@ class WebServer:
         self._hypercorn_config.errorlog = hypercorn_logger
 
         self._hypercorn_config.graceful_timeout = 5.0
-        # self._server = hypercorn.asyncio.serve(self.app, self._hypercorn_config)
-        # Override the server's install_signal_handlers to prevent it from handling signals
-        # self._server.install_signal_handlers = lambda: None
-        # self.manager.event_bus.add_sigterm_listener(self.stop_webserver)
 
     def _get_jwt_secret_or_generate(self):
         config_dir = Path(self._yaml_config_file_path).parent

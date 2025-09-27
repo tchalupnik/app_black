@@ -11,8 +11,13 @@ from boneio.config import (
     BinarySensorConfig,
     Config,
     EventConfig,
+    GpioOutputConfig,
+    McpOutputConfig,
+    MockOutputConfig,
     ModbusDeviceConfig,
-    OutputConfig,
+    OutputConfigKinds,
+    PcaOutputConfig,
+    PcfOutputConfig,
     SensorConfig,
     TemperatureConfig,
 )
@@ -197,14 +202,14 @@ def configure_relay(
     state_manager: StateManager,
     topic_prefix: str,
     relay_id: str,
-    name: str,
-    output_config: OutputConfig,
+    output_config: OutputConfigKinds,
     event_bus: EventBus,
-    restore_state: bool = False,
 ) -> BasicRelay:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
-        state_manager.state.relay.get(relay_id, False) if restore_state else False
+        state_manager.state.relay.get(relay_id, False)
+        if output_config.restore_state
+        else False
     )
     if (
         output_config.output_type == NONE
@@ -216,11 +221,10 @@ def configure_relay(
     if isinstance(output_config.interlock_group, str):
         output_config.interlock_group = [output_config.interlock_group]
 
-    if output_config.kind == "mock":
+    if isinstance(output_config, MockOutputConfig):
         from boneio.relay.mock import MockRelay
 
         expander_id = "mock"
-
         if expander_id not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[expander_id] = {}
 
@@ -232,17 +236,17 @@ def configure_relay(
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=name,
+            name=output_config.id,
             event_bus=event_bus,
             output_type=output_config.output_type,
             expander_id=expander_id,
         )
-    elif output_config.kind == "gpio":
+    elif isinstance(output_config, GpioOutputConfig):
         from boneio.gpio import GpioRelay
 
-        if "gpio" not in manager.grouped_outputs_by_expander:
-            manager.grouped_outputs_by_expander["gpio"] = {}
         expander_id = "gpio"
+        if expander_id not in manager.grouped_outputs_by_expander:
+            manager.grouped_outputs_by_expander[expander_id] = {}
         relay = GpioRelay(
             pin_id=output_config.pin,
             message_bus=message_bus,
@@ -251,78 +255,70 @@ def configure_relay(
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=name,
+            name=output_config.id,
             event_bus=event_bus,
             expander_id=expander_id,
         )
-    elif output_config.kind == "mcp":
+    elif isinstance(output_config, McpOutputConfig):
         expander_id = output_config.mcp_id
-        if expander_id is None:
-            _LOGGER.error("No MCP id configured!")
-            return None
         mcp = manager.mcp.get(expander_id)
         if mcp is None:
             _LOGGER.error("No such MCP configured!")
             return None
         relay = MCPRelay(
-            pin=output_config.pin,
+            pin_id=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=name,
+            name=output_config.id,
             event_bus=event_bus,
             mcp=mcp,
             output_type=output_config.output_type,
             expander_id=output_config.mcp_id,
         )
-    elif output_config.kind == "pca":
+    elif isinstance(output_config, PcaOutputConfig):
         expander_id = output_config.pca_id
-        if expander_id is None:
-            _LOGGER.error("No PCA id configured!")
-            return None
         pca = manager.pca.get(expander_id)
         if pca is None:
             _LOGGER.error("No such PCA configured!")
             return None
         relay = PWMPCA(
-            pin=output_config.pin,
+            pin_id=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=name,
+            name=output_config.id,
             event_bus=event_bus,
             pca=pca,
             pca_id=output_config.pca_id,
             output_type=output_config.output_type,
             expander_id=expander_id,
+            percentage_default_brightness=output_config.percentage_default_brightness,
         )
-    elif output_config.kind == "pcf":
+    elif isinstance(output_config, PcfOutputConfig):
         expander_id = output_config.pcf_id
-        if expander_id is None:
-            _LOGGER.error("No PCF id configured!")
-            return None
-        expander = manager.pcf.get(expander_id)
-        if not expander:
+        pcf = manager.pcf.get(expander_id)
+        if not pcf:
             _LOGGER.error("No such PCF configured!")
             return None
         relay = PCFRelay(
-            pin=output_config.pin,
+            pin_id=output_config.pin,
             message_bus=message_bus,
             topic_prefix=topic_prefix,
             id=relay_id,
             restored_state=restored_state,
             interlock_manager=manager.interlock_manager,
             interlock_groups=output_config.interlock_group,
-            name=name,
+            name=output_config.id,
             event_bus=event_bus,
             output_type=output_config.output_type,
-            expander=expander,
+            pcf=pcf,
             expander_id=expander_id,
         )
     else:
@@ -334,7 +330,7 @@ def configure_relay(
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_power",
             relay_id=relay_id,
-            name=f"{name} Virtual Power",
+            name=f"{output_config.id} Virtual Power",
             ha_type="sensor",
             device_type="energy",
             availability_msg_func=ha_virtual_energy_sensor_discovery_message,
@@ -346,7 +342,7 @@ def configure_relay(
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_energy",
             relay_id=relay_id,
-            name=f"{name} Virtual Energy",
+            name=f"{output_config.id} Virtual Energy",
             ha_type="sensor",
             device_type="energy",
             availability_msg_func=ha_virtual_energy_sensor_discovery_message,
@@ -359,7 +355,7 @@ def configure_relay(
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_volume_flow_rate",
             relay_id=relay_id,
-            name=f"{name} Virtual Volume Flow Rate",
+            name=f"{output_config.id} Virtual Volume Flow Rate",
             ha_type="sensor",
             device_type="energy",
             availability_msg_func=ha_virtual_energy_sensor_discovery_message,
@@ -371,7 +367,7 @@ def configure_relay(
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_consumption",
             relay_id=relay_id,
-            name=f"{name} Virtual consumption",
+            name=f"{output_config.id} Virtual consumption",
             ha_type="sensor",
             device_type="energy",
             availability_msg_func=ha_virtual_energy_sensor_discovery_message,

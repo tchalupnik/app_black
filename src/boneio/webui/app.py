@@ -128,59 +128,11 @@ FileItem.model_rebuild()
 
 
 class BoneIOApp(FastAPI):
-    # async def shutdown_handler(self) -> None:
-    #     """Handle application shutdown."""
-    #     _LOGGER.debug("Shutting down All WebSocket connections...")
-    #     if hasattr(self.state, "websocket_manager"):
-    #         await self.state.websocket_manager.close_all()
-
-    # async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-    #     """Handle ASGI calls with proper lifespan support."""
-    #     message = None
-    #     if scope["type"] == "lifespan":
-    #         try:
-    #             while True:
-    #                 message = await receive()
-    #                 if message["type"] == "lifespan.startup":
-    #                     try:
-    #                         await send({"type": "lifespan.startup.complete"})
-    #                     except Exception as e:
-    #                         await send(
-    #                             {"type": "lifespan.startup.failed", "message": str(e)}
-    #                         )
-    #                 elif message["type"] == "lifespan.shutdown":
-    #                     try:
-    #                         # First shutdown all WebSocket connections
-    #                         _LOGGER.debug("Starting lifespan shutdown...")
-    #                         await self.shutdown_handler()
-    #                         _LOGGER.debug(
-    #                             "WebSocket connections closed, sending shutdown complete..."
-    #                         )
-    #                         # Only after WebSocket cleanup is done, send shutdown complete
-    #                         await send({"type": "lifespan.shutdown.complete"})
-    #                         _LOGGER.debug("Lifespan shutdown complete sent.")
-    #                     except Exception as e:
-    #                         _LOGGER.error("Error during lifespan shutdown: %s", e)
-    #                         await send(
-    #                             {"type": "lifespan.shutdown.failed", "message": str(e)}
-    #                         )
-    #                     return
-    #         except asyncio.CancelledError:
-    #             # Handle graceful exit during lifespan
-    #             _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
-    #             await self.shutdown_handler()
-    #             # await send({"type": "lifespan.shutdown.complete"})
-    #             _LOGGER.debug("Lifespan cleanup complete.")
-    #             raise
-    #     try:
-    #         await super().__call__(scope, receive, send)
-    #     except Exception:
-    #         pass
     pass
 
 
 # Create FastAPI application
-app = BoneIOApp(
+app = FastAPI(
     title="BoneIO API",
     description="BoneIO API for managing inputs, outputs, and sensors",
     version=__version__,
@@ -930,7 +882,7 @@ def init_app(
     config: Config,
     jwt_secret: str | None = None,
     web_server=None,
-) -> BoneIOApp:
+) -> FastAPI:
     """Initialize the FastAPI application with manager."""
     assert config.web is not None, "Web config must be provided"
     global JWT_SECRET
@@ -1223,12 +1175,14 @@ async def websocket_endpoint(
         await app.state.websocket_manager.disconnect(websocket)
     except KeyboardInterrupt:
         _LOGGER.info("WebSocket connection interrupted by user.")
+        raise
     except Exception as e:
         _LOGGER.error(
             "Unexpected error in WebSocket handler: %s - %s",
             type(e).__name__,
             e,
         )
+        raise
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
         if not app.state.websocket_manager.active_connections:
@@ -1236,14 +1190,6 @@ async def websocket_endpoint(
             remove_listener_for_all_covers(boneio_manager=boneio_manager)
             remove_listener_for_all_inputs(boneio_manager=boneio_manager)
             remove_listener_for_all_sensors(boneio_manager=boneio_manager)
-        # if connection_active:
-        #     try:
-        #         await asyncio.wait_for(
-        #             app.state.websocket_manager.disconnect(websocket),
-        #             timeout=2.0
-        #         )
-        #     except (asyncio.TimeoutError, Exception) as e:
-        #         _LOGGER.error(f"Error during WebSocket cleanup: {type(e).__name__} - {e}")
 
 
 # Static files setup

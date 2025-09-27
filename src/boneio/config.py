@@ -409,10 +409,13 @@ class BinarySensorConfig(BaseModel):
         return self.pin
 
 
-class OutputConfig(BaseModel):
+OutputTypes: TypeAlias = Literal["cover", "light", "switch", "valve", "none"]
+
+
+class OutputConfigBase(BaseModel):
     id: str
     pin: int
-    output_type: Literal["cover", "light", "switch", "valve", "none"]
+    output_type: OutputTypes
     kind: Literal["gpio", "mcp", "pca", "pcf", "mock"]
     boneio_output: str | None = None
     momentary_turn_on: timedelta | None = None
@@ -421,10 +424,43 @@ class OutputConfig(BaseModel):
     virtual_volume_flow_rate: str | None = None
     restore_state: bool = True
     interlock_group: str | list[str] = Field(default_factory=list)
+
+
+class McpOutputConfig(OutputConfigBase):
+    kind: Literal["mcp"] = "mcp"
+    mcp_id: str
+
+
+class PcaOutputConfig(OutputConfigBase):
+    kind: Literal["pca"] = "pca"
+    pca_id: str
     percentage_default_brightness: int | None = None
-    mcp_id: str | None = None
-    pca_id: str | None = None
-    pcf_id: str | None = None
+
+
+class PcfOutputConfig(OutputConfigBase):
+    kind: Literal["pcf"] = "pcf"
+    pcf_id: str
+
+
+class GpioOutputConfig(OutputConfigBase):
+    kind: Literal["gpio"] = "gpio"
+
+
+class MockOutputConfig(OutputConfigBase):
+    kind: Literal["mock"] = "mock"
+
+
+OutputConfigKinds: TypeAlias = (
+    McpOutputConfig
+    | PcaOutputConfig
+    | PcfOutputConfig
+    | GpioOutputConfig
+    | MockOutputConfig
+)
+
+
+class OutputConfig(RootModel[OutputConfigKinds]):
+    root: OutputConfigKinds = Field(discriminator="kind")
 
 
 class OutputGroupConfig(BaseModel):

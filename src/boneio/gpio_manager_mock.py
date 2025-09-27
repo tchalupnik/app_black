@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator, Callable
+from contextlib import asynccontextmanager
 from datetime import timedelta
 from enum import Enum
 from typing import Literal
@@ -18,8 +18,8 @@ class Edge(Enum):
 
 class GpioManagerMock:
     @classmethod
-    @contextmanager
-    def create(cls) -> Generator[GpioManagerMock]:
+    @asynccontextmanager
+    async def create(cls) -> AsyncGenerator[GpioManagerMock]:
         yield cls()
 
     def init(

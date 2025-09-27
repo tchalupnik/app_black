@@ -7,6 +7,8 @@ import logging
 import typing
 from collections.abc import Callable
 
+import anyio
+
 from boneio.config import BinarySensorConfig
 from boneio.const import INPUT_SENSOR, PRESSED, RELEASED
 from boneio.gpio_manager import GpioManager
@@ -52,7 +54,7 @@ class GpioInputBinarySensor(GpioBase):
     async def _run(self) -> None:
         while True:
             self.check_state(state=self.is_pressed())
-            await asyncio.sleep(self._bounce_time)
+            await anyio.sleep(self._bounce_time)
 
     def check_state(self, state: bool) -> None:
         if state == self._state:

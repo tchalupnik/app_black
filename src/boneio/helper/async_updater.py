@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import time
 from datetime import timedelta
 
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
+
+import anyio
 
 if TYPE_CHECKING:
     from ..manager import Manager
@@ -21,18 +22,15 @@ class AsyncUpdater:
         self.last_timestamp = time.time()
 
     async def _refresh(self) -> None:
-        try:
-            while True:
-                if hasattr(self, "async_update"):
-                    update_interval = (
-                        await self.async_update(timestamp=time.time())
-                        or self._update_interval.total_seconds()
-                    )
-                else:
-                    update_interval = (
-                        self.update(timestamp=time.time())
-                        or self._update_interval.total_seconds()
-                    )
-                await asyncio.sleep(update_interval)
-        except asyncio.CancelledError:
-            raise
+        while True:
+            if hasattr(self, "async_update"):
+                update_interval = (
+                    await self.async_update(timestamp=time.time())
+                    or self._update_interval.total_seconds()
+                )
+            else:
+                update_interval = (
+                    self.update(timestamp=time.time())
+                    or self._update_interval.total_seconds()
+                )
+            await anyio.sleep(update_interval)

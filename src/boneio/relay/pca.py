@@ -3,61 +3,30 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from adafruit_pca9685 import PCA9685, PCAChannels
 
-from boneio.const import BRIGHTNESS, LED, OFF, ON, STATE, SWITCH
-from boneio.events import EventBus
-from boneio.helper.interlock import SoftwareInterlockManager
-from boneio.message_bus.basic import MessageBus
+from boneio.const import BRIGHTNESS, STATE
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
 class PWMPCA(BasicRelay):
     """Initialize PWMPCA."""
 
-    def __init__(
-        self,
-        pin: int,
-        pca: PCA9685,
-        expander_id: str,
-        percentage_default_brightness: int,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        id: str,
-        interlock_manager: SoftwareInterlockManager,
-        interlock_groups: list[str],
-        name: str,
-        event_bus: EventBus,
-        output_type: str = SWITCH,
-        restored_state: bool = False,
-        restored_brightness: int = 0,
-    ) -> None:
-        """Initialize PWMPCA."""
-        self._pin: PCAChannels = pca.channels[pin]
-        super().__init__(
-            id=id,
-            pin_id=pin,
-            name=name,
-            topic_prefix=topic_prefix,
-            event_bus=event_bus,
-            message_bus=message_bus,
-            interlock_manager=interlock_manager,
-            interlock_groups=interlock_groups,
-            output_type=output_type,
-            restored_state=restored_state,
-            expander_id=expander_id,
-        )
-        self._percentage_default_brightness = percentage_default_brightness
-        self._brightness = restored_brightness if restored_state else 0
-        _LOGGER.debug("Setup PCA with pin %s", self.pin_id)
+    pca: PCA9685
+    percentage_default_brightness: int = 1
+    restored_brightness: int = 0
 
-    @property
-    def is_led(self) -> bool:
-        """Check if HA type is light"""
-        return self.output_type == LED
+    def __post_init__(self) -> None:
+        """Initialize PWMPCA."""
+        super().__post_init__()
+        self._pin: PCAChannels = self.pca.channels[self.pin_id]
+        self._brightness = self.restored_brightness if self.restored_state else 0
+        _LOGGER.debug("Setup PCA with pin %s", self.pin_id)
 
     @property
     def brightness(self) -> int:
@@ -78,23 +47,18 @@ class PWMPCA(BasicRelay):
         except KeyError:
             _LOGGER.error("Cant set value form driver on pin %s", self.pin_id)
 
-    @property
     def is_active(self) -> bool:
         """Is relay active."""
         return self.brightness > 1
 
-    def turn_on(self) -> None:
+    def _turn_on(self) -> None:
         """Call turn on action. When brightness is 0, and turn on by switch, default set value to 1%"""
-        _LOGGER.debug("Turn on relay.")
         if self.brightness == 0:
-            self.set_brightness(int(65535 / 100 * self._percentage_default_brightness))
-        self._execute_momentary_turn(momentary_type=ON)
+            self.set_brightness(int(65535 / 100 * self.percentage_default_brightness))
 
-    def turn_off(self) -> None:
+    def _turn_off(self) -> None:
         """Call turn off action."""
-        _LOGGER.debug("Turn off relay.")
         self._pin.duty_cycle = 0
-        self._execute_momentary_turn(momentary_type=OFF)
 
     def payload(self) -> dict:
         return {BRIGHTNESS: self.brightness, STATE: self.state}

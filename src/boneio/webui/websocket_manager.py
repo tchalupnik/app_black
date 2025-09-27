@@ -1,8 +1,8 @@
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
+import anyio
 from jose import jwt
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
@@ -23,7 +23,7 @@ class WebSocketDisconnectWithMessage(WebSocketDisconnect):
 class WebSocketManager:
     def __init__(self, jwt_secret: str | None = None, auth_required: bool = False):
         self.active_connections: list[WebSocket] = []
-        self._lock = asyncio.Lock()
+        self._lock = anyio.Lock()
         self._closing = False
         self._jwt_secret = jwt_secret
         self._auth_required = auth_required

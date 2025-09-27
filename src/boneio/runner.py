@@ -83,7 +83,7 @@ async def async_run(
 
     try:
         await anyio.sleep_forever()
-    finally:
+    except BaseException:
         _LOGGER.info("Cleaning up resources...")
         await message_bus.announce_offline()
         _LOGGER.info("Shutdown complete")
