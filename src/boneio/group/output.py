@@ -31,7 +31,6 @@ class OutputGroup:
     def __post_init__(self) -> None:
         """Initialize cover class."""
         self._group_members = [x for x in self.members if x.output_type != COVER]
-        self.check_state()
 
         for member in self._group_members:
             self.event_bus.add_event_listener(
@@ -40,12 +39,6 @@ class OutputGroup:
                 listener_id=self.config.id,
                 target=self.event_listener,
             )
-
-    def check_state(self) -> None:
-        for x in self._group_members:
-            if x.state == "ON":
-                self.state = "ON"
-                return
 
     async def event_listener(self, event: OutputState = None) -> None:
         """Listen for events called by children relays."""
