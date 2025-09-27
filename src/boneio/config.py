@@ -427,19 +427,19 @@ class OutputConfigBase(BaseModel):
 
 
 class McpOutputConfig(OutputConfigBase):
-    kind: Literal["mcp"] = "mcp"
     mcp_id: str
+    kind: Literal["mcp"] = "mcp"
 
 
 class PcaOutputConfig(OutputConfigBase):
-    kind: Literal["pca"] = "pca"
     pca_id: str
+    kind: Literal["pca"] = "pca"
     percentage_default_brightness: int | None = None
 
 
 class PcfOutputConfig(OutputConfigBase):
-    kind: Literal["pcf"] = "pcf"
     pcf_id: str
+    kind: Literal["pcf"] = "pcf"
 
 
 class GpioOutputConfig(OutputConfigBase):

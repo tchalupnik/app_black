@@ -184,7 +184,6 @@ class BasicRelay(ABC):
     restored_state: bool = False
     interlock_manager: SoftwareInterlockManager | None = None
     interlock_groups: list[str] = field(default_factory=list)
-    topic_type: str = "relay"
     momentary_turn_on: timedelta | None = None
     momentary_turn_off: timedelta | None = None
     virtual_power_usage: float | None = None
@@ -200,9 +199,7 @@ class BasicRelay(ABC):
 
         if self.name is None:
             self.name = self.id
-        self._send_topic = (
-            f"{self.topic_prefix}/{self.topic_type}/{strip_accents(self.id)}"
-        )
+        self._send_topic = f"{self.topic_prefix}/relay/{strip_accents(self.id)}"
         if self.output_type == "cover":
             self.momentary_turn_on = None
             self.momentary_turn_off = None
