@@ -40,7 +40,7 @@ class OutputGroup:
                 target=self.event_listener,
             )
 
-    async def event_listener(self, event: OutputState = None) -> None:
+    async def event_listener(self, event: OutputState | None = None) -> None:
         """Listen for events called by children relays."""
         state = "ON" if any(x.state == "ON" for x in self._group_members) else "OFF"
         if state != self.state or not event:
