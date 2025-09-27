@@ -28,7 +28,7 @@ class HaDeviceInfo(BaseModel):
     manufacturer: str = "boneIO"
     model: str
     name: str
-    sw_versiokn: str = __version__
+    sw_version: str = __version__
     configuration_url: str | None = None
 
 
