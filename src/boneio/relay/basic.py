@@ -14,7 +14,6 @@ import anyio
 from pydantic import BaseModel, ValidationError
 
 from boneio.config import OutputTypes
-from boneio.const import ON, STATE
 from boneio.events import EventBus, OutputEvent, async_track_point_in_time, utcnow
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.util import strip_accents
@@ -83,7 +82,7 @@ class _VirtualEnergySensor:
     def _update_virtual_energy(self):
         """Update energy counter if virtual_power_usage is set."""
         now = time.time()
-        if self.parent.state == ON and self.last_on_timestamp is not None:
+        if self.parent.state == "ON" and self.last_on_timestamp is not None:
             elapsed = now - self.last_on_timestamp
             if self.virtual_power_usage is not None:
                 self.energy_consumed_Wh += (self.virtual_power_usage * elapsed) / 3600.0
@@ -169,7 +168,7 @@ class _EnergyMessage(BaseModel):
     water: float | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BasicRelay(ABC):
     """Basic relay class."""
 
@@ -238,7 +237,7 @@ class BasicRelay(ABC):
         )
 
     def payload(self) -> dict:
-        return {STATE: self.state}
+        return {"state": self.state}
 
     def send_state(self, optimized_value: str | None = None) -> None:
         """Send state to Mqtt on action asynchronously."""
@@ -250,7 +249,7 @@ class BasicRelay(ABC):
         if self.output_type not in ("cover", "none"):
             self.message_bus.send_message(
                 topic=self._send_topic,
-                payload={STATE: state},
+                payload={"state": state},
                 retain=True,
             )
             if self.virtual_energy_sensor and not optimized_value:
@@ -292,7 +291,7 @@ class BasicRelay(ABC):
         else:
             _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             # Workaround for HA is sendind state ON/OFF without physically changing the relay.
-            self.send_state(optimized_value=ON)
+            self.send_state(optimized_value="ON")
             # await anyio.sleep(0.01)
         self.send_state()
 

@@ -2,83 +2,78 @@
 
 from __future__ import annotations
 
-import asyncio
+from dataclasses import dataclass
+from typing import Literal
 
 from boneio.config import OutputGroupConfig
-from boneio.const import COVER, SWITCH
+from boneio.const import COVER
 from boneio.events import EventBus, EventType
 from boneio.helper.state_manager import StateManager
+from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 
 
-class OutputGroup(BasicRelay):
+@dataclass
+class OutputGroup:
     """Cover class of boneIO"""
 
-    def __init__(
-        self,
-        config: OutputGroupConfig,
-        message_bus: MessageBus,
-        state_manager: StateManager,
-        topic_prefix: str,
-        event_bus: EventBus,
-        members: list[BasicRelay],
-    ) -> None:
+    config: OutputGroupConfig
+    state_manager: StateManager
+    event_bus: EventBus
+    message_bus: MessageBus
+    members: list[BasicRelay]
+    topic_prefix: str
+    output_type: str = "switch"
+    state: Literal["ON", "OFF"] = "OFF"
+
+    def __post_init__(self) -> None:
         """Initialize cover class."""
-        self._loop = asyncio.get_event_loop()
-        super().__init__(
-            id=config.id,
-            message_bus=message_bus,
-            state_manager=state_manager,
-            topic_prefix=topic_prefix,
-            relay_id=config.identifier(),
-            event_bus=event_bus,
-            members=members,
-            output_type=SWITCH,
-            restored_state=False,
-            topic_type="group",
-        )
-        self._group_members = [x for x in members if x.output_type != COVER]
+        self._group_members = [x for x in self.members if x.output_type != COVER]
         self.check_state()
 
         for member in self._group_members:
             self.event_bus.add_event_listener(
                 event_type=EventType.OUTPUT,
                 entity_id=member.id,
-                listener_id=self.id,
+                listener_id=self.config.id,
                 target=self.event_listener,
             )
 
     def check_state(self) -> None:
         for x in self._group_members:
             if x.state == "ON":
-                self._state = "ON"
+                self.state = "ON"
                 return
 
     async def event_listener(self, event: OutputState = None) -> None:
         """Listen for events called by children relays."""
         state = "ON" if any(x.state == "ON" for x in self._group_members) else "OFF"
-        if state != self._state or not event:
-            self._state = state
+        if state != self.state or not event:
+            self.state = state
             self.send_state()
 
-    async def turn_on(self) -> None:
+    def turn_on(self) -> None:
         """Call turn on action."""
+        self.state = "ON"
         for x in self._group_members:
             x.turn_on()
 
-    async def turn_off(self) -> None:
+    def turn_off(self) -> None:
         """Call turn off action."""
+        self.state = "OFF"
         for x in self._group_members:
             x.turn_off()
 
     def is_active(self) -> bool:
         """Is relay active."""
-        return self._state == "ON"
+        return self.state == "ON"
 
     def send_state(self) -> None:
         """Send state to Mqtt on action."""
         self.message_bus.send_message(
-            topic=self._send_topic, payload=self.payload(), retain=True
+            topic=f"{self.topic_prefix}/relay/{strip_accents(self.id)}",
+            payload={"state": self.state},
+            retain=True,
         )

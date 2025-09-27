@@ -1,6 +1,7 @@
 """PCF8575 Relay module."""
 
 import logging
+from dataclasses import dataclass
 
 from adafruit_pcf8575 import DigitalInOut
 
@@ -11,6 +12,7 @@ from boneio.relay.basic import BasicRelay
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass(kw_only=True)
 class PCFRelay(BasicRelay):
     """Represents PCF Relay output"""
 

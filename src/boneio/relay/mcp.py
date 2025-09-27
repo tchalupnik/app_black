@@ -11,7 +11,7 @@ from boneio.relay.basic import BasicRelay
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MCPRelay(BasicRelay):
     """Represents MCP Relay output"""
 

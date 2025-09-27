@@ -13,7 +13,7 @@ from boneio.relay.basic import BasicRelay
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PWMPCA(BasicRelay):
     """Initialize PWMPCA."""
 
