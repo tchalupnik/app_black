@@ -19,6 +19,7 @@ from boneio.relay.basic import BasicRelay
 class OutputGroup:
     """Cover class of boneIO"""
 
+    id: str
     config: OutputGroupConfig
     state_manager: StateManager
     event_bus: EventBus

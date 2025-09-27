@@ -537,7 +537,7 @@ class Manager:
             if output_group.output_type != NONE:
                 self.send_ha_autodiscovery(
                     id=output_group.id,
-                    name=output_group.name,
+                    name=output_group.id,
                     ha_type=output_group.output_type,
                     availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
                         output_group.output_type,
@@ -930,6 +930,8 @@ class Manager:
                 output = self.outputs.get(
                     action.pin, self.output_groups.get(action.pin)
                 )
+                if output is None:
+                    raise ValueError("This output doesn't exist!")
                 duration = None
                 if start_time is not None:
                     duration = time.time() - start_time
@@ -949,6 +951,8 @@ class Manager:
                     raise ValueError("Wrong action output type!")
             elif isinstance(action, CoverActionConfig):
                 cover = self.covers.get(action.pin)
+                if cover is None:
+                    raise ValueError("This cover doesn't exist!")
                 duration = None
                 if start_time is not None:
                     duration = time.time() - start_time
