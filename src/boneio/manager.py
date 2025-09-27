@@ -239,15 +239,19 @@ class Manager:
             GpioManagerClass = GpioManager
         async with anyio.create_task_group() as tg:
             with GpioManagerClass.create() as gpio_manager:
-                this = cls(
-                    tg=tg,
-                    config=config,
-                    message_bus=message_bus,
-                    event_bus=event_bus,
-                    config_file_path=config_file_path,
-                    gpio_manager=gpio_manager,
-                )
-                yield this
+                async with StateManager.create(
+                    config_file_path.parent / "state.json"
+                ) as state_manager:
+                    this = cls(
+                        tg=tg,
+                        config=config,
+                        message_bus=message_bus,
+                        event_bus=event_bus,
+                        config_file_path=config_file_path,
+                        gpio_manager=gpio_manager,
+                        state_manager=state_manager,
+                    )
+                    yield this
 
     def _get_lazy_i2c(self) -> I2C:
         if self.i2c is None:
@@ -264,12 +268,11 @@ class Manager:
         event_bus: EventBus,
         config_file_path: Path,
         gpio_manager: GpioManager,
+        state_manager: StateManager,
     ) -> None:
         self.tg = tg
         self.gpio_manager = gpio_manager
-        self.state_manager = StateManager(
-            state_file_path=config_file_path.parent / "state.json"
-        )
+        self.state_manager = state_manager
         _LOGGER.info("Initializing manager module.")
 
         self.config = config

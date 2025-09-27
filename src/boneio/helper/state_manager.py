@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
+import anyio
+import anyio.abc
 from pydantic import BaseModel, Field
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,25 +25,30 @@ class State(BaseModel):
     cover: dict[str, CoverStateEntry] = Field(default_factory=dict)
 
 
+@dataclass
 class StateManager:
     """StateManager to load and save states to file."""
 
-    def __init__(self, state_file_path: Path) -> None:
-        """Initialize disk StateManager."""
-        self._loop = asyncio.get_event_loop()
-        self._lock = asyncio.Lock()
-        self._file_path = state_file_path
-        self.state: State = self._load_states()
-        _LOGGER.info("Loaded state file from %s", str(self._file_path))
-        self._save_attributes_callback = None
+    state_file_path: Path
+    state: State
+    tg: anyio.abc.TaskGroup
+    lock: anyio.Lock = Field(default_factory=anyio.Lock)
 
-    def _load_states(self) -> State:
-        """Load state file."""
-        try:
-            text = self._file_path.read_text()
-        except FileNotFoundError:
-            return State()
-        return State.model_validate_json(text)
+    @classmethod
+    @asynccontextmanager
+    async def create(cls, state_file_path: Path) -> AsyncGenerator[StateManager]:
+        async with anyio.create_task_group() as tg:
+            try:
+                with state_file_path.open("r") as f:
+                    text = f.read()
+            except FileNotFoundError:
+                _LOGGER.warning("State file not found, creating new one.")
+                state = State()
+            else:
+                _LOGGER.warning("State file found, loading state.")
+                state = State.model_validate_json(text)
+
+            yield cls(state_file_path, state, tg)
 
     def remove_relay_from_state(self, relay_id: str) -> None:
         """Delete attribute"""
@@ -48,21 +57,14 @@ class StateManager:
 
     def save(self) -> None:
         """Save single attribute to file."""
-        if self._save_attributes_callback is not None:
-            self._save_attributes_callback.cancel()
-            self._save_attributes_callback = None
-        self._save_attributes_callback = self._loop.call_later(
-            1, lambda: self._loop.create_task(self._save_state())
-        )
-
-    def _save_to_file(self) -> None:
-        with Path(self._file_path).open("w+") as f:
-            f.write(self.state.model_dump_json())
+        self.tg.start_soon(self._save_state)
 
     async def _save_state(self) -> None:
         """Async save state."""
-        if self._lock.locked():
+        if self.lock.locked():
             # Let's not save state if something happens same time.
+            _LOGGER.info("State file is locked, skipping save.")
             return
-        async with self._lock:
-            await self._loop.run_in_executor(None, self._save_to_file)
+        async with self.lock:
+            with Path(self.state_file_path).open("w+") as f:
+                f.write(self.state.model_dump_json())
