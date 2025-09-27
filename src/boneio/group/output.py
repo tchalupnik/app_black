@@ -66,6 +66,13 @@ class OutputGroup:
         for x in self._group_members:
             x.turn_off()
 
+    def toggle(self) -> None:
+        """Call toggle action."""
+        if self.state == "ON":
+            self.turn_off()
+        else:
+            self.turn_on()
+
     def is_active(self) -> bool:
         """Is relay active."""
         return self.state == "ON"
