@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import secrets
 from pathlib import Path
 
-from anyio import Event, move_on_after, sleep
+import anyio
+from anyio import Event
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
 
@@ -110,19 +110,6 @@ class WebServer:
             finally:
                 _LOGGER.info("HTTP server stopped")
 
-        webserver_task = asyncio.create_task(run())
-        try:
-            while not webserver_task.done():
-                await sleep(1)
-
-            webserver_exception = webserver_task.exception()
-            if webserver_exception is not None:
-                raise webserver_exception
-        finally:
-            if not webserver_task.done():
-                with move_on_after(1, shield=True):
-                    webserver_task.cancel()
-                    try:
-                        await webserver_task
-                    except asyncio.CancelledError:
-                        pass
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(run)
+            await anyio.sleep_forever()

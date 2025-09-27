@@ -224,7 +224,6 @@ class Manager:
     @asynccontextmanager
     async def create(
         cls,
-        tg: anyio.abc.TaskGroup,
         config: Config,
         message_bus: MessageBus,
         event_bus: EventBus,
@@ -238,16 +237,17 @@ class Manager:
             from boneio.gpio_manager import GpioManager
 
             GpioManagerClass = GpioManager
-        with GpioManagerClass.create() as gpio_manager:
-            this = cls(
-                tg=tg,
-                config=config,
-                message_bus=message_bus,
-                event_bus=event_bus,
-                config_file_path=config_file_path,
-                gpio_manager=gpio_manager,
-            )
-            yield this
+        async with anyio.create_task_group() as tg:
+            with GpioManagerClass.create() as gpio_manager:
+                this = cls(
+                    tg=tg,
+                    config=config,
+                    message_bus=message_bus,
+                    event_bus=event_bus,
+                    config_file_path=config_file_path,
+                    gpio_manager=gpio_manager,
+                )
+                yield this
 
     def _get_lazy_i2c(self) -> I2C:
         if self.i2c is None:

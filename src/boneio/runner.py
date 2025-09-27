@@ -47,11 +47,7 @@ async def async_run(
     """Run BoneIO."""
     configure_logger(log_config=config.logger, debug=debug)
     stack = AsyncExitStack()
-
-    tg = await stack.enter_async_context(anyio.create_task_group())
-
-    web_server: WebServer | None = None
-    event_bus = await stack.enter_async_context(EventBus.create(tg))
+    event_bus = await stack.enter_async_context(EventBus.create())
     # Initialize message bus based on config
     if config.mqtt is not None:
         if mqttusername is not None:
@@ -64,7 +60,6 @@ async def async_run(
 
     manager = await stack.enter_async_context(
         Manager.create(
-            tg=tg,
             config=config,
             message_bus=message_bus,
             event_bus=event_bus,
@@ -82,7 +77,7 @@ async def async_run(
             config_file_path=config_file_path,
             manager=manager,
         )
-        tg.start_soon(web_server.start_webserver)
+        await web_server.start_webserver()
     else:
         _LOGGER.info("Web server not configured.")
 
@@ -90,6 +85,6 @@ async def async_run(
         await anyio.sleep_forever()
     finally:
         _LOGGER.info("Cleaning up resources...")
-        # await message_bus.announce_offline()
+        await message_bus.announce_offline()
         _LOGGER.info("Shutdown complete")
     return 0

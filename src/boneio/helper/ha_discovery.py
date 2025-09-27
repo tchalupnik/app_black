@@ -2,71 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel
 
+from boneio.config import EventActionTypes
 from boneio.const import (
-    CLOSE,
-    CLOSED,
-    CLOSING,
-    COVER,
-    DOUBLE,
-    INPUT,
-    INPUT_SENSOR,
-    LONG,
-    NUMERIC,
-    OFF,
-    ON,
-    OPEN,
-    OPENING,
     RELAY,
     SELECT,
     SENSOR,
-    SINGLE,
-    STATE,
-    STOP,
 )
 from boneio.version import __version__
-
-
-def ha_sensor_availabilty_message(
-    id: str,
-    topic: str = "boneIO",
-    name: str | None = None,
-    device_name: str = "boneIO",
-    model: str = "boneIO Relay Board",
-    unit_of_measurement: str | None = None,
-    device_class: str | None = None,
-    state_class: str | None = None,
-    entity_category: str | None = None,
-    web_url: str | None = None,
-) -> dict[str, Any]:
-    """Create SENSOR availability topic for HA."""
-    device_info = HaDeviceInfo(
-        identifiers=[topic],
-        model=model,
-        name=device_name,
-    )
-
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
-
-    sensor_message = HaSensorMessage(
-        availability=availability,
-        device=device_info,
-        name=name or f"Sensor {id}",
-        state_topic=f"{topic}/{SENSOR}/{id}",
-        unique_id=f"{topic}{SENSOR}{id}",
-        unit_of_measurement=unit_of_measurement,
-        device_class=device_class,
-        state_class=state_class,
-    )
-
-    result = sensor_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 class HaAvailabilityTopic(BaseModel):
@@ -82,7 +28,7 @@ class HaDeviceInfo(BaseModel):
     manufacturer: str = "boneIO"
     model: str
     name: str
-    sw_version: str = __version__
+    sw_versiokn: str = __version__
     configuration_url: str | None = None
 
 
@@ -100,17 +46,16 @@ class HaDiscoveryMessage(BaseModel):
     device_class: str | None = None
     unit_of_measurement: str | None = None
     state_class: str | None = None
-    icon: str | None = None
-    value_template: str | None = None
     state_value_template: str | None = None
+    entity_category: str | None = None
 
 
 class HaLightMessage(HaDiscoveryMessage):
     """Home Assistant light discovery message."""
 
     command_topic: str
-    payload_off: str = OFF
-    payload_on: str = ON
+    payload_off: str = "OFF"
+    payload_on: str = "ON"
     state_value_template: str = "{{ value_json.state }}"
 
 
@@ -121,8 +66,8 @@ class HaLedMessage(HaDiscoveryMessage):
     brightness_state_topic: str
     brightness_command_topic: str
     brightness_scale: int = 65535
-    payload_off: str = OFF
-    payload_on: str = ON
+    payload_off: str = "OFF"
+    payload_on: str = "ON"
     state_value_template: str = "{{ value_json.state }}"
     brightness_value_template: str = "{{ value_json.brightness }}"
 
@@ -138,8 +83,8 @@ class HaSwitchMessage(HaDiscoveryMessage):
     """Home Assistant switch discovery message."""
 
     command_topic: str
-    payload_off: str = OFF
-    payload_on: str = ON
+    payload_off: str = "OFF"
+    payload_on: str = "ON"
     value_template: str = "{{ value_json.state }}"
 
 
@@ -147,10 +92,10 @@ class HaValveMessage(HaDiscoveryMessage):
     """Home Assistant valve discovery message."""
 
     command_topic: str
-    payload_close: str = OFF
-    payload_open: str = ON
-    state_open: str = ON
-    state_closed: str = OFF
+    payload_close: str = "OFF"
+    payload_open: str = "ON"
+    state_open: str = "ON"
+    state_closed: str = "OFF"
     reports_position: bool = False
     value_template: str = "{{ value_json.state }}"
 
@@ -159,7 +104,7 @@ class HaEventMessage(HaDiscoveryMessage):
     """Home Assistant event discovery message."""
 
     icon: str = "mdi:gesture-double-tap"
-    event_types: list[str] = [SINGLE, DOUBLE, LONG]
+    event_types: list[EventActionTypes] = ["single", "double", "long"]
 
 
 class HaSensorMessage(HaDiscoveryMessage):
@@ -171,8 +116,8 @@ class HaSensorMessage(HaDiscoveryMessage):
 class HaBinarySensorMessage(HaDiscoveryMessage):
     """Home Assistant binary sensor discovery message."""
 
-    payload_on: str = "pressed"
-    payload_off: str = "released"
+    payload_on: Literal["pressed"] = "pressed"
+    payload_off: Literal["released"] = "released"
 
 
 class HaCoverMessage(HaDiscoveryMessage):
@@ -185,36 +130,38 @@ class HaCoverMessage(HaDiscoveryMessage):
     tilt_command_topic: str | None = None
     tilt_status_topic: str | None = None
     tilt_status_template: str | None = None
-    payload_open: str = OPEN
-    payload_close: str = CLOSE
-    payload_stop: str = STOP
+    payload_open: Literal["open"] = "open"
+    payload_close: Literal["close"] = "close"
+    payload_stop: Literal["stop"] = "stop"
     payload_stop_tilt: str | None = None
-    state_open: str = OPEN
-    state_opening: str = OPENING
-    state_closed: str = CLOSED
-    state_closing: str = CLOSING
+    state_open: Literal["open"] = "open"
+    state_opening: Literal["opening"] = "opening"
+    state_closed: Literal["closed"] = "closed"
+    state_closing: Literal["closing"] = "closing"
 
 
 class HaModbusMessage(HaDiscoveryMessage):
     """Home Assistant modbus discovery message with different unique_id pattern."""
 
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+    options: list[str] | None = None
 
-def ha_availabilty_message(
+
+def ha_sensor_availability_message(
     id: str,
-    name: str,
     topic: str = "boneIO",
+    name: str | None = None,
     device_name: str = "boneIO",
-    device_type: str = INPUT,
     model: str = "boneIO Relay Board",
-    web_url: str | None = None,
-    entity_category: str | None = None,
-    device_class: str | None = None,
     unit_of_measurement: str | None = None,
+    device_class: str | None = None,
     state_class: str | None = None,
-    icon: str | None = None,
-    value_template: str | None = None,
-) -> dict[str, Any]:
-    """Create availability topic for HA."""
+    entity_category: str | None = None,
+    web_url: str | None = None,
+) -> HaSensorMessage:
+    """Create SENSOR availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
@@ -222,28 +169,19 @@ def ha_availabilty_message(
         configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    message = HaDiscoveryMessage(
+    return HaSensorMessage(
         availability=availability,
         device=device_info,
-        name=name,
-        state_topic=f"{topic}/{device_type}/{id}",
-        unique_id=f"{topic}{device_type}{id}",
-        device_class=device_class,
+        name=name or f"Sensor {id}",
+        state_topic=f"{topic}/sensor/{id}",
+        unique_id=f"{topic}sensor{id}",
         unit_of_measurement=unit_of_measurement,
+        device_class=device_class,
         state_class=state_class,
-        icon=icon,
-        value_template=value_template,
+        entity_category=entity_category,
     )
-
-    result = message.model_dump(exclude_none=True)
-
-    # Add entity_category if provided (not part of base discovery message)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_virtual_energy_sensor_discovery_message(
@@ -254,21 +192,29 @@ def ha_virtual_energy_sensor_discovery_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaDiscoveryMessage:
     """
     Generate MQTT autodiscovery messages for Home Assistant for virtual power and energy sensors.
     Returns discovery message for energy sensor.
     """
-    return ha_availabilty_message(
-        id=relay_id,
-        name=name or f"{relay_id} Energy",
-        topic=topic,
-        device_name=device_name,
+    device_info = HaDeviceInfo(
+        identifiers=[topic],
         model=model,
-        device_type=SENSOR,
-        state_class="total_increasing",
+        name=device_name,
+        configuration_url=web_url,
+    )
+
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
+
+    return HaDiscoveryMessage(
+        availability=availability,
+        device=device_info,
+        name=name or f"{relay_id} Energy",
+        state_topic=f"{topic}/sensor/{relay_id}",
+        unique_id=f"{topic}sensor{relay_id}",
         device_class="energy",
         unit_of_measurement="Wh",
+        state_class="total_increasing",
         entity_category=entity_category,
     )
 
@@ -282,30 +228,26 @@ def ha_light_availabilty_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaLightMessage:
     """Create LIGHT availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    light_message = HaLightMessage(
+    return HaLightMessage(
         availability=availability,
         device=device_info,
         name=name or f"Light {id}",
         state_topic=f"{topic}/{device_type}/{id}",
         unique_id=f"{topic}{device_type}{id}",
         command_topic=f"{topic}/cmd/{device_type}/{id}/set",
+        entity_category=entity_category,
     )
-
-    result = light_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_led_availabilty_message(
@@ -316,32 +258,28 @@ def ha_led_availabilty_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaLedMessage:
     """Create LED availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    led_message = HaLedMessage(
+    return HaLedMessage(
         availability=availability,
         device=device_info,
         name=name or f"LED {id}",
-        state_topic=f"{topic}/{RELAY}/{id}",
-        unique_id=f"{topic}{RELAY}{id}",
-        command_topic=f"{topic}/cmd/{RELAY}/{id}/set",
-        brightness_state_topic=f"{topic}/{RELAY}/{id}",
-        brightness_command_topic=f"{topic}/cmd/{RELAY}/{id}/set_brightness",
+        state_topic=f"{topic}/relay/{id}",
+        unique_id=f"{topic}relay{id}",
+        command_topic=f"{topic}/cmd/relay/{id}/set",
+        brightness_state_topic=f"{topic}/relay/{id}",
+        brightness_command_topic=f"{topic}/cmd/relay/{id}/set_brightness",
+        entity_category=entity_category,
     )
-
-    result = led_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_button_availabilty_message(
@@ -353,17 +291,18 @@ def ha_button_availabilty_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaButtonMessage:
     """Create BUTTON availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    button_message = HaButtonMessage(
+    return HaButtonMessage(
         availability=availability,
         device=device_info,
         name=name or f"Button {id}",
@@ -371,13 +310,8 @@ def ha_button_availabilty_message(
         unique_id=f"{topic}button{id}",
         command_topic=f"{topic}/cmd/button/{id}/set",
         payload_press=payload_press,
+        entity_category=entity_category,
     )
-
-    result = button_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_switch_availabilty_message(
@@ -389,65 +323,57 @@ def ha_switch_availabilty_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaSwitchMessage:
     """Create SWITCH availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    switch_message = HaSwitchMessage(
+    return HaSwitchMessage(
         availability=availability,
         device=device_info,
         name=name or f"Switch {id}",
         state_topic=f"{topic}/{device_type}/{id}",
         unique_id=f"{topic}{device_type}{id}",
         command_topic=f"{topic}/cmd/{device_type}/{id}/set",
+        entity_category=entity_category,
     )
-
-    result = switch_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_valve_availabilty_message(
     id: str,
     topic: str = "boneIO",
-    device_type: str = RELAY,
+    device_type: str = "relay",
     name: str | None = None,
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaValveMessage:
     """Create Valve availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    valve_message = HaValveMessage(
+    return HaValveMessage(
         availability=availability,
         device=device_info,
         name=name or f"Valve {id}",
         state_topic=f"{topic}/{device_type}/{id}",
         unique_id=f"{topic}{device_type}{id}",
         command_topic=f"{topic}/cmd/{device_type}/{id}/set",
+        entity_category=entity_category,
     )
-
-    result = valve_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_event_availabilty_message(
@@ -459,30 +385,26 @@ def ha_event_availabilty_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaEventMessage:
     """Create EVENT availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    event_message = HaEventMessage(
+    return HaEventMessage(
         availability=availability,
         device=device_info,
         name=name,
-        state_topic=f"{topic}/{INPUT}/{id}",
-        unique_id=f"{topic}{INPUT}{id}",
+        state_topic=f"{topic}/input/{id}",
+        unique_id=f"{topic}input{id}",
         device_class=device_class,
+        entity_category=entity_category,
     )
-
-    result = event_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_adc_sensor_availabilty_message(
@@ -493,32 +415,28 @@ def ha_adc_sensor_availabilty_message(
     model: str = "boneIO Relay Board",
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaSensorMessage:
     """Create ADC SENSOR availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    sensor_message = HaSensorMessage(
+    return HaSensorMessage(
         availability=availability,
         device=device_info,
         name=name or f"ADC {id}",
-        state_topic=f"{topic}/{SENSOR}/{id}",
-        unique_id=f"{topic}{SENSOR}{id}",
+        state_topic=f"{topic}/sensor/{id}",
+        unique_id=f"{topic}sensor{id}",
         unit_of_measurement="V",
         device_class="voltage",
         state_class="measurement",
+        entity_category=entity_category,
     )
-
-    result = sensor_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_binary_sensor_availabilty_message(
@@ -530,32 +448,26 @@ def ha_binary_sensor_availabilty_message(
     device_name: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaBinarySensorMessage:
     """Create availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name or f"boneIO {topic}",
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    binary_sensor_message = HaBinarySensorMessage(
+    return HaBinarySensorMessage(
         availability=availability,
         device=device_info,
         name=name,
-        state_topic=f"{topic}/{INPUT_SENSOR}/{id}",
-        unique_id=f"{topic}{INPUT_SENSOR}{id}",
+        state_topic=f"{topic}/inputsensor/{id}",
+        unique_id=f"{topic}inputsensor{id}",
         device_class=device_class,
-        payload_on="pressed",
-        payload_off="released",
+        entity_category=entity_category,
     )
-
-    result = binary_sensor_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_sensor_ina_availabilty_message(
@@ -568,33 +480,29 @@ def ha_sensor_ina_availabilty_message(
     device_class: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaSensorMessage:
     """Create availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name or f"boneIO {topic}",
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    sensor_message = HaSensorMessage(
+    return HaSensorMessage(
         availability=availability,
         device=device_info,
         name=name,
-        state_topic=f"{topic}/{SENSOR}/{id}",
-        unique_id=f"{topic}{SENSOR}{id}",
+        state_topic=f"{topic}/sensor/{id}",
+        unique_id=f"{topic}sensor{id}",
         state_class="measurement",
-        value_template="{{ value_json.state }}",
+        state_value_template="{{ value_json.state }}",
         unit_of_measurement=unit_of_measurement,
         device_class=device_class,
+        entity_category=entity_category,
     )
-
-    result = sensor_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_sensor_temp_availabilty_message(
@@ -606,33 +514,29 @@ def ha_sensor_temp_availabilty_message(
     unit_of_measurement: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaSensorMessage:
     """Create availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name or f"boneIO {topic}",
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    sensor_message = HaSensorMessage(
+    return HaSensorMessage(
         availability=availability,
         device=device_info,
         name=name,
-        state_topic=f"{topic}/{SENSOR}/{id}",
-        unique_id=f"{topic}{SENSOR}{id}",
+        state_topic=f"{topic}/sensor/{id}",
+        unique_id=f"{topic}sensor{id}",
         device_class="temperature",
         state_class="measurement",
-        value_template="{{ value_json.state }}",
+        state_value_template="{{ value_json.state }}",
         unit_of_measurement=unit_of_measurement,
+        entity_category=entity_category,
     )
-
-    result = sensor_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def modbus_availabilty_message(
@@ -648,17 +552,18 @@ def modbus_availabilty_message(
     state_class: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaModbusMessage:
     """Create Modbus availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[id],
         model=model,
         name=name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/state")]
 
-    modbus_message = HaModbusMessage(
+    return HaModbusMessage(
         availability=availability,
         device=device_info,
         name=entity_id,
@@ -667,13 +572,8 @@ def modbus_availabilty_message(
         unit_of_measurement=unit_of_measurement,
         device_class=device_class,
         state_class=state_class,
+        entity_category=entity_category,
     )
-
-    result = modbus_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def modbus_sensor_availabilty_message(
@@ -689,17 +589,18 @@ def modbus_sensor_availabilty_message(
     state_class: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaModbusMessage:
     """Create Modbus Sensor availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[id],
         model=model,
         name=name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/state")]
 
-    modbus_message = HaModbusMessage(
+    return HaModbusMessage(
         availability=availability,
         device=device_info,
         name=sensor_id,
@@ -708,13 +609,8 @@ def modbus_sensor_availabilty_message(
         unit_of_measurement=unit_of_measurement,
         device_class=device_class,
         state_class=state_class,
+        entity_category=entity_category,
     )
-
-    result = modbus_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def modbus_select_availabilty_message(
@@ -728,31 +624,26 @@ def modbus_select_availabilty_message(
     options: list[str] | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaModbusMessage:
     """Create Modbus Select availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[id],
         model=model,
         name=name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/state")]
 
-    modbus_message = HaModbusMessage(
+    return HaModbusMessage(
         availability=availability,
         device=device_info,
         name=entity_id,
         state_topic=f"{topic}/{device_type}/{id}/{state_topic_base}",
         unique_id=f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
+        entity_category=entity_category,
+        options=options,
     )
-
-    result = modbus_message.model_dump(exclude_none=True)
-    if options:
-        result["options"] = options
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def modbus_numeric_availabilty_message(
@@ -762,43 +653,36 @@ def modbus_numeric_availabilty_message(
     state_topic_base: str,
     topic: str,
     model: str,
-    device_type: str = NUMERIC,
+    device_type: str = "number",
     min: float | None = None,
     max: float | None = None,
     step: float | None = None,
     unit_of_measurement: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaModbusMessage:
     """Create Modbus Numeric availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[id],
         model=model,
         name=name,
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/{id}/state")]
 
-    modbus_message = HaModbusMessage(
+    return HaModbusMessage(
         availability=availability,
         device=device_info,
         name=entity_id,
         state_topic=f"{topic}/{device_type}/{id}/{state_topic_base}",
         unique_id=f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
         unit_of_measurement=unit_of_measurement,
+        min=min,
+        max=max,
+        step=step,
+        entity_category=entity_category,
     )
-
-    result = modbus_message.model_dump(exclude_none=True)
-    if min is not None:
-        result["min"] = min
-    if max is not None:
-        result["max"] = max
-    if step is not None:
-        result["step"] = step
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_cover_availabilty_message(
@@ -810,41 +694,30 @@ def ha_cover_availabilty_message(
     device_name: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaCoverMessage:
     """Create Cover availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name or f"boneIO {topic}",
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    cover_message = HaCoverMessage(
+    return HaCoverMessage(
         availability=availability,
         device=device_info,
         name=name,
-        state_topic=f"{topic}/{COVER}/{id}/state",
-        unique_id=f"{topic}{COVER}{id}",
+        state_topic=f"{topic}/cover/{id}/state",
+        unique_id=f"{topic}cover{id}",
         device_class=device_class,
         command_topic=f"{topic}/cmd/cover/{id}/set",
         set_position_topic=f"{topic}/cmd/cover/{id}/pos",
-        payload_open=OPEN,
-        payload_close=CLOSE,
-        payload_stop=STOP,
-        state_open=OPEN,
-        state_opening=OPENING,
-        state_closed=CLOSED,
-        state_closing=CLOSING,
         position_template="{{ value_json.position }}",
-        position_topic=f"{topic}/{COVER}/{id}/pos",
+        position_topic=f"{topic}/cover/{id}/pos",
+        entity_category=entity_category,
     )
-
-    result = cover_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result
 
 
 def ha_cover_with_tilt_availabilty_message(
@@ -856,42 +729,31 @@ def ha_cover_with_tilt_availabilty_message(
     device_name: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
-) -> dict[str, Any]:
+) -> HaCoverMessage:
     """Create Cover with tilt availability topic for HA."""
     device_info = HaDeviceInfo(
         identifiers=[topic],
         model=model,
         name=device_name or f"boneIO {topic}",
+        configuration_url=web_url,
     )
 
-    availability = [HaAvailabilityTopic(topic=f"{topic}/{STATE}")]
+    availability = [HaAvailabilityTopic(topic=f"{topic}/state")]
 
-    cover_message = HaCoverMessage(
+    return HaCoverMessage(
         availability=availability,
         device=device_info,
         name=name,
-        state_topic=f"{topic}/{COVER}/{id}/state",
-        unique_id=f"{topic}{COVER}{id}",
+        state_topic=f"{topic}/cover/{id}/state",
+        unique_id=f"{topic}cover{id}",
         device_class=device_class,
         command_topic=f"{topic}/cmd/cover/{id}/set",
         set_position_topic=f"{topic}/cmd/cover/{id}/pos",
         tilt_command_topic=f"{topic}/cmd/cover/{id}/tilt",
-        payload_open=OPEN,
-        payload_close=CLOSE,
-        payload_stop=STOP,
-        payload_stop_tilt=STOP,
-        state_open=OPEN,
-        state_opening=OPENING,
-        state_closed=CLOSED,
-        state_closing=CLOSING,
-        position_topic=f"{topic}/{COVER}/{id}/pos",
-        tilt_status_topic=f"{topic}/{COVER}/{id}/pos",
+        payload_stop_tilt="stop",
+        position_topic=f"{topic}/cover/{id}/pos",
+        tilt_status_topic=f"{topic}/cover/{id}/tilt",
         position_template="{{ value_json.position }}",
         tilt_status_template="{{ value_json.tilt }}",
+        entity_category=entity_category,
     )
-
-    result = cover_message.model_dump(exclude_none=True)
-    if entity_category:
-        result["entity_category"] = entity_category
-
-    return result

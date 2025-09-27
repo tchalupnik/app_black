@@ -34,7 +34,7 @@ from boneio.helper import (
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.ha_discovery import (
-    ha_sensor_availabilty_message,
+    ha_sensor_availability_message,
     ha_virtual_energy_sensor_discovery_message,
 )
 from boneio.helper.onewire import (
@@ -155,7 +155,7 @@ def create_serial_number_sensor(
         name="Serial number",
         ha_type=SENSOR,
         entity_category="diagnostic",
-        availability_msg_func=ha_sensor_availabilty_message,
+        availability_msg_func=ha_sensor_availability_message,
     )
     return sensor
 

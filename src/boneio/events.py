@@ -184,15 +184,16 @@ class EventBus:
 
     @classmethod
     @asynccontextmanager
-    async def create(cls, tg: anyio.abc.TaskGroup) -> AsyncGenerator[EventBus]:
-        this = cls(tg)
-        tg.start_soon(this._event_worker)
-        tg.start_soon(_async_create_timer, tg, this._run_second_event)
-        _LOGGER.info("Event bus worker started.")
-        try:
-            yield this
-        finally:
-            await this._handle_sigterm_listeners()
+    async def create(cls) -> AsyncGenerator[EventBus]:
+        async with anyio.create_task_group() as tg:
+            this = cls(tg)
+            tg.start_soon(this._event_worker)
+            tg.start_soon(_async_create_timer, tg, this._run_second_event)
+            _LOGGER.info("Event bus worker started.")
+            try:
+                yield this
+            finally:
+                await this._handle_sigterm_listeners()
 
     async def _event_worker(self) -> None:
         """
@@ -237,6 +238,7 @@ class EventBus:
 
     async def _handle_sigterm_listeners(self) -> None:
         """Handle all sigterm listeners, supporting both async and sync listeners."""
+        _LOGGER.info("Handling SIGTERM listeners...")
         for target in self.sigterm_listeners:
             try:
                 _LOGGER.debug("Invoking sigterm listener %s", target)
