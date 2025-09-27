@@ -7,11 +7,6 @@ from typing import Literal
 from pydantic import BaseModel
 
 from boneio.config import EventActionTypes
-from boneio.const import (
-    RELAY,
-    SELECT,
-    SENSOR,
-)
 from boneio.version import __version__
 
 
@@ -222,7 +217,7 @@ def ha_virtual_energy_sensor_discovery_message(
 def ha_light_availabilty_message(
     id: str,
     topic: str = "boneIO",
-    device_type: str = RELAY,
+    device_type: str = "relay",
     name: str | None = None,
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
@@ -317,7 +312,7 @@ def ha_button_availabilty_message(
 def ha_switch_availabilty_message(
     id: str,
     topic: str = "boneIO",
-    device_type: str = RELAY,
+    device_type: str = "relay",
     name: str | None = None,
     device_name: str = "boneIO",
     model: str = "boneIO Relay Board",
@@ -546,7 +541,7 @@ def modbus_availabilty_message(
     state_topic_base: str,
     topic: str,
     model: str,
-    device_type: str = SENSOR,
+    device_type: str = "sensor",
     unit_of_measurement: str | None = None,
     device_class: str | None = None,
     state_class: str | None = None,
@@ -583,7 +578,7 @@ def modbus_sensor_availabilty_message(
     state_topic_base: str,
     topic: str,
     model: str,
-    device_type: str = SENSOR,
+    device_type: str = "sensor",
     unit_of_measurement: str | None = None,
     device_class: str | None = None,
     state_class: str | None = None,
@@ -620,7 +615,7 @@ def modbus_select_availabilty_message(
     state_topic_base: str,
     topic: str,
     model: str,
-    device_type: str = SELECT,
+    device_type: str = "select",
     options: list[str] | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,

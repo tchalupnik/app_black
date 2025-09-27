@@ -45,19 +45,15 @@ from boneio.const import (
     DALLAS,
     DS2482,
     EVENT_ENTITY,
-    ID,
     INPUT,
     IP,
     LED,
     LIGHT,
-    MQTT,
     NONE,
     ON,
     ONLINE,
-    OUTPUT,
     SENSOR,
     SWITCH,
-    TOPIC,
     VALVE,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
@@ -1153,31 +1149,6 @@ class Manager:
         """Send state after a delay."""
         await anyio.sleep(0.5)
         output.send_state()
-
-    async def handle_actions(self, actions: dict) -> None:
-        """Handle actions."""
-        for action in actions:
-            if action == MQTT:
-                topic = actions[action].get(TOPIC)
-                payload = actions[action].get("payload")
-                if topic and payload:
-                    self.message_bus.send_message(
-                        topic=topic, payload=payload, retain=False
-                    )
-            elif action == OUTPUT:
-                output_id = actions[action].get(ID)
-                output_action = actions[action].get("action")
-                output = self.outputs.get(output_id)
-                if output and output_action:
-                    _f = getattr(output, output_action)
-                    await _f()
-            elif action == COVER:
-                cover_id = actions[action].get(ID)
-                cover_action = actions[action].get("action")
-                cover = self.covers.get(cover_id)
-                if cover and cover_action:
-                    _f = getattr(cover, cover_action)
-                    await _f()
 
     def send_ha_autodiscovery(
         self,
