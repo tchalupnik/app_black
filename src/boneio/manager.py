@@ -1177,7 +1177,7 @@ class Manager:
         id: str,
         name: str,
         ha_type: str,
-        availability_msg_func: Callable,
+        availability_msg_func: Callable[..., BaseModel],
         topic_prefix: str | None = None,
         **kwargs,
     ) -> None:
@@ -1204,7 +1204,11 @@ class Manager:
         topic = f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
         self.config.mqtt.autodiscovery_messages.add_message(
-            message=MqttAutodiscoveryMessage(topic=topic, payload=payload),
+            message=MqttAutodiscoveryMessage(
+                topic=topic, payload=payload.model_dump(exclude_none=True)
+            ),
             type=ha_type,
         )
-        self.message_bus.send_message(topic=topic, payload=payload, retain=True)
+        self.message_bus.send_message(
+            topic=topic, payload=payload.model_dump_json(exclude_none=True), retain=True
+        )
