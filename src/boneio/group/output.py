@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+import anyio
+
 from boneio.config import OutputGroupConfig
 from boneio.const import COVER
 from boneio.events import EventBus, EventType
@@ -48,24 +50,26 @@ class OutputGroup:
             self.state = state
             self.send_state()
 
-    def turn_on(self) -> None:
+    async def turn_on(self) -> None:
         """Call turn on action."""
         self.state = "ON"
-        for x in self._group_members:
-            x.turn_on()
+        async with anyio.create_task_group() as tg:
+            for x in self._group_members:
+                tg.start_soon(x.turn_on)
 
-    def turn_off(self) -> None:
+    async def turn_off(self) -> None:
         """Call turn off action."""
         self.state = "OFF"
-        for x in self._group_members:
-            x.turn_off()
+        async with anyio.create_task_group() as tg:
+            for x in self._group_members:
+                tg.start_soon(x.turn_off)
 
-    def toggle(self) -> None:
+    async def toggle(self) -> None:
         """Call toggle action."""
         if self.state == "ON":
-            self.turn_off()
+            await self.turn_off()
         else:
-            self.turn_on()
+            await self.turn_on()
 
     def is_active(self) -> bool:
         """Is relay active."""

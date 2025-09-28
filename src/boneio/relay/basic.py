@@ -8,19 +8,23 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Literal
+from typing import Literal, Protocol
 
 import anyio
 from pydantic import BaseModel, ValidationError
 
 from boneio.config import OutputTypes
-from boneio.events import EventBus, OutputEvent, async_track_point_in_time, utcnow
+from boneio.events import EventBus, OutputEvent
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class TurnOnOrTurnOff(Protocol):
+    async def __call__(self, is_momentary_turn: bool = True) -> None: ...
 
 
 @dataclass
@@ -188,6 +192,7 @@ class BasicRelay(ABC):
     virtual_power_usage: float | None = None
     virtual_volume_flow_rate: float | None = None
     last_timestamp: float = field(init=False, default=0.0)
+    momentary_event: anyio.Event = field(init=False)
 
     def __post_init__(self) -> None:
         """Initialize Basic relay.
@@ -203,7 +208,6 @@ class BasicRelay(ABC):
             self.momentary_turn_on = None
             self.momentary_turn_off = None
         self.state: Literal["ON", "OFF"] = "ON" if self.restored_state else "OFF"
-        self.momentary_action = None
 
         # Subscribe to retained MQTT energy value
         self.virtual_energy_sensor = None
@@ -280,37 +284,53 @@ class BasicRelay(ABC):
             return self.interlock_manager.can_turn_on(self, self.interlock_groups)
         return True
 
-    def turn_on(self) -> None:
+    async def turn_on(self, is_momentary_turn: bool = True) -> None:
         """Turn on the relay asynchronously."""
         can_turn_on = self.check_interlock()
         if can_turn_on:
             _LOGGER.info("Turning on relay %s.", self.name)
             self._turn_on()
             self.state = "ON"
-            self._execute_momentary_turn(momentary_type="ON")
+            self.send_state()
+            if is_momentary_turn and self.momentary_turn_on is not None:
+                self.with_delay(self.turn_off, self.momentary_turn_on)
         else:
             _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             # Workaround for HA is sendind state ON/OFF without physically changing the relay.
             self.send_state(optimized_value="ON")
-            # await anyio.sleep(0.01)
-        self.send_state()
+            await anyio.sleep(0.01)
 
-    def turn_off(self) -> None:
+    async def turn_off(self, is_momentary_turn: bool = True) -> None:
         """Turn off the relay asynchronously."""
         _LOGGER.info("Turning off relay %s.", self.name)
         self._turn_off()
         self.state = "OFF"
-        self._execute_momentary_turn(momentary_type="OFF")
         self.send_state()
+        if is_momentary_turn and self.momentary_turn_off is not None:
+            self.with_delay(self.turn_on, self.momentary_turn_off)
 
-    def toggle(self) -> None:
+    async def with_delay(self, action: TurnOnOrTurnOff, delta: timedelta) -> None:
+        """Execute action after delay."""
+        self.momentary_event.set()
+        async with anyio.create_task_group() as tg:
+
+            async def delayed_action() -> None:
+                await anyio.sleep(delta.total_seconds())
+                await action(is_momentary_turn=False)
+
+            tg.start_soon(delayed_action)
+            self.momentary_event = anyio.Event()
+            await self.momentary_event.wait()
+            tg.cancel_scope.cancel()
+
+    async def toggle(self) -> None:
         """Toggle relay."""
         now = time.time()
         _LOGGER.debug("Toggle relay %s, state: %s, at %s.", self.name, self.state, now)
         if self.state == "ON":
-            self.turn_off()
+            await self.turn_off()
         else:
-            self.turn_on()
+            await self.turn_on()
 
     @abstractmethod
     def _turn_on(self) -> None:
@@ -321,33 +341,6 @@ class BasicRelay(ABC):
     def _turn_off(self) -> None:
         """Call turn off action."""
         raise NotImplementedError
-
-    def _execute_momentary_turn(self, momentary_type: Literal["ON", "OFF"]) -> None:
-        """Execute momentary action."""
-        if self.momentary_action:
-            _LOGGER.debug("Cancelling momentary action for %s", self.name)
-            self.momentary_action()
-        (action, delayed_action) = (
-            (self.turn_off, self.momentary_turn_on)
-            if momentary_type == "ON"
-            else (self.turn_on, self.momentary_turn_off)
-        )
-        if delayed_action is not None:
-            _LOGGER.debug(
-                "Applying momentary action for %s in %s",
-                self.name,
-                delayed_action,
-            )
-            self.momentary_action = async_track_point_in_time(
-                job=self._momentary_callback,
-                point_in_time=utcnow() + delayed_action,
-                action=action,
-            )
-
-    async def _momentary_callback(self, timestamp, action):
-        _LOGGER.info("Momentary callback at %s for output %s", timestamp, self.name)
-        await action(timestamp=timestamp)
-        self.momentary_action = None
 
     @abstractmethod
     def is_active(self) -> bool:

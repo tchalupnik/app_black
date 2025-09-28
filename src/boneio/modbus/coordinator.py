@@ -452,6 +452,8 @@ class ModbusCoordinator(AsyncUpdater, Filter):
             )
             return
         modbus_sensor = self.get_entity_by_name(entity)
+        if modbus_sensor is None:
+            raise ValueError("This sensor doesn't exist!")
         if modbus_sensor.write_address is None:
             _LOGGER.error("Modbus sensor %s has no write address", modbus_sensor.name)
             return

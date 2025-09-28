@@ -91,7 +91,6 @@ from boneio.helper.loader import (
 )
 from boneio.helper.onewire.onewire import OneWireAddress
 from boneio.helper.pcf8575 import PCF8575
-from boneio.helper.state_manager import CoverStateEntry
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.logger import configure_logger
@@ -589,26 +588,19 @@ class Manager:
                         _cover.update_config_times(cover_config)
                     continue
 
-                def state_save(value: CoverStateEntry) -> None:
-                    if cover_config.restore_state:
-                        self.state_manager.state.cover[_id] = value
-                        self.state_manager.save()
-
                 if cover_config.platform == "venetian":
                     if not cover_config.tilt_duration:
                         raise CoverConfigurationError(
                             "Tilt duration must be configured for tilt cover."
                         )
                     _LOGGER.debug("Configuring tilt cover %s", _id)
-                    state = self.state_manager.state.cover.get(
-                        _id, CoverStateEntry(position=100, tilt=100)
-                    )
                     cover = VenetianCover(
                         id=_id,
-                        config=cover_config,
-                        state_save=state_save,
+                        name=_id,
+                        actuator_activation_duration=cover_config.actuator_activation_duration,
+                        tilt_delta=cover_config.tilt_duration,
+                        state_manager=self.state_manager,
                         message_bus=self.message_bus,
-                        restored_state=state,
                         open_relay=open_relay,
                         close_relay=close_relay,
                         event_bus=self.event_bus,
@@ -617,34 +609,30 @@ class Manager:
                     availability_msg_func = ha_cover_with_tilt_availabilty_message
                 elif cover_config.platform == "time_based":
                     _LOGGER.debug("Configuring time-based cover %s", _id)
-                    state = self.state_manager.state.cover.get(
-                        _id, CoverStateEntry(position=100)
-                    )
                     cover = TimeBasedCover(
                         id=_id,
-                        config=cover_config,
-                        state_save=state_save,
+                        name=_id,
+                        state_manager=self.state_manager,
                         message_bus=self.message_bus,
-                        restored_state=state,
                         open_relay=open_relay,
                         close_relay=close_relay,
+                        open_time=cover_config.open_time,
+                        close_time=cover_config.close_time,
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
                     availability_msg_func = ha_cover_availabilty_message
                 elif cover_config.platform == "previous":
                     _LOGGER.debug("Configuring previous cover %s", _id)
-                    state = self.state_manager.state.cover.get(
-                        _id, CoverStateEntry(position=100)
-                    )
                     cover = PreviousCover(
                         id=_id,
-                        config=cover_config,
-                        state_save=state_save,
+                        name=_id,
+                        state_manager=self.state_manager,
                         message_bus=self.message_bus,
-                        restored_state=state,
                         open_relay=open_relay,
                         close_relay=close_relay,
+                        open_time=cover_config.open_time,
+                        close_time=cover_config.close_time,
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
@@ -942,11 +930,11 @@ class Manager:
                     duration,
                 )
                 if action.action_output == "toggle":
-                    output.toggle()
+                    await output.toggle()
                 elif action.action_output == "on":
-                    output.turn_on()
+                    await output.turn_on()
                 elif action.action_output == "off":
-                    output.turn_off()
+                    await output.turn_off()
                 else:
                     raise ValueError("Wrong action output type!")
             elif isinstance(action, CoverActionConfig):
@@ -1053,11 +1041,11 @@ class Manager:
                 if target_device is not None and target_device.output_type != NONE:
                     match relay_message.message:
                         case "ON":
-                            target_device.turn_on()
+                            await target_device.turn_on()
                         case "OFF":
-                            target_device.turn_off()
+                            await target_device.turn_off()
                         case "TOGGLE":
-                            target_device.toggle()
+                            await target_device.toggle()
                         case _:
                             assert_never(relay_message)
             elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
@@ -1102,11 +1090,11 @@ class Manager:
             if target_device is not None and target_device.output_type != NONE:
                 match mqtt_message.message:
                     case "ON":
-                        target_device.turn_on()
+                        await target_device.turn_on()
                     case "OFF":
-                        target_device.turn_off()
+                        await target_device.turn_off()
                     case "TOGGLE":
-                        target_device.toggle()
+                        await target_device.toggle()
                     case _:
                         assert_never(mqtt_message)
             else:

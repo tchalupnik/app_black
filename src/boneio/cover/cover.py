@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-import asyncio
 import logging
-import threading
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from boneio.const import COVER
+import anyio
+
 from boneio.events import CoverEvent, EventBus
-from boneio.helper.state_manager import CoverStateEntry
+from boneio.helper.state_manager import CoverStateEntry, StateManager
 from boneio.helper.util import strip_accents
 from boneio.models import CoverState, CoverStateOperation, CoverStateState
-from boneio.relay import MCPRelay
+from boneio.relay.basic import BasicRelay
 
 if TYPE_CHECKING:
     from boneio.message_bus.basic import MessageBus
@@ -57,71 +56,60 @@ class BaseCoverABC(ABC):
     async def run_cover(
         self,
         current_operation: CoverStateOperation,
-        target_position: float | None = None,
-        target_tilt: float | None = None,
+        target_position: int | None = None,
+        target_tilt: int | None = None,
     ) -> None:
         """This function is called to run cover after calling open, close, toggle, toggle_open, toggle_close, set_cover_position"""
 
     @abstractmethod
-    async def send_state(self) -> None:
+    def send_state(self) -> None:
         pass
 
 
+@dataclass
 class BaseCover(BaseCoverABC):
-    def __init__(
-        self,
-        id: str,
-        open_relay: MCPRelay,
-        close_relay: MCPRelay,
-        state_save: Callable[[CoverStateEntry], None],
-        open_time: timedelta,
-        close_time: timedelta,
-        event_bus: EventBus,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        position: int,
-    ) -> None:
-        self.id = id.replace(" ", "")
-        self.name = id
-        self.message_bus = message_bus
-        self._send_topic = f"{topic_prefix}/{COVER}/{strip_accents(self.id)}"
-        self._loop = asyncio.get_event_loop()
-        self._open_relay = open_relay
-        self._close_relay = close_relay
-        self._state_save = state_save
-        self._event_bus = event_bus
-        self._open_time = open_time.total_seconds() * 1000
-        self._close_time = close_time.total_seconds() * 1000
-        self.position = position
-        self.tilt: int = 0
-        self._initial_position = None
-        self.current_operation = CoverStateOperation.IDLE
+    id: str
+    name: str
+    open_relay: BasicRelay
+    close_relay: BasicRelay
+    state_manager: StateManager
+    open_time: timedelta
+    close_time: timedelta
+    event_bus: EventBus
+    message_bus: MessageBus
+    topic_prefix: str
+    restore_state: bool
 
-        self.timestamp = time.monotonic()
+    timestamp: float = field(init=False, default_factory=time.monotonic)
+    stop_event: anyio.Event = field(init=False)
+    current_operation: CoverStateOperation = CoverStateOperation.IDLE
+    position: int = 0
+    tilt: int = 0
 
-        self._last_update_time = 0
-        self._closed = position <= 0
+    def __post_init__(self) -> None:
+        state = self.state_manager.state.cover.get(self.id)
+        if state is not None:
+            self.position = state.position
+            if state.tilt is not None:
+                self.tilt = state.tilt
 
-        self._movement_thread: threading.Thread | None = None
-        self._stop_event = threading.Event()
-
-        self._event_bus.add_sigterm_listener(self.on_exit)
-
-        self._loop.call_soon_threadsafe(self._loop.call_later, 0.5, self.send_state)
+        self.id = self.id.replace(" ", "")
+        self.send_topic = f"{self.topic_prefix}/cover/{strip_accents(self.id)}"
+        self.event_bus.add_sigterm_listener(self.on_exit)
+        self.send_state()
 
     async def on_exit(self) -> None:
         """Stop on exit."""
         await self.stop(on_exit=True)
 
-    async def stop(self, on_exit=False) -> None:
-        if self._movement_thread and self._movement_thread.is_alive():
-            self._stop_event.set()
-            self._movement_thread.join(timeout=0.5)
-            self._open_relay.turn_off()
-            self._close_relay.turn_off()
-            self.current_operation = CoverStateOperation.IDLE
-            if not on_exit:
-                self.send_state()
+    async def stop(self, on_exit: bool = False) -> None:
+        self.stop_event.set()
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(self.open_relay.turn_off)
+            tg.start_soon(self.close_relay.turn_off)
+        self.current_operation = CoverStateOperation.IDLE
+        if not on_exit:
+            self.send_state()
 
     async def open(self) -> None:
         if self.position >= 100:
@@ -129,7 +117,7 @@ class BaseCover(BaseCoverABC):
         _LOGGER.info("Opening cover %s.", self.id)
         await self.run_cover(current_operation=CoverStateOperation.OPENING)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=CoverStateState.OPENING.value
+            topic=f"{self.send_topic}/state", payload=CoverStateState.OPENING.value
         )
 
     async def close(self) -> None:
@@ -138,7 +126,7 @@ class BaseCover(BaseCoverABC):
         _LOGGER.info("Closing cover %s.", self.id)
         await self.run_cover(current_operation=CoverStateOperation.CLOSING)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=CoverStateState.CLOSING.value
+            topic=f"{self.send_topic}/state", payload=CoverStateState.CLOSING.value
         )
 
     async def set_cover_position(self, position: int) -> None:
@@ -190,7 +178,7 @@ class BaseCover(BaseCoverABC):
             )
 
     def send_state(self) -> None:
-        self._event_bus.trigger_event(
+        self.event_bus.trigger_event(
             CoverEvent(
                 entity_id=self.id,
                 event_state=CoverState(
@@ -205,13 +193,17 @@ class BaseCover(BaseCoverABC):
             )
         )
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/state", payload=self.state.value
+            topic=f"{self.send_topic}/state", payload=self.state.value
         )
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/pos",
+            topic=f"{self.send_topic}/pos",
             payload={"position": self.position, "tilt": self.tilt},
         )
 
     def send_state_and_save(self) -> None:
         self.send_state()
-        self._state_save(CoverStateEntry(position=self.position))
+        if self.restore_state:
+            self.state_manager.state.cover[self.id] = CoverStateEntry(
+                position=self.position
+            )
+            self.state_manager.save()

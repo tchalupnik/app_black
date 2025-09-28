@@ -252,7 +252,7 @@ class EventBus:
                 _LOGGER.error("Error in sigterm listener %s: %s", target, e)
 
     def add_every_second_listener(
-        self, name: str, target: Callable[[], None]
+        self, name: str, target: Callable[[], Coroutine[Any, Any, None]]
     ) -> ListenerJob:
         """Add listener on every second job."""
         self.every_second_listeners[name] = ListenerJob(target=target)

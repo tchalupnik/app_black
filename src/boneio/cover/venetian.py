@@ -1,98 +1,62 @@
 from __future__ import annotations
 
 import logging
-import threading
 import time
 import typing
-from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import timedelta
+
+import anyio
+from anyio import Event
 
 from boneio.config import CoverConfig
 from boneio.cover.cover import BaseCover
-from boneio.helper.state_manager import CoverStateEntry
 from boneio.models import CoverDirection, CoverStateOperation
 
 if typing.TYPE_CHECKING:
-    from boneio.events import EventBus
-    from boneio.message_bus.basic import MessageBus
-    from boneio.relay import MCPRelay
+    pass
 
 _LOGGER = logging.getLogger(__name__)
-COVER_MOVE_UPDATE_INTERVAL = 50  # ms
-TILT_MOVE_UPDATE_INTERVAL = 10  # ms
 
 
+@dataclass(kw_only=True)
 class VenetianCover(BaseCover):
     """Time-based cover algorithm similar to ESPHome, with tilt support.
     Uses a dedicated thread for precise timing control of cover movement."""
 
-    def __init__(
-        self,
-        id: str,
-        config: CoverConfig,
-        open_relay: MCPRelay,
-        close_relay: MCPRelay,
-        state_save: Callable[[CoverStateEntry], None],
-        event_bus: EventBus,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        restored_state: CoverStateEntry,
-    ) -> None:
-        self._tilt_duration = (
-            config.tilt_duration.total_seconds() * 1000
-        )  # Czas trwania ruchu lameli
-        self._initial_tilt_position = None
-        self.actuator_activation_duration = config.actuator_activation_duration
+    initial_tilt_position: int | None = None
+    tilt_delta: timedelta
+    actuator_activation_duration: timedelta | None = None
 
-        position = int(restored_state.position)
-        # --- TILT ---
-        assert restored_state.tilt is not None, "Tilt cannot be None!"
-        self.tilt = int(restored_state.tilt)
-
-        self._last_tilt_update = 0.0
-
-        super().__init__(
-            id=id,
-            open_relay=open_relay,
-            close_relay=close_relay,
-            state_save=state_save,
-            open_time=config.open_time,
-            close_time=config.close_time,
-            event_bus=event_bus,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-            position=position,
-        )
-
-    def _move_cover(
+    async def _move_cover(
         self,
         direction: CoverDirection,
-        duration: float,
-        tilt_duration: float,
         target_position: int | None = None,
         target_tilt_position: int | None = None,
     ) -> None:
         """Moving cover in separate thread."""
+        tilt_duration = self.tilt_delta.total_seconds() * 1000
         tilt_delta = (
-            abs(self._initial_tilt_position - target_tilt_position)
+            abs(self.initial_tilt_position - target_tilt_position)
             if target_tilt_position is not None
             else 0
         )
         if direction == CoverDirection.OPEN:
-            relay = self._open_relay
-            total_steps = 100 - self._position
+            relay = self.open_relay
+            total_steps = 100 - self.position
             total_tilt_step = (
                 tilt_delta
                 if target_tilt_position is not None
-                else 100 - self._initial_tilt_position
+                else 100 - self.initial_tilt_position
             )
 
         elif direction == CoverDirection.CLOSE:
-            relay = self._close_relay
-            total_steps = self._position
+            relay = self.close_relay
+            total_steps = self.position
             total_tilt_step = (
                 tilt_delta
                 if target_tilt_position is not None
-                else self._initial_tilt_position
+                else self.initial_tilt_position
             )
         else:
             raise ValueError(f"Wrong direction {direction}!")
@@ -102,12 +66,12 @@ class VenetianCover(BaseCover):
             else:
                 total_steps = 1
 
-        if total_steps == 0 or duration == 0:
-            self._current_operation = CoverStateOperation.IDLE
-            self._loop.call_soon_threadsafe(self.send_state)
+        if total_steps == 0 or tilt_duration == 0:
+            self.current_operation = CoverStateOperation.IDLE
+            self.send_state()
             return
 
-        relay.turn_on()
+        await relay.turn_on()
         start_time = time.monotonic()
         progress = 0.0
         tilt_progress = 0.0
@@ -115,58 +79,50 @@ class VenetianCover(BaseCover):
         if target_tilt_position is None:
             tilt_delta = 1.0
 
-        while not self._stop_event.is_set():
-            current_time = (
-                time.monotonic()
-            )  # Pobierz aktualny czas tylko raz na iterację
-            elapsed_time = (
-                current_time - start_time
-            ) * 1000  # Konwersja na milisekundy
+        while not self.stop_event.is_set():
+            current_time = time.monotonic()
+            elapsed_time = (current_time - start_time) * 1000
 
             if elapsed_time < needed_tilt_duration:
                 tilt_progress = elapsed_time / needed_tilt_duration
                 progress = 0.0
             else:
                 tilt_progress = 1.0
-                progress = (elapsed_time - needed_tilt_duration) / duration
+                progress = (elapsed_time - needed_tilt_duration) / tilt_duration
 
             if direction == CoverDirection.OPEN:
-                # Obliczanie _position dla kierunku OPEN
-                self._position = min(100.0, self._initial_position + progress * 100)
+                self.position = min(100.0, self.initial_position + progress * 100)
 
-                # Obliczanie _tilt_position dla kierunku OPEN
                 if target_tilt_position is not None:
                     self.tilt = min(
                         target_tilt_position,
-                        self._initial_tilt_position + tilt_progress * tilt_delta,
+                        self.initial_tilt_position + tilt_progress * tilt_delta,
                     )
-                else:  # Fallback jeśli nie ma target_tilt_position
+                else:
                     self.tilt = min(
                         100.0,
-                        self._initial_tilt_position
-                        + tilt_progress * (100 - self._initial_tilt_position),
+                        self.initial_tilt_position
+                        + tilt_progress * (100 - self.initial_tilt_position),
                     )
             elif direction == CoverDirection.CLOSE:
-                # Obliczanie _position dla kierunku CLOSE
-                self._position = max(0.0, self._initial_position - progress * 100)
+                self._position = max(0.0, self.initial_position - progress * 100)
 
-                # Obliczanie _tilt_position dla kierunku CLOSE
                 if target_tilt_position is not None:
                     self.tilt = max(
                         target_tilt_position,
-                        self._initial_tilt_position - tilt_progress * tilt_delta,
+                        self.initial_tilt_position - tilt_progress * tilt_delta,
                     )
-                else:  # Fallback jeśli nie ma target_tilt_position
+                else:
                     self.tilt = max(
                         0.0,
-                        self._initial_tilt_position
-                        - tilt_progress * self._initial_tilt_position,
+                        self.initial_tilt_position
+                        - tilt_progress * self.initial_tilt_position,
                     )
 
-            self.timestamp = current_time  # Użyj pobranego czasu
-            if current_time - self._last_update_time >= 1:
-                self._loop.call_soon_threadsafe(self.send_state)
-                self._last_update_time = current_time
+            self.timestamp = current_time
+            if current_time - self.last_update_time >= 1:
+                self.send_state()
+                self.last_update_time = current_time
 
             if target_tilt_position is not None:
                 if (
@@ -195,15 +151,13 @@ class VenetianCover(BaseCover):
                 target_tilt_position is not None
                 and abs(self.tilt - target_tilt_position) < 5
             ):
-                time.sleep(0.01)
+                await anyio.sleep(0.01)
             else:
-                time.sleep(0.05)
-        relay.turn_off()
-        self._current_operation = CoverStateOperation.IDLE
-        self._loop.call_soon_threadsafe(self.send_state_and_save)
-        self._last_update_time = (
-            time.monotonic()
-        )  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
+                await anyio.sleep(0.05)
+        await relay.turn_off()
+        self.current_operation = CoverStateOperation.IDLE
+        self.send_state_and_save()
+        self.last_update_time = time.monotonic()
 
     async def set_tilt(self, tilt_position: int) -> None:
         """Setting tilt position."""
@@ -238,7 +192,7 @@ class VenetianCover(BaseCover):
         self.actuator_activation_duration = (
             config.actuator_activation_duration or self.actuator_activation_duration
         )
-        self._tilt_duration = config.tilt_duration or self._tilt_duration
+        self.tilt_delta = config.tilt_duration or self.tilt_delta
 
     async def run_cover(
         self,
@@ -246,39 +200,30 @@ class VenetianCover(BaseCover):
         target_position: int | None = None,
         target_tilt_position: int | None = None,
     ) -> None:
-        if self._movement_thread and self._movement_thread.is_alive():
+        if (
+            not self.stop_event.is_set()
+            or current_operation == CoverStateOperation.STOP
+        ):
             _LOGGER.warning("Cover movement is already in progress. Stopping first.")
             await self.stop()
 
-        self._current_operation = current_operation
-        self._initial_position = self._position
-        self._initial_tilt_position = self.tilt
-        self._stop_event.clear()
-        self._last_update_time = (
-            time.monotonic()
-        )  # Inicjalizacja czasu ostatniej aktualizacji
+        self.current_operation = current_operation
+        self.initial_position = self.position
+        self.initial_tilt_position = self.tilt
+        self.stop_event = Event()
+        self.last_update_time = time.monotonic()
 
         if current_operation == CoverStateOperation.OPENING:
-            self._movement_thread = threading.Thread(
-                target=self._move_cover,
-                args=(
-                    CoverDirection.OPEN,
-                    self._open_time,
-                    self._tilt_duration,
-                    target_position,
-                    target_tilt_position,
-                ),
+            await self._move_cover(
+                CoverDirection.OPEN,
+                self.open_time,
+                target_position,
+                target_tilt_position,
             )
-            self._movement_thread.start()
         elif current_operation == CoverStateOperation.CLOSING:
-            self._movement_thread = threading.Thread(
-                target=self._move_cover,
-                args=(
-                    CoverDirection.CLOSE,
-                    self._close_time,
-                    self._tilt_duration,
-                    target_position,
-                    target_tilt_position,
-                ),
+            await self._move_cover(
+                CoverDirection.CLOSE,
+                self.close_time,
+                target_position,
+                target_tilt_position,
             )
-            self._movement_thread.start()
