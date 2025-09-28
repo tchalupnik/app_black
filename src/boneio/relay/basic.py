@@ -192,7 +192,7 @@ class BasicRelay(ABC):
     virtual_power_usage: float | None = None
     virtual_volume_flow_rate: float | None = None
     last_timestamp: float = field(init=False, default=0.0)
-    momentary_event: anyio.Event = field(init=False)
+    momentary_event: anyio.Event = field(init=False, default_factory=anyio.Event)
 
     def __post_init__(self) -> None:
         """Initialize Basic relay.
