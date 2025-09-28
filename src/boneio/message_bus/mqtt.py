@@ -166,8 +166,8 @@ class MQTTClient(MessageBus):
                     ),
                     clean_session=True,
                 ) as client:
+                    this = cls(tg, client, config)
                     try:
-                        this = cls(tg, client, config)
                         yield this
                     finally:
                         _LOGGER.info("Cleaning up MQTT...")
@@ -235,6 +235,14 @@ class MQTTClient(MessageBus):
         """State of MQTT Client."""
         return self.connection_established
 
+    async def announce_offline(self) -> None:
+        """Announce that the device is offline."""
+        await self._publish(
+            topic=f"{self.config.topic_prefix}/state",
+            payload="offline",
+            retain=True,
+        )
+
     async def _publish(
         self,
         topic: str,
@@ -294,11 +302,3 @@ class MQTTClient(MessageBus):
             ] = await self.publish_queue.get()
             await self._publish(*to_publish)
             self.publish_queue.task_done()
-
-    async def _announce_offline(self) -> None:
-        """Announce that the device is offline."""
-        await self._publish(
-            topic=f"{self.config.topic_prefix}/state",
-            payload="offline",
-            retain=True,
-        )

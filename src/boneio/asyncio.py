@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import signal
-import threading
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
@@ -16,11 +15,6 @@ class CommandInterrupted(ClickException):
 
 
 async def handle_signals(msg: str) -> None:
-    if threading.main_thread() != threading.current_thread():
-        # not running in main thread. Happens in gui.
-        # Don't need signal handlers in gui; it handles signals itself
-        return
-
     with anyio.open_signal_receiver(signal.SIGINT, signal.SIGTERM) as signals:
         async for signum in signals:
             signame = signal.Signals(signum).name
