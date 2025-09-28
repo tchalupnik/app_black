@@ -25,7 +25,10 @@ _T = TypeVar("_T")
 
 
 def asyncio_run(
-    handler: Callable[..., Coroutine[Any, Any, _T]], **kwargs: object
+    handler: Callable[..., Coroutine[Any, Any, _T]],
+    *,
+    backend_options,
+    **kwargs: object,
 ) -> _T:
     async def fun() -> _T:
         def asyncio_loop_exception_handler(
@@ -44,4 +47,4 @@ def asyncio_run(
         except* CommandInterrupted:
             pass
 
-    return asyncio.run(fun())
+    return anyio.run(fun, backend_options=backend_options)

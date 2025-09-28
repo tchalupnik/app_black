@@ -113,8 +113,8 @@ def run(
             mqttpassword=mqttpassword,
             debug=debug,
             dry=dry,
+            backend_options=backend_options,
         )
-        # backend_options=backend_options,
         _LOGGER.info("BoneIO %s exiting.", __version__)
         if ret != 0:
             raise typer.Exit(ret)
