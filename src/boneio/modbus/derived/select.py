@@ -3,6 +3,7 @@ from __future__ import annotations
 from boneio.config import Config, ModbusDeviceData
 from boneio.const import ID, MODEL, NAME, SELECT, SENSOR
 from boneio.helper.ha_discovery import (
+    HaModbusMessage,
     modbus_select_availabilty_message,
 )
 from boneio.helper.util import find_key_by_value
@@ -42,26 +43,22 @@ class ModbusDerivedSelect(BaseSensor):
         """Give rounded value of temperature."""
         return self._value or ""
 
-    def discovery_message(self) -> dict:
-        kwargs = {
-            "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
-            "entity_id": self.name,
-            "options": [*self._value_mapping.values()],
-            "command_topic": f"{self.config.get_topic_prefix()}/cmd/modbus/{self._parent[ID].lower()}/set",
-            "command_template": '{"device": "'
-            + self.decoded_name
-            + '", "value": "{{ value }}"}',
-        }
-        msg = modbus_select_availabilty_message(
+    def discovery_message(self) -> HaModbusMessage:
+        return modbus_select_availabilty_message(
             topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
             device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
-            **kwargs,
+            value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
+            entity_id=self.name,
+            options=[*self._value_mapping.values()],
+            command_topic=f"{self.config.get_topic_prefix()}/cmd/modbus/{self._parent[ID].lower()}/set",
+            command_template='{"device": "'
+            + self.decoded_name
+            + '", "value": "{{ value }}"}',
         )
-        return msg
 
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float

@@ -6,7 +6,10 @@ import time
 from boneio.config import Config, Filters, MqttAutodiscoveryMessage
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.filter import Filter
-from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
+from boneio.helper.ha_discovery import (
+    HaModbusMessage,
+    modbus_sensor_availabilty_message,
+)
 from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
@@ -89,33 +92,29 @@ class BaseSensor(Filter):
             self._parent[ID],
         )
         self.config.mqtt.autodiscovery_messages.add_message(
-            message=MqttAutodiscoveryMessage(payload=payload, topic=self._topic),
+            message=MqttAutodiscoveryMessage(
+                payload=payload.model_dump(), topic=self._topic
+            ),
             type=self._ha_type_,
         )
         self._message_bus.send_message(topic=self._topic, payload=payload)
 
-    def discovery_message(self) -> dict:
-        value_template = (
-            f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}"
-            if self._ha_filter
-            else f"{{{{ value_json.{self.decoded_name} }}}}"
-        )
-
-        kwargs = {
-            "unit_of_measurement": self.unit_of_measurement,
-            "state_class": self._state_class,
-            "value_template": value_template,
-            "sensor_id": self.name,
-        }
-        if self._device_class:
-            kwargs["device_class"] = self._device_class
+    def discovery_message(self) -> HaModbusMessage:
         return modbus_sensor_availabilty_message(
             topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
-            **kwargs,
+            device_class=self._device_class,
+            unit_of_measurement=self.unit_of_measurement,
+            state_class=self._state_class,
+            value_template=(
+                f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}"
+                if self._ha_filter
+                else f"{{{{ value_json.{self.decoded_name} }}}}"
+            ),
+            sensor_id=self.name,
         )
 
     def encode_value(self, value: int | float) -> int:

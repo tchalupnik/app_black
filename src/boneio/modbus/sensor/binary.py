@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from boneio.config import Config
 from boneio.const import BINARY_SENSOR, ID, MODEL, NAME, SENSOR
-from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
+from boneio.helper.ha_discovery import (
+    HaModbusMessage,
+    modbus_numeric_availabilty_message,
+)
 from boneio.message_bus.basic import MessageBus
 
 from .base import ModbusBaseSensor
@@ -54,14 +57,7 @@ class ModbusBinarySensor(ModbusBaseSensor):
         self._payload_off = payload_off
         self._payload_on = payload_on
 
-    def discovery_message(self) -> dict:
-        value_template = f"{{{{ value_json.{self.decoded_name} }}}}"
-        kwargs = {
-            "value_template": value_template,
-            "entity_id": self.name,
-            "payload_off": self._payload_off,
-            "payload_on": self._payload_on,
-        }
+    def discovery_message(self) -> HaModbusMessage:
         msg = modbus_numeric_availabilty_message(
             topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
@@ -69,6 +65,9 @@ class ModbusBinarySensor(ModbusBaseSensor):
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
             device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
-            **kwargs,
+            value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
+            entity_id=self.name,
+            payload_off=self._payload_off,
+            payload_on=self._payload_on,
         )
         return msg

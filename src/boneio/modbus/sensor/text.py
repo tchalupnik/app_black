@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from boneio.config import Config
 from boneio.const import ID, MODEL, NAME, SENSOR
-from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
+from boneio.helper.ha_discovery import (
+    HaModbusMessage,
+    modbus_sensor_availabilty_message,
+)
 from boneio.message_bus.basic import MessageBus
 
 from .base import BaseSensor
@@ -82,16 +85,13 @@ class ModbusTextSensor(BaseSensor):
         self._timestamp = timestamp
         self._value = self._value_mapping.get(str(value), "Unknown")
 
-    def discovery_message(self) -> dict:
-        kwargs = {
-            "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
-            "sensor_id": self.name,
-        }
+    def discovery_message(self) -> HaModbusMessage:
         return modbus_sensor_availabilty_message(
             topic=self.config.get_topic_prefix(),
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
-            **kwargs,
+            value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
+            sensor_id=self.name,
         )
