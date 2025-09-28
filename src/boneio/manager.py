@@ -1040,29 +1040,42 @@ class Manager:
             relay_message = mqtt_message.root
             if isinstance(relay_message, RelaySetMqttMessage):
                 target_device = self.outputs.get(relay_message.device_id)
-                if target_device is not None and target_device.output_type != NONE:
-                    match relay_message.message:
-                        case "ON":
-                            await target_device.turn_on()
-                        case "OFF":
-                            await target_device.turn_off()
-                        case "TOGGLE":
-                            await target_device.toggle()
-                        case _:
-                            assert_never(relay_message)
+                if target_device is None or target_device.output_type == NONE:
+                    _LOGGER.warning(
+                        "This relay %s doesn't exist.", relay_message.device_id
+                    )
+                    return
+                match relay_message.message:
+                    case "ON":
+                        await target_device.turn_on()
+                    case "OFF":
+                        await target_device.turn_off()
+                    case "TOGGLE":
+                        await target_device.toggle()
+                    case _:
+                        assert_never(relay_message)
             elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
                 target_device = self.outputs.get(relay_message.device_id)
-                if (
+                if not (
                     isinstance(target_device, PWMPCA)
                     and target_device.output_type != NONE
                 ):
-                    target_device.set_brightness(relay_message.message)
+                    _LOGGER.warning(
+                        "This relay %s doesn't exist or is not PWM.",
+                        relay_message.device_id,
+                    )
+                    return
+                target_device.set_brightness(relay_message.message)
             else:
                 assert_never(relay_message)
         elif isinstance(mqtt_message, CoverMqttMessage):
             cover_message = mqtt_message.root
             cover = self.covers.get(cover_message.device_id)
             if cover is None:
+                _LOGGER.warning(
+                    "This cover %s doesn't exist. Ignoring message.",
+                    cover_message.device_id,
+                )
                 return
             if isinstance(cover_message, CoverSetMqttMessage):
                 match cover_message.message:
