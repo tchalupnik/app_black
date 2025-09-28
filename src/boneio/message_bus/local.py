@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 import anyio
 import anyio.abc
 
+from boneio.message_bus.basic import ReceiveMessage
+
 if TYPE_CHECKING:
     pass
 
@@ -42,15 +44,9 @@ class LocalMessageBus(MessageBus):
                 except Exception as e:
                     _LOGGER.error("Error in local message callback: %s", e)
 
-    async def subscribe(self, topic: str, callback: Callable) -> None:
+    async def subscribe(self, receive_message: ReceiveMessage) -> None:
         """Subscribe to a topic."""
-        if topic not in self._subscribers:
-            self._subscribers[topic] = set()
-        self._subscribers[topic].add(callback)
-
-        # Send retained value if exists
-        if topic in self._retain_values:
-            self._tg.start_soon(callback, topic, self._retain_values[topic])
+        # TODO!
 
     @classmethod
     @asynccontextmanager
@@ -64,7 +60,6 @@ class LocalMessageBus(MessageBus):
                 yield this
             except BaseException:
                 tg.cancel_scope.cancel()
-                raise
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""

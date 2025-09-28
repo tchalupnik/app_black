@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, Protocol
+
+
+class ReceiveMessage(Protocol):
+    async def __call__(self, topic: str, payload: str) -> None: ...
 
 
 class MessageBus(ABC):

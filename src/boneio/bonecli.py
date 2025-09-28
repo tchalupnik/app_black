@@ -92,15 +92,35 @@ def run(
     ] = False,
 ) -> None:
     """Run BoneIO."""
-    exit_code = run_boneio(
-        config_file_path=Path(config).resolve(),
-        mqttusername=mqttusername,
-        mqttpassword=mqttpassword,
-        debug=debug,
-        dry=dry,
-    )
-    if exit_code != 0:
-        raise typer.Exit(exit_code)
+    from boneio.asyncio import asyncio_run
+    from boneio.runner import start
+    from boneio.yaml import ConfigurationError, load_config
+
+    config_file_path = Path(config).resolve()
+
+    setup_logging(debug_level=debug)
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        config_parsed = load_config(config_file_path=config_file_path)
+        backend_options = {}
+        if debug >= 2:
+            backend_options["debug"] = True
+        ret = asyncio_run(
+            start,
+            config=config_parsed,
+            config_file_path=config_file_path,
+            mqttusername=mqttusername,
+            mqttpassword=mqttpassword,
+            debug=debug,
+            dry=dry,
+        )
+        # backend_options=backend_options,
+        _LOGGER.info("BoneIO %s exiting.", __version__)
+        if ret != 0:
+            raise typer.Exit(ret)
+    except (ConfigurationError, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        raise typer.Exit(1)
 
 
 @modbus_app.command("set")
@@ -270,44 +290,6 @@ def main_callback(
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit(0)
-
-
-def run_boneio(
-    config_file_path: Path,
-    debug: int,
-    mqttusername: str | None = None,
-    mqttpassword: str | None = None,
-    dry: bool = False,
-) -> int:
-    """Run BoneIO."""
-    from boneio.runner import async_run
-    from boneio.yaml import ConfigurationError, load_config
-
-    setup_logging(debug_level=debug)
-    _LOGGER.info("BoneIO %s starting.", __version__)
-    try:
-        config = load_config(config_file_path=config_file_path)
-        backend_options = {}
-        if debug >= 2:
-            backend_options["debug"] = True
-        ret = anyio.run(
-            lambda: async_run(
-                config,
-                config_file_path,
-                mqttusername,
-                mqttpassword,
-                debug,
-                dry,
-            ),
-            backend_options=backend_options,
-        )
-        _LOGGER.info("BoneIO %s exiting.", __version__)
-        return ret
-    except KeyboardInterrupt:
-        return 0
-    except (ConfigurationError, MarkedYAMLError) as err:
-        _LOGGER.error("Failed to load config. %s Exiting.", err)
-        return 1
 
 
 def run_modbus_set_helper(
