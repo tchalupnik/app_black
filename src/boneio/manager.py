@@ -603,6 +603,7 @@ class Manager:
                         message_bus=self.message_bus,
                         open_relay=open_relay,
                         close_relay=close_relay,
+                        restore_state=cover_config.restore_state,
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
@@ -618,6 +619,7 @@ class Manager:
                         close_relay=close_relay,
                         open_time=cover_config.open_time,
                         close_time=cover_config.close_time,
+                        restore_state=cover_config.restore_state,
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
@@ -633,6 +635,7 @@ class Manager:
                         close_relay=close_relay,
                         open_time=cover_config.open_time,
                         close_time=cover_config.close_time,
+                        restore_state=cover_config.restore_state,
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
@@ -705,7 +708,6 @@ class Manager:
     def append_task(
         self, coro: Coroutine[None, None, None], name: str = "Unknown"
     ) -> None:
-        """Add task to run with asyncio loop."""
         _LOGGER.debug("Appending update task for %s", name)
         self.tg.start_soon(coro)
 

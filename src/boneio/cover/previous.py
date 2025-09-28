@@ -35,7 +35,7 @@ class RelayHelper:
         self.steps = 100 / time.total_seconds()
 
 
-@dataclass()
+@dataclass
 class PreviousCover:
     """Cover class of boneIO"""
 
