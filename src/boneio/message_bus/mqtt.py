@@ -152,33 +152,36 @@ class MqttMessageBus(MessageBus):
         reconnect_interval: int = 1
 
         async with anyio.create_task_group() as tg:
-            try:
-                async with aiomqtt.Client(
-                    config.host,
-                    config.port,
-                    username=config.username,
-                    password=config.password,
-                    will=Will(
-                        topic=f"{config.topic_prefix}/state",
-                        payload="offline",
-                        qos=0,
-                        retain=False,
-                    ),
-                    clean_session=True,
-                ) as client:
-                    this = cls(tg, client, config)
-                    try:
-                        yield this
-                    finally:
-                        _LOGGER.info("Cleaning up MQTT...")
-                        await this.announce_offline()
-                        tg.cancel_scope.cancel()
-            except MqttError as err:
-                _LOGGER.error(
-                    "MQTT error: %s. Reconnecting in %s seconds",
-                    err,
-                    reconnect_interval,
-                )
+            while True:
+                try:
+                    async with aiomqtt.Client(
+                        config.host,
+                        config.port,
+                        username=config.username,
+                        password=config.password,
+                        will=Will(
+                            topic=f"{config.topic_prefix}/state",
+                            payload="offline",
+                            qos=0,
+                            retain=False,
+                        ),
+                        clean_session=True,
+                    ) as client:
+                        this = cls(tg, client, config)
+                        try:
+                            yield this
+                        finally:
+                            _LOGGER.info("Cleaning up MQTT...")
+                            await this.announce_offline()
+                            tg.cancel_scope.cancel()
+                except MqttError as err:
+                    _LOGGER.error(
+                        "MQTT error: %s. Reconnecting in %s seconds",
+                        err,
+                        reconnect_interval,
+                    )
+                    await anyio.sleep(reconnect_interval)
+                    reconnect_interval = reconnect_interval * 2
 
     async def subscribe(self, receive_messages: ReceiveMessage) -> None:
         """Connect and subscribe to manager topics + host stats."""
