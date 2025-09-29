@@ -3,66 +3,72 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import anyio
 import anyio.abc
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 
 from boneio.message_bus.basic import ReceiveMessage
 
 if TYPE_CHECKING:
     pass
 
-from boneio.const import ONLINE, STATE
 from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
 class LocalMessageBus(MessageBus):
     """Local message bus that doesn't use MQTT."""
 
-    def __init__(self, tg: anyio.abc.TaskGroup) -> None:
-        """Initialize local message bus."""
-        _LOGGER.info("Starting LOCAL message bus!")
-        self._tg = tg
-        self.connection_established = True
-        self._subscribers: dict[str, set[Callable]] = {}
-        self._retain_values: dict[str, str | dict] = {}
+    tg: anyio.abc.TaskGroup
+    send_stream: MemoryObjectSendStream[tuple[str, str | dict[str, Any]]]
+    receive_stream: MemoryObjectReceiveStream[tuple[str, str | dict[str, Any]]]
+    connection_established: bool = True
+    _subscribers: dict[str, set[Callable]] = field(default_factory=dict)
 
     def send_message(
         self, topic: str, payload: str | dict, retain: bool = False
     ) -> None:
         """Route message locally."""
-        if retain:
-            self._retain_values[topic] = payload
-
-        if topic in self._subscribers:
-            for callback in self._subscribers[topic]:
-                try:
-                    self._tg.start_soon(callback, topic, payload)
-                except Exception as e:
-                    _LOGGER.error("Error in local message callback: %s", e)
+        self.tg.start_soon(self.send_stream.send, (topic, payload))
 
     async def subscribe(self, receive_message: ReceiveMessage) -> None:
         """Subscribe to a topic."""
-        # TODO!
+
+        async def _message_processor() -> None:
+            async for topic, payload in self.receive_stream:
+                _LOGGER.debug("Received message on topic %s: %s", topic, payload)
+                if not topic.startswith("boneio/boneio"):
+                    continue
+                await receive_message(topic, payload)
+
+        self.tg.start_soon(_message_processor)
 
     @classmethod
     @asynccontextmanager
     async def create(cls) -> AsyncGenerator[LocalMessageBus]:
+        _LOGGER.info("Starting LOCAL message bus!")
         async with anyio.create_task_group() as tg:
-            this = cls(tg)
+            send_stream, receive_stream = anyio.create_memory_object_stream[
+                tuple[str, str | dict[str, Any]]
+            ]()
+            this = cls(tg, send_stream, receive_stream)
             """Keep the event loop alive and process any periodic tasks."""
             _LOGGER.info("Sending online state.")
-            this.send_message(topic=f"boneio/{STATE}", payload=ONLINE, retain=True)
+            this.send_message(topic="boneio/state", payload="online", retain=True)
             try:
                 yield this
-            except BaseException:
+            finally:
                 tg.cancel_scope.cancel()
 
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
+        _LOGGER.info("Sending offline state.")
+        self.send_message(topic="boneio/state", payload="offline", retain=True)
 
     def is_connection_established(self) -> bool:
         return self.connection_established

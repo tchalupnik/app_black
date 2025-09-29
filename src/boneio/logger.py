@@ -8,7 +8,6 @@ from pathlib import Path
 from colorlog import ColoredFormatter
 
 from boneio.config import LoggerConfig
-from boneio.const import PAHO, PYMODBUS
 from boneio.version import __version__
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,14 +31,14 @@ def configure_logger(debug: int, log_config: LoggerConfig | None = None) -> None
             logging.getLogger().setLevel(logging.INFO)
         if debug > 0:
             logging.getLogger().setLevel(logging.DEBUG)
-            logging.getLogger(PAHO).setLevel(logging.WARN)
-            logging.getLogger(PYMODBUS).setLevel(logging.WARN)
+            logging.getLogger("mqtt").setLevel(logging.WARN)
+            logging.getLogger("pymodbus").setLevel(logging.WARN)
             logging.getLogger("pymodbus.client").setLevel(logging.WARN)
             _LOGGER.info("Debug mode active")
             _LOGGER.debug("Lib version is %s", __version__)
         if debug > 1:
-            logging.getLogger(PAHO).setLevel(logging.DEBUG)
-            logging.getLogger(PYMODBUS).setLevel(logging.DEBUG)
+            logging.getLogger("mqtt").setLevel(logging.DEBUG)
+            logging.getLogger("pymodbus").setLevel(logging.DEBUG)
             logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
             logging.getLogger("hypercorn.error").setLevel(logging.DEBUG)
 

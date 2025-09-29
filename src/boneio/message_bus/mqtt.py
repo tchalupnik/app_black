@@ -198,7 +198,7 @@ class MqttMessageBus(MessageBus):
 
         topics = (
             [
-                self.config.subscribe_topic(),
+                f"{self.config.topic_prefix}/cmd/+/+/#",
                 "homeassistant/status",
             ]
             + list(self._mqtt_energy_listeners.keys())
@@ -214,6 +214,7 @@ class MqttMessageBus(MessageBus):
         self, topic: str, callback: Callable[[str], Coroutine[Any, Any, None]]
     ) -> None:
         await self.client.subscribe(topic=topic)
+        # TODO: why does it especially say energy listener here?
         self._mqtt_energy_listeners[topic] = callback
 
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:

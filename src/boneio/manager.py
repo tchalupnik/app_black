@@ -51,7 +51,6 @@ from boneio.const import (
     LIGHT,
     NONE,
     ON,
-    ONLINE,
     SENSOR,
     SWITCH,
     VALVE,
@@ -1016,22 +1015,26 @@ class Manager:
         return "not_found"
 
     async def receive_message(self, topic: str, message: str) -> None:
-        """Callback for receiving action from Mqtt."""
+        """Callback for receiving action from message bus."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
 
         if topic.startswith(
             f"{self.config.get_ha_autodiscovery_topic_prefix()}/status"
         ):
-            if message == ONLINE:
+            if message == "online":
                 for msg in self.config.mqtt.autodiscovery_messages.root.values():
-                    self.message_bus.send_message(**msg.model_dump(), retain=True)
+                    self.message_bus.send_message(
+                        topic=msg.topic, payload=msg.payload, retain=True
+                    )
 
                 self.event_bus.signal_ha_online()
             return
-        if not topic.startswith(self.config.mqtt.cmd_topic_prefix()):
+        if not topic.startswith(f"{self.config.get_topic_prefix()}/cmd/"):
             _LOGGER.error("Wrong topic %s!", topic)
             return
-        topic_parts_raw = topic[len(self.config.mqtt.cmd_topic_prefix()) :].split("/")
+        topic_parts_raw = topic[len(f"{self.config.get_topic_prefix()}/cmd/") :].split(
+            "/"
+        )
         mqtt_message = (
             TypeAdapter(MqttMessage)
             .validate_python(

@@ -1,7 +1,4 @@
-BONEIO = "boneio"
-
 # MISCELLANEOUS CONSTS
-RELAY = "relay"
 LED = "led"
 ON = "ON"
 STATE = "state"
@@ -15,12 +12,6 @@ IP = "ip"
 MASK = "mask"
 MAC = "mac"
 NONE = "none"
-MODBUS = "modbus"
-MODBUS_SENSOR = "modbus_sensor"
-UART = "uart"
-RX = "rx"
-TX = "tx"
-RESTORE_STATE = "restore_state"
 MODEL = "model"
 
 # OLED CONST
@@ -33,7 +24,6 @@ CPU = "cpu"
 DISK = "disk"
 MEMORY = "memory"
 SWAP = "swap"
-WHITE = "white"
 
 # INPUT CONST
 INPUT = "input"
@@ -45,8 +35,6 @@ RELEASED = "released"
 
 
 # MQTT CONST
-PAHO = "paho.mqtt.client"
-PYMODBUS = "pymodbus"
 ONLINE = "online"
 OFFLINE = "offline"
 

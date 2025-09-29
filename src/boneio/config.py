@@ -5,21 +5,6 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, Discriminator, Field, RootModel, field_validator
 
-from boneio.const import (
-    BINARY_SENSOR,
-    BONEIO,
-    BUTTON,
-    COVER,
-    EVENT_ENTITY,
-    LIGHT,
-    NUMERIC,
-    SELECT,
-    SENSOR,
-    SWITCH,
-    TEXT_SENSOR,
-    VALVE,
-)
-
 
 class MqttHADiscoveryConfig(BaseModel):
     enabled: bool = True
@@ -103,17 +88,17 @@ class MqttAutodiscoveryMessages(
 ):
     def model_post_init(self, __context: Any) -> None:
         for type in (
-            SWITCH,
-            LIGHT,
-            BINARY_SENSOR,
-            SENSOR,
-            COVER,
-            BUTTON,
-            EVENT_ENTITY,
-            VALVE,
-            TEXT_SENSOR,
-            SELECT,
-            NUMERIC,
+            "switch",
+            "light",
+            "binary_sensor",
+            "sensor",
+            "cover",
+            "button",
+            "event",
+            "valve",
+            "text_sensor",
+            "select",
+            "numeric",
         ):
             if type not in self.root:
                 self.root[type] = {}
@@ -144,12 +129,6 @@ class MqttConfig(BaseModel):
         if ha_type in self.autodiscovery_messages.root:
             return topic in self.autodiscovery_messages.root[ha_type]
         return False
-
-    def cmd_topic_prefix(self) -> str:
-        return f"{self.topic_prefix}/cmd/"
-
-    def subscribe_topic(self) -> str:
-        return f"{self.cmd_topic_prefix()}+/+/#"
 
 
 class OledExtraScreenSensorConfig(BaseModel):
@@ -485,7 +464,7 @@ class SensorConfig(BaseModel):
 
 
 class BoneIOConfig(BaseModel):
-    name: str = BONEIO
+    name: str = "boneio"
     device_type: Literal[
         "32x10A",
         "32x10",
