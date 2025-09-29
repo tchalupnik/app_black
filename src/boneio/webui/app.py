@@ -37,7 +37,6 @@ from starlette.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
 from boneio.config import Config
-from boneio.const import COVER, NONE
 from boneio.cover.venetian import VenetianCover
 from boneio.events import EventType
 from boneio.manager import Manager
@@ -915,7 +914,7 @@ def init_app(
 
 def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
     for output in boneio_manager.outputs.values():
-        if output.output_type == COVER or output.output_type == NONE:
+        if output.output_type == "cover" or output.output_type == "none":
             continue
         boneio_manager.event_bus.add_event_listener(
             event_type=EventType.OUTPUT,
