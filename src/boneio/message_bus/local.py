@@ -4,18 +4,13 @@ import logging
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import anyio
 import anyio.abc
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 
-from boneio.message_bus.basic import ReceiveMessage
-
-if TYPE_CHECKING:
-    pass
-
-from boneio.message_bus import MessageBus
+from . import MessageBus, ReceiveMessage
 
 _LOGGER = logging.getLogger(__name__)
 
