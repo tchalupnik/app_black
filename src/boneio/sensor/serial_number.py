@@ -6,8 +6,6 @@ import logging
 import typing
 from datetime import timedelta
 
-from boneio.const import SENSOR
-from boneio.helper import AsyncUpdater
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
@@ -18,7 +16,7 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class SerialNumberSensor(AsyncUpdater):
+class SerialNumberSensor:
     """Represent Serial Number sensor."""
 
     def __init__(
@@ -33,14 +31,12 @@ class SerialNumberSensor(AsyncUpdater):
         self.id = id.replace(" ", "")
         self.name = name
         self.message_bus = message_bus
-        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
+        self._send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
         self.state = None
-        AsyncUpdater.__init__(
-            self, manager=manager, update_interval=timedelta(minutes=60)
-        )
+        manager.append_task(self.update, timedelta(minutes=60))
         _LOGGER.debug("Configured serial number sensor")
 
-    async def async_update(self, timestamp: float) -> None:
+    def update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         network_info = get_network_info()
         if not network_info or "mac" not in network_info:

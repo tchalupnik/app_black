@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
 
-from boneio.const import SENSOR
-from boneio.helper import AsyncUpdater
+from boneio.config import AdcPins, Filters
 from boneio.helper.filter import Filter
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
-
-if TYPE_CHECKING:
-    from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,79 +19,59 @@ REFERENCE_VOLTAGE = 1.8
 MAX_ADC_VALUE = 4095
 
 
-def read(
-    pin: Literal[
-        "P9_39",
-        "P9_40",
-        "P9_37",
-        "P9_38",
-        "P9_33",
-        "P9_36",
-        "P9_35",
-    ],
-) -> float:
-    """Read value from ADC pin."""
-    filename = {
-        "P9_39": "in_voltage0_raw",
-        "P9_40": "in_voltage1_raw",
-        "P9_37": "in_voltage2_raw",
-        "P9_38": "in_voltage3_raw",
-        "P9_33": "in_voltage4_raw",
-        "P9_36": "in_voltage5_raw",
-        "P9_35": "in_voltage6_raw",
-    }.get(pin)
-
-    if filename is None:
-        _LOGGER.error("ADC pin %s is not valid.", pin)
-        return 0.0
-
-    path = Path("/sys/bus/iio/devices/iio:device0/" / filename)
-    try:
-        with path.open() as file:
-            value = int(file.read().strip())
-            return round((value / MAX_ADC_VALUE) * REFERENCE_VOLTAGE, 3)
-    except Exception as ex:
-        _LOGGER.error("Error reading ADC pin %s: %s", pin, ex)
-        return 0.0
-
-
-class GpioADCSensor(AsyncUpdater, Filter):
+@dataclass
+class GpioADCSensor:
     """Represent Gpio ADC sensor."""
 
-    def __init__(
+    id: str
+    name: str
+    pin: AdcPins
+    filters: list[dict[Filters, float]]
+    message_bus: MessageBus
+    topic_prefix: str
+    state: float | None = field(default=None, init=False)
+
+    def ___post_init__(
         self,
-        pin: str,
-        filters: list,
-        manager: Manager,
-        update_interval: timedelta,
-        id: str,
-        name: str,
-        message_bus: MessageBus,
+        filters: list[dict[Filters, float]],
         topic_prefix: str,
     ) -> None:
         """Setup GPIO ADC Sensor"""
-        super().__init__(
-            manager=manager,
-            update_interval=update_interval,
-        )
-        self.id = id.replace(" ", "")
-        self.name = name
-        self.message_bus = message_bus
-        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
-        self._pin = pin
-        self.state: float | None = None
-        self._filters = filters
-        AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
-        _LOGGER.debug("Configured sensor pin %s", self._pin)
+        self.id = self.id.replace(" ", "")
+        self.send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
+        self.filter = Filter(filters)
+        _LOGGER.debug("Configured sensor pin %s", self.pin)
 
     def update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
-        _state = self._apply_filters(value=read(self._pin))
-        if not _state:
-            return
-        self.state = _state
+        self.state = self.filter.apply_filters(value=self.read())
         self._timestamp = timestamp
         self.message_bus.send_message(
-            topic=self._send_topic,
+            topic=self.send_topic,
             payload=self.state,
         )
+        self.filename = {
+            "P9_39": "in_voltage0_raw",
+            "P9_40": "in_voltage1_raw",
+            "P9_37": "in_voltage2_raw",
+            "P9_38": "in_voltage3_raw",
+            "P9_33": "in_voltage4_raw",
+            "P9_36": "in_voltage5_raw",
+            "P9_35": "in_voltage6_raw",
+        }.get(self.pin)
+        if self.filename is None:
+            raise ValueError("ADC pin %s is not valid.", self.pin)
+
+    def read(self) -> float:
+        """Read value from ADC pin."""
+        if self.filename is None:
+            return 0.0
+
+        path = Path("/sys/bus/iio/devices/iio:device0/" / self.filename)
+        try:
+            with path.open() as file:
+                value = int(file.read().strip())
+                return round((value / MAX_ADC_VALUE) * REFERENCE_VOLTAGE, 3)
+        except Exception as ex:
+            _LOGGER.error("Error reading ADC pin %s: %s", self.pin, ex)
+            return 0.0

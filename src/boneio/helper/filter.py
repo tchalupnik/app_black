@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from boneio.config import Filters
 
 _LOGGER = logging.getLogger(__name__)
 
 
-FILTERS = {
+FILTERS: dict[Filters, Callable[[float, float], float]] = {
     "offset": lambda x, y: x + y,
     "round": lambda x, y: round(x, int(y)),
     "multiply": lambda x, y: x * y if x else x,
@@ -20,19 +22,18 @@ FILTERS = {
 }
 
 
+@dataclass
 class Filter:
-    _filters: list[dict[Filters, float]] = []
+    filter: list[dict[Filters, float]]
 
-    def _apply_filters(
-        self, value: float | None, filters: list[dict[Filters, float]] | None = None
-    ) -> float | None:
-        filters = filters if filters is not None else self._filters
+    def apply_filters(
+        self, value: float, filters: list[dict[Filters, float]] | None = None
+    ) -> float:
+        filters = filters if filters is not None else self.filter
         for filter in filters:
             for k, v in filter.items():
                 if k not in FILTERS:
                     _LOGGER.warning("Filter %s doesn't exists. Fix it in config.", k)
                     continue
-                if value is None:
-                    return None
                 value = FILTERS[k](value, v)
         return value

@@ -102,10 +102,7 @@ class DallasSensorW1(TempSensor):
         try:
             _temp = await self.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
-            _temp = self._apply_filters(value=_temp)
-            if _temp is None:
-                return
-            self._state = _temp
+            self._state = self.filter.apply_filters(value=_temp)
             self._timestamp = timestamp
             self.message_bus.send_message(
                 topic=self._send_topic,

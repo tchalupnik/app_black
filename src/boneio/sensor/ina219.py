@@ -9,9 +9,7 @@ import typing
 from datetime import datetime
 
 from boneio.config import Filters, Ina219Config, Ina219DeviceClass
-from boneio.const import SENSOR, STATE
 from boneio.events import SensorEvent
-from boneio.helper import AsyncUpdater
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.helper.util import strip_accents
@@ -19,14 +17,14 @@ from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
     from boneio.manager import Manager
-    from boneio.message_bus.basic import MessageBus
+    from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
 unit_converter = {"current": "A", "power": "W", "voltage": "V"}
 
 
-class _INA219Sensor(Filter):
+class _INA219Sensor:
     """Represent single value from INA219 as sensor."""
 
     def __init__(
@@ -42,30 +40,32 @@ class _INA219Sensor(Filter):
         self.id = id.replace(" ", "")
         self.name = name
         self.message_bus = message_bus
-        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
+        self._send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
         self.unit_of_measurement = unit_converter[device_class]
         self.device_class = device_class
-        self._filters = filters
+        self.filter = Filter(filters)
         self.raw_state = state
         self.last_timestamp = time.time()
         self.state = (
-            self._apply_filters(value=self.raw_state) if self.raw_state else None
+            self.filter.apply_filters(value=self.raw_state) if self.raw_state else None
         )
 
     def update(self, timestamp: float) -> None:
         """Fetch sensor data periodically and send to MQTT."""
-        _state = self._apply_filters(value=self.raw_state) if self.raw_state else None
+        _state = (
+            self.filter.apply_filters(value=self.raw_state) if self.raw_state else None
+        )
         if not _state:
             return
         self.state = _state
         self.last_timestamp = timestamp
         self.message_bus.send_message(
             topic=self._send_topic,
-            payload={STATE: self.state},
+            payload={"state": self.state},
         )
 
 
-class INA219(AsyncUpdater):
+class INA219:
     """Represent INA219 sensors."""
 
     def __init__(
@@ -92,12 +92,11 @@ class INA219(AsyncUpdater):
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
             )
-        AsyncUpdater.__init__(
-            self, manager=manager, update_interval=config.update_interval
-        )
+        self.manager = manager
+        self.manager.append_task(self.update, config.update_interval)
         _LOGGER.debug("Configured INA219 on address %s", config.address)
 
-    async def async_update(self, timestamp: datetime) -> None:
+    def update(self, timestamp: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
         for k, sensor in self.sensors.items():
             value = getattr(self._ina_219, k)

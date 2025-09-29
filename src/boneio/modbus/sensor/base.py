@@ -15,7 +15,7 @@ from boneio.message_bus.basic import MessageBus
 _LOGGER = logging.getLogger(__name__)
 
 
-class BaseSensor(Filter):
+class BaseSensor:
     _ha_type_ = SENSOR
 
     def __init__(
@@ -46,8 +46,8 @@ class BaseSensor(Filter):
         self._device_class = device_class
         self._message_bus = message_bus
         self.config = config
-        self._user_filters = user_filters
-        self._filters = filters
+        self._user_filters = Filter(user_filters)
+        self.filter = Filter(filters)
         self._value = None
         self.return_type = return_type
         self.value_type = value_type
@@ -60,14 +60,12 @@ class BaseSensor(Filter):
         self.write_address: int | None = None
 
     def set_user_filters(self, user_filters: list[dict[Filters, float]]) -> None:
-        self._user_filters = user_filters
+        self._user_filters = Filter(user_filters)
 
     def set_value(self, value: float | None, timestamp: float) -> None:
-        value = self._apply_filters(value=value)
-        value = self._apply_filters(
-            value=value,
-            filters=self._user_filters,
-        )
+        if value is not None:
+            value = self.filter.apply_filters(value=value)
+            value = self._user_filters.apply_filters(value=value)
         self._value = value
         self.last_timestamp = timestamp
 
@@ -81,7 +79,7 @@ class BaseSensor(Filter):
 
     @property
     def id(self) -> str:
-        return f"{self._parent[ID]}{self.decoded_name}"
+        return f"{self._parent['id']}{self.decoded_name}"
 
     def send_ha_discovery(self):
         payload = self.discovery_message()
@@ -89,7 +87,7 @@ class BaseSensor(Filter):
             "Sending %s discovery message for %s of %s",
             self._ha_type_,
             self.name,
-            self._parent[ID],
+            self._parent["id"],
         )
         self.config.mqtt.autodiscovery_messages.add_message(
             message=MqttAutodiscoveryMessage(
@@ -153,8 +151,6 @@ class ModbusBaseSensor(BaseSensor):
         :param filters: list of filters
         :param send_ha_autodiscovery: function for sending HA autodiscovery
         """
-        if user_filters is None:
-            user_filters = []
         super().__init__(
             name=name,
             parent=parent,

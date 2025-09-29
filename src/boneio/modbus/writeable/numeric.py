@@ -9,11 +9,10 @@ from boneio.helper.ha_discovery import (
     HaModbusMessage,
     modbus_numeric_availabilty_message,
 )
+from boneio.modbus.sensor.numeric import ModbusNumericSensor
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator
-
-from boneio.modbus.sensor.numeric import ModbusNumericSensor
 
 
 class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
@@ -67,5 +66,5 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
 
     def encode_value(self, value: float) -> int:
         if self._write_filters:
-            value = self._apply_filters(value=int(value), filters=self._write_filters)
+            value = self.filter.apply_filters(value=value, filters=self._write_filters)
         return int(value)

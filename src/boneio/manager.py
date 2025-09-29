@@ -3,17 +3,16 @@ from __future__ import annotations
 import logging
 import os
 import time
-from abc import ABC
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar, assert_never
+from typing import TYPE_CHECKING, TypeVar, assert_never
 
 import anyio
 import anyio.abc
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
-from pydantic import BaseModel, Field, RootModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
@@ -45,7 +44,6 @@ from boneio.const import (
     DALLAS,
     DS2482,
     EVENT_ENTITY,
-    INPUT,
     IP,
     LED,
     LIGHT,
@@ -93,7 +91,20 @@ from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.logger import configure_logger
-from boneio.message_bus import MessageBus
+from boneio.message_bus import (
+    ButtonMqttMessage,
+    CoverMqttMessage,
+    CoverPosMqttMessage,
+    CoverSetMqttMessage,
+    CoverTiltMqttMessage,
+    GroupMqttMessage,
+    MessageBus,
+    ModbusMqttMessage,
+    MqttMessage,
+    RelayMqttMessage,
+    RelaySetBrightnessMqttMessage,
+    RelaySetMqttMessage,
+)
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
@@ -120,95 +131,6 @@ AVAILABILITY_FUNCTION_CHOOSER = {
     SWITCH: ha_switch_availabilty_message,
     VALVE: ha_valve_availabilty_message,
 }
-
-
-class MqttMessageBase(ABC, BaseModel):
-    type_: str
-    device_id: str
-    command: str
-    message: str
-
-
-class RelaySetMqttMessage(MqttMessageBase):
-    type_: Literal["relay"] = "relay"
-    command: Literal["set"] = "set"
-    message: Literal["ON", "OFF", "TOGGLE"]
-
-
-class RelaySetBrightnessMqttMessage(MqttMessageBase):
-    type_: Literal["relay"] = "relay"
-    command: Literal["set_brightness"] = "set_brightness"
-    message: int
-
-
-_RelayMqttMessage: TypeAlias = RelaySetMqttMessage | RelaySetBrightnessMqttMessage
-
-
-class RelayMqttMessage(RootModel[_RelayMqttMessage]):
-    root: _RelayMqttMessage = Field(discriminator="command")
-
-
-class CoverSetMqttMessage(MqttMessageBase):
-    type_: Literal["cover"] = "cover"
-    command: Literal["set"] = "set"
-    message: Literal["open", "close", "stop", "toggle", "toggle_open", "toggle_close"]
-
-
-class CoverPosMqttMessage(MqttMessageBase):
-    type_: Literal["cover"] = "cover"
-    command: Literal["pos"] = "pos"
-    message: int
-
-
-class CoverTiltMqttMessage(MqttMessageBase):
-    type_: Literal["cover"] = "cover"
-    command: Literal["tilt"] = "tilt"
-    message: int | Literal["stop"]
-
-
-_CoverMqttMessage: TypeAlias = (
-    CoverSetMqttMessage | CoverPosMqttMessage | CoverTiltMqttMessage
-)
-
-
-class CoverMqttMessage(RootModel[_CoverMqttMessage]):
-    root: _CoverMqttMessage = Field(discriminator="command")
-
-
-class GroupMqttMessage(MqttMessageBase):
-    type_: Literal["group"] = "group"
-    command: Literal["set"] = "set"
-    message: Literal["ON", "OFF", "TOGGLE"]
-
-
-class ButtonMqttMessage(MqttMessageBase):
-    type_: Literal["button"] = "button"
-    command: Literal["set"] = "set"
-    message: Literal["reload", "restart", "inputs_reload", "cover_reload"]
-
-
-class ModbusMqttMessageValue(BaseModel):
-    device: str
-    value: int | float | str
-
-
-class ModbusMqttMessage(MqttMessageBase):
-    type_: Literal["modbus"] = "modbus"
-    command: Literal["set"] = "set"
-    message: ModbusMqttMessageValue
-
-
-_MqqtMessage: TypeAlias = (
-    RelayMqttMessage
-    | CoverMqttMessage
-    | GroupMqttMessage
-    | ButtonMqttMessage
-    | ModbusMqttMessage
-)
-
-
-class MqttMessage(RootModel[_MqqtMessage]):
-    root: _MqqtMessage = Field(discriminator="type_")
 
 
 class Manager:
@@ -911,8 +833,8 @@ class Manager:
         actions = gpio.actions.get(x, [])
         topic = f"{self.config.get_topic_prefix()}/{gpio.input_type}/{gpio.pin}"
 
-        def generate_payload():
-            if gpio.input_type == INPUT:
+        def generate_payload() -> str | dict[str, str | float]:
+            if gpio.input_type == "input":
                 if duration:
                     return {"event_type": x, "duration": duration}
                 return {"event_type": x}
@@ -974,8 +896,16 @@ class Manager:
                     case "toggle_close":
                         await cover.toggle_close()
                     case "tilt_open":
+                        if not isinstance(cover, VenetianCover):
+                            raise ValueError(
+                                "`tilt_open` action is only for Venetian cover!"
+                            )
                         await cover.tilt_open()
                     case "tilt_close":
+                        if not isinstance(cover, VenetianCover):
+                            raise ValueError(
+                                "`tilt_close` action is only for Venetian cover!"
+                            )
                         await cover.tilt_close()
                     case _:
                         raise ValueError("Wrong action cover type!")

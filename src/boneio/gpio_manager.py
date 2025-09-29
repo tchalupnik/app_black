@@ -181,7 +181,9 @@ class GpioManager:
         debounce_period: timedelta,
     ) -> None:
         """Add detection for RISING and FALLING events."""
-        sender, receiver = anyio.create_memory_object_stream[str]()
+        sender, receiver = anyio.create_memory_object_stream[
+            list[gpiod.edge_event.EdgeEvent]
+        ]()
 
         async def c() -> None:
             while True:

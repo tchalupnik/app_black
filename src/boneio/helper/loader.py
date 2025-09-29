@@ -37,6 +37,7 @@ from boneio.helper import (
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
+    refresh_wrapper,
 )
 from boneio.helper.ha_discovery import (
     ha_sensor_availability_message,
@@ -62,6 +63,8 @@ if TYPE_CHECKING:
     from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.gpio_manager import GpioManager
     from boneio.manager import Manager
+    from boneio.sensor.temp.lm75 import LM75Sensor
+    from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,16 +80,15 @@ def create_adc(
     for gpio in adc:
         id = gpio.id.replace(" ", "")
         try:
-            GpioADCSensor(
+            sensor = GpioADCSensor(
                 id=id,
                 pin=gpio.pin,
                 name=gpio.id,
-                manager=manager,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.update_interval,
                 filters=gpio.filters,
             )
+            manager.append_task(refresh_wrapper(sensor.update, gpio.update_interval))
             if gpio.show_in_ha:
                 manager.send_ha_autodiscovery(
                     id=id,
@@ -105,17 +107,15 @@ def create_temp_sensor(
     sensor_type: str,
     i2cbusio: I2C,
     config: TemperatureConfig,
-):
+) -> LM75Sensor | MCP9808Sensor:
     """Create LM sensor in manager."""
     if sensor_type == LM75:
         from boneio.sensor import LM75Sensor as TempSensor
     elif sensor_type == MCP_TEMP_9808:
         from boneio.sensor import MCP9808Sensor as TempSensor
     else:
-        return None
+        raise ValueError(f"No {sensor_type} temperature sensor type.")
     name = config.id
-    if name is None:
-        return None
     id = name.replace(" ", "")
     try:
         temp_sensor = TempSensor(
@@ -133,7 +133,7 @@ def create_temp_sensor(
         manager.send_ha_autodiscovery(
             id=id,
             name=name,
-            ha_type=SENSOR,
+            ha_type="sensor",
             availability_msg_func=ha_sensor_temp_availabilty_message,
             unit_of_measurement=temp_sensor.unit_of_measurement,
         )
@@ -146,7 +146,7 @@ def create_serial_number_sensor(
     manager: Manager,
     message_bus: MessageBus,
     topic_prefix: str,
-):
+) -> SerialNumberSensor:
     """Create Serial number sensor in manager."""
     sensor = SerialNumberSensor(
         id="serial_number",
@@ -248,6 +248,7 @@ def configure_relay(
         if expander_id not in manager.grouped_outputs_by_expander:
             manager.grouped_outputs_by_expander[expander_id] = {}
         relay = GpioRelay(
+            gpio_manager=manager.gpio_manager,
             id=relay_id,
             pin_id=output_config.pin,
             expander_id=expander_id,

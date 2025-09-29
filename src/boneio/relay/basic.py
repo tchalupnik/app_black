@@ -40,13 +40,13 @@ class _VirtualEnergySensor:
     energy_consumed_Wh = 0.0
     water_consumed_L = 0.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self._virtual_sensors_task = None
         self.virtual_energy_topic = f"{self.topic_prefix}/energy/{self.id}"
         self._subscribe_restore_energy_state()
         self._loop = asyncio.get_running_loop()
 
-    def start_virtual_sensors_task(self):
+    def start_virtual_sensors_task(self) -> None:
         """Start periodic task to update and send virtual energy state every 30 seconds."""
         self.last_on_timestamp = time.time()
         if (
@@ -59,7 +59,7 @@ class _VirtualEnergySensor:
         )
         _LOGGER.info("Started periodic virtual sensors task for %s", self.id)
 
-    def stop_virtual_sensors_task(self):
+    def stop_virtual_sensors_task(self) -> None:
         """Stop periodic virtual energy update task."""
         self.last_on_timestamp = None
         if self._virtual_sensors_task is not None:
@@ -68,13 +68,13 @@ class _VirtualEnergySensor:
             self._update_virtual_sensors()
             _LOGGER.info("Stopped periodic virtual sensors task for %s", self.id)
 
-    async def _virtual_sensors_loop(self):
+    async def _virtual_sensors_loop(self) -> None:
         """Periodically update and send virtual energy state every 30 seconds while relay is ON."""
         while self.parent.state == "ON":
             self._update_virtual_sensors()
             await anyio.sleep(30)
 
-    def _update_virtual_sensors(self):
+    def _update_virtual_sensors(self) -> None:
         """Update virtual sensors if virtual_power_usage is set."""
         if (
             self.virtual_power_usage is not None
@@ -83,7 +83,7 @@ class _VirtualEnergySensor:
             self._update_virtual_energy()
             self.send_virtual_energy_state()
 
-    def _update_virtual_energy(self):
+    def _update_virtual_energy(self) -> None:
         """Update energy counter if virtual_power_usage is set."""
         now = time.time()
         if self.parent.state == "ON" and self.last_on_timestamp is not None:
@@ -106,7 +106,7 @@ class _VirtualEnergySensor:
                 )
             self.last_on_timestamp = now
 
-    def _subscribe_restore_energy_state(self):
+    def _subscribe_restore_energy_state(self) -> None:
         """
         Subscribe to the retained MQTT topic for energy and restore state if available.
         """
@@ -140,13 +140,14 @@ class _VirtualEnergySensor:
                 )
 
         # Subscribe (works for both LocalMessageBus and MQTTClient)
+        # TODO remove create_task
         asyncio.create_task(
             self.message_bus.subscribe_and_listen(
                 self.virtual_energy_topic, on_energy_message
             )
         )
 
-    def send_virtual_energy_state(self):
+    def send_virtual_energy_state(self) -> None:
         """Send virtual power/energy state to MQTT for Home Assistant."""
         payload = {}
         if self.virtual_power_usage is not None:

@@ -504,8 +504,11 @@ class WebConfig(BaseModel):
         return self.auth.username == username and self.auth.password == password
 
 
+AdcPins = Literal["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
+
+
 class AdcConfig(BaseModel):
-    pin: Literal["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
+    pin: AdcPins
     id: str | None = None
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
     show_in_ha: bool = True

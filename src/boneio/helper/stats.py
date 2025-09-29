@@ -5,6 +5,7 @@ import logging
 import socket
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import timedelta
 from math import floor
 from typing import TYPE_CHECKING, Literal
@@ -28,7 +29,7 @@ from boneio.const import (
     UPTIME,
 )
 from boneio.events import EventBus, HostEvent
-from boneio.helper.async_updater import AsyncUpdater
+from boneio.helper.async_updater import refresh_wrapper
 from boneio.models import HostSensorState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
@@ -116,42 +117,31 @@ def get_uptime() -> str:
     return display_time(time.clock_gettime(time.CLOCK_MONOTONIC))
 
 
-class HostSensor(AsyncUpdater):
+@dataclass
+class HostSensor:
     """Host sensor."""
 
-    def __init__(
-        self,
-        host_stat: HostStat,
-        event_bus: EventBus,
-        id: str,
-        type: str,
-        manager: Manager,
-    ) -> None:
-        self._state = {}
-        self.host_stat = host_stat
-        self._type = type
-        self._event_bus = event_bus
-        self._loop = asyncio.get_event_loop()
-        self.id = id
-        super().__init__(manager=manager, update_interval=host_stat.update_interval)
-        self._loop.create_task(self.async_update(time.time()))
+    host_stat: HostStat
+    event_bus: EventBus
+    id: str
+    type: str
+    _state: dict[str, str] = Field(default_factory=dict)
 
-    async def async_update(self, timestamp: float) -> None:
+    def update(self, timestamp: float) -> None:
         self._state = self.host_stat.f()
-        self._event_bus.trigger_event(
+        self.event_bus.trigger_event(
             HostEvent(
                 entity_id=self.id,
                 event_state=HostSensorState(
                     id=self.id,
-                    name=self._type,
+                    name=self.type,
                     state="new_state",  # doesn't matter here, as we fetch everything in Oled.
                     timestamp=timestamp,
                 ),
             )
         )
 
-    @property
-    def state(self) -> dict[str, str]:
+    def get_state(self) -> dict[str, str]:
         if self.host_stat.static:
             return {
                 **{k: v.model_dump() for k, v in self.host_stat.static.items()},
@@ -300,12 +290,15 @@ class HostData:
         for k, _v in host_stats.items():
             if k not in enabled_screens:
                 continue
-            self._data[k] = HostSensor(
+            sensor = HostSensor(
                 host_stat=_v,
                 event_bus=event_bus,
-                manager=manager,
                 id=f"{k}_hoststats",
                 type=k,
+            )
+            self._data[k] = sensor
+            manager.append_task(
+                refresh_wrapper(sensor.update, sensor.host_stat.update_interval)
             )
         self._output = output
         self._inputs = {
@@ -318,7 +311,7 @@ class HostData:
     def web_url(self) -> str | None:
         if self._manager.config.web is None:
             return None
-        network_state = self._data[NETWORK].state
+        network_state = self._data[NETWORK].get_state()
         if IP in network_state:
             return f"http://{network_state[IP]}:{self._manager.config.web.port}"
         return None
@@ -331,7 +324,7 @@ class HostData:
             return self._get_input(type)
         if type == "web":
             return self.web_url
-        return self._data[type].state
+        return self._data[type].get_state()
 
     def _get_output(self, type: str) -> dict:
         """Get stats for output."""

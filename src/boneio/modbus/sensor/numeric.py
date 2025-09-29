@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from boneio.config import Config
+from boneio.config import Config, Filters
 from boneio.message_bus.basic import MessageBus
 
 from .base import ModbusBaseSensor
@@ -18,10 +18,10 @@ class ModbusNumericSensor(ModbusBaseSensor):
         device_class: str,
         value_type: str,
         return_type: str,
-        filters: list,
+        filters: list[dict[Filters, float]],
         message_bus: MessageBus,
         config: Config,
-        user_filters: list | None = None,
+        user_filters: list[dict[Filters, float]] | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
         """
@@ -38,8 +38,6 @@ class ModbusNumericSensor(ModbusBaseSensor):
         :param filters: list of filters
         :param send_ha_autodiscovery: function for sending HA autodiscovery
         """
-        if user_filters is None:
-            user_filters = []
         super().__init__(
             name=name,
             parent=parent,

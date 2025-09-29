@@ -7,13 +7,14 @@ import json
 import logging
 import os
 import re
-import secrets
 import tempfile
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Literal, assert_never
 
-import anyio
 import httpx
 from fastapi import (
     BackgroundTasks,
@@ -49,6 +50,7 @@ from boneio.models import (
 )
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
+from boneio.webui.web_server import WebServer
 from boneio.yaml import ConfigurationError, load_config, update_config_section
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
@@ -57,7 +59,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CoverAction(BaseModel):
-    action: str
+    action: Literal["open", "close", "stop", "toggle"]
 
 
 class CoverPosition(BaseModel):
@@ -127,10 +129,6 @@ class FileContentResponse(BaseModel):
 FileItem.model_rebuild()
 
 
-class BoneIOApp(FastAPI):
-    pass
-
-
 # Create FastAPI application
 app = FastAPI(
     title="BoneIO API",
@@ -139,21 +137,48 @@ app = FastAPI(
 )
 
 
-# security = HTTPBasic()
-JWT_SECRET = os.getenv(
-    "JWT_SECRET", secrets.token_hex(32)
-)  # Use environment variable or generate temporary
+@dataclass
+class State:
+    manager: Manager
+    config: Config
+    web_server: WebServer
+    yaml_config_file: Path
+    websocket_manager: WebSocketManager
+    jwt_secret: str
+
+
+state_var: ContextVar[State] = ContextVar("State")
 
 
 # Dependency to get manager instance
 def get_manager() -> Manager:
     """Get manager instance."""
-    return app.state.manager
+    return state_var.get().manager
 
 
 def get_config() -> Config:
     """Get config instance."""
-    return app.state.config
+    return state_var.get().config
+
+
+def get_web_server() -> WebServer:
+    """Get web server instance."""
+    return state_var.get().web_server
+
+
+def get_yaml_config_file() -> Path:
+    """Get yaml config file path."""
+    return state_var.get().yaml_config_file
+
+
+def get_websocket_manager() -> WebSocketManager:
+    """Get websocket manager instance."""
+    return state_var.get().websocket_manager
+
+
+def get_jwt_secret() -> str:
+    """Get JWT secret."""
+    return state_var.get().jwt_secret
 
 
 # Add auth required endpoint
@@ -202,7 +227,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
 
             # Verify the JWT token
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
 
             # Check if token has expired
             exp = payload.get("exp")
@@ -245,7 +270,7 @@ def create_token(data: dict[str, str]) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)  # Token expires in 7 days
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, get_jwt_secret(), algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
 
@@ -256,61 +281,6 @@ def is_running_as_service() -> bool:
             return "systemd" in f.read()
     except Exception:
         return False
-
-
-def _clean_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-    return ansi_escape.sub("", text)
-
-
-def _decode_ascii_list(ascii_list: list[int]) -> str:
-    """Decode a list of ASCII codes into a string and clean ANSI codes."""
-    try:
-        # Convert ASCII codes to string
-        text = "".join(chr(code) for code in ascii_list)
-        # Remove ANSI escape sequences
-        return _clean_ansi(text)
-    except Exception as e:
-        _LOGGER.error("Error decoding ASCII list: %s", e)
-        return str(ascii_list)
-
-
-def _parse_systemd_log_entry(entry: dict[str, str]) -> dict[str, str]:
-    """Parse a systemd journal log entry."""
-    # Handle MESSAGE field if it's a list of ASCII codes
-    if isinstance(entry.get("MESSAGE"), list):
-        try:
-            # First try to decode the outer message
-            decoded_msg = _decode_ascii_list(entry["MESSAGE"])
-
-            # Check if the decoded message is a JSON string
-            try:
-                json_msg = json.loads(decoded_msg)
-                # If it has a nested MESSAGE field that's also ASCII codes
-                if isinstance(json_msg.get("MESSAGE"), list):
-                    json_msg["MESSAGE"] = _decode_ascii_list(json_msg["MESSAGE"])
-                entry["MESSAGE"] = json_msg.get("MESSAGE", decoded_msg)
-            except json.JSONDecodeError:
-                # Not a JSON string, use the decoded message as is
-                entry["MESSAGE"] = decoded_msg
-            except Exception as e:
-                _LOGGER.debug("Error parsing nested message: %s", e)
-                entry["MESSAGE"] = decoded_msg
-
-        except Exception as e:
-            _LOGGER.error("Error parsing message: %s", e)
-            entry["MESSAGE"] = "Can't decode message"
-
-    # Convert timestamps if present
-    for ts_field in ("__REALTIME_TIMESTAMP", "__MONOTONIC_TIMESTAMP"):
-        if ts_field in entry:
-            try:
-                entry[ts_field] = int(entry[ts_field])
-            except (TypeError, ValueError):
-                pass
-
-    return entry
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -500,19 +470,20 @@ async def cover_action(
 ) -> StatusResponse:
     """Control cover with specific action (open, close, stop)."""
     cover = manager.covers.get(cover_id)
-    if not cover:
+    if cover is None:
         raise HTTPException(status_code=404, detail="Cover not found")
 
     action = action_data.action
-    if action not in ["open", "close", "stop", "toggle"]:
-        raise HTTPException(status_code=400, detail="Invalid action")
-
     if action == "open":
         await cover.open()
     elif action == "close":
         await cover.close()
     elif action == "stop":
         await cover.stop()
+    elif action == "toggle":
+        await cover.toggle()
+    else:
+        assert_never(action)
 
     return StatusResponse(status="success")
 
@@ -555,15 +526,16 @@ async def set_cover_tilt(
 
 
 @app.post("/api/restart")
-async def restart_service(background_tasks: BackgroundTasks) -> StatusResponse:
+async def restart_service(
+    background_tasks: BackgroundTasks, web_server: WebServer = Depends(get_web_server)
+) -> StatusResponse:
     """Restart the BoneIO service."""
     if not is_running_as_service():
         return StatusResponse(status="not available")
 
     async def shutdown_and_restart() -> None:
         # First stop the web server
-        if app.state.web_server:
-            await anyio.sleep(0.1)  # Allow time for the response to be sent
+        if web_server:
             os._exit(0)  # Terminate the process
 
     background_tasks.add_task(shutdown_and_restart)
@@ -659,9 +631,6 @@ async def update_boneio(background_tasks: BackgroundTasks) -> StatusWithMessageR
 
     async def update_and_restart() -> None:
         try:
-            # Allow time for the response to be sent
-            await anyio.sleep(0.5)
-
             # Get the virtual environment path
             venv_path = Path("~/boneio/venv").expanduser()
             pip_path = venv_path / "bin" / "pip"
@@ -710,10 +679,12 @@ async def get_name(config: Config = Depends(get_config)) -> NameResponse:
 
 
 @app.get("/api/check_configuration")
-async def check_configuration() -> StatusWithMessageResponse:
+async def check_configuration(
+    yaml_config_file: Path = Depends(get_yaml_config_file),
+) -> StatusWithMessageResponse:
     """Check if the configuration is valid."""
     try:
-        load_config(config_file_path=app.state.yaml_config_file)
+        load_config(config_file_path=yaml_config_file)
         return StatusWithMessageResponse(status="success", message="")
     except ConfigurationError as e:
         return StatusWithMessageResponse(status="error", message=str(e))
@@ -722,11 +693,13 @@ async def check_configuration() -> StatusWithMessageResponse:
 
 
 @app.get("/api/config")
-async def get_parsed_config() -> ConfigResponse:
+async def get_parsed_config(
+    yaml_config_file: Path = Depends(get_yaml_config_file),
+) -> ConfigResponse:
     """Get parsed configuration data with !include resolved."""
     try:
         # Load config using BoneIOLoader which handles !include
-        config_data = load_config(app.state.yaml_config_file)
+        config_data = load_config(yaml_config_file)
 
         _LOGGER.info("Successfully loaded parsed configuration")
         return ConfigResponse(config=config_data)
@@ -739,9 +712,11 @@ async def get_parsed_config() -> ConfigResponse:
 
 
 @app.get("/api/files")
-async def list_files(path: str | None = None) -> FilesResponse:
+async def list_files(
+    path: str | None = None, yaml_config_file: Path = Depends(get_yaml_config_file)
+) -> FilesResponse:
     """List files in the config directory."""
-    config_dir = app.state.yaml_config_file.parent
+    config_dir = yaml_config_file.parent
     base_dir = config_dir / path if path else config_dir
 
     if not base_dir.exists():
@@ -789,10 +764,11 @@ async def list_files(path: str | None = None) -> FilesResponse:
 
 
 @app.get("/api/files/{file_path:path}")
-async def get_file_content(file_path: str) -> FileContentResponse:
+async def get_file_content(
+    file_path: str, yaml_config_file: Path = Depends(get_yaml_config_file)
+) -> FileContentResponse:
     """Get content of a file."""
-    config_dir = app.state.yaml_config_file.parent
-    full_path = config_dir / file_path
+    full_path = yaml_config_file.parent / file_path
 
     if not full_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -813,11 +789,12 @@ async def get_file_content(file_path: str) -> FileContentResponse:
 
 @app.put("/api/files/{file_path:path}")
 async def update_file_content(
-    file_path: str, content: dict = Body(...)
+    file_path: str,
+    content: dict[str, Any] = Body(...),
+    yaml_config_file: Path = Depends(get_yaml_config_file),
 ) -> StatusResponse:
     """Update content of a file."""
-    config_dir = app.state.yaml_config_file.parent
-    full_path = config_dir / file_path
+    full_path = yaml_config_file.parent / file_path
 
     if not full_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -837,11 +814,15 @@ async def update_file_content(
 
 
 @app.put("/api/config/{section}")
-async def update_section_content(section: str, data: dict = Body(...)) -> dict:
+async def update_section_content(
+    section: str,
+    data: dict[str, Any] = Body(...),
+    yaml_config_file: Path = Depends(get_yaml_config_file),
+) -> dict:
     """Update content of a configuration section."""
 
     try:
-        result = update_config_section(app.state.yaml_config_file, section, data)
+        result = update_config_section(yaml_config_file, section, data)
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
         return result
@@ -851,51 +832,69 @@ async def update_section_content(section: str, data: dict = Body(...)) -> dict:
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
 
-async def input_state_changed(input_: InputState) -> None:
+async def input_state_changed(
+    input_: InputState,
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+) -> None:
     """Callback when input state changes."""
-    await app.state.websocket_manager.broadcast_state("input", input_)
+    await websocket_manager.broadcast_state("input", input_)
 
 
-async def output_state_changed(event: OutputState) -> None:
+async def output_state_changed(
+    event: OutputState,
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+) -> None:
     """Callback when output state changes."""
-    await app.state.websocket_manager.broadcast_state("output", event)
+    await websocket_manager.broadcast_state("output", event)
 
 
-async def cover_state_changed(event: CoverState) -> None:
+async def cover_state_changed(
+    event: CoverState,
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+) -> None:
     """Callback when cover state changes."""
-    await app.state.websocket_manager.broadcast_state("cover", event)
+    await websocket_manager.broadcast_state("cover", event)
 
 
-async def sensor_state_changed(event: SensorState) -> None:
+async def sensor_state_changed(
+    event: SensorState,
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+) -> None:
     """Callback when sensor state changes."""
-    await app.state.websocket_manager.broadcast_state("sensor", event)
+    await websocket_manager.broadcast_state("sensor", event)
 
 
-async def modbus_device_state_changed(event: SensorState) -> None:
+async def modbus_device_state_changed(
+    event: SensorState,
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+) -> None:
     """Callback when modbus device state changes."""
-    await app.state.websocket_manager.broadcast_state("modbus_device", event)
+    await websocket_manager.broadcast_state("modbus_device", event)
 
 
 def init_app(
     manager: Manager,
     yaml_config_file: Path,
     config: Config,
-    jwt_secret: str | None = None,
-    web_server=None,
+    jwt_secret: str,
+    web_server: WebServer,
 ) -> FastAPI:
     """Initialize the FastAPI application with manager."""
     assert config.web is not None, "Web config must be provided"
-    global JWT_SECRET
 
-    if jwt_secret is not None:
-        JWT_SECRET = jwt_secret
-
-    app.state.manager = manager
-    app.state.yaml_config_file = yaml_config_file
-    app.state.web_server = web_server
-    app.state.config = config
-    app.state.websocket_manager = WebSocketManager(
+    websocket_manager = WebSocketManager(
         jwt_secret=jwt_secret, auth_required=config.web.is_auth_required()
+    )
+
+    state_var.set(
+        State(
+            manager=manager,
+            config=config,
+            yaml_config_file=yaml_config_file,
+            web_server=web_server,
+            websocket_manager=websocket_manager,
+            jwt_secret=jwt_secret,
+        )
     )
 
     if config.web.is_auth_required():
@@ -995,12 +994,14 @@ def remove_listener_for_all_sensors(boneio_manager: Manager) -> None:
 
 @app.websocket("/ws/state")
 async def websocket_endpoint(
-    websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)
+    websocket: WebSocket,
+    boneio_manager: Manager = Depends(get_manager),
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
 ) -> None:
     """WebSocket endpoint for all state updates."""
     try:
         # Connect to WebSocket manager
-        if await app.state.websocket_manager.connect(websocket):
+        if await websocket_manager.connect(websocket):
             _LOGGER.info("New WebSocket connection established")
 
             async def send_state_update(update: StateUpdate) -> bool:
@@ -1168,11 +1169,11 @@ async def websocket_endpoint(
                         await websocket.send_text("pong")
     except asyncio.CancelledError:
         _LOGGER.info("WebSocket connection cancelled during setup")
-        await app.state.websocket_manager.disconnect(websocket)
+        await websocket_manager.disconnect(websocket)
         raise
     except WebSocketDisconnect as err:
         _LOGGER.info("WebSocket connection exiting gracefully %s", err)
-        await app.state.websocket_manager.disconnect(websocket)
+        await websocket_manager.disconnect(websocket)
     except KeyboardInterrupt:
         _LOGGER.info("WebSocket connection interrupted by user.")
         raise
@@ -1185,7 +1186,7 @@ async def websocket_endpoint(
         raise
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
-        if not app.state.websocket_manager.active_connections:
+        if not websocket_manager.active_connections:
             remove_listener_for_all_outputs(boneio_manager=boneio_manager)
             remove_listener_for_all_covers(boneio_manager=boneio_manager)
             remove_listener_for_all_inputs(boneio_manager=boneio_manager)

@@ -17,17 +17,14 @@ from boneio.const import (
     MODEL,
     NAME,
     OFFLINE,
-    ONLINE,
     REGISTERS,
     SELECT,
     SENSOR,
-    STATE,
     SWITCH,
     TEXT_SENSOR,
 )
 from boneio.events import EventBus, ModbusDeviceEvent
-from boneio.helper import AsyncUpdater
-from boneio.helper.filter import Filter
+from boneio.helper import refresh_wrapper
 from boneio.helper.util import open_json, strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.derived import (
@@ -57,7 +54,7 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusCoordinator(AsyncUpdater, Filter):
+class ModbusCoordinator:
     """Represent Modbus coordinator in BoneIO."""
 
     def __init__(
@@ -72,16 +69,16 @@ class ModbusCoordinator(AsyncUpdater, Filter):
         """Initialize Modbus coordinator class."""
         self.id = device_config.identifier()
         self._send_topic = (
-            f"{config.get_topic_prefix()}/{SENSOR}/{strip_accents(self.id)}"
+            f"{config.get_topic_prefix()}/sensor/{strip_accents(self.id)}"
         )
         self.config = config
         self.message_bus = message_bus
         self._modbus = modbus
         self._db = open_json(path=Path(__file__).parent, model=device_config.model)
-        self._model = self._db[MODEL]
+        self._model = self._db["model"]
         self._address = device_config.address
         self._discovery_sent = False
-        self._payload_online = OFFLINE
+        self._payload_online = "offline"
         self._sensors_filters = device_config.sensor_filters
         self._modbus_entities: list[
             dict[
@@ -134,12 +131,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
             )
         self._event_bus = event_bus
         self._event_bus.add_haonline_listener(target=self.set_payload_offline)
-        try:
-            AsyncUpdater.__init__(
-                self, manager=manager, update_interval=device_config.update_interval
-            )
-        except Exception as e:
-            _LOGGER.error("Error in AsyncUpdater: %s", e)
+        manager.append_task(refresh_wrapper(self.async_update))
 
     def __init_modbus_entities__(self):
         # Standard sensors
@@ -520,22 +512,22 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                     self.id,
                 )
 
-    async def async_update(self, timestamp: float) -> float | None:
+    async def async_update(self, timestamp: float) -> None:
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_seconds()
         await self.check_availability()
-        for index, data in enumerate(self._db[REGISTERS_BASE]):
+        for index, data in enumerate(self._db["registers_base"]):
             values = await self._modbus.read_registers(
                 unit=self._address,
                 address=data[BASE],
                 count=data[LENGTH],
                 method=data.get("register_type", "input"),
             )
-            if self._payload_online == OFFLINE and values:
+            if self._payload_online == "offline" and values:
                 _LOGGER.info("Sending online payload about device %s.", self.name)
-                self._payload_online = ONLINE
+                self._payload_online = "online"
                 self.message_bus.send_message(
-                    topic=f"{self.config.get_topic_prefix()}/{self.id}/{STATE}",
+                    topic=f"{self.config.get_topic_prefix()}/{self.id}/state",
                     payload=self._payload_online,
                 )
             if not values:
@@ -546,7 +538,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self.message_bus.send_message(
-                        topic=f"{self.config.get_topic_prefix()}/{self.id}/{STATE}",
+                        topic=f"{self.config.get_topic_prefix()}/{self.id}/state",
                         payload=self._payload_online,
                     )
                     self._discovery_sent = False
@@ -555,7 +547,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                     self.id,
                     update_interval,
                 )
-                return update_interval
+                return
             elif update_interval != self._update_interval.total_seconds():
                 update_interval = self._update_interval.total_seconds()
             output = {}
@@ -582,7 +574,7 @@ class ModbusCoordinator(AsyncUpdater, Filter):
                             sensor.name,
                             sensor.address,
                             sensor.base_address,
-                            data[LENGTH],
+                            data["length"],
                             e,
                         )
                         decoded_value = None
@@ -616,7 +608,6 @@ class ModbusCoordinator(AsyncUpdater, Filter):
 
             self._timestamp = timestamp
             self.message_bus.send_message(
-                topic=f"{self._send_topic}/{data[BASE]}",
+                topic=f"{self._send_topic}/{data['base']}",
                 payload=output,
             )
-        return update_interval

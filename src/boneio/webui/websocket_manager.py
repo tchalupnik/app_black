@@ -15,13 +15,13 @@ JWT_ALGORITHM = "HS256"
 
 
 class WebSocketDisconnectWithMessage(WebSocketDisconnect):
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__()
         self.message = message
 
 
 class WebSocketManager:
-    def __init__(self, jwt_secret: str | None = None, auth_required: bool = False):
+    def __init__(self, jwt_secret: str, auth_required: bool = False):
         self.active_connections: list[WebSocket] = []
         self._lock = anyio.Lock()
         self._closing = False
@@ -98,7 +98,7 @@ class WebSocketManager:
                 pass
             return False
 
-    async def disconnect(self, websocket: WebSocket):
+    async def disconnect(self, websocket: WebSocket) -> None:
         """Remove a websocket from active connections and close it gracefully."""
         try:
             if websocket in self.active_connections:
@@ -113,7 +113,7 @@ class WebSocketManager:
         except Exception as e:
             _LOGGER.error("Error during WebSocket disconnect: %s", e)
 
-    async def close_all(self):
+    async def close_all(self) -> None:
         """Close all active connections."""
         if self._closing:
             return
@@ -127,7 +127,7 @@ class WebSocketManager:
             except Exception:
                 pass
 
-    async def broadcast_state(self, state_type: str, data: Any):
+    async def broadcast_state(self, state_type: str, data: Any) -> None:
         if self._closing:
             return
 
