@@ -11,7 +11,7 @@ from abc import ABC
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 import aiomqtt
 import anyio
@@ -22,11 +22,8 @@ from pydantic import BaseModel, Field, RootModel
 
 from boneio.config import MqttConfig
 from boneio.helper.queue import UniqueQueue
-from boneio.message_bus import MessageBus
-from boneio.message_bus.basic import ReceiveMessage
 
-if TYPE_CHECKING:
-    pass
+from . import MessageBus, ReceiveMessage
 
 _LOGGER = logging.getLogger(__name__)
 
