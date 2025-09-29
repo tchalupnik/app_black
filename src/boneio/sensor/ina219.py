@@ -94,7 +94,9 @@ class INA219:
                 topic_prefix=topic_prefix,
             )
         self.manager = manager
-        self.manager.append_task(refresh_wrapper(self.update, config.update_interval))
+        self.manager.append_task(
+            refresh_wrapper(self.update, config.update_interval), self.id
+        )
         _LOGGER.debug("Configured INA219 on address %s", config.address)
 
     def update(self, timestamp: datetime) -> None:

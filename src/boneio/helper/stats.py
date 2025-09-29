@@ -298,7 +298,8 @@ class HostData:
             )
             self._data[k] = sensor
             manager.append_task(
-                refresh_wrapper(sensor.update, sensor.host_stat.update_interval)
+                refresh_wrapper(sensor.update, sensor.host_stat.update_interval),
+                sensor.id,
             )
         self._output = output
         self._inputs = {

@@ -52,7 +52,7 @@ class TempSensor(ABC):
         self.unit_of_measurement = unit_of_measurement
         self._state: float | None = None
         self.last_timestamp = time.time()
-        manager.append_task(refresh_wrapper(self.update, update_interval))
+        manager.append_task(refresh_wrapper(self.update, update_interval), self.name)
 
     @abstractmethod
     def get_temperature(self) -> float:

@@ -88,7 +88,9 @@ def create_adc(
                 topic_prefix=topic_prefix,
                 filters=gpio.filters,
             )
-            manager.append_task(refresh_wrapper(sensor.update, gpio.update_interval))
+            manager.append_task(
+                refresh_wrapper(sensor.update, gpio.update_interval), sensor.name
+            )
             if gpio.show_in_ha:
                 manager.send_ha_autodiscovery(
                     id=id,

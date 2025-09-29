@@ -131,7 +131,7 @@ class ModbusCoordinator:
             )
         self._event_bus = event_bus
         self._event_bus.add_haonline_listener(target=self.set_payload_offline)
-        manager.append_task(refresh_wrapper(self.async_update))
+        manager.append_task(refresh_wrapper(self.async_update), self.id)
 
     def __init_modbus_entities__(self):
         # Standard sensors

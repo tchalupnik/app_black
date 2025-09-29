@@ -34,7 +34,9 @@ class SerialNumberSensor:
         self.message_bus = message_bus
         self._send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
         self.state = None
-        manager.append_task(refresh_wrapper(self.update, timedelta(minutes=60)))
+        manager.append_task(
+            refresh_wrapper(self.update, timedelta(minutes=60)), self.name
+        )
         _LOGGER.debug("Configured serial number sensor")
 
     def update(self, timestamp: float) -> None:
