@@ -12,7 +12,7 @@ from datetime import timedelta
 from boneio.config import Filters
 from boneio.const import SENSOR
 from boneio.events import SensorEvent
-from boneio.helper.async_updater import refresh_wrapper
+from boneio.helper import refresh_wrapper
 from boneio.helper.filter import Filter
 from boneio.helper.util import strip_accents
 from boneio.models import SensorState

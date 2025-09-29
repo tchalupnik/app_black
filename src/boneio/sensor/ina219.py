@@ -10,6 +10,7 @@ from datetime import datetime
 
 from boneio.config import Filters, Ina219Config, Ina219DeviceClass
 from boneio.events import SensorEvent
+from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.helper.util import strip_accents
@@ -93,7 +94,7 @@ class INA219:
                 topic_prefix=topic_prefix,
             )
         self.manager = manager
-        self.manager.append_task(self.update, config.update_interval)
+        self.manager.append_task(refresh_wrapper(self.update, config.update_interval))
         _LOGGER.debug("Configured INA219 on address %s", config.address)
 
     def update(self, timestamp: datetime) -> None:
