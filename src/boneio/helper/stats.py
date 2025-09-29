@@ -28,12 +28,12 @@ from boneio.const import (
     UPTIME,
 )
 from boneio.events import EventBus, HostEvent
+from boneio.gpio import GpioEventButtonsAndSensors
 from boneio.models import HostSensorState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 
 if TYPE_CHECKING:
-    from boneio.gpio.base import GpioBase
     from boneio.manager import Manager
     from boneio.sensor import INA219
 
@@ -179,7 +179,7 @@ class HostData:
     def __init__(
         self,
         output: dict[str, dict[str, BasicRelay]],
-        inputs: dict[str, GpioBase],
+        inputs: dict[str, GpioEventButtonsAndSensors],
         temp_sensor: Callable[[TempSensor], None] | None,
         ina219: INA219 | None,
         manager: Manager,

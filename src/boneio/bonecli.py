@@ -105,7 +105,7 @@ def run(
         backend_options = {}
         if debug >= 2:
             backend_options["debug"] = True
-        ret = asyncio_run(
+        asyncio_run(
             start,
             config=config_parsed,
             config_file_path=config_file_path,
@@ -116,8 +116,6 @@ def run(
             backend_options=backend_options,
         )
         _LOGGER.info("BoneIO %s exiting.", __version__)
-        if ret != 0:
-            raise typer.Exit(ret)
     except (ConfigurationError, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         raise typer.Exit(1)

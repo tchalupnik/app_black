@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 
 import anyio
@@ -14,7 +15,7 @@ from boneio.events import EventBus
 from boneio.logger import configure_logger
 from boneio.manager import Manager
 from boneio.message_bus.local import LocalMessageBus
-from boneio.message_bus.mqtt import MQTTClient
+from boneio.message_bus.mqtt import MqttMessageBus
 from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
@@ -30,7 +31,7 @@ async def start(
     mqttpassword: str | None = None,
     debug: int = 0,
     dry: bool = False,
-) -> int:
+) -> None:
     """Run BoneIO."""
     async with anyio.create_task_group() as tg:
         tg.start_soon(handle_signals, "Signal received")
@@ -44,13 +45,16 @@ async def start(
                 if mqttpassword is not None:
                     config.mqtt.password = mqttpassword
 
-                def create_message_bus():
-                    return MQTTClient.create(config.mqtt)
+                def create_message_bus() -> AbstractAsyncContextManager[MqttMessageBus]:
+                    assert config.mqtt is not None
+                    return MqttMessageBus.create(config.mqtt)
 
                 create_message_bus_fun = create_message_bus
             else:
 
-                def create_message_bus():
+                def create_message_bus() -> (
+                    AbstractAsyncContextManager[LocalMessageBus]
+                ):
                     return LocalMessageBus.create()
 
                 create_message_bus_fun = create_message_bus

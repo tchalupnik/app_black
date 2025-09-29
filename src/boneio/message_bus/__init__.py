@@ -2,6 +2,6 @@
 
 from boneio.message_bus.basic import MessageBus
 from boneio.message_bus.local import LocalMessageBus
-from boneio.message_bus.mqtt import MQTTClient
+from boneio.message_bus.mqtt import MqttMessageBus
 
-__all__ = ["LocalMessageBus", "MQTTClient", "MessageBus"]
+__all__ = ["LocalMessageBus", "MqttMessageBus", "MessageBus"]

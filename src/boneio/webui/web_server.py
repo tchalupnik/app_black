@@ -64,7 +64,7 @@ class WebServer:
 
         self._hypercorn_config.graceful_timeout = 5.0
 
-    def _get_jwt_secret_or_generate(self):
+    def _get_jwt_secret_or_generate(self) -> str:
         config_dir = Path(self._yaml_config_file_path).parent
         jwt_secret_file = config_dir / "jwt_secret"
 

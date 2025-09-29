@@ -555,7 +555,8 @@ class Manager:
         """Configure covers."""
         if reload_config:
             self.config.cover = load_config(self._config_file_path).cover
-            self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
+            if self.config.mqtt is not None:
+                self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
         for cover_config in self.config.cover:
             _id = strip_accents(cover_config.id)
             open_relay = self.outputs.get(cover_config.open_relay)
@@ -706,7 +707,7 @@ class Manager:
                 self.inputs[input.pin] = input
 
     def append_task(
-        self, coro: Coroutine[None, None, None], name: str = "Unknown"
+        self, coro: Callable[[], Coroutine[None, None, None]], name: str = "Unknown"
     ) -> None:
         _LOGGER.debug("Appending update task for %s", name)
         self.tg.start_soon(coro)

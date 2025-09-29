@@ -741,7 +741,7 @@ async def get_parsed_config() -> ConfigResponse:
 @app.get("/api/files")
 async def list_files(path: str | None = None) -> FilesResponse:
     """List files in the config directory."""
-    config_dir = Path(app.state.yaml_config_file).parent
+    config_dir = app.state.yaml_config_file.parent
     base_dir = config_dir / path if path else config_dir
 
     if not base_dir.exists():
@@ -791,7 +791,7 @@ async def list_files(path: str | None = None) -> FilesResponse:
 @app.get("/api/files/{file_path:path}")
 async def get_file_content(file_path: str) -> FileContentResponse:
     """Get content of a file."""
-    config_dir = Path(app.state.yaml_config_file).parent
+    config_dir = app.state.yaml_config_file.parent
     full_path = config_dir / file_path
 
     if not full_path.exists():
@@ -816,7 +816,7 @@ async def update_file_content(
     file_path: str, content: dict = Body(...)
 ) -> StatusResponse:
     """Update content of a file."""
-    config_dir = Path(app.state.yaml_config_file).parent
+    config_dir = app.state.yaml_config_file.parent
     full_path = config_dir / file_path
 
     if not full_path.exists():
@@ -878,7 +878,7 @@ async def modbus_device_state_changed(event: SensorState) -> None:
 
 def init_app(
     manager: Manager,
-    yaml_config_file: str,
+    yaml_config_file: Path,
     config: Config,
     jwt_secret: str | None = None,
     web_server=None,
@@ -996,7 +996,7 @@ def remove_listener_for_all_sensors(boneio_manager: Manager) -> None:
 @app.websocket("/ws/state")
 async def websocket_endpoint(
     websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)
-):
+) -> None:
     """WebSocket endpoint for all state updates."""
     try:
         # Connect to WebSocket manager
@@ -1042,7 +1042,7 @@ async def websocket_endpoint(
                     try:
                         output_state = OutputState(
                             id=output.id,
-                            name=output.name,
+                            name=output.name or output.id,
                             state=output.state,
                             type=output.output_type,
                             pin=output.pin_id,
@@ -1203,5 +1203,5 @@ if FRONTEND_DIR.exists():
 
     # Route to serve React index.html (for client-side routing)
     @app.get("/{catchall:path}")
-    async def serve_react_app(catchall: str):
+    async def serve_react_app(catchall: str) -> FileResponse:
         return FileResponse(f"{FRONTEND_DIR}/index.html")

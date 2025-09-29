@@ -121,7 +121,7 @@ class MqttMessage(RootModel[_MqqtMessage]):
 
 
 @dataclass
-class MQTTClient(MessageBus):
+class MqttMessageBus(MessageBus):
     """Represent an MQTT client."""
 
     _tg: anyio.abc.TaskGroup
@@ -147,7 +147,7 @@ class MQTTClient(MessageBus):
 
     @classmethod
     @asynccontextmanager
-    async def create(cls, config: MqttConfig) -> AsyncGenerator[MQTTClient]:
+    async def create(cls, config: MqttConfig) -> AsyncGenerator[MqttMessageBus]:
         """Keep the event loop alive and process any periodic tasks."""
         reconnect_interval: int = 1
 
