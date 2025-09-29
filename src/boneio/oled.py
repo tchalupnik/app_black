@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import timedelta
 from itertools import cycle
@@ -11,14 +10,9 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
 from boneio.config import OledScreens
-from boneio.const import OLED_PIN, UPTIME, WHITE
 from boneio.events import EventBus, EventType, async_track_point_in_time, utcnow
 from boneio.gpio_manager import Edge, GpioManager
-from boneio.helper import (
-    HostData,
-    I2CError,
-    make_font,
-)
+from boneio.helper import HostData, I2CError, make_font
 from boneio.models import InputState, OutputState, SensorState
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,6 +23,8 @@ fonts = {
     "extraSmall": make_font("DejaVuSans.ttf", 7),
     "danube": make_font("danube__.ttf", 15, local=True),
 }
+
+OLED_PIN = "P9_23"
 
 # screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
 
@@ -60,7 +56,6 @@ class Oled:
         gpio_manager: GpioManager,
     ) -> None:
         """Initialize OLED screen."""
-        self._loop = asyncio.get_running_loop()
         self._event_bus = event_bus
         self.grouped_outputs_by_expander: list[str] = []
         self.gpio_manager = gpio_manager
@@ -132,7 +127,7 @@ class Oled:
             (1, 1),
             self._current_screen.replace("_", " ").capitalize(),
             font=fonts["big"],
-            fill=WHITE,
+            fill="white",
         )
         row_no = START_ROW
         for k in data:
@@ -140,7 +135,7 @@ class Oled:
                 (3, row_no),
                 f"{k} {data[k]}",
                 font=fonts["small"],
-                fill=WHITE,
+                fill="white",
             )
             row_no += 15
 
@@ -152,8 +147,8 @@ class Oled:
 
     def _draw_uptime(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
         """Draw uptime screen with boneIO logo."""
-        draw.text((3, 3), "bone", font=fonts["danube"], fill=WHITE)
-        draw.text((53, 3), "iO", font=fonts["danube"], fill=WHITE)
+        draw.text((3, 3), "bone", font=fonts["danube"], fill="white")
+        draw.text((53, 3), "iO", font=fonts["danube"], fill="white")
         for k in data:
             text = data[k]["data"]
             fontSize = fonts[data[k]["fontSize"]]
@@ -161,7 +156,7 @@ class Oled:
                 (data[k]["col"], UPTIME_ROWS[data[k]["row"]]),
                 f"{k}: {text}",
                 font=fontSize,
-                fill=WHITE,
+                fill="white",
             )
 
     def _draw_output(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
@@ -171,7 +166,7 @@ class Oled:
             (1, 1),
             f"Relay {self._current_screen}",
             font=fonts["small"],
-            fill=WHITE,
+            fill="white",
         )
         i = 0
         j = next(cols)
@@ -183,7 +178,7 @@ class Oled:
                 (j, OUTPUT_ROWS[i]),
                 f"{shorten_name(k['name'])} {k['state']}",
                 font=fonts["extraSmall"],
-                fill=WHITE,
+                fill="white",
             )
             i += 1
 
@@ -194,7 +189,7 @@ class Oled:
             (1, 1),
             f"{self._current_screen}",
             font=fonts["small"],
-            fill=WHITE,
+            fill="white",
         )
         i = 0
         j = next(cols)
@@ -206,7 +201,7 @@ class Oled:
                 (j, INPUT_ROWS[i]),
                 f"{shorten_name(k['name'])} {k['state']}",
                 font=fonts["extraSmall"],
-                fill=WHITE,
+                fill="white",
             )
             i += 1
 
@@ -229,7 +224,7 @@ class Oled:
                                 listener_id=f"oled_{self._current_screen}",
                                 target=self._output_callback,
                             )
-                    elif self._current_screen == UPTIME:
+                    elif self._current_screen == "uptime":
                         self._draw_uptime(data, draw)
                         self._event_bus.add_event_listener(
                             event_type=EventType.HOST,
@@ -270,7 +265,7 @@ class Oled:
             self.handle_data_update(type=self._current_screen)
 
     async def _standard_callback(self, event: SensorState) -> None:
-        self.handle_data_update(type=UPTIME)
+        self.handle_data_update(type="uptime")
 
     async def _input_callback(self, event: InputState) -> None:
         self.handle_data_update(type="inputs")
@@ -288,7 +283,7 @@ class Oled:
 
     def _handle_press(self) -> None:
         """Handle press of PIN for OLED display."""
-        _LOGGER.debug("Handling press!")
+        _LOGGER.debug("Handling press OLED button!")
         if self._cancel_sleep_handle:
             self._cancel_sleep_handle()
             self._cancel_sleep_handle = None
@@ -312,7 +307,7 @@ class Oled:
         qr.make(fit=True)
 
         # Create QR code image
-        qr_image = qr.make_image(fill_color=WHITE, back_color="black")
+        qr_image = qr.make_image(fill_color="white", back_color="black")
         qr_image = qr_image.convert("1")  # Convert to binary mode
 
         # Scale the QR code down to 0.8 of its size
@@ -324,9 +319,9 @@ class Oled:
 
         # Add title text on the left side
         # text_width = fonts["small"].getsize(title)[0]
-        draw.text((2, 2), "Scan to", font=fonts["small"], fill=WHITE)
-        draw.text((2, 12), "access", font=fonts["small"], fill=WHITE)
-        draw.text((2, 22), "webui", font=fonts["small"], fill=WHITE)
+        draw.text((2, 2), "Scan to", font=fonts["small"], fill="white")
+        draw.text((2, 12), "access", font=fonts["small"], fill="white")
+        draw.text((2, 22), "webui", font=fonts["small"], fill="white")
 
         # Calculate position to align QR code to right and center vertically
         x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding

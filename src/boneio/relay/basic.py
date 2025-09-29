@@ -293,7 +293,7 @@ class BasicRelay(ABC):
             self.state = "ON"
             self.send_state()
             if is_momentary_turn and self.momentary_turn_on is not None:
-                self.with_delay(self.turn_off, self.momentary_turn_on)
+                await self.with_delay(self.turn_off, self.momentary_turn_on)
         else:
             _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             # Workaround for HA is sendind state ON/OFF without physically changing the relay.
@@ -307,7 +307,7 @@ class BasicRelay(ABC):
         self.state = "OFF"
         self.send_state()
         if is_momentary_turn and self.momentary_turn_off is not None:
-            self.with_delay(self.turn_on, self.momentary_turn_off)
+            await self.with_delay(self.turn_on, self.momentary_turn_off)
 
     async def with_delay(self, action: TurnOnOrTurnOff, delta: timedelta) -> None:
         """Execute action after delay."""

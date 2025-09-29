@@ -24,9 +24,7 @@ RESTORE_STATE = "restore_state"
 MODEL = "model"
 
 # OLED CONST
-OLED = "oled"
 FONTS = "fonts"
-OLED_PIN = "P9_23"
 GIGABYTE = 1073741824
 MEGABYTE = 1048576
 UPTIME = "uptime"
