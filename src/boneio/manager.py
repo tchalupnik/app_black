@@ -250,7 +250,7 @@ class Manager:
                     if config.oled is not None and config.oled.enabled:
                         from boneio.oled import Oled
 
-                        with anyio.create_task_group() as oled_tg:
+                        async with anyio.create_task_group() as oled_tg:
                             try:
                                 oled = Oled(
                                     tg=oled_tg,
