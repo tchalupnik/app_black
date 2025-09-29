@@ -1,7 +1,8 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import cycle
 
+import anyio.abc
 import qrcode
 from luma.core.error import DeviceNotFoundError
 from luma.core.interface.serial import i2c
@@ -10,7 +11,7 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 
 from boneio.config import OledScreens
-from boneio.events import EventBus, EventType, async_track_point_in_time, utcnow
+from boneio.events import EventBus, EventType
 from boneio.gpio_manager import Edge, GpioManager
 from boneio.helper import HostData, I2CError, make_font
 from boneio.models import InputState, OutputState, SensorState
@@ -48,6 +49,7 @@ class Oled:
 
     def __init__(
         self,
+        tg: anyio.abc.TaskGroup,
         host_data: HostData,
         grouped_outputs_by_expander: list[str],
         sleep_timeout: timedelta,
@@ -56,11 +58,14 @@ class Oled:
         gpio_manager: GpioManager,
     ) -> None:
         """Initialize OLED screen."""
+        self._tg = tg
         self._event_bus = event_bus
         self.grouped_outputs_by_expander: list[str] = []
         self.gpio_manager = gpio_manager
         self._input_groups: list[str] = []
         self._host_data = host_data
+        self.press_time_at: datetime = datetime.now(tz=timezone.utc)
+        self.sleep_event = anyio.Event()
 
         def configure_outputs() -> None:
             try:
@@ -139,11 +144,21 @@ class Oled:
             )
             row_no += 15
 
-    def _sleeptime(self) -> None:
-        with canvas(self._device) as draw:
-            draw.rectangle(self._device.bounding_box, outline="black", fill="black")
-        self._sleep = True
-        _LOGGER.debug("OLED is going to sleep.")
+    async def _sleeptime(self) -> None:
+        if self._sleep_timeout.total_seconds() <= 0:
+            return
+        while True:
+            delta = datetime.now(tz=timezone.utc) - self.press_time_at
+            if delta >= self._sleep_timeout:
+                with canvas(self._device) as draw:
+                    draw.rectangle(
+                        self._device.bounding_box, outline="black", fill="black"
+                    )
+                self._sleep = True
+                _LOGGER.debug("OLED is going to sleep.")
+                await self.sleep_event.wait()
+            else:
+                await anyio.sleep((self._sleep_timeout - delta).total_seconds())
 
     def _draw_uptime(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
         """Draw uptime screen with boneIO logo."""
@@ -254,11 +269,6 @@ class Oled:
                         )
         else:
             self._handle_press()
-        if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds() > 0:
-            self._cancel_sleep_handle = async_track_point_in_time(
-                job=lambda x: self._sleeptime(),
-                point_in_time=utcnow() + self._sleep_timeout,
-            )
 
     async def _output_callback(self, event: OutputState) -> None:
         if self._current_screen in self.grouped_outputs_by_expander:
@@ -284,9 +294,9 @@ class Oled:
     def _handle_press(self) -> None:
         """Handle press of PIN for OLED display."""
         _LOGGER.debug("Handling press OLED button!")
-        if self._cancel_sleep_handle:
-            self._cancel_sleep_handle()
-            self._cancel_sleep_handle = None
+        self.press_time_at = datetime.now(tz=timezone.utc)
+        self.sleep_event.set()
+
         if not self._sleep:
             self._event_bus.remove_event_listener(
                 listener_id=f"oled_{self._current_screen}"
@@ -295,6 +305,7 @@ class Oled:
         else:
             self._sleep = False
         self.render_display()
+        self.sleep_event = anyio.Event()
 
     def draw_qr_code(self, url: str) -> None:
         """Draw QR code on the OLED display."""

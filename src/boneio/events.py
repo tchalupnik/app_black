@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import datetime as dt
 import logging
-import time
 from abc import ABC
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAlias
 
@@ -25,7 +23,6 @@ from boneio.models import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-UTC = dt.timezone.utc
 
 EntityId: TypeAlias = str
 ListenerId: TypeAlias = str
@@ -107,16 +104,12 @@ Event = Annotated[
 ]
 
 
-def utcnow() -> dt.datetime:
-    return dt.datetime.now(UTC)
-
-
 async def _async_create_timer(
     tg: anyio.abc.TaskGroup, event_callback: Callable[[], None]
 ) -> None:
     """Create a timer that will start on BoneIO start."""
 
-    async def schedule_tick(now: dt.datetime) -> None:
+    async def schedule_tick(now: datetime) -> None:
         """Schedule a timer tick when the next second rolls around."""
         slp_seconds = 1 - (now.microsecond / 10**6)
         await anyio.sleep(slp_seconds)
@@ -124,11 +117,11 @@ async def _async_create_timer(
 
     async def fire_time_event() -> None:
         """Fire next time event."""
-        now = utcnow()
+        now = datetime.now(timezone.utc)
         event_callback()
         await schedule_tick(now)
 
-    await schedule_tick(utcnow())
+    await schedule_tick(datetime.now(timezone.utc))
 
 
 class ListenerJob:
@@ -353,60 +346,3 @@ class EventBus:
         """Remove regular listener."""
         if name in self.every_second_listeners:
             del self.every_second_listeners[name]
-
-
-def _as_utc(dattim: dt.datetime) -> dt.datetime:
-    """Return a datetime as UTC time.
-
-    Assumes datetime without tzinfo to be in the DEFAULT_TIME_ZONE.
-    """
-    if dattim.tzinfo == UTC:
-        return dattim
-    return dattim.astimezone(UTC)
-
-
-def async_track_point_in_time(
-    job: Any,
-    point_in_time: datetime,
-    action: Callable[[], None] | None = None,
-) -> Callable[[], None]:
-    """Add a listener that fires once after a specific point in UTC time."""
-    # Ensure point_in_time is UTC
-    loop = asyncio.get_running_loop()
-    utc_point_in_time = _as_utc(point_in_time)
-    expected_fire_timestamp = utc_point_in_time.timestamp()
-
-    # Since this is called once, we accept a so we can avoid
-    # having to figure out how to call the action every time its called.
-    cancel_callback: asyncio.TimerHandle | None = None
-
-    def run_action(job: Callable[..., Coroutine[Any, Any, None] | None]) -> None:
-        """Call the action."""
-        nonlocal cancel_callback
-
-        # Depending on the available clock support (including timer hardware
-        # and the OS kernel) it can happen that we fire a little bit too early
-        # as measured by utcnow(). That is bad when callbacks have assumptions
-        # about the current time. Thus, we rearm the timer for the remaining
-        # time.
-        delta = expected_fire_timestamp - time.time()
-        if delta > 0:
-            _LOGGER.debug("Called %f seconds too early, rearming", delta)
-
-            cancel_callback = loop.call_later(delta, run_action, job)
-            return
-
-        if asyncio.iscoroutinefunction(job):
-            loop.create_task(job(utc_point_in_time, action))
-        else:
-            loop.call_soon(job, utc_point_in_time, action)
-
-    delta = expected_fire_timestamp - time.time()
-    cancel_callback = loop.call_later(delta, run_action, job)
-
-    def unsub_point_in_time_listener() -> None:
-        """Cancel the call_later."""
-        assert cancel_callback is not None
-        cancel_callback.cancel()
-
-    return unsub_point_in_time_listener

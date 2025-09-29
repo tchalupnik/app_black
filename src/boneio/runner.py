@@ -9,7 +9,7 @@ from pathlib import Path
 
 import anyio
 
-from boneio.asyncio import handle_signals
+from boneio.asyncio_ import handle_signals
 from boneio.config import Config
 from boneio.events import EventBus
 from boneio.logger import configure_logger

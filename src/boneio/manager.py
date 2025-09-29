@@ -246,11 +246,36 @@ class Manager:
                         gpio_manager=gpio_manager,
                         state_manager=state_manager,
                     )
-                    try:
-                        yield this
-                    except BaseException:
-                        tg.cancel_scope.cancel()
-                        raise
+
+                    if config.oled is not None and config.oled.enabled:
+                        from boneio.oled import Oled
+
+                        with anyio.create_task_group() as oled_tg:
+                            try:
+                                oled = Oled(
+                                    tg=oled_tg,
+                                    host_data=this.host_data,
+                                    screen_order=config.oled.screens,
+                                    grouped_outputs_by_expander=this.grouped_outputs_by_expander.keys(),
+                                    sleep_timeout=config.oled.screensaver_timeout,
+                                    event_bus=event_bus,
+                                    gpio_manager=gpio_manager,
+                                )
+                            except I2CError as err:
+                                _LOGGER.error("Can't configure OLED display. %s", err)
+                            else:
+                                oled.render_display()
+                            try:
+                                yield this
+                            except BaseException:
+                                tg.cancel_scope.cancel()
+                                raise
+                    else:
+                        try:
+                            yield this
+                        except BaseException:
+                            tg.cancel_scope.cancel()
+                            raise
 
     def _get_lazy_i2c(self) -> I2C:
         if self.i2c is None:
@@ -466,7 +491,7 @@ class Manager:
             devices=config.modbus_devices
         )
 
-        self._host_data = HostData(
+        self.host_data = HostData(
             manager=self,
             event_bus=self.event_bus,
             enabled_screens=config.oled.screens if config.oled is not None else [],
@@ -478,23 +503,6 @@ class Manager:
             if config.oled is not None
             else [],
         )
-
-        if config.oled is not None and config.oled.enabled:
-            from boneio.oled import Oled
-
-            try:
-                oled = Oled(
-                    host_data=self._host_data,
-                    screen_order=config.oled.screens,
-                    grouped_outputs_by_expander=self.grouped_outputs_by_expander.keys(),
-                    sleep_timeout=config.oled.screensaver_timeout,
-                    event_bus=self.event_bus,
-                    gpio_manager=self.gpio_manager,
-                )
-            except I2CError as err:
-                _LOGGER.error("Can't configure OLED display. %s", err)
-            else:
-                oled.render_display()
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
 

@@ -92,7 +92,7 @@ def run(
     ] = False,
 ) -> None:
     """Run BoneIO."""
-    from boneio.asyncio import asyncio_run
+    from boneio.asyncio_ import asyncio_run
     from boneio.runner import start
     from boneio.yaml import ConfigurationError, load_config
 
