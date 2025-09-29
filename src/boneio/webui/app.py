@@ -13,7 +13,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal, assert_never
+from typing import TYPE_CHECKING, Any, Literal, assert_never
 
 import httpx
 from fastapi import (
@@ -50,10 +50,13 @@ from boneio.models import (
 )
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
-from boneio.webui.web_server import WebServer
 from boneio.yaml import ConfigurationError, load_config, update_config_section
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
+
+if TYPE_CHECKING:
+    from .web_server import WebServer
+
 
 _LOGGER = logging.getLogger(__name__)
 
