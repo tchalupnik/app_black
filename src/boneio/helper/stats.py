@@ -28,17 +28,17 @@ from boneio.const import (
     UPTIME,
 )
 from boneio.events import EventBus, HostEvent
-from boneio.gpio import GpioEventButtonsAndSensors
+from boneio.helper.async_updater import AsyncUpdater
 from boneio.models import HostSensorState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
+from boneio.version import __version__
 
 if TYPE_CHECKING:
+    from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.manager import Manager
     from boneio.sensor import INA219
 
-from boneio.helper.async_updater import AsyncUpdater
-from boneio.version import __version__
 
 _LOGGER = logging.getLogger(__name__)
 intervals = (("d", 86400), ("h", 3600), ("m", 60))

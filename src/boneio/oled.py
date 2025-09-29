@@ -125,6 +125,7 @@ class Oled:
         except DeviceNotFoundError as err:
             raise I2CError(err)
         _LOGGER.debug("Configuring OLED screen.")
+        self._tg.start_soon(self._sleeptime)
 
     def _draw_standard(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
         """Draw standard information about host screen."""
