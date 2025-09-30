@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import socket
 import time
@@ -14,20 +13,7 @@ import psutil
 from pydantic import BaseModel, Field
 
 from boneio.config import OledExtraScreenSensorConfig, OledScreens
-from boneio.const import (
-    CPU,
-    DISK,
-    GIGABYTE,
-    IP,
-    MAC,
-    MASK,
-    MEGABYTE,
-    MEMORY,
-    NETWORK,
-    NONE,
-    SWAP,
-    UPTIME,
-)
+from boneio.const import GIGABYTE, IP, MEGABYTE, NETWORK
 from boneio.events import EventBus, HostEvent
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.models import HostSensorState
@@ -62,7 +48,7 @@ def display_time(seconds: float) -> str:
 def get_network_info():
     """Fetch network info."""
     addrs = psutil.net_if_addrs().get("eth0", [])
-    out = {IP: NONE, MASK: NONE, MAC: NONE}
+    out = {"ip": "none", "mask": "none", "mac": "none"}
     for addr in addrs:
         if addr.family == socket.AF_INET:
             out["ip"] = addr.address
@@ -124,7 +110,7 @@ class HostSensor:
     host_stat: HostStat
     event_bus: EventBus
     id: str
-    type: str
+    name: str
     _state: dict[str, str] = Field(default_factory=dict)
 
     def update(self, timestamp: float) -> None:
@@ -134,7 +120,7 @@ class HostSensor:
                 entity_id=self.id,
                 event_state=HostSensorState(
                     id=self.id,
-                    name=self.type,
+                    name=self.name,
                     state="new_state",  # doesn't matter here, as we fetch everything in Oled.
                     timestamp=timestamp,
                 ),
@@ -142,7 +128,7 @@ class HostSensor:
         )
 
     def get_state(self) -> dict[str, str]:
-        if self.host_stat.static:
+        if self.host_stat.static is not None:
             return {
                 **{k: v.model_dump() for k, v in self.host_stat.static.items()},
                 **self._state,
@@ -182,12 +168,14 @@ class HostData:
         self._hostname = socket.gethostname()
         self._temp_sensor = temp_sensor
         host_stats: dict[str, HostStat] = {
-            NETWORK: HostStat(f=get_network_info),
-            CPU: HostStat(f=get_cpu_info, update_interval=timedelta(seconds=5)),
-            DISK: HostStat(f=get_disk_info),
-            MEMORY: HostStat(f=get_memory_info, update_interval=timedelta(seconds=10)),
-            SWAP: HostStat(f=get_swap_info),
-            UPTIME: HostStat(
+            "network": HostStat(f=get_network_info),
+            "cpu": HostStat(f=get_cpu_info, update_interval=timedelta(seconds=5)),
+            "disk": HostStat(f=get_disk_info),
+            "memory": HostStat(
+                f=get_memory_info, update_interval=timedelta(seconds=10)
+            ),
+            "swap": HostStat(f=get_swap_info),
+            "uptime": HostStat(
                 f=lambda: (
                     {
                         "uptime": {
@@ -246,10 +234,10 @@ class HostData:
                     for sensor in ina219.sensors.values()
                 }
 
-            host_stats["ina219"] = {
-                "f": get_ina_values,
-                "update_interval": timedelta(seconds=60),
-            }
+            host_stats["ina219"] = HostStat(
+                f=get_ina_values,
+                update_interval=timedelta(seconds=60),
+            )
         if extra_sensors:
 
             def get_extra_sensors_values() -> dict:
@@ -282,21 +270,21 @@ class HostData:
                         )
                 return output
 
-            host_stats["extra_sensors"] = {
-                "f": get_extra_sensors_values,
-                "update_interval": timedelta(seconds=60),
-            }
-        self._data: dict[str, HostSensor] = {}
-        for k, _v in host_stats.items():
-            if k not in enabled_screens:
+            host_stats["extra_sensors"] = HostStat(
+                f=get_extra_sensors_values,
+                update_interval=timedelta(seconds=60),
+            )
+        self.host_sensors: dict[str, HostSensor] = {}
+        for host_stat_name, host_stat in host_stats.items():
+            if host_stat_name not in enabled_screens:
                 continue
             sensor = HostSensor(
-                host_stat=_v,
+                host_stat=host_stat,
                 event_bus=event_bus,
-                id=f"{k}_hoststats",
-                type=k,
+                id=f"{host_stat_name}_hoststats",
+                name=host_stat_name,
             )
-            self._data[k] = sensor
+            self.host_sensors[host_stat_name] = sensor
             manager.append_task(
                 refresh_wrapper(sensor.update, sensor.host_stat.update_interval),
                 sensor.id,
@@ -306,13 +294,12 @@ class HostData:
             f"Inputs screen {i + 1}": list(inputs.values())[i * 25 : (i + 1) * 25]
             for i in range((len(inputs) + 24) // 25)
         }
-        self._loop = asyncio.get_running_loop()
 
     @property
     def web_url(self) -> str | None:
         if self._manager.config.web is None:
             return None
-        network_state = self._data[NETWORK].get_state()
+        network_state = self.host_sensors[NETWORK].get_state()
         if IP in network_state:
             return f"http://{network_state[IP]}:{self._manager.config.web.port}"
         return None
@@ -325,7 +312,7 @@ class HostData:
             return self._get_input(type)
         if type == "web":
             return self.web_url
-        return self._data[type].get_state()
+        return self.host_sensors[type].get_state()
 
     def _get_output(self, type: str) -> dict:
         """Get stats for output."""
