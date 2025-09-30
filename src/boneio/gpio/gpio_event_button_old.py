@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import field
+from dataclasses import dataclass, field
 
 import anyio
 
@@ -20,6 +20,7 @@ LONG_PRESS_DURATION_S = 0.6
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass(kw_only=True)
 class GpioEventButton(GpioBase):
     """Represent Gpio input switch."""
 

@@ -12,7 +12,7 @@ from .base import GpioBase
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class GpioInputBinarySensorNew(GpioBase):
     """Represent Gpio sensor on input boards."""
 
