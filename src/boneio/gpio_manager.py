@@ -157,9 +157,9 @@ class GpioManager:
         if edge == Edge.BOTH:
             gpiod_edge = gpiod.line.Edge.BOTH
         elif edge == Edge.FALLING:
-            gpiod_edge = gpiod.line.Edge.FALLING_EDGE
+            gpiod_edge = gpiod.line.Edge.FALLING
         elif edge == Edge.RISING:
-            gpiod_edge = gpiod.line.Edge.RISING_EDGE
+            gpiod_edge = gpiod.line.Edge.RISING
         else:
             assert_never(edge)
 
