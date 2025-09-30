@@ -189,8 +189,6 @@ class GpioManager:
             while True:
                 await anyio.wait_readable(request.fd)
                 events = request.read_edge_events()
-                if not len(events):
-                    return
 
                 if edge == Edge.FALLING:
                     events = [
@@ -222,7 +220,8 @@ class GpioManager:
             while True:
                 result = await receiver.receive()
                 # debounce_period is bugged
-                await anyio.sleep(debounce_period.total_seconds())
+                # For testing purposes, revert if needed.
+                # await anyio.sleep(debounce_period.total_seconds())
                 for _ in result:
                     _LOGGER.debug("add_event_callback calling callback on pin: %s", pin)
                     callback()
