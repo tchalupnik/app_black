@@ -414,7 +414,6 @@ def configure_event_sensor(
                 boneio_input=event_config.boneio_input,
                 bounce_time=event_config.bounce_time,
                 gpio_mode=event_config.gpio_mode,
-                inverted=event_config.inverted,
             )
         else:
             input = GpioEventButtonOld(
@@ -429,7 +428,6 @@ def configure_event_sensor(
                 boneio_input=event_config.boneio_input,
                 bounce_time=event_config.bounce_time,
                 gpio_mode=event_config.gpio_mode,
-                inverted=event_config.inverted,
             )
     if event_config.show_in_ha:
         send_ha_autodiscovery(
