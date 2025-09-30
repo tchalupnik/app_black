@@ -158,7 +158,7 @@ class GpioManager:
                 gpio_pin.offset: gpiod.LineSettings(
                     direction=gpiod.line.Direction.INPUT,
                     edge_detection=gpiod.line.Edge.BOTH,
-                    # debounce_period=debounce_period,
+                    debounce_period=timedelta(milliseconds=5),
                 )
             }
         )
