@@ -25,6 +25,7 @@ class GpioInputBinarySensorNew(GpioBase):
     def __post_init__(
         self,
     ) -> None:
+        super().__post_init__()
         """Setup GPIO Input Button"""
         self.click_type = (
             ("released", "pressed") if self.inverted else ("pressed", "released")

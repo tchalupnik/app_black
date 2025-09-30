@@ -29,8 +29,9 @@ class GpioEventButtonNew(GpioBase):
     # True after first click until window expires
     double_click_possible: bool = field(default=False, init=False)
 
-    def __init_post__(self) -> None:
+    def __post_init__(self) -> None:
         """Setup GPIO Input Button"""
+        super().__post_init__()
 
         # Initialize timers
         self._timer_double = ClickTimer(
@@ -44,7 +45,6 @@ class GpioEventButtonNew(GpioBase):
             action=lambda x: self.long_click_callback(x),
         )
 
-        self.gpio_manager.init(pin=self.pin, mode="in", pull_mode="gpio_pu")
         self.gpio_manager.add_event_callback(pin=self.pin, callback=self.check_state)
         _LOGGER.debug("Configured NEW listening for input pin %s", self.pin)
 

@@ -30,8 +30,9 @@ class GpioEventButton(GpioBase):
     is_waiting_for_second_click: bool = field(default=False, init=False)
     long_press_ran: bool = field(default=False, init=False)
 
-    def __init_post__(self) -> None:
+    def __post_init__(self) -> None:
         """Setup GPIO Input Button"""
+        super().__post_init__()
         _LOGGER.debug("Configured stable listening for input pin %s", self.pin)
         self._timer_double = ClickTimer(
             tg=self.tg,
