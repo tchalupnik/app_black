@@ -4,7 +4,7 @@ import logging
 import socket
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from math import floor
 from typing import TYPE_CHECKING, Literal
@@ -111,7 +111,7 @@ class HostSensor:
     event_bus: EventBus
     id: str
     name: str
-    _state: dict[str, str] = Field(default_factory=dict)
+    _state: dict[str, str] = field(default_factory=dict)
 
     def update(self, timestamp: float) -> None:
         self._state = self.host_stat.f()
