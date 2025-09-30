@@ -328,8 +328,8 @@ class EventConfig(BaseModel):
         return v.lower()
 
     def identifier(self) -> str:
-        if self.id:
-            return (self.id).replace(" ", "")
+        if self.id is not None:
+            return self.id.replace(" ", "")
         return self.pin
 
 

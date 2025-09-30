@@ -20,7 +20,7 @@ _LOGGER: Final = logging.getLogger(__name__)
 ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class GpioBase:
     """Base class for initialize GPIO"""
 
@@ -107,6 +107,7 @@ class GpioBase:
                     entity_id=self.pin,
                     event_state=InputState(
                         name=self.name,
+                        pin=self.pin,
                         state=self.last_state,
                         type=self.input_type,
                         timestamp=self.last_press_timestamp,
