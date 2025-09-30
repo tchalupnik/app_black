@@ -31,6 +31,7 @@ class GpioInputBinarySensorNew(GpioBase):
         )
         self._pressed_state = self.click_type[0] if self.state else self.click_type[1]
         _LOGGER.debug("Configured sensor pin %s", self.pin)
+        self.gpio_manager.init(pin=self.pin, mode="in", pull_mode="gpio_pu")
         self.gpio_manager.add_event_callback(
             pin=self.pin,
             callback=self.check_state,
