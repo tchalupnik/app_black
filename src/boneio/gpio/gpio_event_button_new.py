@@ -76,12 +76,12 @@ class GpioEventButtonNew(GpioBase):
         time_now = time.time()
         self.state = self.is_pressed()
         _LOGGER.debug(
-            "[PIN: %s] State %s, time now: %s, button pressed time: %s, double click possible",
+            "[PIN: %s] State %s, time now: %s, button pressed time: %s, double click possible %s",
             self.pin,
-            str(self.state),
-            str(time_now),
-            str(self.button_pressed_time),
-            str(self.double_click_possible),
+            self.state,
+            time_now,
+            self.button_pressed_time,
+            self.double_click_possible,
         )
 
         if self.state:  # Button pressed
