@@ -16,6 +16,8 @@ import aiomqtt
 import anyio
 import anyio.abc
 from aiomqtt import MqttError, Will
+from anyio import TASK_STATUS_IGNORED
+from anyio.abc import TaskStatus
 from paho.mqtt.properties import Properties
 
 from boneio.config import MqttConfig
@@ -55,39 +57,50 @@ class MqttMessageBus(MessageBus):
     @asynccontextmanager
     async def create(cls, config: MqttConfig) -> AsyncGenerator[MqttMessageBus]:
         """Keep the event loop alive and process any periodic tasks."""
-        reconnect_interval: int = 1
-
         async with anyio.create_task_group() as tg:
-            while True:
-                try:
-                    async with aiomqtt.Client(
-                        config.host,
-                        config.port,
-                        username=config.username,
-                        password=config.password,
-                        will=Will(
-                            topic=f"{config.topic_prefix}/state",
-                            payload="offline",
-                            qos=0,
-                            retain=False,
-                        ),
-                        clean_session=True,
-                    ) as client:
-                        this = cls(tg, client, config)
-                        try:
-                            yield this
-                        finally:
-                            _LOGGER.info("Cleaning up MQTT...")
-                            await this.announce_offline()
-                            tg.cancel_scope.cancel()
-                except MqttError as err:
-                    _LOGGER.error(
-                        "MQTT error: %s. Reconnecting in %s seconds",
-                        err,
-                        reconnect_interval,
-                    )
-                    await anyio.sleep(reconnect_interval)
-                    reconnect_interval = reconnect_interval * 2
+            # it is done that way because aiomqtt doesn't propagate exceptions.
+            client = await tg.start(cls._create_client, config)
+            try:
+                this = cls(tg, client, config)
+                yield this
+            finally:
+                _LOGGER.info("Cleaning up MQTT...")
+                await this.announce_offline()
+                tg.cancel_scope.cancel()
+
+    @classmethod
+    async def _create_client(
+        cls,
+        config: MqttConfig,
+        task_status: TaskStatus[aiomqtt.Client] = TASK_STATUS_IGNORED,
+    ) -> None:
+        reconnect_interval: int = 1
+        while True:
+            try:
+                async with aiomqtt.Client(
+                    config.host,
+                    config.port,
+                    username=config.username,
+                    password=config.password,
+                    will=Will(
+                        topic=f"{config.topic_prefix}/state",
+                        payload="offline",
+                        qos=0,
+                        retain=False,
+                    ),
+                    clean_session=True,
+                ) as client:
+                    # yield this
+                    task_status.started(client)
+                    await anyio.sleep_forever()
+            except MqttError as err:
+                _LOGGER.error(
+                    "MQTT error: %s. Reconnecting in %s seconds",
+                    err,
+                    reconnect_interval,
+                )
+                await anyio.sleep(reconnect_interval)
+                reconnect_interval = reconnect_interval * 2
 
     async def subscribe(self, receive_messages: ReceiveMessage) -> None:
         """Connect and subscribe to manager topics + host stats."""
