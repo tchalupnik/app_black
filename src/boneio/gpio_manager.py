@@ -145,6 +145,7 @@ class GpioManager:
         pin: str,
         callback: Callable[[], None],
         edge: Edge = Edge.BOTH,
+        debounce_period: timedelta = timedelta(milliseconds=100),
     ) -> None:
         _LOGGER.debug("add_event_callback, pin: %s", pin)
         gpio_pin = self.pins[pin]
