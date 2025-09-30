@@ -27,7 +27,7 @@ class GpioEventButtonNew(GpioBase):
 
     # State tracking
     # True after first click until window expires
-    double_click_possible = field(default=False, init=False)
+    double_click_possible: bool = field(default=False, init=False)
 
     def __init_post__(self) -> None:
         """Setup GPIO Input Button"""
