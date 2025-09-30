@@ -3,15 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Final, Literal, TypeAlias
+from typing import Any, Final, Literal, TypeAlias
+
+import anyio.abc
 
 from boneio.config import ActionConfig, BinarySensorActionTypes, EventActionTypes
-from boneio.const import (
-    PRESSED,
-    RELEASED,
-)
 from boneio.events import EventBus, InputEvent
 from boneio.gpio_manager import GpioManager
 from boneio.models import InputState
@@ -21,44 +20,38 @@ _LOGGER: Final = logging.getLogger(__name__)
 ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
 
 
+@dataclass
 class GpioBase:
     """Base class for initialize GPIO"""
 
-    def __init__(
-        self,
-        gpio_manager: GpioManager,
-        pin: str,
-        manager_press_callback: Callable[
-            [ClickTypes, GpioBase, str, bool, float | None],
-            Awaitable[None],
-        ],
-        name: str,
-        actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]],
-        input_type,
-        empty_message_after: bool,
-        event_bus: EventBus,
-        gpio_mode: str = "gpio",
-        bounce_time: timedelta = timedelta(milliseconds=50),
-        boneio_input: str = "",
-    ) -> None:
+    pin: str
+    name: str
+    tg: anyio.abc.TaskGroup
+    gpio_manager: GpioManager
+    event_bus: EventBus
+    input_type: str
+    actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]]
+    empty_message_after: bool
+    manager_press_callback: Callable[
+        [ClickTypes, GpioBase, str, bool, float | None],
+        Coroutine[Any, Any, None],
+    ]
+
+    gpio_mode: str = "gpio"
+    boneio_input: str = ""
+    bounce_time: timedelta = timedelta(milliseconds=50)
+
+    click_type: list[Literal["pressed"], Literal["released"]] = field(
+        default_factory=lambda: ["pressed", "released"], init=False
+    )
+    event_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    last_state: str = field("Unknown", init=False)
+    last_press_timestamp: float = field(0.0, init=False)
+    state: bool = field(False, init=False)
+
+    def __post_init__(self) -> None:
         """Setup GPIO Input Button"""
-        self.pin = pin
-        self.gpio_manager = gpio_manager
-        self.gpio_manager.init(pin=self.pin, mode="in", pull_mode=gpio_mode)
-        self._bounce_time = bounce_time.total_seconds()
-        self._loop = asyncio.get_running_loop()
-        self._manager_press_callback = manager_press_callback
-        self.name = name
-        self.actions = actions
-        self.input_type = input_type
-        self._empty_message_after = empty_message_after
-        self.boneio_input = boneio_input
-        self._click_type = (PRESSED, RELEASED)
-        self._state = self.is_pressed()
-        self.last_state = "Unknown"
-        self.last_press_timestamp = 0.0
-        self._event_bus = event_bus
-        self._event_lock = asyncio.Lock()
+        self.gpio_manager.init(pin=self.pin, mode="in", pull_mode=self.gpio_mode)
 
     def press_callback(
         self,
@@ -67,8 +60,8 @@ class GpioBase:
         start_time: float | None = None,
     ) -> None:
         """Handle press callback."""
-        asyncio.run_coroutine_threadsafe(
-            self._handle_press_with_lock(click_type, duration, start_time), self._loop
+        self.tg.start_soon(
+            self._handle_press_with_lock, click_type, duration, start_time
         )
 
     async def _handle_press_with_lock(
@@ -87,7 +80,7 @@ class GpioBase:
             click_type,
             dur,
         )
-        async with self._event_lock:
+        async with self.event_lock:
             _LOGGER.debug(
                 "[%s] Acquired lock for event '%s'. Processing...",
                 self.name,
@@ -102,14 +95,14 @@ class GpioBase:
                 self.last_press_timestamp - start_time,
             )
             self.last_state = click_type
-            await self._manager_press_callback(
+            await self.manager_press_callback(
                 click_type,
                 self,
-                self._empty_message_after,
+                self.empty_message_after,
                 duration,
                 start_time,
             )
-            self._event_bus.trigger_event(
+            self.event_bus.trigger_event(
                 InputEvent(
                     entity_id=self.pin,
                     event_state=InputState(
@@ -130,4 +123,4 @@ class GpioBase:
     @property
     def pressed_state(self) -> str:
         """Pressed state for"""
-        return self._click_type[0] if self._state else self._click_type[1]
+        return self.click_type[0] if self.state else self.click_type[1]

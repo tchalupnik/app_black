@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, assert_never
 
+import anyio.abc
 from busio import I2C
 
 from boneio.config import (
@@ -21,14 +22,7 @@ from boneio.config import (
     SensorConfig,
     TemperatureConfig,
 )
-from boneio.const import (
-    BINARY_SENSOR,
-    EVENT_ENTITY,
-    LM75,
-    MCP_TEMP_9808,
-    NONE,
-    SENSOR,
-)
+from boneio.const import LM75, MCP_TEMP_9808, NONE, SENSOR
 from boneio.events import EventBus
 from boneio.helper import (
     I2CError,
@@ -383,6 +377,7 @@ def configure_relay(
 
 
 def configure_event_sensor(
+    tg: anyio.abc.TaskGroup,
     event_config: EventConfig,
     gpio_manager: GpioManager,
     manager_press_callback: Callable,
@@ -408,23 +403,39 @@ def configure_event_sensor(
     else:
         if event_config.detection_type == "new":
             input = GpioEventButtonNew(
-                config=event_config,
+                tg=tg,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 gpio_manager=gpio_manager,
+                pin=event_config.pin,
+                name=event_config.identifier(),
+                actions=event_config.actions,
+                empty_message_after=event_config.clear_message,
+                boneio_input=event_config.boneio_input,
+                bounce_time=event_config.bounce_time,
+                gpio_mode=event_config.gpio_mode,
+                inverted=event_config.inverted,
             )
         else:
             input = GpioEventButtonOld(
-                config=event_config,
+                tg=tg,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 gpio_manager=gpio_manager,
+                pin=event_config.pin,
+                name=event_config.identifier(),
+                actions=event_config.actions,
+                empty_message_after=event_config.clear_message,
+                boneio_input=event_config.boneio_input,
+                bounce_time=event_config.bounce_time,
+                gpio_mode=event_config.gpio_mode,
+                inverted=event_config.inverted,
             )
     if event_config.show_in_ha:
         send_ha_autodiscovery(
             id=event_config.pin,
             name=event_config.identifier(),
-            ha_type=EVENT_ENTITY,
+            ha_type="event",
             device_class=event_config.device_class,
             availability_msg_func=ha_event_availabilty_message,
         )
@@ -432,6 +443,7 @@ def configure_event_sensor(
 
 
 def configure_binary_sensor(
+    tg: anyio.abc.TaskGroup,
     sensor_config: BinarySensorConfig,
     manager_press_callback: Callable,
     event_bus: EventBus,
@@ -457,24 +469,41 @@ def configure_binary_sensor(
     else:
         if sensor_config.detection_type == "new":
             input = GpioInputBinarySensorNew(
-                config=sensor_config,
+                tg=tg,
+                pin=sensor_config.pin,
+                name=sensor_config.identifier(),
+                actions=sensor_config.actions,
+                empty_message_after=sensor_config.clear_message,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 gpio_manager=gpio_manager,
+                boneio_input=sensor_config.boneio_input,
+                bounce_time=sensor_config.bounce_time,
+                gpio_mode=sensor_config.gpio_mode,
+                inverted=sensor_config.inverted,
+                initial_send=sensor_config.initial_send,
             )
         else:
             input = GpioInputBinarySensorOld(
-                config=sensor_config,
+                tg=tg,
+                pin=sensor_config.pin,
+                name=sensor_config.identifier(),
+                actions=sensor_config.actions,
+                empty_message_after=sensor_config.clear_message,
                 manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 gpio_manager=gpio_manager,
+                boneio_input=sensor_config.boneio_input,
+                bounce_time=sensor_config.bounce_time,
+                gpio_mode=sensor_config.gpio_mode,
+                inverted=sensor_config.inverted,
             )
 
     if sensor_config.show_in_ha:
         send_ha_autodiscovery(
             id=sensor_config.pin,
             name=sensor_config.identifier(),
-            ha_type=BINARY_SENSOR,
+            ha_type="binary_sensor",
             device_class=sensor_config.device_class,
             availability_msg_func=ha_binary_sensor_availabilty_message,
         )

@@ -611,6 +611,7 @@ class Manager:
             if check_if_pin_configured(pin=gpio.pin):
                 return
             input = configure_event_sensor(
+                tg=self.tg,
                 event_config=gpio,
                 manager_press_callback=self.press_callback,
                 event_bus=self.event_bus,
@@ -625,6 +626,7 @@ class Manager:
             if check_if_pin_configured(pin=gpio.pin):
                 return
             input = configure_binary_sensor(
+                tg=self.tg,
                 sensor_config=gpio,
                 manager_press_callback=self.press_callback,
                 event_bus=self.event_bus,

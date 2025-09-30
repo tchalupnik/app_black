@@ -1,43 +1,36 @@
 from __future__ import annotations
 
-import asyncio
-import logging
 import time
-from datetime import timedelta
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
-_LOGGER = logging.getLogger(__name__)
+import anyio
+import anyio.abc
 
 
+@dataclass
 class ClickTimer:
     """Represent async call later function with variable to check if timing is ON."""
 
-    def __init__(self, delay: timedelta, action) -> None:
-        """Initialize Click timer."""
-        self._loop = asyncio.get_running_loop()
-        self._remove_listener = None
-        self._delay: float = delay.total_seconds()
-        self._action = action
+    tg: anyio.abc.TaskGroup
+    delay: float
+    action: Callable[[float], None]
+    event: anyio.Event = field(default_factory=anyio.Event)
 
     def is_waiting(self) -> bool:
         """If variable is set then timer is ON, if None is Off."""
-        return self._remove_listener is not None
-
-    @property
-    def delay(self) -> float:
-        return self._delay
+        return self.event.is_set()
 
     def reset(self) -> None:
         """Uninitialize variable remove_listener."""
-        if self._remove_listener:
-            self._remove_listener.cancel()
-            self._remove_listener = None
+        if not self.event.is_set():
+            self.event.set()
 
-    def _start_action(self, start: float) -> None:
-        self._remove_listener = None
-        self._action(round(time.time() - start, 2))
-
-    def start_timer(self) -> None:
+    async def start_timer(self) -> None:
         """Start timer."""
-        self._remove_listener = self._loop.call_later(
-            self._delay, self._start_action, time.time()
-        )
+        self.event = anyio.Event()
+        start_time = time.time()
+        await anyio.sleep(self.delay)
+        if not self.event.is_set():
+            self.action(round(time.time() - start_time, 2))
+            self.event.set()
