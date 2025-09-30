@@ -133,7 +133,8 @@ class GpioManager:
             gpio_pin.request_line.reconfigure_lines(
                 config={
                     gpio_pin.offset: gpiod.LineSettings(
-                        direction=gpiod.line.Direction.INPUT
+                        direction=gpiod.line.Direction.INPUT,
+                        active_low=True,
                     )
                 }
             )
@@ -167,6 +168,7 @@ class GpioManager:
             config={
                 gpio_pin.offset: gpiod.LineSettings(
                     direction=gpiod.line.Direction.INPUT,
+                    active_low=True,
                     edge_detection=gpiod_edge,
                     debounce_period=timedelta(milliseconds=5),
                 )
