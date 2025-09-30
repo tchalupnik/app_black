@@ -7,7 +7,7 @@ from contextlib import ExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import Enum
-from typing import Literal
+from typing import Literal, assert_never
 
 import anyio
 import anyio.abc
@@ -145,7 +145,6 @@ class GpioManager:
         pin: str,
         callback: Callable[[], None],
         edge: Edge = Edge.BOTH,
-        debounce_period: timedelta = timedelta(milliseconds=100),
     ) -> None:
         _LOGGER.debug("add_event_callback, pin: %s", pin)
         gpio_pin = self.pins[pin]
@@ -153,32 +152,35 @@ class GpioManager:
         if gpio_pin.configured is None or gpio_pin.request_line is None:
             raise ValueError(f"Pin {pin} is not configured!")
 
+        gpiod_edge: gpiod.line.Edge
+        if edge == Edge.BOTH:
+            gpiod_edge = gpiod.line.Edge.BOTH
+        elif edge == Edge.FALLING:
+            gpiod_edge = gpiod.line.Edge.FALLING_EDGE
+        elif edge == Edge.RISING:
+            gpiod_edge = gpiod.line.Edge.RISING_EDGE
+        else:
+            assert_never(edge)
+
         gpio_pin.request_line.reconfigure_lines(
             config={
                 gpio_pin.offset: gpiod.LineSettings(
                     direction=gpiod.line.Direction.INPUT,
-                    edge_detection=gpiod.line.Edge.BOTH,
+                    edge_detection=gpiod_edge,
                     debounce_period=timedelta(milliseconds=5),
                 )
             }
         )
 
         self.tg.start_soon(
-            self._add_event_callback,
-            pin,
-            gpio_pin.request_line,
-            edge,
-            callback,
-            debounce_period,
+            self._add_event_callback, pin, gpio_pin.request_line, callback
         )
 
     async def _add_event_callback(
         self,
         pin: str,
         request: gpiod.LineRequest,
-        edge: Edge,
         callback: Callable[[], None],
-        debounce_period: timedelta,
     ) -> None:
         """Add detection for RISING and FALLING events."""
         sender, receiver = anyio.create_memory_object_stream[
@@ -189,29 +191,7 @@ class GpioManager:
             while True:
                 await anyio.wait_readable(request.fd)
                 events = request.read_edge_events()
-
-                if edge == Edge.FALLING:
-                    events = [
-                        event
-                        for event in events
-                        if event.event_type
-                        == gpiod.edge_event.EdgeEvent.Type.FALLING_EDGE
-                    ]
-
-                elif edge == Edge.RISING:
-                    events = [
-                        event
-                        for event in events
-                        if event.event_type
-                        == gpiod.edge_event.EdgeEvent.Type.RISING_EDGE
-                    ]
-
-                _LOGGER.debug(
-                    "Processing %s event(s) for pin %s on edge %s.",
-                    len(events),
-                    pin,
-                    edge,
-                )
+                _LOGGER.debug("Processing %s event(s) for pin %s", len(events), pin)
                 await sender.send(events)
 
         self.tg.start_soon(c)
