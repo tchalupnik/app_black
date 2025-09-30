@@ -25,9 +25,9 @@ class GpioEventButton(GpioBase):
 
     input_type: str = "input"
 
-    double_click_ran: bool = field(False, init=False)
-    is_waiting_for_second_click: bool = field(False, init=False)
-    long_press_ran: bool = field(False, init=False)
+    double_click_ran: bool = field(default=False, init=False)
+    is_waiting_for_second_click: bool = field(default=False, init=False)
+    long_press_ran: bool = field(default=False, init=False)
 
     def __init_post__(self) -> None:
         """Setup GPIO Input Button"""

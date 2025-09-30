@@ -45,9 +45,9 @@ class GpioBase:
         default_factory=lambda: ["pressed", "released"], init=False
     )
     event_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
-    last_state: str = field("Unknown", init=False)
-    last_press_timestamp: float = field(0.0, init=False)
-    state: bool = field(False, init=False)
+    last_state: str = field(default="Unknown", init=False)
+    last_press_timestamp: float = field(default=0.0, init=False)
+    state: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
         """Setup GPIO Input Button"""

@@ -20,13 +20,13 @@ LONG_PRESS_DURATION_S = 0.4
 class GpioEventButtonNew(GpioBase):
     """Represent Gpio input switch."""
 
-    input_type: str = field("input", init=False)
-    button_pressed_time: float = field(0.0, init=False)
-    last_click_time: float = field(0.0, init=False)
+    input_type: str = field(default="input", init=False)
+    button_pressed_time: float = field(default=0.0, init=False)
+    last_click_time: float = field(default=0.0, init=False)
 
     # State tracking
     # True after first click until window expires
-    double_click_possible = field(False, init=False)
+    double_click_possible = field(default=False, init=False)
 
     def __init_post__(self) -> None:
         """Setup GPIO Input Button"""
