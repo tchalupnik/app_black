@@ -156,7 +156,7 @@ class HostData:
         self,
         output: dict[str, dict[str, BasicRelay]],
         inputs: dict[str, GpioEventButtonsAndSensors],
-        temp_sensor: Callable[[TempSensor], None] | None,
+        temp_sensor: TempSensor | None,
         ina219: INA219 | None,
         manager: Manager,
         event_bus: EventBus,
