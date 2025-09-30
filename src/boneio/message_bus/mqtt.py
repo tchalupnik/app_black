@@ -65,7 +65,6 @@ class MqttMessageBus(MessageBus):
                 yield this
             finally:
                 _LOGGER.info("Cleaning up MQTT...")
-                await this.announce_offline()
                 tg.cancel_scope.cancel()
 
     @classmethod
@@ -92,7 +91,20 @@ class MqttMessageBus(MessageBus):
                 ) as client:
                     # yield this
                     task_status.started(client)
-                    await anyio.sleep_forever()
+                    try:
+                        await anyio.sleep_forever()
+                    finally:
+                        topic = f"{config.topic_prefix}/state"
+                        _LOGGER.info(
+                            "Sending message topic: %s, payload: offline", topic
+                        )
+                        await client.publish(
+                            topic,
+                            qos=0,
+                            payload="offline",
+                            retain=True,
+                        )
+
             except MqttError as err:
                 _LOGGER.error(
                     "MQTT error: %s. Reconnecting in %s seconds",
