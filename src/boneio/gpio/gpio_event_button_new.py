@@ -75,6 +75,14 @@ class GpioEventButtonNew(GpioBase):
         # Schedule the actual state handling in the main event loop
         time_now = time.time()
         self.state = self.is_pressed()
+        _LOGGER.debug(
+            "[PIN: %s] State %s, time now: %s, button pressed time: %s, double click possible",
+            self.pin,
+            self.state,
+            time_now,
+            self.button_pressed_time,
+            self.double_click_possible,
+        )
 
         if self.state:  # Button pressed
             # Ignore bounces
