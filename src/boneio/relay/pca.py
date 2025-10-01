@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from adafruit_pca9685 import PCA9685, PCAChannels
+from adafruit_pca9685 import PCA9685, PWMChannel
 
 from boneio.const import BRIGHTNESS, STATE
 from boneio.relay.basic import BasicRelay
@@ -24,7 +24,7 @@ class PWMPCA(BasicRelay):
     def __post_init__(self) -> None:
         """Initialize PWMPCA."""
         super().__post_init__()
-        self._pin: PCAChannels = self.pca.channels[self.pin_id]
+        self._pin: PWMChannel = self.pca.channels[self.pin_id]
         self._brightness = self.restored_brightness if self.restored_state else 0
         _LOGGER.debug("Setup PCA with pin %s", self.pin_id)
 
