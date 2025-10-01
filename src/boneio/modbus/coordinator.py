@@ -16,7 +16,6 @@ from boneio.const import (
     LENGTH,
     MODEL,
     NAME,
-    OFFLINE,
     REGISTERS,
     SELECT,
     SENSOR,
@@ -398,7 +397,7 @@ class ModbusCoordinator:
         return self._modbus_entities
 
     def set_payload_offline(self):
-        self._payload_online = OFFLINE
+        self._payload_online = "offline"
 
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""

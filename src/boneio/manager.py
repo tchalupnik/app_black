@@ -5,6 +5,7 @@ import os
 import time
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, assert_never
 
@@ -49,7 +50,6 @@ from boneio.const import (
     LIGHT,
     NONE,
     ON,
-    SENSOR,
     SWITCH,
     VALVE,
 )
@@ -67,10 +67,12 @@ from boneio.helper import (
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
 )
+from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
 from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
+    ha_sensor_availability_message,
     ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
     ha_valve_availabilty_message,
@@ -84,7 +86,6 @@ from boneio.helper.loader import (
     create_adc,
     create_dallas_sensor,
     create_modbus_coordinators,
-    create_serial_number_sensor,
 )
 from boneio.helper.onewire.onewire import OneWireAddress
 from boneio.helper.pcf8575 import PCF8575
@@ -403,11 +404,7 @@ class Manager:
         _LOGGER.info("Initializing inputs. This will take a while.")
         self.configure_inputs()
 
-        self._serial_number_sensor = create_serial_number_sensor(
-            manager=self,
-            message_bus=self.message_bus,
-            topic_prefix=self.config.get_topic_prefix(),
-        )
+        self.create_serial_number_sensor()
         self.modbus_coordinators = self._configure_modbus_coordinators(
             devices=config.modbus_devices
         )
@@ -740,18 +737,21 @@ class Manager:
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
         for sensor_config in sensors:
-            ina219 = INA219(
-                manager=self,
-                message_bus=self.message_bus,
-                topic_prefix=self.config.get_topic_prefix(),
+            ina219 = INA219.from_config(
                 config=sensor_config,
+                message_bus=self.message_bus,
+                event_bus=self.event_bus,
+                topic_prefix=self.config.get_topic_prefix(),
+            )
+            self.append_task(
+                refresh_wrapper(ina219.update, sensor_config.update_interval), ina219.id
             )
 
             for sensor in ina219.sensors.values():
                 self.send_ha_autodiscovery(
                     id=sensor.id,
                     name=sensor.name,
-                    ha_type=SENSOR,
+                    ha_type="sensor",
                     availability_msg_func=ha_sensor_ina_availabilty_message,
                     unit_of_measurement=sensor.unit_of_measurement,
                     device_class=sensor.device_class,
@@ -772,6 +772,33 @@ class Manager:
                 config=self.config,
             )
         return {}
+
+    def create_serial_number_sensor(self) -> None:
+        """Create Serial number sensor in manager."""
+        id = "serial_number"
+        name = "Serial number"
+
+        def update(timestamp: float) -> None:
+            """Fetch temperature periodically and send to MQTT."""
+            network_info = get_network_info()
+            if "mac" not in network_info:
+                return
+            # Remove colons and take last 6 characters
+            state = network_info["mac"].replace(":", "")[-6:]
+            state = f"blk{state}"
+            self.message_bus.send_message(
+                topic=f"{self.config.get_topic_prefix()}/sensor/{id}",
+                payload=state,
+            )
+
+        self.append_task(refresh_wrapper(update, timedelta(minutes=60)), name)
+        self.send_ha_autodiscovery(
+            id=id,
+            name=name,
+            ha_type="sensor",
+            entity_category="diagnostic",
+            availability_msg_func=ha_sensor_availability_message,
+        )
 
     async def _relay_callback(
         self,

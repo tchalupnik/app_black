@@ -149,7 +149,7 @@ class _VirtualEnergySensor:
 
     def send_virtual_energy_state(self) -> None:
         """Send virtual power/energy state to MQTT for Home Assistant."""
-        payload = {}
+        payload: dict[str, float] = {}
         if self.virtual_power_usage is not None:
             payload["power"] = (
                 self.virtual_power_usage if self.parent.state == "ON" else 0.0

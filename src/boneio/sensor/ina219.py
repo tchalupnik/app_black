@@ -6,18 +6,17 @@ import logging
 import secrets
 import time
 import typing
+from dataclasses import dataclass, field
 from datetime import datetime
 
-from boneio.config import Filters, Ina219Config, Ina219DeviceClass
-from boneio.events import SensorEvent
-from boneio.helper.async_updater import refresh_wrapper
+from boneio.config import Ina219Config, Ina219DeviceClass
+from boneio.events import EventBus, SensorEvent
 from boneio.helper.filter import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.helper.util import strip_accents
 from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
-    from boneio.manager import Manager
     from boneio.message_bus import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,96 +24,108 @@ _LOGGER = logging.getLogger(__name__)
 unit_converter = {"current": "A", "power": "W", "voltage": "V"}
 
 
+@dataclass
 class _INA219Sensor:
     """Represent single value from INA219 as sensor."""
 
-    def __init__(
+    id: str
+    name: str
+    message_bus: MessageBus
+    filter: Filter
+    send_topic: str
+    unit_of_measurement: str
+
+    last_timestamp: float = field(default_factory=time.time, init=False)
+    state: float | None = field(default=None, init=False)
+    raw_state: float | None = field(default=None, init=False)
+
+    def __post_init__(
         self,
-        device_class: Ina219DeviceClass,
-        filters: list[dict[Filters, float]],
-        id: str,
-        name: str,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        state: float | None = None,
     ) -> None:
-        self.id = id.replace(" ", "")
-        self.name = name
-        self.message_bus = message_bus
-        self._send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
-        self.unit_of_measurement = unit_converter[device_class]
-        self.device_class = device_class
-        self.filter = Filter(filters)
-        self.raw_state = state
-        self.last_timestamp = time.time()
-        self.state = (
-            self.filter.apply_filters(value=self.raw_state) if self.raw_state else None
-        )
+        if self.raw_state is not None:
+            self.state = self.filter.apply_filters(value=self.raw_state)
 
     def update(self, timestamp: float) -> None:
         """Fetch sensor data periodically and send to MQTT."""
-        _state = (
+        state = (
             self.filter.apply_filters(value=self.raw_state) if self.raw_state else None
         )
-        if not _state:
+        if state is None:
             return
-        self.state = _state
+        self.state = state
         self.last_timestamp = timestamp
         self.message_bus.send_message(
-            topic=self._send_topic,
+            topic=self.send_topic,
             payload={"state": self.state},
         )
 
 
+@dataclass
 class INA219:
     """Represent INA219 sensors."""
 
-    def __init__(
-        self,
-        manager: Manager,
-        message_bus: MessageBus,
-        topic_prefix: str,
+    id: str
+    event_bus: EventBus
+    ina219_i2c: INA219_I2C
+    sensors: dict[Ina219DeviceClass, _INA219Sensor]
+
+    @classmethod
+    def from_config(
+        cls,
         config: Ina219Config,
-    ) -> None:
-        """Setup INA219 Sensor"""
-        self._ina_219 = INA219_I2C(address=config.address)
-        self.sensors: dict[Ina219DeviceClass, _INA219Sensor] = {}
-        self.id = config.identifier()
+        message_bus: MessageBus,
+        event_bus: EventBus,
+        topic_prefix: str,
+    ) -> INA219:
+        """Create instance from config."""
+        sensors: dict[Ina219DeviceClass, _INA219Sensor] = {}
+
         for sensor in config.sensors:
             sensor_id = (
                 sensor.id.replace(" ", "") if sensor.id else secrets.token_urlsafe(4)
             )
-            _id = f"{self.id}_{sensor_id}"
-            self.sensors[sensor.device_class] = _INA219Sensor(
-                device_class=sensor.device_class,
-                filters=sensor.filters,
+            _id = f"{config.identifier()}_{sensor_id}"
+            sensors[sensor.device_class] = _INA219Sensor(
+                id=_id.replace(" ", ""),
                 name=sensor_id,
-                id=_id,
                 message_bus=message_bus,
-                topic_prefix=topic_prefix,
+                filters=Filter(sensor.filters),
+                unit_of_measurement=unit_converter[sensor.device_class],
+                send_topic=f"{topic_prefix}/sensor/{strip_accents(_id)}",
             )
-        self.manager = manager
-        self.manager.append_task(
-            refresh_wrapper(self.update, config.update_interval), self.id
+        this = INA219(
+            id=config.identifier(),
+            event_bus=event_bus,
+            sensors=sensors,
+            ina219_i2c=INA219_I2C(address=config.address),
         )
         _LOGGER.debug("Configured INA219 on address %s", config.address)
+        return this
 
     def update(self, timestamp: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
         for k, sensor in self.sensors.items():
-            value = getattr(self._ina_219, k)
+            if k == "current":
+                value = self.ina219_i2c.current
+            elif k == "voltage":
+                value = self.ina219_i2c.voltage
+            elif k == "power":
+                value = self.ina219_i2c.power
+            else:
+                typing.assert_never(k, "Unknown INA219 sensor")
+
             _LOGGER.debug("Fetched INA219 value: %s %s", k, value)
             if sensor.raw_state != value:
                 sensor.raw_state = value
                 sensor.update(timestamp=timestamp)
-                self.manager.event_bus.trigger_event(
+                self.event_bus.trigger_event(
                     SensorEvent(
                         entity_id=sensor.id,
                         event_state=SensorState(
                             id=sensor.id,
                             name=sensor.name,
                             state=sensor.state,
-                            unit=sensor.unit_of_measurement,
+                            unit=sensor.unit_of_measurment,
                             timestamp=sensor.last_timestamp,
                         ),
                     )

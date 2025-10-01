@@ -13,7 +13,7 @@ import psutil
 from pydantic import BaseModel, Field
 
 from boneio.config import OledExtraScreenSensorConfig, OledScreens
-from boneio.const import GIGABYTE, IP, MEGABYTE, NETWORK
+from boneio.const import GIGABYTE, MEGABYTE
 from boneio.events import EventBus, HostEvent
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.models import HostSensorState
@@ -299,9 +299,9 @@ class HostData:
     def web_url(self) -> str | None:
         if self._manager.config.web is None:
             return None
-        network_state = self.host_sensors[NETWORK].get_state()
-        if IP in network_state:
-            return f"http://{network_state[IP]}:{self._manager.config.web.port}"
+        network_state = self.host_sensors["network"].get_state()
+        if "ip" in network_state:
+            return f"http://{network_state['ip']}:{self._manager.config.web.port}"
         return None
 
     def get(self, type: str) -> dict:

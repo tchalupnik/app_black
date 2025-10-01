@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from adafruit_pca9685 import PCA9685, PWMChannel
 
-from boneio.const import BRIGHTNESS, STATE
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,4 +60,4 @@ class PWMPCA(BasicRelay):
         self._pin.duty_cycle = 0
 
     def payload(self) -> dict:
-        return {BRIGHTNESS: self.brightness, STATE: self.state}
+        return {"brightness": self.brightness, "state": self.state}

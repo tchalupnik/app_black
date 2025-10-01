@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import typing
@@ -41,7 +40,6 @@ class TempSensor(ABC):
         """Initialize Temp class."""
         if not filters:
             filters = [{"round": 2}]
-        self._loop = asyncio.get_event_loop()
         self.id = id.replace(" ", "")
         self.name = name
         self.message_bus = message_bus

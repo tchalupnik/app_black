@@ -72,7 +72,6 @@ class GpioEventButtonNew(GpioBase):
 
     def check_state(self) -> None:
         """Check state - called from GPIO interrupt."""
-        # Schedule the actual state handling in the main event loop
         time_now = time.time()
         self.state = self.is_pressed()
         _LOGGER.debug(

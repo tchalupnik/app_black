@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from adafruit_pcf8575 import DigitalInOut
 
-from boneio.const import NONE
 from boneio.helper.pcf8575 import PCF8575
 from boneio.relay.basic import BasicRelay
 
@@ -21,7 +20,7 @@ class PCFRelay(BasicRelay):
     def __post_init__(self) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = self.pcf.get_pin(self.pin_id)
-        if self.output_type == NONE:
+        if self.output_type == "none":
             """Just in case to not restore state of covers etc."""
             restored_state = False
         self._pin.switch_to_output(value=restored_state)

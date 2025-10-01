@@ -52,7 +52,6 @@ class LocalMessageBus(MessageBus):
                 tuple[str, str | dict[str, Any]]
             ]()
             this = cls(tg, send_stream, receive_stream)
-            """Keep the event loop alive and process any periodic tasks."""
             _LOGGER.info("Sending online state.")
             this.send_message(topic="boneio/state", payload="online", retain=True)
             try:

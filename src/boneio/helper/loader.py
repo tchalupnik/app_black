@@ -34,7 +34,6 @@ from boneio.helper import (
     refresh_wrapper,
 )
 from boneio.helper.ha_discovery import (
-    ha_sensor_availability_message,
     ha_virtual_energy_sensor_discovery_message,
 )
 from boneio.helper.onewire import (
@@ -50,7 +49,6 @@ from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.relay.basic import BasicRelay
 from boneio.sensor import DallasSensorDS2482, GpioADCSensor
-from boneio.sensor.serial_number import SerialNumberSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 if TYPE_CHECKING:
@@ -136,29 +134,6 @@ def create_temp_sensor(
         return temp_sensor
     except I2CError as err:
         _LOGGER.error("Can't configure Temp sensor. %s", err)
-
-
-def create_serial_number_sensor(
-    manager: Manager,
-    message_bus: MessageBus,
-    topic_prefix: str,
-) -> SerialNumberSensor:
-    """Create Serial number sensor in manager."""
-    sensor = SerialNumberSensor(
-        id="serial_number",
-        name="Serial number",
-        manager=manager,
-        message_bus=message_bus,
-        topic_prefix=topic_prefix,
-    )
-    manager.send_ha_autodiscovery(
-        id="serial_number",
-        name="Serial number",
-        ha_type=SENSOR,
-        entity_category="diagnostic",
-        availability_msg_func=ha_sensor_availability_message,
-    )
-    return sensor
 
 
 def create_modbus_coordinators(

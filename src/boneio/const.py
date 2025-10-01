@@ -2,15 +2,12 @@
 LED = "led"
 ON = "ON"
 STATE = "state"
-BRIGHTNESS = "brightness"
 ID = "id"
 SWITCH = "switch"
 LIGHT = "light"
 BUTTON = "button"
 VALVE = "valve"
 IP = "ip"
-MASK = "mask"
-MAC = "mac"
 NONE = "none"
 MODEL = "model"
 
@@ -18,25 +15,11 @@ MODEL = "model"
 FONTS = "fonts"
 GIGABYTE = 1073741824
 MEGABYTE = 1048576
-UPTIME = "uptime"
-NETWORK = "network"
-CPU = "cpu"
-DISK = "disk"
-MEMORY = "memory"
-SWAP = "swap"
 
 # INPUT CONST
-INPUT = "input"
 SINGLE = "single"
 DOUBLE = "double"
 LONG = "long"
-PRESSED = "pressed"
-RELEASED = "released"
-
-
-# MQTT CONST
-ONLINE = "online"
-OFFLINE = "offline"
 
 # I2C, PCA and MCP CONST
 ADDRESS = "address"
@@ -50,7 +33,6 @@ NUMERIC = "number"
 BINARY_SENSOR = "binary_sensor"
 LM75 = "lm75"
 MCP_TEMP_9808 = "mcp9808"
-INPUT_SENSOR = "inputsensor"
 DS2482 = "ds2482"
 DALLAS = "dallas"
 

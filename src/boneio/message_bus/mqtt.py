@@ -56,7 +56,6 @@ class MqttMessageBus(MessageBus):
     @classmethod
     @asynccontextmanager
     async def create(cls, config: MqttConfig) -> AsyncGenerator[MqttMessageBus]:
-        """Keep the event loop alive and process any periodic tasks."""
         async with anyio.create_task_group() as tg:
             # it is done that way because aiomqtt doesn't propagate exceptions.
             client = await tg.start(cls._create_client, config)

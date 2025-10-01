@@ -1,17 +1,7 @@
 import json
 import unicodedata
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeVar
-
-CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
-CALLBACK_TYPE = Callable[[], None]
-
-
-def callback(func: CALLABLE_T) -> CALLABLE_T:
-    """Annotation to mark method as safe to call from within the event loop."""
-    setattr(func, "_boneio_callback", True)
-    return func
+from typing import Any
 
 
 def strip_accents(s: str) -> str:
