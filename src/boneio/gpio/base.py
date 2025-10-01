@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections.abc import Callable, Coroutine
@@ -44,7 +43,7 @@ class GpioBase:
     click_type: list[Literal["pressed"], Literal["released"]] = field(
         default_factory=lambda: ["pressed", "released"], init=False
     )
-    event_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    event_lock: anyio.Lock = field(default_factory=anyio.Lock, init=False)
     last_state: str = field(default="Unknown", init=False)
     last_press_timestamp: float = field(default=0.0, init=False)
     state: bool = field(default=False, init=False)

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import typing
 from datetime import datetime, timezone
 from pathlib import Path
+
+import anyio
 
 from boneio.config import Config, ModbusDeviceConfig
 from boneio.const import (
@@ -503,7 +504,7 @@ class ModbusCoordinator:
                 )
                 if register is not None:
                     self._discovery_sent = self._send_discovery_for_all_registers()
-                    await asyncio.sleep(2)
+                    await anyio.sleep(2)
                     break
             if not self._discovery_sent:
                 _LOGGER.error(

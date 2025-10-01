@@ -53,6 +53,7 @@ class GpioManager:
         with ExitStack() as stack:
             async with anyio.create_task_group() as tg:
                 yield cls(stack=stack, tg=tg, pins=pins)
+                tg.cancel_scope.cancel()
 
     def init(
         self,

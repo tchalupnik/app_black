@@ -186,10 +186,6 @@ class MqttMessageBus(MessageBus):
         properties: Properties | None = None,
         timeout: float = 10,
     ) -> None:
-        """Publish to topic.
-
-        Can raise asyncio_mqtt.MqttError.
-        """
         params: dict = {"qos": qos, "retain": retain, "timeout": timeout}
         if payload:
             params["payload"] = payload
