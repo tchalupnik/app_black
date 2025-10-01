@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import AsyncGenerator, Callable, Iterable
-from contextlib import ExitStack, asynccontextmanager
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import Enum
@@ -32,10 +32,8 @@ class _Pin:
 
 @dataclass
 class GpioManager:
-    stack: ExitStack
     tg: anyio.abc.TaskGroup
     pins: dict[str, _Pin] = field(default_factory=dict)
-    chips: dict[str, gpiod.Chip] = field(default_factory=dict, init=False)
 
     @classmethod
     @asynccontextmanager
@@ -50,10 +48,17 @@ class GpioManager:
                     line_info = chip.get_line_info(line)
                     line_name = line_info.name.split(" ")[0]
                     pins[line_name] = _Pin(chip_path=entry.path, offset=line)
-        with ExitStack() as stack:
-            async with anyio.create_task_group() as tg:
-                yield cls(stack=stack, tg=tg, pins=pins)
-                tg.cancel_scope.cancel()
+        async with anyio.create_task_group() as tg:
+            try:
+                yield cls(tg=tg, pins=pins)
+            finally:
+                _LOGGER.debug("Cleaning up GPIOs...")
+                with anyio.move_on_after(5, shield=True):
+                    for pin in pins.values():
+                        if pin.request_line is not None:
+                            pin.request_line.release()
+
+                    tg.cancel_scope.cancel()
 
     def init(
         self,
@@ -88,7 +93,6 @@ class GpioManager:
         config: dict[Iterable[int | str] | int | str, gpiod.LineSettings | None] = {
             gpio_pin.offset: gpiod.LineSettings(direction=direction, bias=bias)
         }
-        chip = self.chips.get(gpio_pin.chip_path)
 
         def configure(chip: gpiod.Chip) -> None:
             if gpio_pin.configured is None or gpio_pin.request_line is None:
@@ -97,10 +101,7 @@ class GpioManager:
             else:
                 gpio_pin.request_line.reconfigure_lines(config=config)
 
-        if chip is None:
-            with gpiod.Chip(gpio_pin.chip_path) as chip:
-                configure(chip)
-        else:
+        with gpiod.Chip(gpio_pin.chip_path) as chip:
             configure(chip)
 
     def write(self, pin: str, value: Literal["high", "low"]) -> None:
