@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 
 from boneio.config import Filters
-from boneio.const import SENSOR
 from boneio.events import SensorEvent
 from boneio.helper import refresh_wrapper
 from boneio.helper.filter import Filter
@@ -44,7 +43,7 @@ class TempSensor(ABC):
         self.name = name
         self.message_bus = message_bus
         self.manager = manager
-        self._send_topic = f"{topic_prefix}/{SENSOR}/{strip_accents(self.id)}"
+        self._send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
 
         self.filter = Filter(filters)
         self.unit_of_measurement = unit_of_measurement

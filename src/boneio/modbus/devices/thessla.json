@@ -103,7 +103,7 @@
           "address": 10,
           "entity_type": "binary_sensor",
           "value_type": "S_WORD"
-        },
+        }
       ]
     },
     {

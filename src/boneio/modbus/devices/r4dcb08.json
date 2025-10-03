@@ -1,7 +1,7 @@
 {
   "model": "R4DCB08",
   "set_base": {
-    "set_address_address": 254,
+    "set_address": 254,
     "set_baudrate": {
       "address": 255,
       "possible_baudrates": {

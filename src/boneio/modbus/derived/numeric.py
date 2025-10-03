@@ -1,57 +1,27 @@
 from __future__ import annotations
 
 import ast
+import logging
+from dataclasses import dataclass
 from typing import Literal
 
-from boneio.config import Config, Filters, ModbusDeviceData
-from boneio.message_bus.basic import MessageBus
+from boneio.config import ModbusDeviceData
 from boneio.modbus.sensor.base import BaseSensor
 
+_LOGGER = logging.getLogger(__name__)
 
+
+@dataclass(kw_only=True)
 class ModbusDerivedNumericSensor(BaseSensor):
-    def __init__(
-        self,
-        name: str,
-        parent: dict,
-        unit_of_measurement: str,
-        state_class: str,
-        device_class: str,
-        value_type: str,
-        return_type: str,
-        filters: list,
-        message_bus: MessageBus,
-        formula: str,
-        context_config: ModbusDeviceData,
-        config: Config,
-        source_sensor_base_address: str,
-        source_sensor_decoded_name: str,
-        user_filters: list[dict[Filters, float]] | None = None,
-        ha_filter: str = "round(2)",
-    ) -> None:
-        BaseSensor.__init__(
-            self,
-            name=name,
-            parent=parent,
-            unit_of_measurement=unit_of_measurement,
-            state_class=state_class,
-            device_class=device_class,
-            value_type=value_type,
-            return_type=return_type,
-            filters=filters,
-            message_bus=message_bus,
-            config=config,
-            user_filters=user_filters,
-            ha_filter=ha_filter,
-        )
-        self.formula = formula
-        self.context = context_config
-        self.base_address = source_sensor_base_address
-        self.source_sensor_decoded_name = source_sensor_decoded_name
+    formula: str
+    context_config: ModbusDeviceData
+    base_address: str
+    decoded_name: str
 
     @property
     def state(self) -> float:
         """Give rounded value of temperature."""
-        return self._value or 0.0
+        return self.value or 0.0
 
     def _safe_evaluate_expression(
         self,
@@ -62,8 +32,6 @@ class ModbusDerivedNumericSensor(BaseSensor):
         Safely evaluate mathematical expressions without using eval().
         Supports basic arithmetic operations and common mathematical functions.
         """
-        import logging
-
         # Replace variables in the formula with their values
         formula_with_values = formula
         for var, value in context.items():
@@ -80,7 +48,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
             tree = ast.parse(formula, mode="eval")
             return self._evaluate_ast_node(tree.body, context)
         except Exception as e:
-            logging.error("Failed to evaluate formula '%s': %s", formula, e)
+            _LOGGER.error("Failed to evaluate formula '%s': %s", formula, e)
             # Return the original sensor value if evaluation fails
             return context.get("X", 0.0)
 
@@ -160,7 +128,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
     ) -> None:
         context: dict[Literal["width", "length", "X"], str | float | int] = {
             "X": source_sensor_value,
-            **self.context,
+            **self.context_config,
         }
 
         # Use safe evaluation method without eval()

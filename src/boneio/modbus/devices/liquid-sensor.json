@@ -1,7 +1,7 @@
 {
   "model": "Liquid sensor",
   "set_base": {
-    "set_address_address": 0,
+    "set_address": 0,
     "set_baudrate": {
       "address": 1,
       "possible_baudrates": {

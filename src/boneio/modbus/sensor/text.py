@@ -1,97 +1,35 @@
 from __future__ import annotations
 
-from boneio.config import Config
-from boneio.const import ID, MODEL, NAME, SENSOR
+from dataclasses import dataclass
+
 from boneio.helper.ha_discovery import (
     HaModbusMessage,
     modbus_sensor_availabilty_message,
 )
-from boneio.message_bus.basic import MessageBus
 
 from .base import BaseSensor
 
 
+@dataclass(kw_only=True)
 class ModbusTextSensor(BaseSensor):
-    _ha_type_ = SENSOR
-
-    def __init__(
-        self,
-        name: str,
-        parent: dict,
-        register_address: int,
-        base_address: int,
-        unit_of_measurement: str,
-        state_class: str,
-        device_class: str,
-        value_type: str,
-        return_type: str,
-        filters: list,
-        message_bus: MessageBus,
-        config: Config,
-        value_mapping: dict | None = None,
-        user_filters: list | None = None,
-        ha_filter: str = "",
-    ) -> None:
-        """
-        Initialize single sensor.
-        :param name: name of sensor
-        :param register_address: address of register
-        :param base_address: address of base
-        :param unit_of_measurement: unit of measurement
-        :param state_class: state class
-        :param device_class: device class
-        :param value_type: type of value
-        :param return_type: type of return
-        :param user_filters: list of user filters
-        :param filters: list of filters
-        :param send_ha_autodiscovery: function for sending HA autodiscovery
-        """
-        if user_filters is None:
-            user_filters = []
-        if value_mapping is None:
-            value_mapping = {}
-        super().__init__(
-            name=name,
-            parent=parent,
-            unit_of_measurement=unit_of_measurement,
-            state_class=state_class,
-            device_class=device_class,
-            value_type=value_type,
-            return_type=return_type,
-            filters=filters,
-            message_bus=message_bus,
-            config=config,
-            user_filters=user_filters,
-            ha_filter=ha_filter,
-        )
-        self._register_address = register_address
-        self._base_address = base_address
-        self._value_mapping = value_mapping
-
-    @property
-    def address(self) -> int:
-        return self._register_address
-
-    @property
-    def base_address(self) -> int:
-        return self._base_address
+    _ha_type_: str = "sensor"
+    value_mapping: dict[str, str]
 
     @property
     def state(self) -> str:
         """Give rounded value of temperature."""
-        return self._value or ""
+        return self.value or ""
 
     def set_value(self, value: str, timestamp: float) -> None:
-        self._timestamp = timestamp
-        self._value = self._value_mapping.get(str(value), "Unknown")
+        self.timestamp = timestamp
+        self.value = self.value_mapping.get(str(value), "Unknown")
 
     def discovery_message(self) -> HaModbusMessage:
         return modbus_sensor_availabilty_message(
             topic=self.config.get_topic_prefix(),
-            id=self._parent[ID],
-            name=self._parent[NAME],
-            state_topic_base=str(self.base_address),
-            model=self._parent[MODEL],
+            id=self.parent["id"],
+            name=self.parent["name"],
+            model=self.parent["model"],
             value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
             sensor_id=self.name,
         )

@@ -5,6 +5,7 @@ import logging
 import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 
 import anyio
 from pymodbus.client.common import (
@@ -20,7 +21,6 @@ from pymodbus.pdu import ModbusResponse
 from pymodbus.register_read_message import ReadInputRegistersResponse
 
 from boneio.config import UartConfig
-from boneio.const import REGISTERS
 from boneio.helper.exceptions import ModbusUartException
 
 _LOGGER = logging.getLogger(__name__)
@@ -89,82 +89,77 @@ MAX_WORKERS = 4
 OPERATION_TIMEOUT = 5
 
 
+@dataclass
 class Modbus:
     """Represent modbus connection over chosen UART."""
 
-    def __init__(
-        self,
-        uart: UartConfig,
-        baudrate: int = 9600,
-        stopbits: int = 1,
-        bytesize: int = 8,
-        parity: str = "N",
-        timeout: float = 3,
-    ) -> None:
+    uart: UartConfig
+    baudrate: int = 9600
+    stopbits: int = 1
+    bytesize: int = 8
+    parity: str = "N"
+    timeout: float = 3
+    lock: anyio.Lock = field(default_factory=anyio.Lock)
+
+    def __post_init__(self) -> None:
         """Initialize the Modbus hub."""
 
-        if uart.rx is None:
+        if self.uart.rx is None:
             raise ModbusUartException
         _LOGGER.debug(
             "Setting UART for modbus communication: %s with baudrate %s, parity %s, stopbits %s, bytesize %s",
-            str(uart),
-            baudrate,
-            parity,
-            stopbits,
-            bytesize,
+            self.uart.model_dump_json(),
+            self.baudrate,
+            self.parity,
+            self.stopbits,
+            self.bytesize,
         )
 
         # generic configuration
-        self._client: BaseModbusClient | None = None
+        self.client: BaseModbusClient | None = None
         self._loop = asyncio.get_event_loop()
-        self._lock = anyio.Lock()
         self._executor = ThreadPoolExecutor(
             max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker"
         )
 
         try:
-            self._client = ModbusSerialClient(
-                port=uart.id,
+            self.client = ModbusSerialClient(
+                port=self.uart.id,
                 method="rtu",
-                baudrate=baudrate,
-                stopbits=stopbits,
-                bytesize=bytesize,
-                parity=parity,
-                timeout=timeout,
+                baudrate=self.baudrate,
+                stopbits=self.stopbits,
+                bytesize=self.bytesize,
+                parity=self.parity,
+                timeout=self.timeout,
             )
             self._read_methods = {
-                "input": self._client.read_input_registers,
-                "holding": self._client.read_holding_registers,
-                "coil": self._client.read_coils,
+                "input": self.client.read_input_registers,
+                "holding": self.client.read_holding_registers,
+                "coil": self.client.read_coils,
             }
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
 
-    @property
-    def client(self) -> ModbusSerialClient | None:
-        """Return client."""
-        return self._client
-
     async def async_close(self) -> None:
         """Disconnect client."""
-        if self._client:
+        if self.client:
             try:
                 # Run close in the executor
-                await self._loop.run_in_executor(self._executor, self._client.close)
+                await self._loop.run_in_executor(self._executor, self.client.close)
             except asyncio.CancelledError:
                 _LOGGER.warning("modbus communication closed")
             except ModbusException as exception_error:
                 _LOGGER.error(exception_error)
             finally:
-                del self._client
-                self._client = None
+                del self.client
+                self.client = None
                 self._executor.shutdown(wait=False)
                 _LOGGER.warning("modbus communication closed")
 
     def _pymodbus_connect(self) -> bool:
         """Connect client."""
         try:
-            return self._client.connect()  # type: ignore[union-attr]
+            return self.client.connect()  # type: ignore[union-attr]
         except ModbusException as exception_error:
             _LOGGER.error("No connection to Modbus: %s", exception_error)
             return False
@@ -218,10 +213,6 @@ class Modbus:
                 | ReadCoilsResponse
             ) = read_method(address, **kwargs)
 
-            if not hasattr(result, REGISTERS):
-                _LOGGER.error("No result from read: %s", str(result))
-                result = None
-
         except ValueError as exception_error:
             _LOGGER.error("Error reading registers: %s", exception_error)
         except (ModbusException, struct.error) as exception_error:
@@ -243,7 +234,7 @@ class Modbus:
             _LOGGER.debug(
                 "Read completed in %.3f seconds: %s",
                 end_time - start_time,
-                result.registers if hasattr(result, REGISTERS) else None,
+                result.registers,
             )
         return result
 
@@ -268,7 +259,7 @@ class Modbus:
             )
 
             # Run the read operation in the executor
-            result: WriteSingleRegisterResponse = self._client.write_register(
+            result: WriteSingleRegisterResponse = self.client.write_register(
                 address=address, value=value, unit=unit
             )
 
@@ -310,7 +301,7 @@ class Modbus:
         method: str = "input",  # type of register: input, holding
     ) -> ModbusResponse:
         """Call async pymodbus."""
-        async with self._lock:
+        async with self.lock:
             return await self._loop.run_in_executor(
                 self._executor,
                 self.read_registers_blocking,
@@ -332,7 +323,7 @@ class Modbus:
         self, unit: int | str, address: int, value: int | float
     ) -> ModbusResponse:
         """Call async pymodbus."""
-        async with self._lock:
+        async with self.lock:
             return await self._loop.run_in_executor(
                 self._executor, self.write_register_blocking, unit, address, value
             )

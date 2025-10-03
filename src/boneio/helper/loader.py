@@ -20,9 +20,7 @@ from boneio.config import (
     PcaOutputConfig,
     PcfOutputConfig,
     SensorConfig,
-    TemperatureConfig,
 )
-from boneio.const import LM75, MCP_TEMP_9808, NONE, SENSOR
 from boneio.events import EventBus
 from boneio.helper import (
     I2CError,
@@ -33,9 +31,7 @@ from boneio.helper import (
     ha_sensor_temp_availabilty_message,
     refresh_wrapper,
 )
-from boneio.helper.ha_discovery import (
-    ha_virtual_energy_sensor_discovery_message,
-)
+from boneio.helper.ha_discovery import ha_virtual_energy_sensor_discovery_message
 from boneio.helper.onewire import (
     DS2482,
     DS2482_ADDRESS,
@@ -55,8 +51,6 @@ if TYPE_CHECKING:
     from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.gpio_manager import GpioManager
     from boneio.manager import Manager
-    from boneio.sensor.temp.lm75 import LM75Sensor
-    from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,53 +81,11 @@ def create_adc(
                 manager.send_ha_autodiscovery(
                     id=id,
                     name=gpio.id,
-                    ha_type=SENSOR,
+                    ha_type="sensor",
                     availability_msg_func=ha_adc_sensor_availabilty_message,
                 )
         except I2CError as err:
             _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
-
-
-def create_temp_sensor(
-    manager: Manager,
-    message_bus: MessageBus,
-    topic_prefix: str,
-    sensor_type: str,
-    i2cbusio: I2C,
-    config: TemperatureConfig,
-) -> LM75Sensor | MCP9808Sensor:
-    """Create LM sensor in manager."""
-    if sensor_type == LM75:
-        from boneio.sensor import LM75Sensor as TempSensor
-    elif sensor_type == MCP_TEMP_9808:
-        from boneio.sensor import MCP9808Sensor as TempSensor
-    else:
-        raise ValueError(f"No {sensor_type} temperature sensor type.")
-    name = config.id
-    id = name.replace(" ", "")
-    try:
-        temp_sensor = TempSensor(
-            id=id,
-            name=name,
-            i2c=i2cbusio,
-            address=config.address,
-            manager=manager,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-            update_interval=config.update_interval,
-            filters=config.filters,
-            unit_of_measurement=config.unit_of_measurement,
-        )
-        manager.send_ha_autodiscovery(
-            id=id,
-            name=name,
-            ha_type="sensor",
-            availability_msg_func=ha_sensor_temp_availabilty_message,
-            unit_of_measurement=temp_sensor.unit_of_measurement,
-        )
-        return temp_sensor
-    except I2CError as err:
-        _LOGGER.error("Can't configure Temp sensor. %s", err)
 
 
 def create_modbus_coordinators(
@@ -149,21 +101,15 @@ def create_modbus_coordinators(
     modbus_coordinators = {}
     for entry in entries:
         id = entry.identifier()
-        try:
-            modbus_coordinators[id] = ModbusCoordinator(
-                device_config=entry,
-                manager=manager,
-                message_bus=message_bus,
-                modbus=modbus,
-                event_bus=event_bus,
-                config=config,
-            )
-        except FileNotFoundError as err:
-            _LOGGER.error(
-                "Can't configure Modbus sensor %s. %s. No such model in database.",
-                id,
-                err,
-            )
+        coordinator = ModbusCoordinator(
+            device_config=entry,
+            message_bus=message_bus,
+            modbus=modbus,
+            event_bus=event_bus,
+            config=config,
+        )
+        manager.append_task(refresh_wrapper(coordinator.async_update), id)
+        modbus_coordinators[id] = coordinator
     return modbus_coordinators
 
 
@@ -183,7 +129,7 @@ def configure_relay(
         else False
     )
     if (
-        output_config.output_type == NONE
+        output_config.output_type == "none"
         and state_manager.state.relay.get(relay_id) is not None
     ):
         state_manager.remove_relay_from_state(relay_id)
@@ -536,7 +482,7 @@ def create_dallas_sensor(
         manager.send_ha_autodiscovery(
             id=sensor.id,
             name=sensor.name,
-            ha_type=SENSOR,
+            ha_type="sensor",
             availability_msg_func=ha_sensor_temp_availabilty_message,
             unit_of_measurement=config.unit_of_measurement,
         )

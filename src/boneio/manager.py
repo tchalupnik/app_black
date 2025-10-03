@@ -38,21 +38,6 @@ from boneio.config import (
     SensorConfig,
     UartsConfig,
 )
-from boneio.const import (
-    BINARY_SENSOR,
-    BUTTON,
-    COVER,
-    DALLAS,
-    DS2482,
-    EVENT_ENTITY,
-    IP,
-    LED,
-    LIGHT,
-    NONE,
-    ON,
-    SWITCH,
-    VALVE,
-)
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
 from boneio.events import EventBus, EventType
@@ -127,10 +112,10 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 AVAILABILITY_FUNCTION_CHOOSER = {
-    LIGHT: ha_light_availabilty_message,
-    LED: ha_led_availabilty_message,
-    SWITCH: ha_switch_availabilty_message,
-    VALVE: ha_valve_availabilty_message,
+    "light": ha_light_availabilty_message,
+    "led": ha_led_availabilty_message,
+    "switch": ha_switch_availabilty_message,
+    "valve": ha_valve_availabilty_message,
 }
 
 
@@ -385,11 +370,11 @@ class Manager:
                     target=self._relay_callback,
                 )
             self.outputs[_id] = out
-            if out.output_type not in (NONE, COVER):
+            if out.output_type not in ("none", "cover"):
                 self.send_ha_autodiscovery(
                     id=out.id,
                     name=out.name,
-                    ha_type=(LIGHT if out.output_type == LED else out.output_type),
+                    ha_type=("light" if out.output_type == "led" else out.output_type),
                     availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
                         out.output_type, ha_switch_availabilty_message
                     ),
@@ -431,7 +416,7 @@ class Manager:
                 x = strip_accents(x)
                 if x in self.outputs:
                     output = self.outputs[x]
-                    if output.output_type == COVER:
+                    if output.output_type == "cover":
                         _LOGGER.warning("You can't add cover output to group.")
                     else:
                         outputs.append(output)
@@ -459,7 +444,7 @@ class Manager:
                 config=group,
             )
             self.output_groups[output_group.id] = output_group
-            if output_group.output_type != NONE:
+            if output_group.output_type != "none":
                 self.send_ha_autodiscovery(
                     id=output_group.id,
                     name=output_group.id,
@@ -471,7 +456,7 @@ class Manager:
                     device_type="group",
                     icon=(
                         "mdi:lightbulb-group"
-                        if output_group.output_type == LIGHT
+                        if output_group.output_type == "light"
                         else "mdi:toggle-switch-variant"
                     ),
                 )
@@ -482,7 +467,7 @@ class Manager:
         if reload_config:
             self.config.cover = load_config(self._config_file_path).cover
             if self.config.mqtt is not None:
-                self.config.mqtt.autodiscovery_messages.clear_type(type=COVER)
+                self.config.mqtt.autodiscovery_messages.clear_type(type="cover")
         for cover_config in self.config.cover:
             _id = strip_accents(cover_config.id)
             open_relay = self.outputs.get(cover_config.open_relay)
@@ -499,7 +484,7 @@ class Manager:
                     cover_config.close_relay,
                 )
                 continue
-            if open_relay.output_type != COVER or close_relay.output_type != COVER:
+            if open_relay.output_type != "cover" or close_relay.output_type != "cover":
                 _LOGGER.error(
                     "Can't configure cover %s. %s. Current types are: %s, %s",
                     _id,
@@ -574,7 +559,7 @@ class Manager:
                     self.send_ha_autodiscovery(
                         id=cover.id,
                         name=cover.name,
-                        ha_type=COVER,
+                        ha_type="cover",
                         device_class=cover_config.device_class,
                         availability_msg_func=availability_msg_func,
                     )
@@ -602,8 +587,8 @@ class Manager:
             config = load_config(self._config_file_path)
             self.config.event = config.event
             self.config.binary_sensor = config.binary_sensor
-            self.config.mqtt.autodiscovery_messages.clear_type(type=EVENT_ENTITY)
-            self.config.mqtt.autodiscovery_messages.clear_type(type=BINARY_SENSOR)
+            self.config.mqtt.autodiscovery_messages.clear_type(type="event")
+            self.config.mqtt.autodiscovery_messages.clear_type(type="binary_sensor")
         for gpio in self.config.event:
             if check_if_pin_configured(pin=gpio.pin):
                 return
@@ -651,9 +636,7 @@ class Manager:
         """
         if not ds2482 and not dallas:
             return
-        from boneio.helper.loader import (
-            find_onewire_devices,
-        )
+        from boneio.helper.loader import find_onewire_devices
 
         _one_wire_devices: dict[int, OneWireAddress] = {}
         _ds_onewire_bus = {}
@@ -668,7 +651,7 @@ class Manager:
                 find_onewire_devices(
                     ow_bus=_ds_onewire_bus[id],
                     bus_id=id,
-                    bus_type=DS2482,
+                    bus_type="ds2482",
                 )
             )
         if dallas is not None:
@@ -684,7 +667,7 @@ class Manager:
                     find_onewire_devices(
                         ow_bus=configure_dallas(),
                         bus_id=dallas.id,
-                        bus_type=DALLAS,
+                        bus_type="dallas",
                     )
                 )
             except KernelModuleLoadError as err:
@@ -805,7 +788,7 @@ class Manager:
         event: OutputState,
     ) -> None:
         """Relay callback function."""
-        self.state_manager.state.relay[event.id] = event.state == ON
+        self.state_manager.state.relay[event.id] = event.state == "ON"
         self.state_manager.save()
 
     def _logger_reload(self) -> None:
@@ -818,14 +801,14 @@ class Manager:
         self.send_ha_autodiscovery(
             id="logger",
             name="Logger reload",
-            ha_type=BUTTON,
+            ha_type="button",
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
         )
         self.send_ha_autodiscovery(
             id="restart",
             name="Restart boneIO",
-            ha_type=BUTTON,
+            ha_type="button",
             payload_press="restart",
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
@@ -833,7 +816,7 @@ class Manager:
         self.send_ha_autodiscovery(
             id="inputs_reload",
             name="Reload actions",
-            ha_type=BUTTON,
+            ha_type="button",
             payload_press="inputs_reload",
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
@@ -842,7 +825,7 @@ class Manager:
             self.send_ha_autodiscovery(
                 id="cover_reload",
                 name="Reload times of covers",
-                ha_type=BUTTON,
+                ha_type="button",
                 payload_press="cover_reload",
                 availability_msg_func=ha_button_availabilty_message,
                 entity_category="config",
@@ -965,7 +948,7 @@ class Manager:
         """Toggle output state."""
         output = self.outputs.get(output_id)
         if output:
-            if output.output_type == NONE or output.output_type == COVER:
+            if output.output_type in ("none", "cover"):
                 return "not_allowed"
             if not output.check_interlock():
                 return "interlock"
@@ -1011,7 +994,7 @@ class Manager:
             relay_message = mqtt_message.root
             if isinstance(relay_message, RelaySetMqttMessage):
                 target_device = self.outputs.get(relay_message.device_id)
-                if target_device is None or target_device.output_type == NONE:
+                if target_device is None or target_device.output_type == "none":
                     _LOGGER.warning(
                         "This relay %s doesn't exist.", relay_message.device_id
                     )
@@ -1029,7 +1012,7 @@ class Manager:
                 target_device = self.outputs.get(relay_message.device_id)
                 if not (
                     isinstance(target_device, PWMPCA)
-                    and target_device.output_type != NONE
+                    and target_device.output_type != "none"
                 ):
                     _LOGGER.warning(
                         "This relay %s doesn't exist or is not PWM.",
@@ -1073,7 +1056,7 @@ class Manager:
                     await cover.stop()
         elif isinstance(mqtt_message, GroupMqttMessage):
             target_device = self.output_groups.get(mqtt_message.device_id)
-            if target_device is not None and target_device.output_type != NONE:
+            if target_device is not None and target_device.output_type != "none":
                 match mqtt_message.message:
                     case "ON":
                         await target_device.turn_on()
@@ -1146,8 +1129,8 @@ class Manager:
         web_url = None
         if self.config.web is not None:
             network_state = get_network_info()
-            if IP in network_state:
-                web_url = f"http://{network_state[IP]}:{self.config.web.port}"
+            if "ip" in network_state:
+                web_url = f"http://{network_state['ip']}:{self.config.web.port}"
         payload = availability_msg_func(
             topic=topic_prefix,
             id=id,

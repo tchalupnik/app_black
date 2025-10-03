@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
 
-from boneio.const import COVER
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,7 +19,7 @@ class MCPRelay(BasicRelay):
     def __post_init__(self) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = self.mcp.get_pin(self.pin_id)
-        if self.output_type == COVER:
+        if self.output_type == "cover":
             """Just in case to not restore state of covers etc."""
             self.restored_state = False
 

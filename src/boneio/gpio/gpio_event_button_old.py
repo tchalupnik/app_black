@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 
 import anyio
 
-from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer
 
 from .base import GpioBase
@@ -42,14 +41,14 @@ class GpioEventButton(GpioBase):
         self._timer_long = ClickTimer(
             tg=self.tg,
             delay=LONG_PRESS_DURATION_S,
-            action=lambda x: self.press_callback(click_type=LONG, duration=x),
+            action=lambda x: self.press_callback(click_type="long", duration=x),
         )
         self.tg.start_soon(self._run)
 
     def double_click_press_callback(self) -> None:
         self._is_waiting_for_second_click = False
         if not self.state and not self._timer_long.is_waiting():
-            self.press_callback(click_type=SINGLE)
+            self.press_callback(click_type="single")
         else:
             _LOGGER.error(
                 "Thats why it's not working %s %s",
@@ -71,7 +70,7 @@ class GpioEventButton(GpioBase):
             if self._timer_double.is_waiting():
                 self._timer_double.reset()
                 self._double_click_ran = True
-                self.press_callback(click_type=DOUBLE)
+                self.press_callback(click_type="double")
             else:
                 self.tg.start_soon(self._timer_double.start_timer)
                 self._is_waiting_for_second_click = True
@@ -79,6 +78,6 @@ class GpioEventButton(GpioBase):
         else:  # is released?
             if not self._is_waiting_for_second_click and not self._double_click_ran:
                 if self._timer_long.is_waiting():
-                    self.press_callback(click_type=SINGLE)
+                    self.press_callback(click_type="single")
             self._timer_long.reset()
             self._double_click_ran = False

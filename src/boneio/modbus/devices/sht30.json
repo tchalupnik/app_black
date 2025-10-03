@@ -1,7 +1,7 @@
 {
   "model": "SHT30 Temp and Humidity sensor",
   "set_base": {
-    "set_address_address": 256,
+    "set_address": 256,
     "set_baudrate": {
       "address": 257,
       "possible_baudrates": { "9600": 9600, "14400": 14400, "19200": 19200 }

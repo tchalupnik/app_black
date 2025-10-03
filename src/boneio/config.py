@@ -179,6 +179,7 @@ Filters = Literal[
     "filter_out",
     "filter_out_greater",
     "filter_out_lower",
+    "encode_temperature",
 ]
 
 

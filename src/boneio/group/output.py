@@ -8,7 +8,6 @@ from typing import Literal
 import anyio
 
 from boneio.config import OutputGroupConfig
-from boneio.const import COVER
 from boneio.events import EventBus, EventType
 from boneio.helper.state_manager import StateManager
 from boneio.helper.util import strip_accents
@@ -33,7 +32,7 @@ class OutputGroup:
 
     def __post_init__(self) -> None:
         """Initialize cover class."""
-        self._group_members = [x for x in self.members if x.output_type != COVER]
+        self._group_members = [x for x in self.members if x.output_type != "cover"]
 
         for member in self._group_members:
             self.event_bus.add_event_listener(

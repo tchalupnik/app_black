@@ -1,79 +1,70 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
 from boneio.config import UartsConfig
-from boneio.const import REGISTERS
+from boneio.modbus.models import ModbusDevice
 
-from ..helper.util import open_json
 from .client import Modbus
-from .utils import REGISTERS_BASE, allowed_operations
+from .utils import allowed_operations
 
 _LOGGER = logging.getLogger(__name__)
-SET_BASE = "set_base"
-SET_ADDRESS = "set_address_address"
-SET_BAUDRATE = "set_baudrate"
 
 
+@dataclass
 class ModbusHelper:
     """Modbus Helper."""
 
+    device: str
+    uart: str
+    address: int
+    baudrate: int
+    model: dict
+    check_record: dict
+    check_record_method: str
+    stopbits: int = 1
+    bytesize: int = 8
+    parity: str = "N"
+    modbus: Modbus = field(init=False)
+
     baud_rates = [2400, 4800, 9600, 19200]
 
-    def __init__(
-        self,
-        device: str,
-        uart: str,
-        address: int,
-        baudrate: int,
-        model: dict,
-        check_record: dict,
-        check_record_method: str,
-        stopbits: int = 1,
-        bytesize: int = 8,
-        parity: str = "N",
-    ) -> None:
-        """Initialize Modbus Helper."""
-        self._modbus = Modbus(
-            uart=UartsConfig[uart],
-            baudrate=baudrate,
-            stopbits=stopbits,
-            bytesize=bytesize,
-            parity=parity,
+    def __post_init__(self) -> None:
+        """Initialize Modbus instance."""
+        self.modbus = Modbus(
+            uart=UartsConfig[self.uart],
+            baudrate=self.baudrate,
+            stopbits=self.stopbits,
+            bytesize=self.bytesize,
+            parity=self.parity,
         )
-        self._model = model
-        self._device = device
-        self._device_address = address
-        self._check_record = check_record
-        self._check_record_method = check_record_method
 
     async def check_connection(self) -> bool:
         """Check Modbus connection."""
-        name = self._check_record.get("name")
-        address = self._check_record.get("address", 1)
-        value_type = self._check_record.get("value_type")
-        _LOGGER.info(
-            "Checking connection %s, address %s.", self._device_address, address
-        )
+        name = self.check_record.get("name")
+        address = self.check_record.get("address", 1)
+        value_type = self.check_record.get("value_type")
+        _LOGGER.info("Checking connection %s, address %s.", self.address, address)
         count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
-        value = await self._modbus.read_registers(
-            unit=self._device_address,
+        value = await self.modbus.read_registers(
+            unit=self.address,
             address=address,
             count=count,
-            method=self._check_record_method,
+            method=self.check_record_method,
         )
         if not value:
             _LOGGER.error("No returned value.")
             return False
         payload = value.registers[0:count]
         try:
-            decoded_value = self._modbus.decode_value(payload, value_type)
+            decoded_value = self.modbus.decode_value(payload, value_type)
         except Exception as e:
             _LOGGER.error("Decoding error during checking connection %s", e)
             decoded_value = None
-        for filter in self._check_record.get("filters", []):
+        for filter in self.check_record.get("filters", []):
             for key, value in filter.items():
                 if key in allowed_operations:
                     lamda_function = allowed_operations[key]
@@ -86,13 +77,13 @@ class ModbusHelper:
         return True
 
     def set_connection_speed(self, new_baudrate: int) -> int:
-        baudrate_model = self._model[SET_BAUDRATE]
+        baudrate_model = self.model["set_baudrate"]
         ind = baudrate_model["possible_baudrates"].get(str(new_baudrate))
         if ind:
-            result = self._modbus.client.write_register(
+            result = self.modbus.client.write_register(
                 address=baudrate_model["address"],
                 value=ind,
-                unit=self._device_address,
+                unit=self.address,
             )
         if result.isError():
             _LOGGER.error("Operation failed.")
@@ -103,11 +94,11 @@ class ModbusHelper:
 
     def set_new_address(self, new_address: int) -> None:
         if 0 < new_address < 253:
-            _LOGGER.debug("New address register is %s", self._model[SET_ADDRESS])
-            result = self._modbus.client.write_register(
-                address=self._model[SET_ADDRESS],
+            _LOGGER.debug("New address register is %s", self.model["set_address"])
+            result = self.modbus.client.write_register(
+                address=self.model["set_address"],
                 value=new_address,
-                unit=self._device_address,
+                unit=self.address,
             )
             if result.isError():
                 _LOGGER.error("Operation failed.")
@@ -119,10 +110,10 @@ class ModbusHelper:
             _LOGGER.error("Invalid new address.")
 
     def set_custom_command(self, register_address: int, value: int | float) -> None:
-        result = self._modbus.client.write_register(
+        result = self.modbus.client.write_register(
             address=register_address,
             value=value,
-            unit=self._device_address,
+            unit=self.address,
         )
         if result.isError():
             _LOGGER.error("Operation failed.")
@@ -149,12 +140,36 @@ async def async_run_modbus_set(
     custom_cmd = True if device == "custom" else False
     set_base = {}
     if not custom_cmd:
-        _db = open_json(path=Path(__file__).parent, model=device)
-        set_base = _db.get(SET_BASE, {})
-        first_reg_base = _db.get(REGISTERS_BASE, [])[0]
-        if not first_reg_base:
+        config = ModbusDevice.model_validate_json(Path(device).read_text())
+        set_base = config.set_base or {}
+
+        # Get first register base and convert to dict format for compatibility
+        first_reg_base_obj = config.registers_base[0] if config.registers_base else None
+        if not first_reg_base_obj:
             return False
-        first_record = first_reg_base.get(REGISTERS, [])[0]
+
+        first_reg_base = {
+            "register_type": first_reg_base_obj.register_type.value,
+            "registers": [],
+        }
+
+        # Convert first register to dict format for compatibility
+        first_register = (
+            first_reg_base_obj.registers[0] if first_reg_base_obj.registers else None
+        )
+        if first_register:
+            first_record = {
+                "name": first_register.name,
+                "address": first_register.address,
+                "value_type": first_register.value_type.value,
+                "filters": [
+                    filter_dict.model_dump() for filter_dict in first_register.filters
+                ]
+                if first_register.filters
+                else [],
+            }
+        else:
+            first_record = {}
         _LOGGER.debug(
             "Connecting with params uart: %s, baudrate: %s, stopbits: %s, bytesize: %s, parity: %s.",
             uart,

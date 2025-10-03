@@ -13,7 +13,6 @@ import psutil
 from pydantic import BaseModel, Field
 
 from boneio.config import OledExtraScreenSensorConfig, OledScreens
-from boneio.const import GIGABYTE, MEGABYTE
 from boneio.events import EventBus, HostEvent
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.models import HostSensorState
@@ -26,7 +25,8 @@ if TYPE_CHECKING:
     from boneio.manager import Manager
     from boneio.sensor import INA219
 
-
+GIGABYTE = 1073741824
+MEGABYTE = 1048576
 _LOGGER = logging.getLogger(__name__)
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 

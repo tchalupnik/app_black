@@ -14,7 +14,6 @@ from w1thermsensor import (
 )
 
 from boneio.config import Filters
-from boneio.const import STATE
 from boneio.helper.exceptions import OneWireError
 from boneio.helper.onewire import (
     AsyncBoneIOW1ThermSensor,
@@ -106,7 +105,7 @@ class DallasSensorW1(TempSensor):
             self._timestamp = timestamp
             self.message_bus.send_message(
                 topic=self._send_topic,
-                payload={STATE: self._state},
+                payload={"state": self._state},
             )
         except SensorNotReadyError as err:
             _LOGGER.error("Sensor not ready, can't update %s", err)

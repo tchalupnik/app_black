@@ -1,0 +1,227 @@
+"""Typed models for Modbus device configurations using Pydantic."""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class ValueType(str, Enum):
+    """Supported Modbus value types."""
+
+    FP32 = "FP32"
+    S_WORD = "S_WORD"
+    U_WORD = "U_WORD"
+    S_DWORD = "S_DWORD"
+    U_DWORD = "U_DWORD"
+    FLOAT32 = "float32"
+    INT16 = "int16"
+    UINT16 = "uint16"
+    INT32 = "int32"
+    UINT32 = "uint32"
+
+
+class RegisterType(str, Enum):
+    """Supported register types."""
+
+    INPUT = "input"
+    HOLDING = "holding"
+    COIL = "coil"
+
+
+class AdditionalSensor(BaseModel):
+    """Represents an additional sensor configuration."""
+
+    name: str = Field(..., min_length=1, description="Sensor name")
+    source: str = Field(..., min_length=1, description="Source register name")
+    entity_type: Literal["text_sensor", "sensor", "select", "switch"] = Field(
+        ..., description="Entity type (select, switch, number, etc.)"
+    )
+    unit_of_measurement: str | None = Field(None, description="Unit of measurement")
+    device_class: str | None = Field(
+        None, description="Device class for Home Assistant"
+    )
+    state_class: str | None = Field(None, description="State class for Home Assistant")
+    x_mapping: dict[str, str] | None = Field(None, description="Value mapping")
+    payload_off: str | None = Field(None, description="Payload for OFF state")
+    payload_on: str | None = Field(None, description="Payload for ON state")
+    formula: str | None = Field(None, description="Formula for calculations")
+    config_keys: list[str] | None = Field(None, description="Configuration keys needed")
+
+
+class Filter(BaseModel):
+    """Represents a filter operation to apply to a register value."""
+
+    multiply: float | None = None
+    divide: float | None = None
+    add: float | None = None
+    subtract: float | None = None
+
+    @field_validator("multiply", "divide", "add", "subtract", mode="before")
+    @classmethod
+    def validate_numeric_fields(cls, v: Any) -> Any:
+        """Ensure all numeric fields are valid numbers."""
+        if v is not None and not isinstance(v, (int, float)):
+            raise ValueError("Filter values must be numeric")
+        return v
+
+
+class Register(BaseModel):
+    """Represents a Modbus register configuration."""
+
+    name: str = Field(..., min_length=1, description="Register name")
+    address: int = Field(..., ge=0, le=65535, description="Register address")
+    unit_of_measurement: str = Field("", description="Unit of measurement")
+    state_class: Literal["measurement", "total_increasing", "total"] = Field(
+        "measurement", description="State class for Home Assistant"
+    )
+    device_class: str | None = Field(
+        None, description="Device class for Home Assistant"
+    )
+    value_type: ValueType = Field(ValueType.FP32, description="Value type")
+    return_type: str | None = Field(
+        None, description="Return type for backward compatibility"
+    )
+    filters: list[Filter] = Field(
+        default_factory=list, description="List of filters to apply"
+    )
+    entity_type: str | None = Field("sensor", description="Entity type")
+    write_address: int | None = Field(
+        None, ge=0, le=65535, description="Write address for writeable registers"
+    )
+    write_filters: list[dict[str, Any]] | None = Field(
+        None, description="Write filters"
+    )
+    ha_filter: str | None = Field(None, description="Home Assistant filter")
+    payload_off: str | None = Field(None, description="Payload for OFF state")
+    payload_on: str | None = Field(None, description="Payload for ON state")
+    x_mapping: dict[str, str] | None = Field(None, description="Value mapping")
+
+
+class RegistersBase(BaseModel):
+    """Represents a base register configuration with a set of registers."""
+
+    base: int = Field(..., ge=0, le=65535, description="Base address")
+    length: int = Field(..., gt=0, le=1000, description="Length of register block")
+    registers: list[Register] = Field(
+        ..., min_length=1, description="List of registers"
+    )
+    register_type: RegisterType = Field(
+        RegisterType.HOLDING, description="Register type"
+    )
+
+    @field_validator("registers")
+    @classmethod
+    def validate_registers_within_base(cls, v: list[Register], info) -> list[Register]:
+        """Validate all register addresses are within the base range."""
+        if info.data and "base" in info.data and "length" in info.data:
+            base: int = info.data["base"]
+            length: int = info.data["length"]
+            max_address: int = base + length - 1
+
+            for reg in v:
+                if not (base <= reg.address <= max_address):
+                    raise ValueError(
+                        f"Register '{reg.name}' address {reg.address} is outside base range "
+                        f"{base}-{max_address}"
+                    )
+        return v
+
+    @field_validator("registers")
+    @classmethod
+    def validate_unique_register_names(cls, v: list[Register]) -> list[Register]:
+        """Validate all register names are unique."""
+        names: list[str] = [reg.name for reg in v]
+        if len(names) != len(set(names)):
+            duplicates: list[str] = [name for name in names if names.count(name) > 1]
+            raise ValueError(f"Duplicate register names found: {set(duplicates)}")
+        return v
+
+    @field_validator("registers")
+    @classmethod
+    def validate_unique_register_addresses(cls, v: list[Register]) -> list[Register]:
+        """Validate all register addresses are unique."""
+        addresses: list[int] = [reg.address for reg in v]
+        if len(addresses) != len(set(addresses)):
+            duplicates: list[int] = [
+                addr for addr in addresses if addresses.count(addr) > 1
+            ]
+            raise ValueError(f"Duplicate register addresses found: {set(duplicates)}")
+        return v
+
+
+class BaudrateConfig(BaseModel):
+    """Configuration for setting device baudrate."""
+
+    address: int = Field(..., ge=0, le=65535, description="Baudrate register address")
+    possible_baudrates: dict[str, int] = Field(
+        ..., description="Mapping of baudrate strings to values"
+    )
+
+    @field_validator("possible_baudrates")
+    @classmethod
+    def validate_baudrates(cls, v: dict[str, int]) -> dict[str, int]:
+        """Validate baudrate values are reasonable."""
+        for baudrate_str, baudrate_val in v.items():
+            if not isinstance(baudrate_val, int) or baudrate_val < 0:
+                raise ValueError(f"Invalid baudrate value: {baudrate_val}")
+            try:
+                # Parse the string to check if it's a valid baudrate
+                int(baudrate_str)
+            except ValueError:
+                raise ValueError(f"Invalid baudrate string: {baudrate_str}")
+        return v
+
+
+class SetBase(BaseModel):
+    """Configuration for device setting operations."""
+
+    set_address: int = Field(
+        ..., ge=0, le=65535, description="Address register address"
+    )
+    set_baudrate: BaudrateConfig = Field(..., description="Baudrate configuration")
+
+
+class ModbusDevice(BaseModel):
+    """Complete configuration for a Modbus device."""
+
+    model: str = Field(..., min_length=1, description="Device model name")
+    registers_base: list[RegistersBase] = Field(
+        ..., min_length=1, description="List of register bases"
+    )
+    set_base: SetBase | None = Field(None, description="Optional setting configuration")
+    additional_sensors: list[AdditionalSensor] | None = Field(
+        None, description="Additional sensor configurations"
+    )
+
+    @field_validator("registers_base")
+    @classmethod
+    def validate_no_overlapping_bases(
+        cls, v: list[RegistersBase]
+    ) -> list[RegistersBase]:
+        """Validate register bases don't overlap."""
+        bases: list[tuple[int, int, RegistersBase]] = []
+        for rb in v:
+            start: int = rb.base
+            end: int = rb.base + rb.length - 1
+            bases.append((start, end, rb))
+
+        # Sort by start address
+        bases.sort(key=lambda x: x[0])
+
+        # Check for overlaps
+        for i in range(len(bases) - 1):
+            current_end: int = bases[i][1]
+            next_start: int = bases[i + 1][0]
+            if current_end >= next_start:
+                raise ValueError(
+                    f"Register bases overlap: {bases[i][2].base}-{current_end} "
+                    f"and {next_start}-{bases[i + 1][1]}"
+                )
+        return v
+
+
+# Registry to store all device configurations
+DEVICE_CONFIGS: dict[str, ModbusDevice] = {}

@@ -1089,7 +1089,7 @@ async def websocket_endpoint(
                                 sensor_state = SensorState(
                                     id=entity.id,
                                     name=entity.name,
-                                    state=entity.state,
+                                    state=entity.value,
                                     unit=entity.unit_of_measurement,
                                     timestamp=entity.last_timestamp,
                                 )
