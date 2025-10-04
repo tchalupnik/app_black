@@ -13,7 +13,9 @@ import anyio
 import typer
 from yaml import MarkedYAMLError
 
+from boneio.config import ModbusModels
 from boneio.logger import configure_logger, setup_logging
+from boneio.modbus.models import RegisterType, ValueType
 from boneio.version import __version__
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
@@ -32,27 +34,14 @@ class ParityChoice(str, Enum):
     N = "N"
 
 
-class RegisterTypeChoice(str, Enum):
-    input = "input"
-    holding = "holding"
-
-
 class DeviceChoice(str, Enum):
+    # TODO: MISSING CHOICES?
     cwt = "cwt"
     r4dcb08 = "r4dcb08"
     liquid_sensor = "liquid-sensor"
     sht20 = "sht20"
     sht30 = "sht30"
     custom = "custom"
-
-
-class ValueTypeChoice(str, Enum):
-    U_WORD = "U_WORD"
-    S_WORD = "S_WORD"
-    U_DWORD = "U_DWORD"
-    S_DWORD = "S_DWORD"
-    U_DWORD_R = "U_DWORD_R"
-    S_DWORD_R = "S_DWORD_R"
 
 
 app = typer.Typer(help="boneIO app for BeagleBone Black.")
@@ -126,7 +115,7 @@ def modbus_set(
     uart: Annotated[UartChoice, typer.Option(help="Choose UART")],
     baudrate: Annotated[int, typer.Option(help="Current baudrate")],
     device: Annotated[
-        DeviceChoice,
+        ModbusModels,
         typer.Option(
             help="Choose device to set modbus address/baudrate. For custom you must provide --custom-value and --custom-register-address"
         ),
@@ -154,6 +143,10 @@ def modbus_set(
     ] = None,
 ) -> None:
     """Set modbus device parameters."""
+
+    from boneio.modbus.modbuscli import async_run_modbus_set
+    from boneio.yaml import ConfigurationError
+
     if new_address is not None and new_baudrate is not None:
         typer.echo(
             "Error: Cannot set both new address and new baudrate at the same time",
@@ -161,30 +154,38 @@ def modbus_set(
         )
         raise typer.Exit(1)
 
-    exit_code = run_modbus_set_helper(
-        device=device.value,
-        uart=uart.value,
-        address=address,
-        baudrate=baudrate,
-        parity=parity.value,
-        bytesize=bytesize,
-        stopbits=stopbits,
-        new_baudrate=new_baudrate,
-        new_address=new_address,
-        custom_address=custom_register_address,
-        custom_value=custom_value,
-        debug=debug,
-    )
-    if exit_code != 0:
-        raise typer.Exit(exit_code)
+    setup_logging(debug_level=debug)
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        configure_logger(debug=debug)
+        ret = anyio.run(
+            lambda: async_run_modbus_set(
+                device=device,
+                uart=uart.value,
+                address=address,
+                baudrate=baudrate,
+                parity=parity.value,
+                bytesize=bytesize,
+                stopbits=stopbits,
+                new_baudrate=new_baudrate,
+                new_address=new_address,
+                custom_address=custom_register_address,
+                custom_value=custom_value,
+            )
+        )
+        if ret != 0:
+            raise typer.Exit(ret)
+    except (ConfigurationError, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        raise typer.Exit(1)
 
 
 @modbus_app.command("get")
 def modbus_get(
     uart: Annotated[UartChoice, typer.Option(help="Choose UART")],
     baudrate: Annotated[int, typer.Option(help="Current baudrate")],
-    register_type: Annotated[RegisterTypeChoice, typer.Option(help="Register type")],
-    value_type: Annotated[ValueTypeChoice, typer.Option(help="Value types")],
+    register_type: Annotated[RegisterType, typer.Option(help="Register type")],
+    value_type: Annotated[ValueType, typer.Option(help="Value types")],
     address: Annotated[
         int, typer.Option(help="Current device address (hex or integer)")
     ] = 1,
@@ -206,6 +207,10 @@ def modbus_get(
     ] = None,
 ) -> None:
     """Get modbus register values."""
+
+    from boneio.modbus.modbuscli import async_run_modbus_get
+    from boneio.yaml import ConfigurationError
+
     if register_address is None and register_range is None:
         typer.echo(
             "Error: Either --register-address or --register-range is required", err=True
@@ -218,21 +223,29 @@ def modbus_get(
         )
         raise typer.Exit(1)
 
-    exit_code = run_modbus_get_helper(
-        uart=uart.value,
-        device_address=address,
-        baudrate=baudrate,
-        register_address=register_address,
-        register_type=register_type.value,
-        parity=parity.value,
-        bytesize=bytesize,
-        stopbits=stopbits,
-        value_type=value_type.value,
-        register_range=register_range,
-        debug=debug,
-    )
-    if exit_code != 0:
-        raise typer.Exit(exit_code)
+    setup_logging(debug_level=debug)
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        configure_logger(debug=debug)
+        ret = anyio.run(
+            lambda: async_run_modbus_get(
+                uart=uart.value,
+                device_address=address,
+                baudrate=baudrate,
+                register_address=register_address,
+                register_type=register_type,
+                parity=parity.value,
+                bytesize=bytesize,
+                stopbits=stopbits,
+                value_type=value_type,
+                register_range=register_range,
+            )
+        )
+        if ret != 0:
+            raise typer.Exit(ret)
+    except (ConfigurationError, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        raise typer.Exit(1)
 
 
 @modbus_app.command("search")
@@ -240,7 +253,7 @@ def modbus_search(
     uart: Annotated[UartChoice, typer.Option(help="Choose UART")],
     baudrate: Annotated[int, typer.Option(help="Current baudrate")],
     register_address: Annotated[int, typer.Option(help="Register address")],
-    register_type: Annotated[RegisterTypeChoice, typer.Option(help="Register type")],
+    register_type: Annotated[RegisterType, typer.Option(help="Register type")],
     bytesize: Annotated[int, typer.Option(help="Bytesize")] = 8,
     stopbits: Annotated[int, typer.Option(help="stopbits")] = 1,
     parity: Annotated[ParityChoice, typer.Option(help="Parity")] = ParityChoice.N,
@@ -250,18 +263,29 @@ def modbus_search(
     ] = 0,
 ) -> None:
     """Search for device. Iterate over every address 1-253 with provided register address."""
-    exit_code = run_modbus_search_helper(
-        uart=uart.value,
-        baudrate=baudrate,
-        register_address=register_address,
-        register_type=register_type.value,
-        stopbits=stopbits,
-        bytesize=bytesize,
-        parity=parity.value,
-        debug=debug,
-    )
-    if exit_code != 0:
-        raise typer.Exit(exit_code)
+    from boneio.modbus.modbuscli import async_run_modbus_search
+    from boneio.yaml import ConfigurationError
+
+    setup_logging(debug_level=debug)
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        configure_logger(debug=debug)
+        ret = anyio.run(
+            lambda: async_run_modbus_search(
+                uart=uart.value,
+                baudrate=baudrate,
+                register_address=register_address,
+                register_type=register_type,
+                stopbits=stopbits,
+                bytesize=bytesize,
+                parity=parity.value,
+            )
+        )
+        if ret != 0:
+            raise typer.Exit(ret)
+    except (ConfigurationError, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        raise typer.Exit(1)
 
 
 def version_callback(value: bool) -> None:
@@ -288,122 +312,6 @@ def main_callback(
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit(0)
-
-
-def run_modbus_set_helper(
-    device: str,
-    uart: str,
-    address: int,
-    baudrate: int,
-    parity: str,
-    bytesize: int,
-    stopbits: int,
-    new_baudrate: int | None,
-    new_address: int | None,
-    custom_address: int | None,
-    custom_value: int | None,
-    debug: int,
-) -> int:
-    """Run modbus set command helper."""
-    from boneio.modbus.modbuscli import async_run_modbus_set
-    from boneio.yaml import ConfigurationError
-
-    setup_logging(debug_level=debug)
-    _LOGGER.info("BoneIO %s starting.", __version__)
-    try:
-        configure_logger(debug=debug)
-        ret = anyio.run(
-            async_run_modbus_set,
-            device,
-            uart,
-            address,
-            baudrate,
-            parity,
-            bytesize,
-            stopbits,
-            new_baudrate,
-            new_address,
-            custom_address,
-            custom_value,
-        )
-        return ret
-    except (ConfigurationError, MarkedYAMLError) as err:
-        _LOGGER.error("Failed to load config. %s Exiting.", err)
-        return 1
-
-
-def run_modbus_get_helper(
-    uart: str,
-    device_address: int,
-    baudrate: int,
-    register_address: int | None,
-    register_type: str,
-    parity: str,
-    bytesize: int,
-    stopbits: int,
-    value_type: str,
-    register_range: str | None,
-    debug: int,
-) -> int:
-    """Run modbus get command helper."""
-    from boneio.modbus.modbuscli import async_run_modbus_get
-    from boneio.yaml import ConfigurationError
-
-    setup_logging(debug_level=debug)
-    _LOGGER.info("BoneIO %s starting.", __version__)
-    try:
-        configure_logger(debug=debug)
-        ret = anyio.run(
-            async_run_modbus_get,
-            uart,
-            device_address,
-            baudrate,
-            register_address,
-            register_type,
-            parity,
-            bytesize,
-            stopbits,
-            value_type,
-            register_range,
-        )
-        return ret
-    except (ConfigurationError, MarkedYAMLError) as err:
-        _LOGGER.error("Failed to load config. %s Exiting.", err)
-        return 1
-
-
-def run_modbus_search_helper(
-    uart: str,
-    baudrate: int,
-    register_address: int,
-    register_type: str,
-    stopbits: int,
-    bytesize: int,
-    parity: str,
-    debug: int,
-) -> int:
-    """Run modbus search command helper."""
-    from boneio.modbus.modbuscli import async_run_modbus_search
-    from boneio.yaml import ConfigurationError
-
-    setup_logging(debug_level=debug)
-    _LOGGER.info("BoneIO %s starting.", __version__)
-    try:
-        configure_logger(debug=debug)
-        ret = anyio.run(
-            async_run_modbus_search,
-            uart,
-            baudrate,
-            register_address,
-            register_type,
-            stopbits,
-            bytesize,
-            parity,
-        )
-        return ret
-    except (ConfigurationError, MarkedYAMLError) as err:
-        _LOGGER.error("Failed to load config. %s Exiting.", err)
-        return 1
 
 
 def main() -> int:

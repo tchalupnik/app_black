@@ -9,18 +9,20 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ValueType(str, Enum):
-    """Supported Modbus value types."""
-
-    FP32 = "FP32"
-    S_WORD = "S_WORD"
-    U_WORD = "U_WORD"
-    S_DWORD = "S_DWORD"
-    U_DWORD = "U_DWORD"
-    FLOAT32 = "float32"
-    INT16 = "int16"
-    UINT16 = "uint16"
-    INT32 = "int32"
-    UINT32 = "uint32"
+    U_WORD = "U_WORD"  # (unsigned 16 bit integer from 1 register = 16bit)
+    S_WORD = "S_WORD"  # (signed 16 bit integer from 1 register = 16bit)
+    U_DWORD = "U_DWORD"  # (unsigned 32 bit integer from 2 registers = 32bit)
+    S_DWORD = "S_DWORD"  # (signed 32 bit integer from 2 registers = 32bit)
+    U_DWORD_R = "U_DWORD_R"  # (unsigned 32 bit integer from 2 registers low word first)
+    S_DWORD_R = "S_DWORD_R"  # (signed 32 bit integer from 2 registers low word first)
+    U_QWORD = "U_QWORD"  # (unsigned 64 bit integer from 4 registers = 64bit)
+    S_QWORD = "S_QWORD"  # (signed 64 bit integer from 4 registers = 64bit)
+    U_QWORD_R = "U_QWORD_R"  # (unsigned 64 bit integer from 4 registers low word first)
+    S_QWORD_R = "S_QWORD_R"  # (signed 64 bit integer from 4 registers low word first)
+    FP32 = "FP32"  # (32 bit IEEE 754 floating point from 2 registers)
+    FP32_R = (
+        "FP32_R"  # (32 bit IEEE 754 floating point - same as FP32 but low word first)
+    )
 
 
 class RegisterType(str, Enum):
@@ -34,11 +36,9 @@ class RegisterType(str, Enum):
 class AdditionalSensor(BaseModel):
     """Represents an additional sensor configuration."""
 
-    name: str = Field(..., min_length=1, description="Sensor name")
-    source: str = Field(..., min_length=1, description="Source register name")
-    entity_type: Literal["text_sensor", "sensor", "select", "switch"] = Field(
-        ..., description="Entity type (select, switch, number, etc.)"
-    )
+    name: str
+    source: str
+    entity_type: Literal["text_sensor", "sensor", "select", "switch"]
     unit_of_measurement: str | None = Field(None, description="Unit of measurement")
     device_class: str | None = Field(
         None, description="Device class for Home Assistant"
@@ -71,12 +71,12 @@ class Filter(BaseModel):
 class Register(BaseModel):
     """Represents a Modbus register configuration."""
 
-    name: str = Field(..., min_length=1, description="Register name")
-    address: int = Field(..., ge=0, le=65535, description="Register address")
-    unit_of_measurement: str = Field("", description="Unit of measurement")
+    name: str = Field(description="Register name")
+    address: int = Field(ge=0, le=65535, description="Register address")
     state_class: Literal["measurement", "total_increasing", "total"] = Field(
         "measurement", description="State class for Home Assistant"
     )
+    unit_of_measurement: str | None = Field(None, description="Unit of measurement")
     device_class: str | None = Field(
         None, description="Device class for Home Assistant"
     )
@@ -95,22 +95,18 @@ class Register(BaseModel):
         None, description="Write filters"
     )
     ha_filter: str | None = Field(None, description="Home Assistant filter")
-    payload_off: str | None = Field(None, description="Payload for OFF state")
-    payload_on: str | None = Field(None, description="Payload for ON state")
-    x_mapping: dict[str, str] | None = Field(None, description="Value mapping")
+    payload_off: str = Field("OFF", description="Payload for OFF state")
+    payload_on: str = Field("ON", description="Payload for ON state")
+    x_mapping: dict[str, str] = Field(default_factory=dict, description="Value mapping")
 
 
 class RegistersBase(BaseModel):
     """Represents a base register configuration with a set of registers."""
 
-    base: int = Field(..., ge=0, le=65535, description="Base address")
-    length: int = Field(..., gt=0, le=1000, description="Length of register block")
-    registers: list[Register] = Field(
-        ..., min_length=1, description="List of registers"
-    )
-    register_type: RegisterType = Field(
-        RegisterType.HOLDING, description="Register type"
-    )
+    base: int = Field(ge=0, le=65535, description="Base address")
+    length: int = Field(gt=0, le=1000, description="Length of register block")
+    registers: list[Register]
+    register_type: RegisterType = RegisterType.HOLDING
 
     @field_validator("registers")
     @classmethod
@@ -155,9 +151,9 @@ class RegistersBase(BaseModel):
 class BaudrateConfig(BaseModel):
     """Configuration for setting device baudrate."""
 
-    address: int = Field(..., ge=0, le=65535, description="Baudrate register address")
+    address: int = Field(9600, ge=0, le=65535, description="Baudrate register address")
     possible_baudrates: dict[str, int] = Field(
-        ..., description="Mapping of baudrate strings to values"
+        default_factory=dict, description="Mapping of baudrate strings to values"
     )
 
     @field_validator("possible_baudrates")
@@ -178,22 +174,20 @@ class BaudrateConfig(BaseModel):
 class SetBase(BaseModel):
     """Configuration for device setting operations."""
 
-    set_address: int = Field(
-        ..., ge=0, le=65535, description="Address register address"
-    )
-    set_baudrate: BaudrateConfig = Field(..., description="Baudrate configuration")
+    set_address: int = Field(ge=0, le=65535, description="Address register address")
+    set_baudrate: BaudrateConfig = Field(description="Baudrate configuration")
 
 
 class ModbusDevice(BaseModel):
     """Complete configuration for a Modbus device."""
 
-    model: str = Field(..., min_length=1, description="Device model name")
+    model: str = Field(min_length=1, description="Device model name")
     registers_base: list[RegistersBase] = Field(
-        ..., min_length=1, description="List of register bases"
+        min_length=1, description="List of register bases"
     )
     set_base: SetBase | None = Field(None, description="Optional setting configuration")
-    additional_sensors: list[AdditionalSensor] | None = Field(
-        None, description="Additional sensor configurations"
+    additional_sensors: list[AdditionalSensor] = Field(
+        default_factory=list, description="Additional sensor configurations"
     )
 
     @field_validator("registers_base")

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from boneio.config import UartsConfig
-from boneio.modbus.models import ModbusDevice
+from boneio.modbus.models import ModbusDevice, RegisterType, ValueType
 
 from .client import Modbus
 from .utils import allowed_operations
@@ -22,9 +22,7 @@ class ModbusHelper:
     uart: str
     address: int
     baudrate: int
-    model: dict
-    check_record: dict
-    check_record_method: str
+    modbus_device: ModbusDevice | None = None
     stopbits: int = 1
     bytesize: int = 8
     parity: str = "N"
@@ -44,59 +42,84 @@ class ModbusHelper:
 
     async def check_connection(self) -> bool:
         """Check Modbus connection."""
-        name = self.check_record.get("name")
-        address = self.check_record.get("address", 1)
-        value_type = self.check_record.get("value_type")
-        _LOGGER.info("Checking connection %s, address %s.", self.address, address)
-        count = 1 if value_type == "S_WORD" or value_type == "U_WORD" else 2
+        if self.modbus_device is None:
+            return False
+
+        if not self.modbus_device.registers_base:
+            return False
+
+        base = self.modbus_device.registers_base[0]
+        if not base.registers:
+            return False
+
+        first_register = base.registers[0]
+
+        _LOGGER.info(
+            "Checking connection %s, address %s.", self.address, first_register.address
+        )
+        count = (
+            1
+            if first_register.value_type in (ValueType.S_WORD, ValueType.U_WORD)
+            else 2
+        )
         value = await self.modbus.read_registers(
             unit=self.address,
-            address=address,
+            address=first_register.address,
             count=count,
-            method=self.check_record_method,
+            register_type=base.register_type,
         )
         if not value:
             _LOGGER.error("No returned value.")
             return False
         payload = value.registers[0:count]
         try:
-            decoded_value = self.modbus.decode_value(payload, value_type)
+            decoded_value = self.modbus.decode_value(payload, first_register.value_type)
         except Exception as e:
             _LOGGER.error("Decoding error during checking connection %s", e)
             decoded_value = None
-        for filter in self.check_record.get("filters", []):
+        for filter in first_register.filters:
             for key, value in filter.items():
                 if key in allowed_operations:
                     lamda_function = allowed_operations[key]
                     decoded_value = lamda_function(decoded_value, value)
         _LOGGER.info(
-            "Checked %s with address %s and value %s", name, address, decoded_value
+            "Checked %s with address %s and value %s",
+            first_register.name,
+            first_register.address,
+            decoded_value,
         )
-        if not decoded_value:
-            return False
-        return True
+        return bool(decoded_value)
 
-    def set_connection_speed(self, new_baudrate: int) -> int:
-        baudrate_model = self.model["set_baudrate"]
-        ind = baudrate_model["possible_baudrates"].get(str(new_baudrate))
-        if ind:
+    def set_connection_speed(self, new_baudrate: int) -> Literal[0, 1]:
+        if self.modbus_device is None or self.modbus_device.set_base is None:
+            _LOGGER.error("No set_base defined in device configuration.")
+            return 1
+        baudrate_model = self.modbus_device.set_base.set_baudrate
+        ind = baudrate_model.possible_baudrates.get(str(new_baudrate))
+        if ind is not None:
             result = self.modbus.client.write_register(
-                address=baudrate_model["address"],
+                address=baudrate_model.address,
                 value=ind,
                 unit=self.address,
             )
-        if result.isError():
-            _LOGGER.error("Operation failed.")
-            return 1
-        else:
-            _LOGGER.info("Operation succeeded. Now restart device by disconnecting it.")
-            return 0
+            if not result.isError():
+                _LOGGER.info(
+                    "Operation succeeded. Now restart device by disconnecting it."
+                )
+                return 0
+        _LOGGER.error("Operation failed.")
+        return 1
 
     def set_new_address(self, new_address: int) -> None:
+        if self.modbus_device is None or self.modbus_device.set_base is None:
+            _LOGGER.error("No set_base defined in device configuration.")
+            return 1
         if 0 < new_address < 253:
-            _LOGGER.debug("New address register is %s", self.model["set_address"])
+            _LOGGER.debug(
+                "New address register is %s", self.modbus_device.set_base.set_address
+            )
             result = self.modbus.client.write_register(
-                address=self.model["set_address"],
+                address=self.modbus_device.set_base.set_address,
                 value=new_address,
                 unit=self.address,
             )
@@ -126,50 +149,21 @@ async def async_run_modbus_set(
     uart: str,
     address: int,
     baudrate: int,
-    new_baudrate: int,
-    new_address: int,
-    custom_address: int,
-    custom_value: int,
+    new_baudrate: int | None,
+    new_address: int | None,
+    custom_address: int | None,
+    custom_value: int | None,
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
 ) -> Literal[0, 1]:
     """Run Modbus Set Function."""
-    if new_address and new_baudrate:
-        _LOGGER.error("Can't set both methods new_address and new_baudrate.")
-    custom_cmd = True if device == "custom" else False
-    set_base = {}
+    if new_address is not None and new_baudrate is not None:
+        raise ValueError("Can't set both methods new_address and new_baudrate.")
+    custom_cmd = bool(device == "custom")
+    modbus_device: ModbusDevice | None = None
     if not custom_cmd:
-        config = ModbusDevice.model_validate_json(Path(device).read_text())
-        set_base = config.set_base or {}
-
-        # Get first register base and convert to dict format for compatibility
-        first_reg_base_obj = config.registers_base[0] if config.registers_base else None
-        if not first_reg_base_obj:
-            return False
-
-        first_reg_base = {
-            "register_type": first_reg_base_obj.register_type.value,
-            "registers": [],
-        }
-
-        # Convert first register to dict format for compatibility
-        first_register = (
-            first_reg_base_obj.registers[0] if first_reg_base_obj.registers else None
-        )
-        if first_register:
-            first_record = {
-                "name": first_register.name,
-                "address": first_register.address,
-                "value_type": first_register.value_type.value,
-                "filters": [
-                    filter_dict.model_dump() for filter_dict in first_register.filters
-                ]
-                if first_register.filters
-                else [],
-            }
-        else:
-            first_record = {}
+        modbus_device = ModbusDevice.model_validate_json(Path(device).read_text())
         _LOGGER.debug(
             "Connecting with params uart: %s, baudrate: %s, stopbits: %s, bytesize: %s, parity: %s.",
             uart,
@@ -178,23 +172,18 @@ async def async_run_modbus_set(
             bytesize,
             parity,
         )
-    else:
-        first_record = {}
-        first_reg_base = {}
     modbus_helper = ModbusHelper(
         device=device,
         uart=uart,
         address=address,
         baudrate=baudrate,
-        model=set_base,
-        check_record=first_record,
-        check_record_method=first_reg_base.get("register_type", "input"),
+        mdobus_device=modbus_device,
         stopbits=stopbits,
         bytesize=bytesize,
         parity=parity,
     )
 
-    async def default_action():
+    async def default_action() -> Literal[0, 1]:
         if not await modbus_helper.check_connection():
             _LOGGER.error("Can't connect with sensor. Exiting")
             return 1
@@ -219,7 +208,7 @@ async def async_run_modbus_search(
     uart: str,
     baudrate: int,
     register_address: int,
-    register_type: str = "holding",
+    register_type: RegisterType = RegisterType.HOLDING,
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
@@ -240,7 +229,7 @@ async def async_run_modbus_search(
             unit=unit_id,
             address=register_address,
             count=2,
-            method=register_type,
+            register_type=register_type,
         )
         if value:
             units_found.append(unit_id)
@@ -258,9 +247,9 @@ async def async_run_modbus_get(
     uart: str,
     device_address: int,
     register_address: int,
-    register_type: str,
+    register_type: RegisterType,
     baudrate: int,
-    value_type: str,
+    value_type: ValueType,
     register_range: str | None = None,
     stopbits: int = 1,
     bytesize: int = 8,
@@ -283,32 +272,31 @@ async def async_run_modbus_get(
         parity=parity,
     )
 
-    value_size = 1 if value_type in ["S_WORD", "U_WORD"] else 2
+    value_size = 1 if value_type in [ValueType.S_WORD, ValueType.U_WORD] else 2
 
-    if register_range:
+    if register_range is not None:
         try:
             start, stop = map(int, register_range.split("-"))
             if not (0 <= start <= stop <= 65535):
                 raise ValueError("Invalid register range")
 
-            success = False
             for addr in range(start, stop + 1):
                 try:
                     value = await _modbus.read_registers(
                         unit=device_address,
                         address=addr,
                         count=value_size,
-                        method=register_type,
+                        register_type=register_type,
                     )
                     if value:
                         payload = value.registers[0:value_size]
                         decoded_value = _modbus.decode_value(payload, value_type)
                         _LOGGER.info("Register %s: %s", addr, decoded_value)
-                        success = True
+                        return 0
                 except Exception as e:
                     _LOGGER.error("Error reading register %s: %s", addr, str(e))
 
-            return 0 if success else 1
+            return 1
 
         except ValueError:
             _LOGGER.error(
@@ -321,7 +309,7 @@ async def async_run_modbus_get(
             unit=device_address,
             address=register_address,
             count=value_size,
-            method=register_type,
+            register_type=register_type,
         )
         if value:
             payload = value.registers[0:value_size]

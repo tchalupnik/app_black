@@ -8,18 +8,19 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 import anyio
 from pydantic import BaseModel, ValidationError
 
 from boneio.config import OutputTypes
 from boneio.events import EventBus, OutputEvent
-from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.models import OutputState
 
+if TYPE_CHECKING:
+    from boneio.manager import SoftwareInterlockManager
 _LOGGER = logging.getLogger(__name__)
 
 

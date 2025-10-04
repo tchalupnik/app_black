@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import defaultdict
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, assert_never
@@ -53,7 +55,7 @@ from boneio.helper import (
     ha_switch_availabilty_message,
 )
 from boneio.helper.async_updater import refresh_wrapper
-from boneio.helper.exceptions import CoverConfigurationError, ModbusUartException
+from boneio.helper.exceptions import CoverConfigurationError
 from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
@@ -62,7 +64,6 @@ from boneio.helper.ha_discovery import (
     ha_sensor_temp_availabilty_message,
     ha_valve_availabilty_message,
 )
-from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
     configure_binary_sensor,
     configure_ds2482,
@@ -91,7 +92,7 @@ from boneio.message_bus import (
     RelaySetBrightnessMqttMessage,
     RelaySetMqttMessage,
 )
-from boneio.modbus.client import Modbus
+from boneio.modbus.client import Modbus, ModbusUartException
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
@@ -1151,3 +1152,24 @@ class Manager:
         self.message_bus.send_message(
             topic=topic, payload=payload.model_dump_json(exclude_none=True), retain=True
         )
+
+
+@dataclass
+class SoftwareInterlockManager:
+    groups: defaultdict[str, set[BasicRelay]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+
+    def register(self, relay: BasicRelay, group_names: list[str]) -> None:
+        for group in group_names:
+            self.groups[group].add(relay)
+
+    def can_turn_on(self, relay: BasicRelay, group_names: list[str]) -> bool:
+        for group in group_names:
+            for other_relay in self.groups.get(group, []):
+                if (
+                    other_relay is not relay
+                    and getattr(other_relay, "state", None) == "ON"
+                ):
+                    return False
+        return True

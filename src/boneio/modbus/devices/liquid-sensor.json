@@ -37,6 +37,7 @@
   "additional_sensors": [
     {
       "name": "Measurement Volume",
+      "entity_type": "sensor",
       "source": "measurement_value",
       "unit_of_measurement": "l",
       "device_class": "volume_storage",

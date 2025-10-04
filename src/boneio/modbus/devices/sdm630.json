@@ -186,14 +186,6 @@
           "value_type": "FP32"
         },
         {
-          "name": "Sum_Current",
-          "address": 48,
-          "unit_of_measurement": "A",
-          "state_class": "measurement",
-          "device_class": "current",
-          "value_type": "FP32"
-        },
-        {
           "name": "Total_Power_Watt",
           "address": 52,
           "unit_of_measurement": "W",

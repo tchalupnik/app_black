@@ -89,7 +89,7 @@ class ModbusCoordinator:
         self.init_modbus_entities()
         # Additional sensors
         if "additional_sensors" in self.device:
-            self.__init_derived_sensors__()
+            self.init_derived_sensors()
 
         _LOGGER.info(
             "Available single sensors for %s: %s",
@@ -116,7 +116,6 @@ class ModbusCoordinator:
     def init_modbus_entities(self) -> None:
         # Standard sensors
         for index, data in enumerate(self.device.registers_base):
-            self._modbus_entities.append({})
             for register in data.registers:
                 entity_type = register.entity_type if register.entity_type else "sensor"
                 if entity_type == "sensor":
@@ -171,9 +170,7 @@ class ModbusCoordinator:
                         else [],
                         message_bus=self.message_bus,
                         config=self.config,
-                        value_mapping=register.x_mapping
-                        if register.x_mapping is not None
-                        else {},
+                        value_mapping=register.x_mapping,
                     )
                 elif entity_type == "binary_sensor":
                     single_sensor = ModbusBinarySensor(
@@ -389,7 +386,7 @@ class ModbusCoordinator:
         )
         return single_sensor
 
-    def __init_derived_select(
+    def init_derived_select(
         self, additional: AdditionalSensor
     ) -> ModbusDerivedSelect | None:
         x_mapping = additional.x_mapping or {}
@@ -418,7 +415,7 @@ class ModbusCoordinator:
         )
         return single_sensor
 
-    def __init_derived_switch(
+    def init_derived_switch(
         self, additional: AdditionalSensor
     ) -> ModbusDerivedSwitch | None:
         x_mapping = additional.x_mapping or {}
@@ -449,7 +446,7 @@ class ModbusCoordinator:
         )
         return single_sensor
 
-    def __init_derived_sensors__(self):
+    def init_derived_sensors(self) -> None:
         for additional in self.device.additional_sensors:
             derived_sensor = None
             if additional.entity_type == "text_sensor":
@@ -457,9 +454,9 @@ class ModbusCoordinator:
             elif additional.entity_type == "sensor":
                 derived_sensor = self.init_derived_numeric(additional)
             elif additional.entity_type == "select":
-                derived_sensor = self.__init_derived_select(additional)
+                derived_sensor = self.init_derived_select(additional)
             elif additional.entity_type == "switch":
-                derived_sensor = self.__init_derived_switch(additional)
+                derived_sensor = self.init_derived_switch(additional)
             else:
                 typing.assert_never(additional.entity_type)
             if not derived_sensor:
@@ -508,7 +505,7 @@ class ModbusCoordinator:
     ]:
         return self._modbus_entities
 
-    def set_payload_offline(self):
+    def set_payload_offline(self) -> None:
         self.payload_online = "offline"
 
     def _send_discovery_for_all_registers(self) -> datetime:
@@ -626,7 +623,7 @@ class ModbusCoordinator:
                 unit=self.address,
                 address=data.base,
                 count=data.length,
-                method=data.register_type.value,
+                register_type=data.register_type.value,
             )
             if self.payload_online == "offline" and values:
                 _LOGGER.info("Sending online payload about device %s.", self.name)

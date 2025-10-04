@@ -6,11 +6,10 @@ import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from typing import assert_never
 
 import anyio
 from pymodbus.client.common import (
-    ReadCoilsResponse,
-    ReadHoldingRegistersResponse,
     WriteSingleRegisterResponse,
 )
 from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
@@ -18,12 +17,12 @@ from pymodbus.constants import Endian
 from pymodbus.exceptions import ModbusException
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.pdu import ModbusResponse
-from pymodbus.register_read_message import ReadInputRegistersResponse
 
 from boneio.config import UartConfig
-from boneio.helper.exceptions import ModbusUartException
+from boneio.modbus.models import RegisterType, ValueType
 
 _LOGGER = logging.getLogger(__name__)
+
 
 VALUE_TYPES = {
     "U_WORD": {
@@ -89,6 +88,10 @@ MAX_WORKERS = 4
 OPERATION_TIMEOUT = 5
 
 
+class ModbusUartException(BaseException):
+    """Cover configuration exception."""
+
+
 @dataclass
 class Modbus:
     """Represent modbus connection over chosen UART."""
@@ -132,11 +135,6 @@ class Modbus:
                 parity=self.parity,
                 timeout=self.timeout,
             )
-            self._read_methods = {
-                "input": self.client.read_input_registers,
-                "holding": self.client.read_holding_registers,
-                "coil": self.client.read_coils,
-            }
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
 
@@ -174,7 +172,7 @@ class Modbus:
     ) -> float | None:
         """Call read_registers and decode."""
         result = await self.read_registers(
-            unit=unit, address=address, count=count, method=method
+            unit=unit, address=address, count=count, register_type=method
         )
         if not result or result.isError():
             return None
@@ -184,12 +182,14 @@ class Modbus:
         return decoded_value
 
     def read_registers_blocking(
-        self, unit: int | str, address: int, count: int = 2, method: str = "input"
+        self,
+        unit: int | str,
+        address: int,
+        count: int = 2,
+        register_type: RegisterType = RegisterType.INPUT,
     ) -> ModbusResponse:
         start_time = time.perf_counter()
         result = None
-        kwargs = {"unit": unit, "count": count} if unit else {}
-        read_method = self._read_methods[method]
 
         try:
             # Run connection in the executor
@@ -202,16 +202,22 @@ class Modbus:
                 "Reading %s registers from %s with method %s from device %s.",
                 count,
                 address,
-                method,
+                register_type,
                 unit,
             )
 
-            # Run the read operation in the executor
-            result: (
-                ReadInputRegistersResponse
-                | ReadHoldingRegistersResponse
-                | ReadCoilsResponse
-            ) = read_method(address, **kwargs)
+            if register_type == RegisterType.INPUT:
+                result = self.client.read_input_registers(
+                    address=address, count=count, unit=unit
+                )
+            elif register_type == RegisterType.HOLDING:
+                result = self.client.read_holding_registers(
+                    address=address, count=count, unit=unit
+                )
+            elif register_type == RegisterType.COIL:
+                result = self.client.read_coils(address=address, count=count, unit=unit)
+            else:
+                assert_never(register_type)
 
         except ValueError as exception_error:
             _LOGGER.error("Error reading registers: %s", exception_error)
@@ -229,7 +235,7 @@ class Modbus:
             _LOGGER.error(
                 "Unexpected error reading registers: %s - %s", type(e).__name__, e
             )
-        finally:
+        else:
             end_time = time.perf_counter()
             _LOGGER.debug(
                 "Read completed in %.3f seconds: %s",
@@ -298,7 +304,7 @@ class Modbus:
         unit: int | str,  # device address
         address: int,  # modbus register address
         count: int = 2,  # number of registers to read
-        method: str = "input",  # type of register: input, holding
+        register_type: RegisterType = RegisterType.INPUT,  # type of register: input, holding, coil
     ) -> ModbusResponse:
         """Call async pymodbus."""
         async with self.lock:
@@ -308,16 +314,48 @@ class Modbus:
                 unit,
                 address,
                 count,
-                method,
+                register_type,
             )
 
-    def decode_value(self, payload, value_type):
-        _payload_type = VALUE_TYPES[value_type]
+    def decode_value(self, payload, value_type: ValueType):
+        if value_type in [
+            ValueType.U_WORD,
+            ValueType.S_WORD,
+            ValueType.U_DWORD,
+            ValueType.S_DWORD,
+            ValueType.U_QWORD,
+            ValueType.S_QWORD,
+            ValueType.FP32,
+        ]:
+            byteorder = Endian.Big
+        elif value_type in [
+            ValueType.U_DWORD_R,
+            ValueType.S_DWORD_R,
+            ValueType.U_QWORD_R,
+            ValueType.FP32_R,
+        ]:
+            byteorder = Endian.Little
+        else:
+            assert_never(value_type)
         decoder = BinaryPayloadDecoder.fromRegisters(
-            registers=payload, byteorder=_payload_type["byteorder"]
+            registers=payload, byteorder=byteorder
         )
-        value = getattr(decoder, _payload_type["f"])()
-        return value
+        if value_type == ValueType.U_WORD:
+            return decoder.decode_16bit_uint()
+        elif value_type == ValueType.S_WORD:
+            return decoder.decode_16bit_int()
+        elif value_type in [ValueType.U_DWORD, ValueType.U_DWORD_R]:
+            return decoder.decode_32bit_uint()
+        elif value_type in [ValueType.S_DWORD, ValueType.S_DWORD_R]:
+            return decoder.decode_32bit_int()
+        elif value_type in [ValueType.U_QWORD, ValueType.U_QWORD_R]:
+            return decoder.decode_64bit_uint()
+        elif value_type in [ValueType.S_QWORD, ValueType.S_QWORD_R]:
+            return decoder.decode_64bit_int()
+        elif value_type in [ValueType.FP32, ValueType.FP32_R]:
+            return decoder.decode_32bit_float()
+        else:
+            assert_never(value_type)
 
     async def write_register(
         self, unit: int | str, address: int, value: int | float

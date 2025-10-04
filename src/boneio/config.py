@@ -524,7 +524,8 @@ class LoggerConfig(BaseModel):
     logs: dict[str, LoggerLevels] = Field(default_factory=dict)
 
 
-Uarts = Literal["uart1", "uart2", "uart3", "uart4", "uart5"]
+# UART 3 does not have rx pin exposed on beaglebone black
+Uarts = Literal["uart1", "uart2", "uart4", "uart5"]
 
 
 class UartConfig(BaseModel):
@@ -534,9 +535,8 @@ class UartConfig(BaseModel):
 
 
 UartsConfig: dict[Uarts, UartConfig] = {
-    "uart1": UartConfig(id="/dev/ttyS1", tx="P9.24", rx="P9.26"),
+    "uart1": UartConfig(id="/tmp/uart1", tx="P9.24", rx="P9.26"),
     "uart2": UartConfig(id="/dev/ttyS2", tx="P9.21", rx="P9.22"),
-    "uart3": UartConfig(id="/dev/ttyS3", tx="P9.42", rx=None),
     "uart4": UartConfig(id="/dev/ttyS4", tx="P9.13", rx="P9.11"),
     "uart5": UartConfig(id="/dev/ttyS5", tx="P8.37", rx="P8.38"),
 }
@@ -558,28 +558,30 @@ ModbusDeviceSensorFilterNames = Literal["temperature", "humidity"]
 ModbusDeviceSensorFilters = dict[
     ModbusDeviceSensorFilterNames, list[dict[Filters, float]]
 ]
+ModbusModels: TypeAlias = Literal[
+    "cwt",
+    "dts1964_3f",
+    "fujitsu-ac",
+    "liquid-sensor",
+    "orno-or-we-517",
+    "pt100",
+    "r4dcb08",
+    "sdm120",
+    "sdm630",
+    "sht20",
+    "sht30",
+    "socomec_e03",
+    "socomec_e23",
+    "sofar",
+    "thessla",
+    "ventclear",
+]
 
 
 class ModbusDeviceConfig(BaseModel):
     id: str
     address: int
-    model: Literal[
-        "cwt",
-        "dts1964_3f",
-        "liquid-sensor",
-        "orno-or-we-517",
-        "pt100",
-        "fujitsu-ac",
-        "r4dcb08",
-        "sdm120",
-        "sdm630",
-        "sht20",
-        "sht30",
-        "socomec_e03",
-        "socomec_e23",
-        "sofar",
-        "ventclear",
-    ]
+    model: ModbusModels
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=30))
     sensor_filters: ModbusDeviceSensorFilters | None = None
     data: ModbusDeviceData | None = None
