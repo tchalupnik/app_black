@@ -29,7 +29,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from jose import jwt
+from jose import JWTError, jwt
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -240,7 +240,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     status_code=401, content={"detail": "Token has expired"}
                 )
 
-        except jwt.JWTError:
+        except JWTError:
             return JSONResponse(status_code=401, content={"detail": "Invalid token"})
         except ValueError:
             return JSONResponse(

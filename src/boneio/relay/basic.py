@@ -242,7 +242,7 @@ class BasicRelay(ABC):
             and self.virtual_energy_sensor.virtual_volume_flow_rate is not None
         )
 
-    def payload(self) -> dict:
+    def payload(self) -> dict[str, Literal["ON", "OFF"]]:
         return {"state": self.state}
 
     def send_state(self, optimized_value: str | None = None) -> None:

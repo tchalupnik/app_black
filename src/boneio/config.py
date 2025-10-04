@@ -118,7 +118,7 @@ class MqttConfig(BaseModel):
     username: str = "boneio"
     password: str = "boneio123"
     topic_prefix: str = "boneio"
-    ha_discovery: MqttHADiscoveryConfig = MqttHADiscoveryConfig()
+    ha_discovery: MqttHADiscoveryConfig = Field(default_factory=MqttHADiscoveryConfig)
     autodiscovery_messages: MqttAutodiscoveryMessages = Field(
         default_factory=lambda: MqttAutodiscoveryMessages(root={})
     )
@@ -515,6 +515,11 @@ class AdcConfig(BaseModel):
     show_in_ha: bool = True
     filters: list[dict[Filters, float]] = Field(default_factory=list)
 
+    def identifier(self) -> str:
+        if self.id:
+            return (self.id).replace(" ", "")
+        return self.pin
+
 
 LoggerLevels = Literal["critical", "error", "warning", "info", "debug"]
 
@@ -613,15 +618,13 @@ class Pca9685Config(ExpanderConfig):
     pass
 
 
-class CoverConfig(BaseModel):
+class CoverConfigBase(BaseModel):
     id: str
     open_relay: str
     close_relay: str
     platform: Literal["time_based", "venetian", "previous"]
     open_time: timedelta
     close_time: timedelta
-    tilt_duration: timedelta | None = None
-    actuator_activation_duration: timedelta | None = None
     restore_state: bool = False
     device_class: (
         Literal[
@@ -642,6 +645,29 @@ class CoverConfig(BaseModel):
 
     def identifier(self) -> str:
         return self.id.replace(" ", "")
+
+
+class TimeBasedCoverConfig(CoverConfigBase):
+    platform: Literal["time_based"] = "time_based"
+
+
+class VenetianCoverConfig(CoverConfigBase):
+    platform: Literal["venetian"] = "venetian"
+    tilt_duration: timedelta
+    actuator_activation_duration: timedelta
+
+
+class PreviousCoverConfig(CoverConfigBase):
+    platform: Literal["previous"] = "previous"
+
+
+CoverConfigKinds: TypeAlias = (
+    TimeBasedCoverConfig | VenetianCoverConfig | PreviousCoverConfig
+)
+
+
+class CoverConfig(RootModel[CoverConfigKinds]):
+    root: CoverConfigKinds = Field(discriminator="platform")
 
 
 class Ds2482Config(BaseModel):

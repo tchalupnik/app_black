@@ -4,6 +4,8 @@ from enum import Enum
 
 from pydantic import BaseModel
 
+from boneio.config import BoneIOInput
+
 __all__ = [
     "InputState",
     "InputsResponse",
@@ -28,7 +30,7 @@ class InputState(BaseModel):
     type: str
     pin: str
     timestamp: float
-    boneio_input: str
+    boneio_input: BoneIOInput | None = None
 
 
 class InputsResponse(BaseModel):

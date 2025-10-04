@@ -64,23 +64,22 @@ def create_adc(
     """Create ADC sensor."""
 
     for gpio in adc:
-        id = gpio.id.replace(" ", "")
+        id = gpio.identifier()
         try:
             sensor = GpioADCSensor(
                 id=id,
                 pin=gpio.pin,
-                name=gpio.id,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
                 filters=gpio.filters,
             )
             manager.append_task(
-                refresh_wrapper(sensor.update, gpio.update_interval), sensor.name
+                refresh_wrapper(sensor.update, gpio.update_interval), sensor.id
             )
             if gpio.show_in_ha:
                 manager.send_ha_autodiscovery(
                     id=id,
-                    name=gpio.id,
+                    name=id,
                     ha_type="sensor",
                     availability_msg_func=ha_adc_sensor_availabilty_message,
                 )

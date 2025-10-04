@@ -24,7 +24,6 @@ class GpioADCSensor:
     """Represent Gpio ADC sensor."""
 
     id: str
-    name: str
     pin: AdcPins
     filters: list[dict[Filters, float]]
     message_bus: MessageBus
@@ -37,20 +36,9 @@ class GpioADCSensor:
         topic_prefix: str,
     ) -> None:
         """Setup GPIO ADC Sensor"""
-        self.id = self.id.replace(" ", "")
         self.send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
         self.filter = Filter(filters)
-        _LOGGER.debug("Configured sensor pin %s", self.pin)
-
-    def update(self, timestamp: float) -> None:
-        """Fetch temperature periodically and send to MQTT."""
-        self.state = self.filter.apply_filters(value=self.read())
-        self._timestamp = timestamp
-        self.message_bus.send_message(
-            topic=self.send_topic,
-            payload=self.state,
-        )
-        self.filename = {
+        self.filename: str = {
             "P9_39": "in_voltage0_raw",
             "P9_40": "in_voltage1_raw",
             "P9_37": "in_voltage2_raw",
@@ -61,12 +49,19 @@ class GpioADCSensor:
         }.get(self.pin)
         if self.filename is None:
             raise ValueError("ADC pin %s is not valid.", self.pin)
+        _LOGGER.debug("Configured sensor pin %s", self.pin)
+
+    def update(self, timestamp: float) -> None:
+        """Fetch temperature periodically and send to MQTT."""
+        self.state = self.filter.apply_filters(value=self.read())
+        self._timestamp = timestamp
+        self.message_bus.send_message(
+            topic=self.send_topic,
+            payload=self.state,
+        )
 
     def read(self) -> float:
         """Read value from ADC pin."""
-        if self.filename is None:
-            return 0.0
-
         path = Path("/sys/bus/iio/devices/iio:device0/" / self.filename)
         try:
             with path.open() as file:

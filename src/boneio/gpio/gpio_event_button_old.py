@@ -59,7 +59,7 @@ class GpioEventButton(GpioBase):
     async def _run(self) -> None:
         while True:
             self.check_state(state=self.is_pressed())
-            await anyio.sleep(self.bounce_time)
+            await anyio.sleep(self.bounce_time.total_seconds())
 
     def check_state(self, state: bool) -> None:
         if state == self.state:

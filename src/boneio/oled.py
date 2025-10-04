@@ -226,7 +226,7 @@ class Oled:
         if self._current_screen is None:
             return
         data = self._host_data.get(self._current_screen)
-        if data:
+        if data is not None:
             if self._current_screen == "web":
                 self.draw_qr_code(url=data)
             else:

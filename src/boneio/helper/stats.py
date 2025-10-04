@@ -304,7 +304,9 @@ class HostData:
             return f"http://{network_state['ip']}:{self._manager.config.web.port}"
         return None
 
-    def get(self, type: str) -> dict:
+    def get(
+        self, type: str
+    ) -> dict[str, dict[str, str | None]] | dict[str, str] | str | None:
         """Get saved stats."""
         if type in self._output:
             return self._get_output(type)
@@ -314,7 +316,7 @@ class HostData:
             return self.web_url
         return self.host_sensors[type].get_state()
 
-    def _get_output(self, type: str) -> dict:
+    def _get_output(self, type: str) -> dict[str, dict[str, str | None]]:
         """Get stats for output."""
         out = {}
         for output in self._output[type].values():
@@ -322,7 +324,7 @@ class HostData:
 
         return out
 
-    def _get_input(self, type: str) -> dict:
+    def _get_input(self, type: str) -> dict[str, dict[str, str]]:
         """Get stats for input."""
         inputs = {}
         for input in self._inputs[type]:

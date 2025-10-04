@@ -9,7 +9,12 @@ from typing import Any, Final, Literal, TypeAlias
 
 import anyio.abc
 
-from boneio.config import ActionConfig, BinarySensorActionTypes, EventActionTypes
+from boneio.config import (
+    ActionConfig,
+    BinarySensorActionTypes,
+    BoneIOInput,
+    EventActionTypes,
+)
 from boneio.events import EventBus, InputEvent
 from boneio.gpio_manager import GpioManager
 from boneio.models import InputState
@@ -37,7 +42,7 @@ class GpioBase:
     ]
 
     gpio_mode: str = "gpio"
-    boneio_input: str = ""
+    boneio_input: BoneIOInput | None = None
     bounce_time: timedelta = timedelta(milliseconds=50)
 
     click_type: list[Literal["pressed"], Literal["released"]] = field(

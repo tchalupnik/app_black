@@ -9,7 +9,7 @@ from datetime import timedelta
 import anyio
 from anyio import Event
 
-from boneio.config import CoverConfig
+from boneio.config import VenetianCoverConfig
 from boneio.cover.cover import BaseCover
 from boneio.models import CoverDirection, CoverStateOperation
 
@@ -188,11 +188,9 @@ class VenetianCover(BaseCover):
         _LOGGER.info("Closing tilt cover %s", self.id)
         await self.set_tilt(tilt_position=0)
 
-    def update_config_times(self, config: CoverConfig) -> None:
-        self.actuator_activation_duration = (
-            config.actuator_activation_duration or self.actuator_activation_duration
-        )
-        self.tilt_delta = config.tilt_duration or self.tilt_delta
+    def update_config_times(self, config: VenetianCoverConfig) -> None:
+        self.actuator_activation_duration = config.actuator_activation_duration
+        self.tilt_delta = config.tilt_duration
 
     async def run_cover(
         self,
@@ -216,14 +214,12 @@ class VenetianCover(BaseCover):
         if current_operation == CoverStateOperation.OPENING:
             await self._move_cover(
                 CoverDirection.OPEN,
-                self.open_time,
                 target_position,
                 target_tilt_position,
             )
         elif current_operation == CoverStateOperation.CLOSING:
             await self._move_cover(
                 CoverDirection.CLOSE,
-                self.close_time,
                 target_position,
                 target_tilt_position,
             )

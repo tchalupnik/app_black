@@ -223,6 +223,9 @@ def modbus_get(
         )
         raise typer.Exit(1)
 
+    if register_range is None:
+        register_range = f"{register_address}-{register_address}"
+
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
@@ -232,7 +235,6 @@ def modbus_get(
                 uart=uart.value,
                 device_address=address,
                 baudrate=baudrate,
-                register_address=register_address,
                 register_type=register_type,
                 parity=parity.value,
                 bytesize=bytesize,

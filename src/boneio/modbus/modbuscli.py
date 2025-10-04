@@ -246,11 +246,10 @@ async def async_run_modbus_search(
 async def async_run_modbus_get(
     uart: str,
     device_address: int,
-    register_address: int,
+    register_range: str,
     register_type: RegisterType,
     baudrate: int,
     value_type: ValueType,
-    register_range: str | None = None,
     stopbits: int = 1,
     bytesize: int = 8,
     parity: str = "N",
@@ -274,47 +273,32 @@ async def async_run_modbus_get(
 
     value_size = 1 if value_type in [ValueType.S_WORD, ValueType.U_WORD] else 2
 
-    if register_range is not None:
-        try:
-            start, stop = map(int, register_range.split("-"))
-            if not (0 <= start <= stop <= 65535):
-                raise ValueError("Invalid register range")
+    try:
+        start, stop = map(int, register_range.split("-"))
+        if not (0 <= start <= stop <= 65535):
+            raise ValueError("Invalid register range")
 
-            for addr in range(start, stop + 1):
-                try:
-                    value = await _modbus.read_registers(
-                        unit=device_address,
-                        address=addr,
-                        count=value_size,
-                        register_type=register_type,
-                    )
-                    if value:
-                        payload = value.registers[0:value_size]
-                        decoded_value = _modbus.decode_value(payload, value_type)
-                        _LOGGER.info("Register %s: %s", addr, decoded_value)
-                        return 0
-                except Exception as e:
-                    _LOGGER.error("Error reading register %s: %s", addr, str(e))
+        for addr in range(start, stop + 1):
+            try:
+                value = await _modbus.read_registers(
+                    unit=device_address,
+                    address=addr,
+                    count=value_size,
+                    register_type=register_type,
+                )
+                if value:
+                    payload = value.registers[0:value_size]
+                    decoded_value = _modbus.decode_value(payload, value_type)
+                    _LOGGER.info("Register %s: %s", addr, decoded_value)
+                    return 0
+            except Exception as e:
+                _LOGGER.error("Error reading register %s: %s", addr, str(e))
 
-            return 1
+        return 1
 
-        except ValueError:
-            _LOGGER.error(
-                "Invalid register range format: %s. Use format 'start-stop' (e.g., '1-230')",
-                register_range,
-            )
-            return 1
-    else:
-        value = await _modbus.read_registers(
-            unit=device_address,
-            address=register_address,
-            count=value_size,
-            register_type=register_type,
+    except ValueError:
+        _LOGGER.error(
+            "Invalid register range format: %s. Use format 'start-stop' (e.g., '1-230')",
+            register_range,
         )
-        if value:
-            payload = value.registers[0:value_size]
-            decoded_value = _modbus.decode_value(payload, value_type)
-            _LOGGER.info("Value: %s", decoded_value)
-            return 0
-        _LOGGER.error("No returned value.")
         return 1

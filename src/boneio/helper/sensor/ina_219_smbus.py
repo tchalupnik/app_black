@@ -74,56 +74,18 @@ class INA219_I2C:
         self.s_cal = 0
         self.set_cal(self._CAL)
 
-    def set_config(self, config_list):
-        cfg = sum(config_list)
-        self.write_word(self.INA219_CONFIG, cfg)
-
-    def reset(
-        self,
-    ):
-        self.write_word(self.INA219_CONFIG, self.INA219_CONFIG_RESET)
-
-    def set_gain(self, gain):
-        config = self.read_word(self.INA219_CONFIG)
-        config = config & 0b1110011111111111
-        config = config + gain
-        self.write_word(self.INA219_CONFIG, config)
-
-    def set_brang(self, brng):
-        config = self.read_word(self.INA219_CONFIG)
-        config = config & 0b1101111111111111
-        config = config + brng
-        self.write_word(self.INA219_CONFIG, config)
-
-    def set_badc(self, badc):
-        config = self.read_word(self.INA219_CONFIG)
-        config = config & 0b1111100001111111
-        config = config + badc
-        self.write_word(self.INA219_CONFIG, config)
-
-    def set_sadc(self, sadc):
-        config = self.read_word(self.INA219_CONFIG)
-        config = config & 0b1111111110000111
-        config = config + sadc
-        self.write_word(self.INA219_CONFIG, config)
-
-    def set_mode(self, mode):
-        config = self.read_word(self.INA219_CONFIG)
-        config = config & 0b1111111111111000
-        config = config + mode
-        self.write_word(self.INA219_CONFIG, config)
-
-    def set_cal(self, cal_value):
+    def set_cal(self, cal_value: int) -> None:
+        """Set the calibration value to cal_value."""
         self.write_word(self.INA219_CAL, cal_value)
         self.s_cal = cal_value
 
-    def get_bus_voltage(self, mV: bool = False):
+    def get_bus_voltage(self, mV: bool = False) -> float:
         raw_value = self.read_word(self.INA219_BV)
         return round((raw_value >> 3) * 4 * (0.001 if mV is False else 1), 2)
 
-    def get_shunt_voltage(self, mV=False):
+    def get_shunt_voltage(self, mV: bool = False) -> float:
         raw_value = self.read_word(self.INA219_SV)
-        return raw_value
+        return round(raw_value * (0.001 if mV is False else 1), 2)
 
     @property
     def power(self) -> float:
@@ -155,13 +117,13 @@ class INA219_I2C:
         CV = self.get_current(mA=False)
         return round((BV * CV) * (1000 if mW is True else 1), 2)
 
-    def read_word(self, address):
+    def read_word(self, address: int) -> int:
         read_data = self.bus.read_word_data(self._address, address)
         ac_high_byte = read_data & 0xFF
         ac_low_byte = (read_data & 0xFF00) >> 8
         return (ac_high_byte << 8) + ac_low_byte
 
-    def write_word(self, address, data):
+    def write_word(self, address: int, data: int) -> None:
         cnv_high_byte = data & 0xFF
         cnv_low_byte = (data & 0xFF00) >> 8
         formed_data = (cnv_high_byte << 8) + cnv_low_byte

@@ -37,8 +37,11 @@ from boneio.config import (
     OutputOverMqttActionConfig,
     Pca9685Config,
     Pcf8575Config,
+    PreviousCoverConfig,
     SensorConfig,
+    TimeBasedCoverConfig,
     UartsConfig,
+    VenetianCoverConfig,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
@@ -437,6 +440,7 @@ class Manager:
                 [x.name for x in members],
             )
             output_group = OutputGroup(
+                id=strip_accents(group.identifier()),
                 message_bus=self.message_bus,
                 state_manager=self.state_manager,
                 topic_prefix=self.config.get_topic_prefix(),
@@ -469,7 +473,8 @@ class Manager:
             self.config.cover = load_config(self._config_file_path).cover
             if self.config.mqtt is not None:
                 self.config.mqtt.autodiscovery_messages.clear_type(type="cover")
-        for cover_config in self.config.cover:
+        for _cover_config in self.config.cover:
+            cover_config = _cover_config.root
             _id = strip_accents(cover_config.id)
             open_relay = self.outputs.get(cover_config.open_relay)
             close_relay = self.outputs.get(cover_config.close_relay)
@@ -501,7 +506,7 @@ class Manager:
                         _cover.update_config_times(cover_config)
                     continue
 
-                if cover_config.platform == "venetian":
+                if isinstance(cover_config.platform, VenetianCoverConfig):
                     if not cover_config.tilt_duration:
                         raise CoverConfigurationError(
                             "Tilt duration must be configured for tilt cover."
@@ -516,12 +521,14 @@ class Manager:
                         message_bus=self.message_bus,
                         open_relay=open_relay,
                         close_relay=close_relay,
+                        open_time=cover_config.open_time,
+                        close_time=cover_config.close_time,
                         restore_state=cover_config.restore_state,
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
                     availability_msg_func = ha_cover_with_tilt_availabilty_message
-                elif cover_config.platform == "time_based":
+                elif isinstance(cover_config.platform, TimeBasedCoverConfig):
                     _LOGGER.debug("Configuring time-based cover %s", _id)
                     cover = TimeBasedCover(
                         id=_id,
@@ -537,7 +544,7 @@ class Manager:
                         topic_prefix=self.config.get_topic_prefix(),
                     )
                     availability_msg_func = ha_cover_availabilty_message
-                elif cover_config.platform == "previous":
+                elif isinstance(cover_config.platform, PreviousCoverConfig):
                     _LOGGER.debug("Configuring previous cover %s", _id)
                     cover = PreviousCover(
                         id=_id,
@@ -588,8 +595,9 @@ class Manager:
             config = load_config(self._config_file_path)
             self.config.event = config.event
             self.config.binary_sensor = config.binary_sensor
-            self.config.mqtt.autodiscovery_messages.clear_type(type="event")
-            self.config.mqtt.autodiscovery_messages.clear_type(type="binary_sensor")
+            if self.config.mqtt is not None:
+                self.config.mqtt.autodiscovery_messages.clear_type(type="event")
+                self.config.mqtt.autodiscovery_messages.clear_type(type="binary_sensor")
         for gpio in self.config.event:
             if check_if_pin_configured(pin=gpio.pin):
                 return
@@ -731,14 +739,14 @@ class Manager:
                 refresh_wrapper(ina219.update, sensor_config.update_interval), ina219.id
             )
 
-            for sensor in ina219.sensors.values():
+            for device_class, sensor in ina219.sensors.items():
                 self.send_ha_autodiscovery(
                     id=sensor.id,
                     name=sensor.name,
                     ha_type="sensor",
                     availability_msg_func=ha_sensor_ina_availabilty_message,
                     unit_of_measurement=sensor.unit_of_measurement,
-                    device_class=sensor.device_class,
+                    device_class=device_class,
                 )
             if ina219:
                 self.ina219_sensors.append(ina219)
@@ -960,18 +968,16 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from message bus."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
+        if self.config.mqtt is not None:
+            if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
+                if message == "online":
+                    for msg in self.config.mqtt.autodiscovery_messages.root.values():
+                        self.message_bus.send_message(
+                            topic=msg.topic, payload=msg.payload, retain=True
+                        )
 
-        if topic.startswith(
-            f"{self.config.get_ha_autodiscovery_topic_prefix()}/status"
-        ):
-            if message == "online":
-                for msg in self.config.mqtt.autodiscovery_messages.root.values():
-                    self.message_bus.send_message(
-                        topic=msg.topic, payload=msg.payload, retain=True
-                    )
-
-                self.event_bus.signal_ha_online()
-            return
+                    self.event_bus.signal_ha_online()
+                return
         if not topic.startswith(f"{self.config.get_topic_prefix()}/cmd/"):
             _LOGGER.error("Wrong topic %s!", topic)
             return
@@ -1091,7 +1097,7 @@ class Manager:
                 _LOGGER.info("Reloading covers actions")
                 self._configure_covers(reload_config=True)
             else:
-                assert_never(mqtt_message)
+                raise ValueError("Wrong button command!")
 
         elif isinstance(mqtt_message, ModbusMqttMessage):
             target_device = self.modbus_coordinators.get(mqtt_message.device_id)

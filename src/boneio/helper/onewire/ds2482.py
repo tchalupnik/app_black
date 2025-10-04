@@ -43,7 +43,7 @@ STATUS_BRANCH_TAKEN = 0x80
 
 
 class DS2482:
-    def __init__(self, i2c, address=DS2482_ADDRESS, active_pullup=False):
+    def __init__(self, i2c, address: int = DS2482_ADDRESS, active_pullup: bool = False):
         self._i2c = i2c_device.I2CDevice(i2c, address)
         self.device_reset()
         if active_pullup:
@@ -52,27 +52,27 @@ class DS2482:
         # 1-Wire bus busy with STRONG_PULLUP
         self._bus_busy = time.monotonic()
 
-    def device_reset(self):
+    def device_reset(self) -> None:
         """Terminate any 1-wire communication and reset the DS2482"""
         with self._i2c as i2c:
             i2c.write(bytes([COMMAND_DEVICE_RESET]))
 
     @property
-    def device_status(self):
+    def device_status(self) -> int:
         with self._i2c as i2c:
             buf = bytearray([COMMAND_SET_POINTER, POINTER_STATUS])
             i2c.write_then_readinto(buf, buf, in_end=1)
             return buf[0]
 
     @property
-    def device_config(self):
+    def device_config(self) -> int:
         with self._i2c as i2c:
             buf = bytearray([COMMAND_SET_POINTER, POINTER_CONFIG])
             i2c.write_then_readinto(buf, buf, in_end=1)
             return buf[0] & 0x0F
 
     @device_config.setter
-    def device_config(self, config):
+    def device_config(self, config: int) -> None:
         with self._i2c as i2c:
             i2c.write(
                 bytes([COMMAND_WRITE_CONFIG, (config & 0x0F) | ((~config << 4) & 0xF0)])
@@ -89,7 +89,9 @@ class DS2482:
                 time.sleep(0.001)
             return not buf[0] & STATUS_PRESENCE_PULSE
 
-    def single_bit(self, bit=1, strong_pullup=False, busy=None):
+    def single_bit(
+        self, bit: int = 1, strong_pullup: bool = False, busy: float | None = None
+    ) -> bool:
         with self._i2c as i2c:
             buf = bytearray(2)
             if strong_pullup:
@@ -143,7 +145,7 @@ class DS2482:
             i2c.write_then_readinto(buf, buf, in_end=1)
             return buf[0]
 
-    def wait_ready(self):
+    def wait_ready(self) -> int:
         while True:
             t = self._bus_busy - time.monotonic()
             if t > 0:
@@ -159,6 +161,3 @@ class DS2482:
                     break
                 time.sleep(0.001)
             return buf[0]
-
-    def triplet(self, dir):
-        pass

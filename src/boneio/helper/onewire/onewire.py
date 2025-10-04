@@ -36,7 +36,7 @@ class OneWire(OneWireIO):
     def __init__(self, ds2482: DS2482):
         self.ds2482 = ds2482
 
-    def deinit(self):
+    def deinit(self) -> None:
         """
         Deinitialize the OneWire bus and release any hardware resources for reuse.
         """

@@ -2,6 +2,7 @@ import fnmatch
 import logging
 import os
 import re
+from collections.abc import Generator
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -46,9 +47,6 @@ class BoneIOLoader(SafeLoader):
         val = secrets[node.value]
         _SECRET_VALUES[str(val)] = node.value
         return val
-
-    def represent_stringify(self, value):
-        return self.represent_scalar(tag="tag:yaml.org,2002:str", value=str(value))
 
     def construct_include_dir_list(self, node):
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
@@ -107,7 +105,7 @@ BoneIOLoader.add_constructor(
 BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
 
 
-def filter_yaml_files(files):
+def filter_yaml_files(files: list[Path]) -> list[Path]:
     return [
         f
         for f in files
@@ -119,12 +117,12 @@ def filter_yaml_files(files):
     ]
 
 
-def _is_file_valid(name):
+def _is_file_valid(name: str) -> bool:
     """Decide if a file is valid."""
     return not name.startswith(".")
 
 
-def _find_files(directory, pattern):
+def _find_files(directory: Path, pattern: str) -> Generator[Path]:
     """Recursively load files in a directory."""
     for root, dirs, files in os.walk(directory, topdown=True):
         dirs[:] = [d for d in dirs if _is_file_valid(d)]

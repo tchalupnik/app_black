@@ -7,7 +7,6 @@ import secrets
 import time
 import typing
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from boneio.config import Ina219Config, Ina219DeviceClass
 from boneio.events import EventBus, SensorEvent
@@ -102,7 +101,7 @@ class INA219:
         _LOGGER.debug("Configured INA219 on address %s", config.address)
         return this
 
-    def update(self, timestamp: datetime) -> None:
+    def update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         for k, sensor in self.sensors.items():
             if k == "current":
@@ -125,7 +124,7 @@ class INA219:
                             id=sensor.id,
                             name=sensor.name,
                             state=sensor.state,
-                            unit=sensor.unit_of_measurment,
+                            unit=sensor.unit_of_measurement,
                             timestamp=sensor.last_timestamp,
                         ),
                     )
