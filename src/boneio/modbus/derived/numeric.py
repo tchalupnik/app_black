@@ -110,7 +110,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
                 elif func_name == "max" and len(args) >= 1:
                     return max(args)
                 elif func_name == "pow" and len(args) == 2:
-                    return pow(args[0], args[1])
+                    return float(pow(args[0], args[1]))
                 elif func_name == "int" and len(args) == 1:
                     return int(args[0])
                 elif func_name == "float" and len(args) == 1:
