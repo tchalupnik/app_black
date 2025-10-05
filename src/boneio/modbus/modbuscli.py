@@ -9,7 +9,6 @@ from boneio.config import Uarts, UartsConfig
 from boneio.modbus.models import ModbusDevice, RegisterType, ValueType
 
 from .client import Modbus
-from .utils import allowed_operations
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,23 +71,14 @@ class ModbusHelper:
             _LOGGER.error("No returned value.")
             return False
         payload = value.registers[0:count]
-        try:
-            decoded_value = self.modbus.decode_value(payload, first_register.value_type)
-        except Exception as e:
-            _LOGGER.error("Decoding error during checking connection %s", e)
-            decoded_value = None
-        for filter in first_register.filters:
-            for key, value in filter.items():
-                if key in allowed_operations:
-                    lamda_function = allowed_operations[key]
-                    decoded_value = lamda_function(decoded_value, value)
+        decoded_value = self.modbus.decode_value(payload, first_register.value_type)
         _LOGGER.info(
             "Checked %s with address %s and value %s",
             first_register.name,
             first_register.address,
             decoded_value,
         )
-        return bool(decoded_value)
+        return True
 
     def set_connection_speed(self, new_baudrate: int) -> Literal[0, 1]:
         if self.modbus_device is None or self.modbus_device.set_base is None:
