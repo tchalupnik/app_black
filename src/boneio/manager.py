@@ -95,7 +95,7 @@ from boneio.message_bus import (
     RelaySetBrightnessMqttMessage,
     RelaySetMqttMessage,
 )
-from boneio.modbus.client import Modbus, ModbusUartException
+from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
@@ -712,20 +712,13 @@ class Manager:
     def _configure_modbus(self, modbus: ModbusConfig) -> None:
         uart = modbus.uart
         if uart in UartsConfig:
-            try:
-                self.modbus = Modbus(
-                    uart=UartsConfig[uart],
-                    baudrate=modbus.baudrate,
-                    stopbits=modbus.stopbits,
-                    bytesize=modbus.bytesize,
-                    parity=modbus.parity,
-                )
-            except ModbusUartException:
-                _LOGGER.error(
-                    "This UART %s can't be used for modbus communication.",
-                    uart,
-                )
-                self.modbus = None
+            self.modbus = Modbus(
+                uart=UartsConfig[uart],
+                baudrate=modbus.baudrate,
+                stopbits=modbus.stopbits,
+                bytesize=modbus.bytesize,
+                parity=modbus.parity,
+            )
 
     def _configure_ina219_sensors(self, sensors: list[Ina219Config]) -> None:
         for sensor_config in sensors:

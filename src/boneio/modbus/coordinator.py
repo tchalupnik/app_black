@@ -531,17 +531,16 @@ class ModbusCoordinator:
             first_register_base = self.device.registers_base[0]
             # Let's try fetch register 2 times in case something wrong with initial packet.
             for _ in [0, 1]:
-                register = await self._modbus.read_and_decode(
+                await self._modbus.read_and_decode(
                     unit=self.address,
                     address=first_register_base.registers[0].address,
                     method=first_register_base.register_type,
                     payload_type=first_register_base.registers[0].value_type,
                 )
-                if register is not None:
-                    self._send_discovery_for_all_registers()
-                    self.discovery_sent = datetime.now(timezone.utc)
-                    await anyio.sleep(2)
-                    break
+                self._send_discovery_for_all_registers()
+                self.discovery_sent = datetime.now(timezone.utc)
+                await anyio.sleep(2)
+                break
             if not self.discovery_sent:
                 _LOGGER.error(
                     "Discovery for %s not sent. First register not available.",

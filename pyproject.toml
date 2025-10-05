@@ -15,7 +15,7 @@ dependencies = [
   "colorlog==6.9.0",
   "luma-core==2.5.1",
   "luma-oled==3.14.0",
-  "pymodbus==2.5.3",
+  "pymodbus==3.11.3",
   "PyYAML==6.0.1",
   "psutil==7.1.0",
   "adafruit-circuitpython-onewire==2.0.11",
@@ -24,7 +24,7 @@ dependencies = [
   "adafruit-circuitpython-pcf8575==1.0.11",
   "adafruit-circuitpython-typing==1.12.2",
   "fastapi==0.118.0",
-  "pydantic==2.11.9",
+  "pydantic==2.11.10",
   "hypercorn==0.17.3",
   "python-jose[cryptography]==3.5.0",
   "qrcode==8.2",
@@ -47,6 +47,9 @@ dev = [
   "pytest>=8.4.2",
   "mypy>=1.18.2",
   "types-python-jose>=3.5.0.20250531",
+  "types-pyyaml>=6.0.12.20250915",
+  "types-qrcode>=8.2.0.20250914",
+  "types-psutil>=7.0.0.20251001",
 ]
 
 [project.urls]

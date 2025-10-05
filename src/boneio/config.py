@@ -536,7 +536,7 @@ Uarts = Literal["uart1", "uart2", "uart4", "uart5"]
 class UartConfig(BaseModel):
     id: str
     tx: str
-    rx: str | None = None
+    rx: str
 
 
 UartsConfig: dict[Uarts, UartConfig] = {
