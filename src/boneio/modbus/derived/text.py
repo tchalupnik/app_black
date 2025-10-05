@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from boneio.config import ModbusDeviceData
 from boneio.helper.ha_discovery import (
     HaModbusMessage,
     modbus_sensor_availabilty_message,
@@ -12,8 +11,6 @@ from boneio.modbus.sensor.base import BaseSensor
 
 @dataclass(kw_only=True)
 class ModbusDerivedTextSensor(BaseSensor):
-    context_config: ModbusDeviceData
-    base_address: str
     decoded_name: str
     value_mapping: dict[str, str]
     _ha_type_: str = "text_sensor"

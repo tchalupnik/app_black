@@ -18,8 +18,16 @@ from boneio.modbus.derived import (
     ModbusDerivedSwitch,
     ModbusDerivedTextSensor,
 )
-from boneio.modbus.models import AdditionalSensor, ModbusDevice
+from boneio.modbus.models import (
+    ModbusDevice,
+    NumericAdditionalSensor,
+    SelectAdditionalSensor,
+    SwitchAdditionalSensor,
+    TextAdditionalSensor,
+    ValueType,
+)
 from boneio.modbus.sensor import ModbusBinarySensor, ModbusNumericSensor
+from boneio.modbus.sensor.base import BaseSensor
 from boneio.modbus.sensor.text import ModbusTextSensor
 from boneio.modbus.writeable.binary import ModbusBinaryWriteableEntityDiscrete
 from boneio.modbus.writeable.numeric import (
@@ -28,7 +36,7 @@ from boneio.modbus.writeable.numeric import (
 )
 from boneio.models import SensorState
 
-from .client import VALUE_TYPES, Modbus
+from .client import Modbus
 from .utils import CONVERT_METHODS
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,19 +84,35 @@ class ModbusCoordinator:
             | ModbusNumericWriteableEntityDiscrete,
         ] = {}
         self._additional_sensors: list[
-            dict[str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
+            dict[
+                str,
+                ModbusDerivedNumericSensor
+                | ModbusDerivedTextSensor
+                | ModbusDerivedSelect
+                | ModbusDerivedSwitch,
+            ]
         ] = []
         self._additional_sensors_by_source_name: dict[
-            str, list[ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
+            str,
+            list[
+                ModbusDerivedNumericSensor
+                | ModbusDerivedTextSensor
+                | ModbusDerivedSelect
+                | ModbusDerivedSwitch
+            ],
         ] = {}
         self._additional_sensors_by_name: dict[
-            str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor
+            str,
+            ModbusDerivedNumericSensor
+            | ModbusDerivedTextSensor
+            | ModbusDerivedSelect
+            | ModbusDerivedSwitch,
         ] = {}
         self._additional_data = device_config.data
 
         self.init_modbus_entities()
         # Additional sensors
-        if "additional_sensors" in self.device:
+        if self.device.additional_sensors:
             self.init_derived_sensors()
 
         _LOGGER.info(
@@ -131,20 +155,14 @@ class ModbusCoordinator:
                         unit_of_measurement=register.unit_of_measurement,
                         state_class=register.state_class,
                         device_class=register.device_class,
-                        value_type=register.value_type.value,
-                        return_type=register.return_type
-                        if register.return_type
-                        else "regular",
+                        value_type=register.value_type,
+                        return_type=register.return_type,
                         filters=[
                             filter_dict.model_dump() for filter_dict in register.filters
-                        ]
-                        if register.filters
-                        else [],
+                        ],
                         message_bus=self.message_bus,
                         config=self.config,
-                        ha_filter=register.ha_filter
-                        if register.ha_filter
-                        else "round(2)",
+                        ha_filter=register.ha_filter,
                     )
                 elif entity_type == "text_sensor":
                     single_sensor = ModbusTextSensor(
@@ -159,15 +177,11 @@ class ModbusCoordinator:
                         unit_of_measurement=register.unit_of_measurement,
                         state_class=register.state_class,
                         device_class=register.device_class,
-                        value_type=register.value_type.value,
-                        return_type=register.return_type
-                        if register.return_type
-                        else "regular",
+                        value_type=register.value_type,
+                        return_type=register.return_type,
                         filters=[
                             filter_dict.model_dump() for filter_dict in register.filters
-                        ]
-                        if register.filters
-                        else [],
+                        ],
                         message_bus=self.message_bus,
                         config=self.config,
                         value_mapping=register.x_mapping,
@@ -185,21 +199,15 @@ class ModbusCoordinator:
                         unit_of_measurement=register.unit_of_measurement,
                         state_class=register.state_class,
                         device_class=register.device_class,
-                        value_type=register.value_type.value,
-                        return_type=register.return_type
-                        if register.return_type
-                        else "regular",
+                        value_type=register.value_type,
+                        return_type=register.return_type,
                         filters=[
                             filter_dict.model_dump() for filter_dict in register.filters
-                        ]
-                        if register.filters
-                        else [],
+                        ],
                         message_bus=self.message_bus,
                         config=self.config,
-                        payload_on=register.payload_on if register.payload_on else "ON",
-                        payload_off=register.payload_off
-                        if register.payload_off
-                        else "OFF",
+                        payload_on=register.payload_on,
+                        payload_off=register.payload_off,
                     )
                 elif entity_type == "writeable_sensor":
                     single_sensor = ModbusNumericWriteableEntity(
@@ -214,28 +222,20 @@ class ModbusCoordinator:
                         unit_of_measurement=register.unit_of_measurement,
                         state_class=register.state_class,
                         device_class=register.device_class,
-                        value_type=register.value_type.value,
-                        return_type=register.return_type
-                        if register.return_type
-                        else "regular",
+                        value_type=register.value_type,
+                        return_type=register.return_type,
                         filters=[
                             filter_dict.model_dump() for filter_dict in register.filters
-                        ]
-                        if register.filters
-                        else [],
+                        ],
                         message_bus=self.message_bus,
                         config=self.config,
                         coordinator=self,
                         write_filters=[
                             filter_dict.model_dump()
                             for filter_dict in register.write_filters
-                        ]
-                        if register.write_filters
-                        else [],
+                        ],
                         write_address=register.write_address,
-                        ha_filter=register.ha_filter
-                        if register.ha_filter
-                        else "round(2)",
+                        ha_filter=register.ha_filter,
                     )
                 elif entity_type == "writeable_sensor_discrete":
                     single_sensor = ModbusNumericWriteableEntityDiscrete(
@@ -250,27 +250,19 @@ class ModbusCoordinator:
                         unit_of_measurement=register.unit_of_measurement,
                         state_class=register.state_class,
                         device_class=register.device_class,
-                        value_type=register.value_type.value,
-                        return_type=register.return_type
-                        if register.return_type
-                        else "regular",
+                        value_type=register.value_type,
+                        return_type=register.return_type,
                         filters=[
                             filter_dict.model_dump() for filter_dict in register.filters
-                        ]
-                        if register.filters
-                        else [],
+                        ],
                         message_bus=self.message_bus,
                         config=self.config,
                         write_address=register.write_address,
                         write_filters=[
                             filter_dict.model_dump()
                             for filter_dict in register.write_filters
-                        ]
-                        if register.write_filters
-                        else [],
-                        ha_filter=register.ha_filter
-                        if register.ha_filter
-                        else "round(2)",
+                        ],
+                        ha_filter=register.ha_filter,
                     )
                 elif entity_type == "writeable_binary_sensor_discrete":
                     single_sensor = ModbusBinaryWriteableEntityDiscrete(
@@ -285,28 +277,20 @@ class ModbusCoordinator:
                         unit_of_measurement=register.unit_of_measurement,
                         state_class=register.state_class,
                         device_class=register.device_class,
-                        value_type=register.value_type.value,
-                        return_type=register.return_type
-                        if register.return_type
-                        else "regular",
+                        value_type=register.value_type,
+                        return_type=register.return_type,
                         filters=[
                             filter_dict.model_dump() for filter_dict in register.filters
-                        ]
-                        if register.filters
-                        else [],
+                        ],
                         message_bus=self.message_bus,
                         config=self.config,
                         write_address=register.write_address,
-                        payload_on=register.payload_on if register.payload_on else "ON",
-                        payload_off=register.payload_off
-                        if register.payload_off
-                        else "OFF",
+                        payload_on=register.payload_on,
+                        payload_off=register.payload_off,
                         write_filters=[
                             filter_dict.model_dump()
                             for filter_dict in register.write_filters
-                        ]
-                        if register.write_filters
-                        else [],
+                        ],
                     )
                 else:
                     typing.assert_never(entity_type)
@@ -316,151 +300,102 @@ class ModbusCoordinator:
                     )
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
-    def init_derived_numeric(
-        self, additional: AdditionalSensor
-    ) -> ModbusDerivedNumericSensor | None:
-        if self._additional_data is None:
-            return None
-        if not all(k in self._additional_data for k in additional.config_keys or []):
-            return None
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional.source.replace("_", ""):
-                    source_sensor = s
-                    break
-        if source_sensor is None:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional sensor '%s' not found.",
-                additional.source,
-                additional.name,
-            )
-            return None
-        single_sensor = ModbusDerivedNumericSensor(
-            name=additional.name,
-            parent={"name": self.name, "id": self.id, "model": self.device.model},
-            base_address=source_sensor.base_address,
-            decoded_name=source_sensor.decoded_name,
-            unit_of_measurement=additional.unit_of_measurement or "m3",
-            state_class=additional.state_class or "measurement",
-            device_class=additional.device_class or "volume",
-            value_type="",
-            return_type="",
-            message_bus=self.message_bus,
-            config=self.config,
-            formula=additional.formula or "",
-            context_config={
-                k: v
-                for k, v in self._additional_data.items()
-                if k in additional.config_keys
-            },
-        )
-        return single_sensor
-
-    def init_derived_text_sensor(
-        self, additional: AdditionalSensor
-    ) -> ModbusDerivedTextSensor | None:
-        x_mapping = additional.x_mapping or {}
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional.source.replace("_", ""):
-                    source_sensor = s
-                    break
-        if source_sensor is None:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional sensor '%s' not found.",
-                additional.source,
-                additional.name,
-            )
-            return None
-        single_sensor = ModbusDerivedTextSensor(
-            name=additional.name,
-            parent={"name": self.name, "id": self.id, "model": self.device.model},
-            base_address=source_sensor.base_address,
-            message_bus=self.message_bus,
-            config=self.config,
-            decoded_name=source_sensor.decoded_name,
-            context_config={},
-            value_mapping=x_mapping,
-        )
-        return single_sensor
-
-    def init_derived_select(
-        self, additional: AdditionalSensor
-    ) -> ModbusDerivedSelect | None:
-        x_mapping = additional.x_mapping or {}
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional.source.replace("_", ""):
-                    source_sensor = s
-                    break
-        if not source_sensor:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional select '%s' not found.",
-                additional.source,
-                additional.name,
-            )
-            return None
-        single_sensor = ModbusDerivedSelect(
-            name=additional.name,
-            parent={"name": self.name, "id": self.id, "model": self.device.model},
-            base_address=source_sensor.base_address,
-            message_bus=self.message_bus,
-            config=self.config,
-            decoded_name=source_sensor.decoded_name,
-            context_config={},
-            value_mapping=x_mapping,
-        )
-        return single_sensor
-
-    def init_derived_switch(
-        self, additional: AdditionalSensor
-    ) -> ModbusDerivedSwitch | None:
-        x_mapping = additional.x_mapping or {}
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional.source.replace("_", ""):
-                    source_sensor = s
-                    break
-        if source_sensor is None:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional select '%s' not found.",
-                additional.source,
-                additional.name,
-            )
-            return None
-        single_sensor = ModbusDerivedSwitch(
-            name=additional.name,
-            parent={"name": self.name, "id": self.id, "model": self.device.model},
-            base_address=source_sensor.base_address,
-            message_bus=self.message_bus,
-            config=self.config,
-            decoded_name=source_sensor.decoded_name,
-            context_config={},
-            value_mapping=x_mapping,
-            payload_off=additional.payload_off,
-            payload_on=additional.payload_on,
-        )
-        return single_sensor
-
     def init_derived_sensors(self) -> None:
-        for additional in self.device.additional_sensors:
-            derived_sensor = None
-            if additional.entity_type == "text_sensor":
-                derived_sensor = self.init_derived_text_sensor(additional)
-            elif additional.entity_type == "sensor":
-                derived_sensor = self.init_derived_numeric(additional)
-            elif additional.entity_type == "select":
-                derived_sensor = self.init_derived_select(additional)
-            elif additional.entity_type == "switch":
-                derived_sensor = self.init_derived_switch(additional)
-            else:
-                typing.assert_never(additional.entity_type)
-            if not derived_sensor:
+        for _additional in self.device.additional_sensors:
+            additional = _additional.root
+            source_sensor: BaseSensor | None = None
+            for sensors in self._modbus_entities:
+                for s in sensors.values():
+                    if s.decoded_name == additional.source.replace("_", ""):
+                        source_sensor = s
+                        break
+            if source_sensor is None:
+                _LOGGER.warning(
+                    "Source sensor '%s' for additional sensor '%s' not found.",
+                    additional.source,
+                    additional.name,
+                )
                 continue
+            derived_sensor: BaseSensor
+            if isinstance(additional, TextAdditionalSensor):
+                derived_sensor = ModbusDerivedTextSensor(
+                    name=additional.name,
+                    parent={
+                        "name": self.name,
+                        "id": self.id,
+                        "model": self.device.model,
+                    },
+                    base_address=source_sensor.base_address,
+                    message_bus=self.message_bus,
+                    config=self.config,
+                    decoded_name=source_sensor.decoded_name,
+                    value_mapping=additional.x_mapping,
+                    register_address=source_sensor.register_address,
+                    value_type=source_sensor.value_type,
+                )
+            elif isinstance(additional, NumericAdditionalSensor):
+                if not all(k in self._additional_data for k in additional.config_keys):
+                    _LOGGER.warning(
+                        "Not all config keys %s for additional sensor %s are present in device config data.",
+                        additional.config_keys,
+                        additional.name,
+                    )
+                    continue
+                derived_sensor = ModbusDerivedNumericSensor(
+                    name=additional.name,
+                    parent={
+                        "name": self.name,
+                        "id": self.id,
+                        "model": self.device.model,
+                    },
+                    base_address=source_sensor.base_address,
+                    decoded_name=source_sensor.decoded_name,
+                    unit_of_measurement=additional.unit_of_measurement,
+                    state_class=additional.state_class,
+                    device_class=additional.device_class,
+                    message_bus=self.message_bus,
+                    config=self.config,
+                    formula=additional.formula,
+                    context_config=self._additional_data,
+                    register_address=source_sensor.register_address,
+                    value_type=source_sensor.value_type,
+                )
+            elif isinstance(additional, SelectAdditionalSensor):
+                derived_sensor = ModbusDerivedSelect(
+                    name=additional.name,
+                    parent={
+                        "name": self.name,
+                        "id": self.id,
+                        "model": self.device.model,
+                    },
+                    base_address=source_sensor.base_address,
+                    message_bus=self.message_bus,
+                    config=self.config,
+                    decoded_name=source_sensor.decoded_name,
+                    value_mapping=additional.x_mapping,
+                    register_address=source_sensor.register_address,
+                    value_type=source_sensor.value_type,
+                )
+            elif isinstance(additional, SwitchAdditionalSensor):
+                derived_sensor = ModbusDerivedSwitch(
+                    name=additional.name,
+                    parent={
+                        "name": self.name,
+                        "id": self.id,
+                        "model": self.device.model,
+                    },
+                    base_address=source_sensor.base_address,
+                    message_bus=self.message_bus,
+                    config=self.config,
+                    decoded_name=source_sensor.decoded_name,
+                    value_mapping=additional.x_mapping,
+                    payload_off=additional.payload_off,
+                    payload_on=additional.payload_on,
+                    register_address=source_sensor.register_address,
+                    value_type=source_sensor.value_type,
+                )
+            else:
+                typing.assert_never(additional)
 
             self._additional_sensors.append(
                 {derived_sensor.decoded_name: derived_sensor}
@@ -508,7 +443,7 @@ class ModbusCoordinator:
     def set_payload_offline(self) -> None:
         self.payload_online = "offline"
 
-    def _send_discovery_for_all_registers(self) -> datetime:
+    def _send_discovery_for_all_registers(self) -> None:
         """Send discovery message to HA for each register."""
         for sensors in self._modbus_entities:
             for sensor in sensors.values():
@@ -516,11 +451,10 @@ class ModbusCoordinator:
         for sensors in self._additional_sensors:
             for sensor in sensors.values():
                 sensor.send_ha_discovery()
-        return datetime.now(timezone.utc)
 
     async def write_register(self, value: str | float | int, entity: str) -> None:
         _LOGGER.debug("Writing register %s for %s", value, entity)
-        output: dict[str, float] = {}
+        output: dict[str, float | int | str] = {}
         timestamp = time.time()
         derived_sensor = self._additional_sensors_by_name.get(entity)
         if derived_sensor is not None:
@@ -595,17 +529,17 @@ class ModbusCoordinator:
         ) and self.config.get_topic_prefix():
             self.discovery_sent = False
             first_register_base = self.device.registers_base[0]
-            register_method = first_register_base.register_type.value
             # Let's try fetch register 2 times in case something wrong with initial packet.
             for _ in [0, 1]:
                 register = await self._modbus.read_and_decode(
                     unit=self.address,
                     address=first_register_base.registers[0].address,
-                    method=register_method,
-                    payload_type=first_register_base.registers[0].value_type.value,
+                    method=first_register_base.register_type,
+                    payload_type=first_register_base.registers[0].value_type,
                 )
                 if register is not None:
-                    self.discovery_sent = self._send_discovery_for_all_registers()
+                    self._send_discovery_for_all_registers()
+                    self.discovery_sent = datetime.now(timezone.utc)
                     await anyio.sleep(2)
                     break
             if not self.discovery_sent:
@@ -664,7 +598,19 @@ class ModbusCoordinator:
                     )
                 else:
                     start_index = sensor.register_address - sensor.base_address
-                    count = VALUE_TYPES[sensor.value_type]["count"]
+                    count = {
+                        ValueType.U_WORD: 1,
+                        ValueType.S_WORD: 1,
+                        ValueType.U_DWORD: 2,
+                        ValueType.S_DWORD: 2,
+                        ValueType.U_DWORD_R: 2,
+                        ValueType.S_DWORD_R: 2,
+                        ValueType.U_QWORD: 4,
+                        ValueType.S_QWORD: 4,
+                        ValueType.U_QWORD_R: 4,
+                        ValueType.FP32: 2,
+                        ValueType.FP32_R: 2,
+                    }[sensor.value_type]
                     payload = values.registers[start_index : start_index + count]
                     try:
                         decoded_value = self._modbus.decode_value(
@@ -679,7 +625,7 @@ class ModbusCoordinator:
                             data.length,
                             e,
                         )
-                        decoded_value = None
+                        continue
                 sensor.set_value(value=decoded_value, timestamp=timestamp)
                 if self._additional_sensors and sensor.value is not None:
                     if sensor.decoded_name in self._additional_sensors_by_source_name:

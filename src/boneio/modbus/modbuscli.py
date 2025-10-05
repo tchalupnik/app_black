@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from boneio.config import UartsConfig
+from boneio.config import Uarts, UartsConfig
 from boneio.modbus.models import ModbusDevice, RegisterType, ValueType
 
 from .client import Modbus
@@ -146,7 +146,7 @@ class ModbusHelper:
 
 async def async_run_modbus_set(
     device: str,
-    uart: str,
+    uart: Uarts,
     address: int,
     baudrate: int,
     new_baudrate: int | None,
@@ -205,7 +205,7 @@ async def async_run_modbus_set(
 
 
 async def async_run_modbus_search(
-    uart: str,
+    uart: Uarts,
     baudrate: int,
     register_address: int,
     register_type: RegisterType = RegisterType.HOLDING,
@@ -244,7 +244,7 @@ async def async_run_modbus_search(
 
 
 async def async_run_modbus_get(
-    uart: str,
+    uart: Uarts,
     device_address: int,
     register_range: str,
     register_type: RegisterType,

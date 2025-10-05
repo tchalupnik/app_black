@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, RootModel, field_validator
 
 
 class ValueType(str, Enum):
@@ -33,22 +33,57 @@ class RegisterType(str, Enum):
     COIL = "coil"
 
 
-class AdditionalSensor(BaseModel):
+class AdditionalSensorBase(BaseModel):
     """Represents an additional sensor configuration."""
 
+    entity_type: Literal["text_sensor", "sensor", "select", "switch"]
     name: str
     source: str
-    entity_type: Literal["text_sensor", "sensor", "select", "switch"]
-    unit_of_measurement: str | None = Field(None, description="Unit of measurement")
-    device_class: str | None = Field(
-        None, description="Device class for Home Assistant"
+    x_mapping: dict[str, str] = Field(default_factory=dict, description="Value mapping")
+    config_keys: list[str] = Field(
+        default_factory=list, description="Configuration keys needed"
     )
-    state_class: str | None = Field(None, description="State class for Home Assistant")
-    x_mapping: dict[str, str] | None = Field(None, description="Value mapping")
-    payload_off: str | None = Field(None, description="Payload for OFF state")
-    payload_on: str | None = Field(None, description="Payload for ON state")
-    formula: str | None = Field(None, description="Formula for calculations")
-    config_keys: list[str] | None = Field(None, description="Configuration keys needed")
+
+
+class NumericAdditionalSensor(AdditionalSensorBase):
+    entity_type: Literal["sensor"] = "sensor"
+    unit_of_measurement: str = Field("m3", description="Unit of measurement")
+    state_class: str = Field(
+        "measurement", description="State class for Home Assistant"
+    )
+    device_class: str = Field("volume", description="Device class for Home Assistant")
+    formula: str = Field("", description="Formula for calculations")
+    config_keys: list[str] = Field(
+        default_factory=list, description="Configuration keys needed"
+    )
+
+
+class SwitchAdditionalSensor(AdditionalSensorBase):
+    entity_type: Literal["switch"] = "switch"
+    payload_off: str = Field("OFF", description="Payload for OFF state")
+    payload_on: str = Field("ON", description="Payload for ON state")
+
+
+class SelectAdditionalSensor(AdditionalSensorBase):
+    entity_type: Literal["select"] = "select"
+
+
+class TextAdditionalSensor(AdditionalSensorBase):
+    entity_type: Literal["text_sensor"] = "text_sensor"
+
+
+AdditionalSensors = (
+    NumericAdditionalSensor
+    | SwitchAdditionalSensor
+    | SelectAdditionalSensor
+    | TextAdditionalSensor
+)
+
+
+class AdditionalSensor(RootModel[AdditionalSensors]):
+    """Union type for additional sensors."""
+
+    root: AdditionalSensors = Field(discriminator="entity_type")
 
 
 class Filter(BaseModel):
@@ -81,20 +116,27 @@ class Register(BaseModel):
         None, description="Device class for Home Assistant"
     )
     value_type: ValueType = Field(ValueType.FP32, description="Value type")
-    return_type: str | None = Field(
-        None, description="Return type for backward compatibility"
+    return_type: str = Field(
+        "regular", description="Return type for backward compatibility"
     )
     filters: list[Filter] = Field(
         default_factory=list, description="List of filters to apply"
     )
-    entity_type: str | None = Field("sensor", description="Entity type")
+    entity_type: Literal[
+        "sensor",
+        "text_sensor",
+        "binary_sensor",
+        "writeable_sensor",
+        "writeable_sensor_discrete",
+        "writeable_binary_sensor_discrete",
+    ] = Field("sensor", description="Entity type")
     write_address: int | None = Field(
         None, ge=0, le=65535, description="Write address for writeable registers"
     )
-    write_filters: list[dict[str, Any]] | None = Field(
-        None, description="Write filters"
+    write_filters: list[dict[str, Any]] = Field(
+        default_factory=list, description="Write filters"
     )
-    ha_filter: str | None = Field(None, description="Home Assistant filter")
+    ha_filter: str = Field("round(2)", description="Home Assistant filter")
     payload_off: str = Field("OFF", description="Payload for OFF state")
     payload_on: str = Field("ON", description="Payload for ON state")
     x_mapping: dict[str, str] = Field(default_factory=dict, description="Value mapping")

@@ -15,7 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 class ModbusDerivedNumericSensor(BaseSensor):
     formula: str
     context_config: ModbusDeviceData
-    base_address: str
     decoded_name: str
 
     @property

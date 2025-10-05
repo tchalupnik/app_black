@@ -4,6 +4,7 @@ import logging
 import time
 from abc import ABC
 from dataclasses import dataclass, field
+from typing import Literal
 
 from boneio.config import Config, Filters, MqttAutodiscoveryMessage
 from boneio.helper.filter import Filter
@@ -12,6 +13,7 @@ from boneio.helper.ha_discovery import (
     modbus_sensor_availabilty_message,
 )
 from boneio.message_bus.basic import MessageBus
+from boneio.modbus.models import ValueType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,17 +21,17 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass(kw_only=True)
 class BaseSensor(ABC):
     name: str
-    parent: dict
+    parent: dict[Literal["id", "name", "model"], str]
     register_address: int
     base_address: int
     message_bus: MessageBus
     config: Config
+    value_type: ValueType
     user_filters: Filter = field(default_factory=Filter)
     filter: Filter = field(default_factory=Filter)
     unit_of_measurement: str | None = None
     state_class: str | None = None
     device_class: str | None = None
-    value_type: str | None = None
     return_type: str | None = None
     ha_filter: str = "round(2)"
     last_timestamp: float = field(default_factory=time.time)

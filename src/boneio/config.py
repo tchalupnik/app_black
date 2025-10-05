@@ -589,7 +589,7 @@ class ModbusDeviceConfig(BaseModel):
     model: ModbusModels
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=30))
     sensor_filters: ModbusDeviceSensorFilters | None = None
-    data: ModbusDeviceData | None = None
+    data: ModbusDeviceData = Field(default_factory=dict)
 
     def identifier(self) -> str:
         return self.id.replace(" ", "")

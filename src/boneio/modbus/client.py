@@ -9,9 +9,7 @@ from dataclasses import dataclass, field
 from typing import assert_never
 
 import anyio
-from pymodbus.client.common import (
-    WriteSingleRegisterResponse,
-)
+from pymodbus.client.common import WriteSingleRegisterResponse
 from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.exceptions import ModbusException
@@ -23,64 +21,6 @@ from boneio.modbus.models import RegisterType, ValueType
 
 _LOGGER = logging.getLogger(__name__)
 
-
-VALUE_TYPES = {
-    "U_WORD": {
-        "f": "decode_16bit_uint",
-        "byteorder": Endian.Big,
-        "count": 1,
-    },
-    "S_WORD": {
-        "f": "decode_16bit_int",
-        "byteorder": Endian.Big,
-        "count": 1,
-    },
-    "U_DWORD": {
-        "f": "decode_32bit_uint",
-        "byteorder": Endian.Big,
-        "count": 2,
-    },
-    "S_DWORD": {
-        "f": "decode_32bit_int",
-        "byteorder": Endian.Big,
-        "count": 2,
-    },
-    "U_DWORD_R": {
-        "f": "decode_32bit_uint",
-        "byteorder": Endian.Little,
-        "count": 2,
-    },
-    "S_DWORD_R": {
-        "f": "decode_32bit_int",
-        "byteorder": Endian.Little,
-        "count": 2,
-    },
-    "U_QWORD": {
-        "f": "decode_64bit_uint",
-        "byteorder": Endian.Big,
-        "count": 4,
-    },
-    "S_QWORD": {
-        "f": "decode_64bit_int",
-        "byteorder": Endian.Big,
-        "count": 4,
-    },
-    "U_QWORD_R": {
-        "f": "decode_64bit_uint",
-        "byteorder": Endian.Little,
-        "count": 4,
-    },
-    "FP32": {
-        "f": "decode_32bit_float",
-        "byteorder": Endian.Big,
-        "count": 2,
-    },
-    "FP32_R": {
-        "f": "decode_32bit_float",
-        "byteorder": Endian.Little,
-        "count": 2,
-    },
-}
 
 # Maximum number of worker threads for Modbus operations
 MAX_WORKERS = 4
@@ -166,9 +106,9 @@ class Modbus:
         self,
         unit: int | str,
         address: int,
-        payload_type: str,
+        payload_type: ValueType,
         count: int = 2,
-        method: str = "input",
+        method: RegisterType = RegisterType.INPUT,
     ) -> float | None:
         """Call read_registers and decode."""
         result = await self.read_registers(

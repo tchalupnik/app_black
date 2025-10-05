@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from boneio.config import ModbusDeviceData
 from boneio.helper.ha_discovery import (
     HaModbusMessage,
     modbus_availabilty_message,
@@ -12,10 +11,8 @@ from boneio.modbus.sensor.base import BaseSensor
 
 @dataclass(kw_only=True)
 class ModbusDerivedSwitch(BaseSensor):
-    context_config: ModbusDeviceData
-    base_address: str
     decoded_name: str
-    value_mapping: dict[str, str]
+    value_mapping: dict[str, str] = field(default_factory=dict)
     payload_off: str = "OFF"
     payload_on: str = "ON"
     _ha_type_: str = "switch"
