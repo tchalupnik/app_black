@@ -754,16 +754,16 @@ class Manager:
     def _configure_modbus_coordinators(
         self, devices: list[ModbusDeviceConfig]
     ) -> dict[str, ModbusCoordinator]:
-        if self.modbus is not None:
-            return create_modbus_coordinators(
-                manager=self,
-                message_bus=self.message_bus,
-                event_bus=self.event_bus,
-                entries=devices,
-                modbus=self.modbus,
-                config=self.config,
-            )
-        return {}
+        if self.modbus is None:
+            return {}
+        return create_modbus_coordinators(
+            manager=self,
+            message_bus=self.message_bus,
+            event_bus=self.event_bus,
+            entries=devices,
+            modbus=self.modbus,
+            config=self.config,
+        )
 
     def create_serial_number_sensor(self) -> None:
         """Create Serial number sensor in manager."""

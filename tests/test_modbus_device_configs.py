@@ -12,7 +12,7 @@ from boneio.modbus.models import ModbusDevice
 @pytest.fixture(scope="class")
 def devices_dir() -> Path:
     """Path to the directory containing device configurations."""
-    return Path(__file__).parent.parent / "src" / "boneio" / "modbus" / "devices"
+    return Path("modbus_devices").resolve()
 
 
 @pytest.fixture(scope="class")

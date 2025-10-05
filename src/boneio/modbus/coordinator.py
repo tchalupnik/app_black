@@ -62,7 +62,7 @@ class ModbusCoordinator:
         self.message_bus = message_bus
         self._modbus = modbus
         self.device = ModbusDevice.model_validate_json(
-            Path(device_config.model).read_text()
+            (Path("modbus_devices") / f"{device_config.model}.json").read_text()
         )
         self.address = device_config.address
         self.update_interval = device_config.update_interval

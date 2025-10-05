@@ -163,7 +163,9 @@ async def async_run_modbus_set(
     custom_cmd = bool(device == "custom")
     modbus_device: ModbusDevice | None = None
     if not custom_cmd:
-        modbus_device = ModbusDevice.model_validate_json(Path(device).read_text())
+        modbus_device = ModbusDevice.model_validate_json(
+            (Path("modbus_devices") / f"{device}.json").read_text()
+        )
         _LOGGER.debug(
             "Connecting with params uart: %s, baudrate: %s, stopbits: %s, bytesize: %s, parity: %s.",
             uart,
