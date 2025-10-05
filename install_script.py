@@ -22,7 +22,7 @@ def is_root() -> bool:
     return True if os.geteuid() == 0 else False
 
 
-def flatten(data) -> list:
+def flatten(data: list[list[str]]) -> list[str]:
     return list(itertools.chain.from_iterable(data))
 
 
@@ -30,8 +30,9 @@ def run_command(cmd: list[str]) -> bool:
     try:
         _LOGGER.info("Running command %s", cmd)
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        for line in p.stdout:
-            pass
+        if p.stdout:
+            for line in p.stdout:
+                pass
         out, err = p.communicate()
         # subprocess.run(
         #     cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True

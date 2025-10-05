@@ -31,6 +31,7 @@ from boneio.helper import (
     ha_sensor_temp_availabilty_message,
     refresh_wrapper,
 )
+from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import ha_virtual_energy_sensor_discovery_message
 from boneio.helper.onewire import (
     DS2482,
@@ -71,7 +72,7 @@ def create_adc(
                 pin=gpio.pin,
                 message_bus=message_bus,
                 topic_prefix=topic_prefix,
-                filters=gpio.filters,
+                filter=Filter(gpio.filters),
             )
             manager.append_task(
                 refresh_wrapper(sensor.update, gpio.update_interval), sensor.id

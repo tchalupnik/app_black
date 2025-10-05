@@ -45,13 +45,12 @@ def configure_logger(debug: int, log_config: LoggerConfig | None = None) -> None
     if log_config is None:
         debug_logger()
         return
-    default = log_config.default.upper() if log_config.default is not None else None
-    if log_config.default is not None:
-        level = _nameToLevel.get(log_config.default.upper())
-        if level is not None:
-            logging.getLogger().setLevel(_nameToLevel[default])
-            if debug == 0:
-                debug = -1
+    default = log_config.default.upper()
+    level = _nameToLevel.get(default)
+    if level is not None:
+        logging.getLogger().setLevel(_nameToLevel[default])
+        if debug == 0:
+            debug = -1
 
     for log_key, log_level in log_config.logs.items():
         logger = logging.getLogger(log_key)

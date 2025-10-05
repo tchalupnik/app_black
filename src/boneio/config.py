@@ -525,7 +525,7 @@ LoggerLevels = Literal["critical", "error", "warning", "info", "debug"]
 
 
 class LoggerConfig(BaseModel):
-    default: LoggerLevels | None = None
+    default: LoggerLevels = "info"
     logs: dict[str, LoggerLevels] = Field(default_factory=dict)
 
 
