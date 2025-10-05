@@ -37,7 +37,6 @@ from boneio.modbus.writeable.numeric import (
 from boneio.models import SensorState
 
 from .client import Modbus
-from .utils import CONVERT_METHODS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -588,43 +587,35 @@ class ModbusCoordinator:
             output = {}
             current_modbus_entities = self._modbus_entities[index]
             for sensor in current_modbus_entities.values():
-                if not sensor.value_type:
-                    # Go with old method. Remove when switch Sofar to new.
-                    decoded_value = CONVERT_METHODS[sensor.return_type](
-                        result=values,
-                        base=sensor.base_address,
-                        addr=sensor.register_address,
+                start_index = sensor.register_address - sensor.base_address
+                count = {
+                    ValueType.U_WORD: 1,
+                    ValueType.S_WORD: 1,
+                    ValueType.U_DWORD: 2,
+                    ValueType.S_DWORD: 2,
+                    ValueType.U_DWORD_R: 2,
+                    ValueType.S_DWORD_R: 2,
+                    ValueType.U_QWORD: 4,
+                    ValueType.S_QWORD: 4,
+                    ValueType.U_QWORD_R: 4,
+                    ValueType.FP32: 2,
+                    ValueType.FP32_R: 2,
+                }[sensor.value_type]
+                payload = values.registers[start_index : start_index + count]
+                try:
+                    decoded_value = self._modbus.decode_value(
+                        payload, sensor.value_type
                     )
-                else:
-                    start_index = sensor.register_address - sensor.base_address
-                    count = {
-                        ValueType.U_WORD: 1,
-                        ValueType.S_WORD: 1,
-                        ValueType.U_DWORD: 2,
-                        ValueType.S_DWORD: 2,
-                        ValueType.U_DWORD_R: 2,
-                        ValueType.S_DWORD_R: 2,
-                        ValueType.U_QWORD: 4,
-                        ValueType.S_QWORD: 4,
-                        ValueType.U_QWORD_R: 4,
-                        ValueType.FP32: 2,
-                        ValueType.FP32_R: 2,
-                    }[sensor.value_type]
-                    payload = values.registers[start_index : start_index + count]
-                    try:
-                        decoded_value = self._modbus.decode_value(
-                            payload, sensor.value_type
-                        )
-                    except Exception as e:
-                        _LOGGER.error(
-                            "Decoding error for %s at address %s, base: %s, length: %s, error %s",
-                            sensor.name,
-                            sensor.register_address,
-                            sensor.base_address,
-                            data.length,
-                            e,
-                        )
-                        continue
+                except Exception as e:
+                    _LOGGER.error(
+                        "Decoding error for %s at address %s, base: %s, length: %s, error %s",
+                        sensor.name,
+                        sensor.register_address,
+                        sensor.base_address,
+                        data.length,
+                        e,
+                    )
+                    continue
                 sensor.set_value(value=decoded_value, timestamp=timestamp)
                 if self._additional_sensors and sensor.value is not None:
                     if sensor.decoded_name in self._additional_sensors_by_source_name:
