@@ -99,14 +99,16 @@ class Modbus:
                 result: ModbusPDU
                 if register_type == RegisterType.INPUT:
                     result = await self.client.read_input_registers(
-                        address=address, count=count
+                        address=address, count=count, device_id=unit
                     )
                 elif register_type == RegisterType.HOLDING:
                     result = await self.client.read_holding_registers(
-                        address=address, count=count
+                        address=address, count=count, device_id=unit
                     )
                 elif register_type == RegisterType.COIL:
-                    result = await self.client.read_coils(address=address, count=count)
+                    result = await self.client.read_coils(
+                        address=address, count=count, device_id=unit
+                    )
                 else:
                     assert_never(register_type)
 
@@ -203,7 +205,7 @@ class Modbus:
 
                 # Run the read operation in the executor
                 result: ModbusPDU = await self.client.write_register(
-                    address=address, value=value
+                    address=address, value=value, device_id=unit
                 )
 
                 if result.isError():

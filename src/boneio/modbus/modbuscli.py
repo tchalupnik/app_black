@@ -80,17 +80,17 @@ class ModbusHelper:
         )
         return True
 
-    def set_connection_speed(self, new_baudrate: int) -> Literal[0, 1]:
+    async def set_connection_speed(self, new_baudrate: int) -> Literal[0, 1]:
         if self.modbus_device is None or self.modbus_device.set_base is None:
             _LOGGER.error("No set_base defined in device configuration.")
             return 1
         baudrate_model = self.modbus_device.set_base.set_baudrate
         ind = baudrate_model.possible_baudrates.get(str(new_baudrate))
         if ind is not None:
-            result = self.modbus.client.write_register(
+            result = await self.modbus.client.write_register(
                 address=baudrate_model.address,
                 value=ind,
-                unit=self.address,
+                device_id=self.address,
             )
             if not result.isError():
                 _LOGGER.info(
@@ -100,7 +100,7 @@ class ModbusHelper:
         _LOGGER.error("Operation failed.")
         return 1
 
-    def set_new_address(self, new_address: int) -> None:
+    async def set_new_address(self, new_address: int) -> None:
         if self.modbus_device is None or self.modbus_device.set_base is None:
             _LOGGER.error("No set_base defined in device configuration.")
             return 1
@@ -108,10 +108,10 @@ class ModbusHelper:
             _LOGGER.debug(
                 "New address register is %s", self.modbus_device.set_base.set_address
             )
-            result = self.modbus.client.write_register(
+            result = await self.modbus.client.write_register(
                 address=self.modbus_device.set_base.set_address,
                 value=new_address,
-                unit=self.address,
+                device_id=self.address,
             )
             if result.isError():
                 _LOGGER.error("Operation failed.")
@@ -122,11 +122,13 @@ class ModbusHelper:
         else:
             _LOGGER.error("Invalid new address.")
 
-    def set_custom_command(self, register_address: int, value: int | float) -> None:
-        result = self.modbus.client.write_register(
+    async def set_custom_command(
+        self, register_address: int, value: int | float
+    ) -> None:
+        result = await self.modbus.client.write_register(
             address=register_address,
             value=value,
-            unit=self.address,
+            device_id=self.address,
         )
         if result.isError():
             _LOGGER.error("Operation failed.")
@@ -180,9 +182,9 @@ async def async_run_modbus_set(
             _LOGGER.error("Can't connect with sensor. Exiting")
             return 1
         if new_baudrate:
-            return modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
+            return await modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
         if new_address:
-            modbus_helper.set_new_address(new_address=new_address)
+            await modbus_helper.set_new_address(new_address=new_address)
             return 0
 
     if not custom_cmd:
@@ -190,7 +192,7 @@ async def async_run_modbus_set(
         return await default_action()
     elif custom_address is not None and custom_value is not None:
         _LOGGER.debug("Invoking custom command action.")
-        modbus_helper.set_custom_command(
+        await modbus_helper.set_custom_command(
             register_address=custom_address, value=custom_value
         )
     return 1
