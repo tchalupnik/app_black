@@ -25,7 +25,7 @@ def crc82(data: bytearray) -> int:
 
 
 class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
-    def __init__(self, *args, **kwargs):  # pragma: no cover
+    def __init__(self, *args, **kwargs) -> None:
         """Custom init function to work with same addressing type as esphome."""
         self._ds18b20_str_id = hex(Sensor.DS18B20)[2:]
         try:
@@ -44,10 +44,10 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
     def scan(cls) -> list[OneWireAddress]:
         """Return only DS18B20 sensors. Add more sensors in the future."""
 
-        def is_sensor(dir_name):
+        def is_sensor(dir_name: str) -> bool:
             return dir_name.startswith(hex(Sensor.DS18B20)[2:])
 
-        def get_hex(name):
+        def get_hex(name: str) -> bytes:
             _hex_id = bytes.fromhex(f"{name[:2]}{reverse_dallas_id(name[3:])}")
             return _hex_id + bytes([crc82(_hex_id)])
 

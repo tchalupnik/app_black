@@ -93,7 +93,7 @@
           "value_type": "FP32"
         },
         {
-          "name": "Power_VA_Phase2",
+          "name": "Power_VA_Phase2a",
           "address": 22,
           "unit_of_measurement": "VA",
           "state_class": "measurement",

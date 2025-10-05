@@ -10,6 +10,7 @@ import anyio
 
 from boneio.config import Config, ModbusDeviceConfig
 from boneio.events import EventBus, ModbusDeviceEvent
+from boneio.helper.filter import Filter
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.derived import (
@@ -156,9 +157,7 @@ class ModbusCoordinator:
                         device_class=register.device_class,
                         value_type=register.value_type,
                         return_type=register.return_type,
-                        filters=[
-                            filter_dict.model_dump() for filter_dict in register.filters
-                        ],
+                        filter=Filter(register.filters),
                         message_bus=self.message_bus,
                         config=self.config,
                         ha_filter=register.ha_filter,
@@ -178,9 +177,7 @@ class ModbusCoordinator:
                         device_class=register.device_class,
                         value_type=register.value_type,
                         return_type=register.return_type,
-                        filters=[
-                            filter_dict.model_dump() for filter_dict in register.filters
-                        ],
+                        filter=Filter(register.filters),
                         message_bus=self.message_bus,
                         config=self.config,
                         value_mapping=register.x_mapping,
@@ -200,9 +197,7 @@ class ModbusCoordinator:
                         device_class=register.device_class,
                         value_type=register.value_type,
                         return_type=register.return_type,
-                        filters=[
-                            filter_dict.model_dump() for filter_dict in register.filters
-                        ],
+                        filter=Filter(register.filters),
                         message_bus=self.message_bus,
                         config=self.config,
                         payload_on=register.payload_on,
@@ -223,16 +218,11 @@ class ModbusCoordinator:
                         device_class=register.device_class,
                         value_type=register.value_type,
                         return_type=register.return_type,
-                        filters=[
-                            filter_dict.model_dump() for filter_dict in register.filters
-                        ],
+                        filter=Filter(register.filters),
                         message_bus=self.message_bus,
                         config=self.config,
                         coordinator=self,
-                        write_filters=[
-                            filter_dict.model_dump()
-                            for filter_dict in register.write_filters
-                        ],
+                        write_filters=Filter(register.write_filters),
                         write_address=register.write_address,
                         ha_filter=register.ha_filter,
                     )
@@ -251,16 +241,11 @@ class ModbusCoordinator:
                         device_class=register.device_class,
                         value_type=register.value_type,
                         return_type=register.return_type,
-                        filters=[
-                            filter_dict.model_dump() for filter_dict in register.filters
-                        ],
+                        filter=Filter(register.filters),
                         message_bus=self.message_bus,
                         config=self.config,
                         write_address=register.write_address,
-                        write_filters=[
-                            filter_dict.model_dump()
-                            for filter_dict in register.write_filters
-                        ],
+                        write_filters=Filter(register.write_filters),
                         ha_filter=register.ha_filter,
                     )
                 elif entity_type == "writeable_binary_sensor_discrete":
@@ -278,18 +263,13 @@ class ModbusCoordinator:
                         device_class=register.device_class,
                         value_type=register.value_type,
                         return_type=register.return_type,
-                        filters=[
-                            filter_dict.model_dump() for filter_dict in register.filters
-                        ],
+                        filter=Filter(register.filters),
                         message_bus=self.message_bus,
                         config=self.config,
                         write_address=register.write_address,
                         payload_on=register.payload_on,
                         payload_off=register.payload_off,
-                        write_filters=[
-                            filter_dict.model_dump()
-                            for filter_dict in register.write_filters
-                        ],
+                        write_filters=Filter(register.write_filters),
                     )
                 else:
                     typing.assert_never(entity_type)

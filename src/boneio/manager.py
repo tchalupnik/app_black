@@ -69,14 +69,15 @@ from boneio.helper.ha_discovery import (
 )
 from boneio.helper.loader import (
     configure_binary_sensor,
-    configure_ds2482,
     configure_event_sensor,
     configure_relay,
     create_adc,
     create_dallas_sensor,
     create_modbus_coordinators,
 )
-from boneio.helper.onewire.onewire import OneWireAddress
+from boneio.helper.onewire.ds2482 import DS2482
+from boneio.helper.onewire.onewire import OneWireAddress, OneWireBus
+from boneio.helper.onewire.W1ThermSensor import AsyncBoneIOW1ThermSensor
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
@@ -648,13 +649,14 @@ class Manager:
         from boneio.helper.loader import find_onewire_devices
 
         _one_wire_devices: dict[int, OneWireAddress] = {}
-        _ds_onewire_bus = {}
+        _ds_onewire_bus: dict[int, OneWireBus] = {}
 
         for _single_ds in ds2482:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds.address)
             id = _single_ds.identifier()
-            _ds_onewire_bus[id] = configure_ds2482(
-                i2cbusio=self._get_lazy_i2c(), address=_single_ds.address
+
+            _ds_onewire_bus[id] = OneWireBus(
+                DS2482(i2c=self._get_lazy_i2c(), address=_single_ds.address)
             )
             _one_wire_devices.update(
                 find_onewire_devices(
@@ -665,7 +667,6 @@ class Manager:
             )
         if dallas is not None:
             _LOGGER.debug("Preparing Dallas bus.")
-            from boneio.helper.loader import configure_dallas
 
             try:
                 from w1thermsensor.kernel import load_kernel_modules  # type: ignore
@@ -674,7 +675,7 @@ class Manager:
 
                 _one_wire_devices.update(
                     find_onewire_devices(
-                        ow_bus=configure_dallas(),
+                        ow_bus=AsyncBoneIOW1ThermSensor(),
                         bus_id=dallas.id,
                         bus_type="dallas",
                     )

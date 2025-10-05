@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, Field, RootModel, field_validator
+from pydantic import BaseModel, Field, RootModel, ValidationInfo, field_validator
+
+from boneio.config import Filters
 
 
 class ValueType(str, Enum):
@@ -86,23 +88,6 @@ class AdditionalSensor(RootModel[AdditionalSensors]):
     root: AdditionalSensors = Field(discriminator="entity_type")
 
 
-class Filter(BaseModel):
-    """Represents a filter operation to apply to a register value."""
-
-    multiply: float | None = None
-    divide: float | None = None
-    add: float | None = None
-    subtract: float | None = None
-
-    @field_validator("multiply", "divide", "add", "subtract", mode="before")
-    @classmethod
-    def validate_numeric_fields(cls, v: Any) -> Any:
-        """Ensure all numeric fields are valid numbers."""
-        if v is not None and not isinstance(v, (int, float)):
-            raise ValueError("Filter values must be numeric")
-        return v
-
-
 class Register(BaseModel):
     """Represents a Modbus register configuration."""
 
@@ -119,7 +104,7 @@ class Register(BaseModel):
     return_type: str = Field(
         "regular", description="Return type for backward compatibility"
     )
-    filters: list[Filter] = Field(
+    filters: list[dict[Filters, float]] = Field(
         default_factory=list, description="List of filters to apply"
     )
     entity_type: Literal[
@@ -133,7 +118,7 @@ class Register(BaseModel):
     write_address: int | None = Field(
         None, ge=0, le=65535, description="Write address for writeable registers"
     )
-    write_filters: list[dict[str, Any]] = Field(
+    write_filters: list[dict[Filters, float]] = Field(
         default_factory=list, description="Write filters"
     )
     ha_filter: str = Field("round(2)", description="Home Assistant filter")
@@ -152,7 +137,9 @@ class RegistersBase(BaseModel):
 
     @field_validator("registers")
     @classmethod
-    def validate_registers_within_base(cls, v: list[Register], info) -> list[Register]:
+    def validate_registers_within_base(
+        cls, v: list[Register], info: ValidationInfo
+    ) -> list[Register]:
         """Validate all register addresses are within the base range."""
         if info.data and "base" in info.data and "length" in info.data:
             base: int = info.data["base"]

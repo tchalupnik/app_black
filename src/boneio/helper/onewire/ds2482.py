@@ -5,6 +5,7 @@ Module by https://github.com/fgervais/ds2482
 import time
 
 import adafruit_bus_device.i2c_device as i2c_device
+from busio import I2C
 
 # Default i2c address (AD0 = GND, AD1 = GND)
 DS2482_ADDRESS = 0x18
@@ -43,7 +44,9 @@ STATUS_BRANCH_TAKEN = 0x80
 
 
 class DS2482:
-    def __init__(self, i2c, address: int = DS2482_ADDRESS, active_pullup: bool = False):
+    def __init__(
+        self, i2c: I2C, address: int = DS2482_ADDRESS, active_pullup: bool = False
+    ) -> None:
         self._i2c = i2c_device.I2CDevice(i2c, address)
         self.device_reset()
         if active_pullup:
@@ -78,7 +81,7 @@ class DS2482:
                 bytes([COMMAND_WRITE_CONFIG, (config & 0x0F) | ((~config << 4) & 0xF0)])
             )
 
-    def reset(self):
+    def reset(self) -> bool:
         with self._i2c as i2c:
             buf = bytearray([COMMAND_1W_RESET])
             i2c.write(buf)
@@ -112,7 +115,9 @@ class DS2482:
                 self._bus_busy = time.monotonic() + busy
             return buf[0] & STATUS_SINGLE_BIT != 0
 
-    def write_byte(self, data, strong_pullup=False, busy=None):
+    def write_byte(
+        self, data: int, strong_pullup: bool = False, busy: float | None = None
+    ) -> None:
         with self._i2c as i2c:
             buf = bytearray(2)
             if strong_pullup:
@@ -132,7 +137,7 @@ class DS2482:
             if busy:
                 self._bus_busy = time.monotonic() + busy
 
-    def read_byte(self):
+    def read_byte(self) -> int:
         with self._i2c as i2c:
             buf = bytearray([COMMAND_1W_READ_BYTE, 0x00])
             i2c.write(buf, end=1)

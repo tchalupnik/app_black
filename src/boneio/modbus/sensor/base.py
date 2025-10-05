@@ -27,8 +27,8 @@ class BaseSensor(ABC):
     message_bus: MessageBus
     config: Config
     value_type: ValueType
-    user_filters: Filter = field(default_factory=Filter)
-    filter: Filter = field(default_factory=Filter)
+    user_filters: Filter = field(default_factory=lambda: Filter())
+    filter: Filter = field(default_factory=lambda: Filter())
     unit_of_measurement: str | None = None
     state_class: str | None = None
     device_class: str | None = None

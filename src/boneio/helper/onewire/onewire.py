@@ -42,7 +42,7 @@ class OneWire(OneWireIO):
         """
         self.ds2482.device_reset()
 
-    def reset(self):
+    def reset(self) -> bool:
         """
         Reset the OneWire bus and read presence
 
@@ -50,13 +50,13 @@ class OneWire(OneWireIO):
         """
         return self.ds2482.reset()
 
-    def read_bit(self):
+    def read_bit(self) -> bool:
         """
         Read in a bit
         """
         return self.ds2482.single_bit()
 
-    def write_bit(self, value):
+    def write_bit(self, value) -> None:
         """
         Write out a bit based on value.
         """

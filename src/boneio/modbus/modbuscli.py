@@ -171,7 +171,7 @@ async def async_run_modbus_set(
         uart=uart,
         address=address,
         baudrate=baudrate,
-        mdobus_device=modbus_device,
+        modbus_device=modbus_device,
         stopbits=stopbits,
         bytesize=bytesize,
         parity=parity,
@@ -181,11 +181,12 @@ async def async_run_modbus_set(
         if not await modbus_helper.check_connection():
             _LOGGER.error("Can't connect with sensor. Exiting")
             return 1
-        if new_baudrate:
+        if new_baudrate is not None:
             return await modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
-        if new_address:
+        if new_address is not None:
             await modbus_helper.set_new_address(new_address=new_address)
             return 0
+        raise ValueError("It should not happen.")
 
     if not custom_cmd:
         _LOGGER.debug("Invoking default action.")

@@ -60,7 +60,7 @@ class Modbus:
 
     async def read_and_decode(
         self,
-        unit: int | str,
+        unit: int,
         address: int,
         payload_type: ValueType,
         count: int = 2,
@@ -77,7 +77,7 @@ class Modbus:
 
     async def read_registers(
         self,
-        unit: int | str,  # device address
+        unit: int,  # device address
         address: int,  # modbus register address
         count: int = 2,  # number of registers to read
         register_type: RegisterType = RegisterType.INPUT,  # type of register: input, holding, coil

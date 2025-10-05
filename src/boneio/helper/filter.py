@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from boneio.config import Filters
 
@@ -24,7 +24,7 @@ FILTERS: dict[Filters, Callable[[float, float], float]] = {
 
 @dataclass
 class Filter:
-    filter: list[dict[Filters, float]]
+    filter: list[dict[Filters, float]] = field(default_factory=list)
 
     def apply_filters(
         self, value: float, filters: list[dict[Filters, float]] | None = None
