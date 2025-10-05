@@ -394,7 +394,7 @@ OutputTypes: TypeAlias = Literal["cover", "light", "switch", "valve", "none"]
 
 class OutputConfigBase(BaseModel):
     id: str
-    pin: int
+    pin: str
     output_type: OutputTypes
     kind: Literal["gpio", "mcp", "pca", "pcf", "mock"]
     boneio_output: str | None = None
