@@ -4,8 +4,8 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "adafruit-blinka"
-version = "0.1.dev1982"
-source = { git = "https://github.com/tchalupnik/Adafruit_Blinka#97f678499612e3472a168821a4a3a47b51ba3d88" }
+version = "0.1.dev1985"
+source = { git = "https://github.com/tchalupnik/Adafruit_Blinka#36885479b22d0f705b3833ac20af3c631fc8a39c" }
 dependencies = [
     { name = "adafruit-circuitpython-typing" },
     { name = "adafruit-platformdetect" },
