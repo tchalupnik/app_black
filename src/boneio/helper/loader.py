@@ -22,6 +22,7 @@ from boneio.config import (
     SensorConfig,
 )
 from boneio.events import EventBus
+from boneio.gpio_manager import GpioManagerBase
 from boneio.helper import (
     I2CError,
     StateManager,
@@ -50,7 +51,6 @@ from boneio.sensor.temp.dallas import DallasSensorW1
 
 if TYPE_CHECKING:
     from boneio.gpio import GpioEventButtonsAndSensors
-    from boneio.gpio_manager import GpioManager
     from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -300,7 +300,7 @@ def configure_relay(
 def configure_event_sensor(
     tg: anyio.abc.TaskGroup,
     event_config: EventConfig,
-    gpio_manager: GpioManager,
+    gpio_manager: GpioManagerBase,
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
@@ -367,7 +367,7 @@ def configure_binary_sensor(
     manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
-    gpio_manager: GpioManager,
+    gpio_manager: GpioManagerBase,
     input: GpioEventButtonsAndSensors | None = None,
 ) -> GpioEventButtonsAndSensors:
     """Configure input sensor or button."""

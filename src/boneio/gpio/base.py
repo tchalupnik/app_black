@@ -5,7 +5,7 @@ import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Final, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 import anyio.abc
 
@@ -16,10 +16,10 @@ from boneio.config import (
     EventActionTypes,
 )
 from boneio.events import EventBus, InputEvent
-from boneio.gpio_manager import GpioManager
+from boneio.gpio_manager import GpioManagerBase
 from boneio.models import InputState
 
-_LOGGER: Final = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
 
@@ -31,7 +31,7 @@ class GpioBase:
     pin: str
     name: str
     tg: anyio.abc.TaskGroup
-    gpio_manager: GpioManager
+    gpio_manager: GpioManagerBase
     event_bus: EventBus
     input_type: str
     actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]]
@@ -41,13 +41,14 @@ class GpioBase:
         Coroutine[Any, Any, None],
     ]
 
-    gpio_mode: str = "gpio"
+    gpio_mode: Literal["gpio", "gpio_pu", "gpio_pd", "gpio_input"] = "gpio"
     boneio_input: BoneIOInput | None = None
     bounce_time: timedelta = timedelta(milliseconds=50)
 
-    click_type: list[Literal["pressed"], Literal["released"]] = field(
-        default_factory=lambda: ["pressed", "released"], init=False
-    )
+    click_type: (
+        tuple[Literal["pressed"], Literal["released"]]
+        | tuple[Literal["released"], Literal["pressed"]]
+    ) = field(default_factory=lambda: ("pressed", "released"), init=False)
     event_lock: anyio.Lock = field(default_factory=anyio.Lock, init=False)
     last_state: str = field(default="Unknown", init=False)
     last_press_timestamp: float = field(default=0.0, init=False)
@@ -73,7 +74,7 @@ class GpioBase:
         click_type: ClickTypes,
         duration: float | None = None,
         start_time: float | None = None,
-    ):
+    ) -> None:
         """Handle press event with a lock to ensure sequential execution."""
         dur = None
         if start_time is not None:
@@ -91,13 +92,21 @@ class GpioBase:
                 click_type,
             )
             self.last_press_timestamp = time.time()
-            _LOGGER.debug(
-                "Press callback: %s on pin %s - %s. Duration: %s",
-                click_type,
-                self.pin,
-                self.name,
-                self.last_press_timestamp - start_time,
-            )
+            if start_time is None:
+                _LOGGER.debug(
+                    "Press callback: %s on pin %s - %s.",
+                    click_type,
+                    self.pin,
+                    self.name,
+                )
+            else:
+                _LOGGER.debug(
+                    "Press callback: %s on pin %s - %s. Duration: %s",
+                    click_type,
+                    self.pin,
+                    self.name,
+                    duration,
+                )
             self.last_state = click_type
             await self.manager_press_callback(
                 click_type,

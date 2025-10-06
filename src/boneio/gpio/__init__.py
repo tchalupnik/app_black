@@ -20,5 +20,4 @@ __all__ = [
     "GpioInputBinarySensorOld",
     "GpioInputBinarySensorNew",
     "GpioEventButtonsAndSensors",
-    "",
 ]

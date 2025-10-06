@@ -54,7 +54,6 @@ class ModbusCoordinator:
         message_bus: MessageBus,
     ):
         """Initialize Modbus coordinator class."""
-        # TODO: FILTERS
         self.name = device_config.id
         self.id = device_config.identifier()
         self.send_topic = f"{config.get_topic_prefix()}/sensor/{strip_accents(self.id)}"
@@ -140,6 +139,7 @@ class ModbusCoordinator:
     def init_modbus_entities(self) -> None:
         # Standard sensors
         for index, data in enumerate(self.device.registers_base):
+            self._modbus_entities.append({})
             for register in data.registers:
                 entity_type = register.entity_type if register.entity_type else "sensor"
                 if entity_type == "sensor":
@@ -277,6 +277,7 @@ class ModbusCoordinator:
                     single_sensor.set_user_filters(
                         self.sensors_filters.get(single_sensor.decoded_name, [])
                     )
+
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
     def init_derived_sensors(self) -> None:

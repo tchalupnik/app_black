@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import logging
-from collections.abc import AsyncGenerator, Callable
-from contextlib import asynccontextmanager
+from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import timedelta
 from enum import Enum
 from typing import Literal
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class Edge(Enum):
@@ -16,12 +13,8 @@ class Edge(Enum):
     RISING = "RISING"
 
 
-class GpioManagerMock:
-    @classmethod
-    @asynccontextmanager
-    async def create(cls) -> AsyncGenerator[GpioManagerMock]:
-        yield cls()
-
+class GpioManagerBase(ABC):
+    @abstractmethod
     def init(
         self,
         pin: str,
@@ -30,15 +23,15 @@ class GpioManagerMock:
     ) -> None:
         """Set up a GPIO as input."""
 
+    @abstractmethod
     def write(self, pin: str, value: Literal["high", "low"]) -> None:
         """Write a value to a GPIO."""
-        _LOGGER.debug("[%s] write to pin, value %s", pin, value)
 
+    @abstractmethod
     def read(self, pin: str) -> bool:
         """Read a value from a GPIO."""
-        _LOGGER.debug("[%s] read from pin", pin)
-        return True
 
+    @abstractmethod
     def add_event_callback(
         self,
         pin: str,

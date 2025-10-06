@@ -46,7 +46,6 @@ from boneio.config import (
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
 from boneio.events import EventBus, EventType
-from boneio.gpio_manager_mock import GpioManagerMock
 from boneio.group.output import OutputGroup
 from boneio.helper import (
     HostData,
@@ -78,7 +77,6 @@ from boneio.helper.loader import (
 from boneio.helper.onewire.ds2482 import DS2482
 from boneio.helper.onewire.onewire import OneWireAddress, OneWireBus
 from boneio.helper.onewire.W1ThermSensor import AsyncBoneIOW1ThermSensor
-from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.logger import configure_logger
@@ -108,11 +106,12 @@ from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
 
 if TYPE_CHECKING:
+    from adafruit_pcf8575 import PCF8575
     from busio import I2C
 
     from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.gpio.base import GpioBase
-    from boneio.gpio_manager import GpioManager
+    from boneio.gpio_manager import GpioManagerBase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -138,10 +137,12 @@ class Manager:
         dry: bool = False,
     ) -> AsyncGenerator[Manager]:
         if dry:
+            from boneio.gpio_manager.mock import GpioManagerMock
+
             _LOGGER.warning("Running in dry mode, no changes will be made.")
             GpioManagerClass = GpioManagerMock
         else:
-            from boneio.gpio_manager import GpioManager
+            from boneio.gpio_manager.gpio_manager import GpioManager
 
             GpioManagerClass = GpioManager
         async with GpioManagerClass.create() as gpio_manager:
@@ -204,7 +205,7 @@ class Manager:
         message_bus: MessageBus,
         event_bus: EventBus,
         config_file_path: Path,
-        gpio_manager: GpioManager,
+        gpio_manager: GpioManagerBase,
         state_manager: StateManager,
     ) -> None:
         self.tg = tg
@@ -326,6 +327,8 @@ class Manager:
             return MCP23017(self._get_lazy_i2c(), address=expander.address)
 
         def pcf8575(expander: Pcf8575Config) -> PCF8575:
+            from adafruit_pcf8575 import PCF8575
+
             return PCF8575(self._get_lazy_i2c(), address=expander.address)
 
         def pca9685(expander: Pca9685Config) -> PCA9685:

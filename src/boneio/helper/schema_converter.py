@@ -2,23 +2,24 @@ from __future__ import annotations
 
 import itertools
 import json
+from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
 
 import yaml
-from yaml import SafeLoader, load
+from yaml import SafeLoader, ScalarNode, load
 
 
 class BoneIOLoader(SafeLoader):
     """Custom YAML loader with !include constructor."""
 
-    def __init__(self, stream):
+    def __init__(self, stream: TextIOWrapper) -> None:
         self._root = Path(stream.name).parent
         super().__init__(stream)
 
-    def include(self, node):
+    def include(self, node: ScalarNode):
         """Include file referenced at node."""
-        filename = Path(self._root) / self.construct_scalar(node)
+        filename = self._root / self.construct_scalar(node)
         with filename.open("r") as f:
             return load(f, BoneIOLoader)
 

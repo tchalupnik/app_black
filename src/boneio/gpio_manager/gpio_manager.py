@@ -6,20 +6,15 @@ from collections.abc import AsyncGenerator, Callable, Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
-from enum import Enum
 from typing import Literal, assert_never
 
 import anyio
 import anyio.abc
 import gpiod
 
+from .base import Edge, GpioManagerBase
+
 _LOGGER = logging.getLogger(__name__)
-
-
-class Edge(Enum):
-    BOTH = "BOTH"
-    FALLING = "FALLING"
-    RISING = "RISING"
 
 
 @dataclass
@@ -31,7 +26,7 @@ class _Pin:
 
 
 @dataclass
-class GpioManager:
+class GpioManager(GpioManagerBase):
     tg: anyio.abc.TaskGroup
     pins: dict[str, _Pin] = field(default_factory=dict)
 
@@ -141,7 +136,8 @@ class GpioManager:
                 }
             )
             gpio_pin.configured = "in"
-        return gpio_pin.request_line.get_values()[0] == gpiod.line.Value.ACTIVE
+        # cast to bool because of missing mypy stubs.
+        return bool(gpio_pin.request_line.get_values()[0] == gpiod.line.Value.ACTIVE)
 
     def add_event_callback(
         self,

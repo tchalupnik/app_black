@@ -6,7 +6,7 @@ Created just in case.
 import logging
 from dataclasses import dataclass
 
-from boneio.gpio_manager import GpioManager
+from boneio.gpio_manager import GpioManagerBase
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 class GpioRelay(BasicRelay):
     """Represents GPIO Relay output"""
 
-    gpio_manager: GpioManager
+    gpio_manager: GpioManagerBase
 
     def __post_init__(self) -> None:
         """Initialize Gpio relay."""

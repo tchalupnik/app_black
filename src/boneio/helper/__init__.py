@@ -15,14 +15,12 @@ from boneio.helper.ha_discovery import (
     ha_sensor_temp_availabilty_message,
     ha_switch_availabilty_message,
 )
-from boneio.helper.oled import make_font
 from boneio.helper.queue import UniqueQueue
 from boneio.helper.state_manager import StateManager
 from boneio.helper.stats import HostData
 
 __all__ = [
     "HostData",
-    "make_font",
     "ha_light_availabilty_message",
     "ha_switch_availabilty_message",
     "ha_sensor_availability_message",

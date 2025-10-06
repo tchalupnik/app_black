@@ -25,16 +25,10 @@ def crc82(data: bytearray) -> int:
 
 
 class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self) -> None:
         """Custom init function to work with same addressing type as esphome."""
         self._ds18b20_str_id = hex(Sensor.DS18B20)[2:]
-        try:
-            sensor_id = kwargs.pop("sensor_id")
-            if isinstance(sensor_id, OneWireAddress):
-                sensor_id = sensor_id.hw_id
-            super().__init__(*args, **kwargs, sensor_id=sensor_id)
-        except KeyError:
-            super().__init__(*args, **kwargs)
+        super().__init__()
         _crc = crc82(
             bytes.fromhex(f"{self._ds18b20_str_id}{reverse_dallas_id(self.id)}")
         )

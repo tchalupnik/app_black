@@ -3,9 +3,8 @@
 import logging
 from dataclasses import dataclass
 
-from adafruit_pcf8575 import DigitalInOut
+from adafruit_pcf8575 import PCF8575, DigitalInOut
 
-from boneio.helper.pcf8575 import PCF8575
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)

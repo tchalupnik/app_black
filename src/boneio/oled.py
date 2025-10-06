@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from itertools import cycle
+from pathlib import Path
 
 import anyio.abc
 import qrcode
@@ -8,15 +9,24 @@ from luma.core.error import DeviceNotFoundError
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import sh1106
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
+from PIL.ImageFont import FreeTypeFont
 
 from boneio.config import OledScreens
 from boneio.events import EventBus, EventType
-from boneio.gpio_manager import Edge, GpioManager
-from boneio.helper import HostData, I2CError, make_font
+from boneio.gpio_manager import Edge
+from boneio.gpio_manager.base import GpioManagerBase
+from boneio.helper import HostData, I2CError
 from boneio.models import InputState, OutputState, SensorState
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def make_font(name: str, size: int, local: bool = False) -> FreeTypeFont:
+    """Prepare ImageFont for Oled screen."""
+    font_path = name if not local else (Path(__file__).parent / ".." / "fonts" / name)
+    return ImageFont.truetype(font_path, size)
+
 
 fonts = {
     "big": make_font("DejaVuSans.ttf", 12),
@@ -55,7 +65,7 @@ class Oled:
         sleep_timeout: timedelta,
         screen_order: list[OledScreens],
         event_bus: EventBus,
-        gpio_manager: GpioManager,
+        gpio_manager: GpioManagerBase,
     ) -> None:
         """Initialize OLED screen."""
         self._tg = tg

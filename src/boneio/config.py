@@ -540,7 +540,7 @@ class UartConfig(BaseModel):
 
 
 UartsConfig: dict[Uarts, UartConfig] = {
-    "uart1": UartConfig(id="/tmp/uart1", tx="P9.24", rx="P9.26"),
+    "uart1": UartConfig(id="/dev/ttyS1", tx="P9.24", rx="P9.26"),
     "uart2": UartConfig(id="/dev/ttyS2", tx="P9.21", rx="P9.22"),
     "uart4": UartConfig(id="/dev/ttyS4", tx="P9.13", rx="P9.11"),
     "uart5": UartConfig(id="/dev/ttyS5", tx="P8.37", rx="P8.38"),
