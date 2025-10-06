@@ -25,7 +25,7 @@ fonts = {
     "big": ImageFont.truetype("DejaVuSans.ttf", 12),
     "small": ImageFont.truetype("DejaVuSans.ttf", 9),
     "extraSmall": ImageFont.truetype("DejaVuSans.ttf", 7),
-    "danube": ImageFont.truetype(Path("fonts") / "danube__.ttf", 15),
+    "danube": ImageFont.truetype(Path(__file__).parent / "fonts" / "danube__.ttf", 15),
 }
 
 OLED_PIN = "P9_23"
