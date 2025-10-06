@@ -32,11 +32,15 @@ class _INA219Sensor:
     message_bus: MessageBus
     filter: Filter
     send_topic: str
-    unit_of_measurement: str
+    device_class: Ina219DeviceClass
 
     last_timestamp: float = field(default_factory=time.time, init=False)
     state: float | None = field(default=None, init=False)
     raw_state: float | None = field(default=None, init=False)
+
+    @property
+    def unit_of_measurement(self) -> str:
+        return unit_converter[self.device_class]
 
     def __post_init__(
         self,
@@ -89,8 +93,8 @@ class INA219:
                 name=sensor_id,
                 message_bus=message_bus,
                 filters=Filter(sensor.filters),
-                unit_of_measurement=unit_converter[sensor.device_class],
                 send_topic=f"{topic_prefix}/sensor/{strip_accents(_id)}",
+                device_class=sensor.device_class,
             )
         this = INA219(
             id=config.identifier(),

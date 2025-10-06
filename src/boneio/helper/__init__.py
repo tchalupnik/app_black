@@ -17,10 +17,8 @@ from boneio.helper.ha_discovery import (
 )
 from boneio.helper.queue import UniqueQueue
 from boneio.helper.state_manager import StateManager
-from boneio.helper.stats import HostData
 
 __all__ = [
-    "HostData",
     "ha_light_availabilty_message",
     "ha_switch_availabilty_message",
     "ha_sensor_availability_message",

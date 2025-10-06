@@ -48,7 +48,6 @@ from boneio.cover.venetian import VenetianCover
 from boneio.events import EventBus, EventType
 from boneio.group.output import OutputGroup
 from boneio.helper import (
-    HostData,
     I2CError,
     StateManager,
     ha_button_availabilty_message,
@@ -77,7 +76,6 @@ from boneio.helper.loader import (
 from boneio.helper.onewire.ds2482 import DS2482
 from boneio.helper.onewire.onewire import OneWireAddress, OneWireBus
 from boneio.helper.onewire.W1ThermSensor import AsyncBoneIOW1ThermSensor
-from boneio.helper.stats import get_network_info
 from boneio.helper.util import strip_accents
 from boneio.logger import configure_logger
 from boneio.message_bus import (
@@ -97,6 +95,7 @@ from boneio.message_bus import (
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
+from boneio.oled import get_network_info
 from boneio.relay.basic import BasicRelay
 from boneio.relay.pca import PWMPCA
 from boneio.sensor.ina219 import INA219
@@ -167,20 +166,37 @@ class Manager:
                             try:
                                 oled = Oled(
                                     tg=oled_tg,
-                                    host_data=this.host_data,
-                                    screen_order=config.oled.screens,
-                                    grouped_outputs_by_expander=this.grouped_outputs_by_expander.keys(),
-                                    sleep_timeout=config.oled.screensaver_timeout,
+                                    config=config,
                                     event_bus=event_bus,
                                     gpio_manager=gpio_manager,
+                                    message_bus=message_bus,
+                                    output=this.grouped_outputs_by_expander,
+                                    inputs=this.inputs,
+                                    temp_sensors=this.temp_sensors,
+                                    ina219=(
+                                        this.ina219_sensors[0]
+                                        if this.ina219_sensors
+                                        else None
+                                    ),
+                                    modbus_coordinators=this.modbus_coordinators,
+                                    grouped_outputs_by_expander=this.grouped_outputs_by_expander.keys(),
                                 )
                             except I2CError as err:
                                 _LOGGER.error("Can't configure OLED display. %s", err)
                             else:
+                                for sensor in oled.host_data.host_sensors.values():
+                                    this.append_task(
+                                        refresh_wrapper(
+                                            sensor.update,
+                                            sensor.host_stat.update_interval,
+                                        ),
+                                        sensor.id,
+                                    )
                                 oled.render_display()
                             try:
                                 yield this
                             except BaseException:
+                                oled_tg.cancel_scope.cancel()
                                 tg.cancel_scope.cancel()
                                 raise
                     else:
@@ -400,19 +416,6 @@ class Manager:
         self.create_serial_number_sensor()
         self.modbus_coordinators = self._configure_modbus_coordinators(
             devices=config.modbus_devices
-        )
-
-        self.host_data = HostData(
-            manager=self,
-            event_bus=self.event_bus,
-            enabled_screens=config.oled.screens if config.oled is not None else [],
-            output=self.grouped_outputs_by_expander,
-            inputs=self.inputs,
-            temp_sensor=(self.temp_sensors[0] if self.temp_sensors else None),
-            ina219=(self.ina219_sensors[0] if self.ina219_sensors else None),
-            extra_sensors=config.oled.extra_screen_sensors
-            if config.oled is not None
-            else [],
         )
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
