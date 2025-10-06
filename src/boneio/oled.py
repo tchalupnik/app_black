@@ -10,7 +10,6 @@ from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageFont import FreeTypeFont
 
 from boneio.config import OledScreens
 from boneio.events import EventBus, EventType
@@ -22,17 +21,11 @@ from boneio.models import InputState, OutputState, SensorState
 _LOGGER = logging.getLogger(__name__)
 
 
-def make_font(name: str, size: int, local: bool = False) -> FreeTypeFont:
-    """Prepare ImageFont for Oled screen."""
-    font_path = name if not local else (Path(__file__).parent / ".." / "fonts" / name)
-    return ImageFont.truetype(font_path, size)
-
-
 fonts = {
-    "big": make_font("DejaVuSans.ttf", 12),
-    "small": make_font("DejaVuSans.ttf", 9),
-    "extraSmall": make_font("DejaVuSans.ttf", 7),
-    "danube": make_font("danube__.ttf", 15, local=True),
+    "big": ImageFont.truetype("DejaVuSans.ttf", 12),
+    "small": ImageFont.truetype("DejaVuSans.ttf", 9),
+    "extraSmall": ImageFont.truetype("DejaVuSans.ttf", 7),
+    "danube": ImageFont.truetype(Path("fonts" / "danube__.ttf"), 15),
 }
 
 OLED_PIN = "P9_23"
