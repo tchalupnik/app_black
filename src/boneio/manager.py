@@ -656,7 +656,7 @@ class Manager:
             id = _single_ds.identifier()
 
             _ds_onewire_bus[id] = OneWireBus(
-                DS2482(i2c=self._get_lazy_i2c(), address=_single_ds.address)
+                DS2482(i2c=self._get_lazy_i2c(), address=int(_single_ds.address))
             )
             _one_wire_devices.update(
                 find_onewire_devices(
