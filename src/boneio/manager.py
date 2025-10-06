@@ -510,7 +510,7 @@ class Manager:
                         _cover.update_config_times(cover_config)
                     continue
 
-                if isinstance(cover_config.platform, VenetianCoverConfig):
+                if isinstance(cover_config, VenetianCoverConfig):
                     if not cover_config.tilt_duration:
                         raise CoverConfigurationError(
                             "Tilt duration must be configured for tilt cover."
@@ -532,7 +532,7 @@ class Manager:
                         topic_prefix=self.config.get_topic_prefix(),
                     )
                     availability_msg_func = ha_cover_with_tilt_availabilty_message
-                elif isinstance(cover_config.platform, TimeBasedCoverConfig):
+                elif isinstance(cover_config, TimeBasedCoverConfig):
                     _LOGGER.debug("Configuring time-based cover %s", _id)
                     cover = TimeBasedCover(
                         id=_id,
@@ -548,7 +548,7 @@ class Manager:
                         topic_prefix=self.config.get_topic_prefix(),
                     )
                     availability_msg_func = ha_cover_availabilty_message
-                elif isinstance(cover_config.platform, PreviousCoverConfig):
+                elif isinstance(cover_config, PreviousCoverConfig):
                     _LOGGER.debug("Configuring previous cover %s", _id)
                     cover = PreviousCover(
                         id=_id,
