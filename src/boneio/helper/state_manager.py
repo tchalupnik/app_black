@@ -16,8 +16,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CoverStateEntry(BaseModel):
-    position: float
-    tilt: float | None = None
+    position: int
+    tilt: int | None = None
 
 
 class State(BaseModel):

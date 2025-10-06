@@ -80,11 +80,11 @@ class BaseCover(BaseCoverABC):
     topic_prefix: str
     restore_state: bool
 
-    timestamp: float = field(init=False, default_factory=time.monotonic)
-    stop_event: anyio.Event = field(init=False)
     current_operation: CoverStateOperation = CoverStateOperation.IDLE
     position: int = 0
     tilt: int = 0
+    timestamp: float = field(init=False, default_factory=time.monotonic)
+    stop_event: anyio.Event = field(init=False, default_factory=anyio.Event)
 
     def __post_init__(self) -> None:
         state = self.state_manager.state.cover.get(self.id)

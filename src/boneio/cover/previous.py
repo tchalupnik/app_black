@@ -10,7 +10,7 @@ from datetime import timedelta
 
 import anyio
 
-from boneio.events import CoverEvent, EventBus
+from boneio.events import CoverEvent, EventBus, ListenerJob
 from boneio.helper.state_manager import CoverStateEntry, StateManager
 from boneio.helper.util import strip_accents
 from boneio.models import (
@@ -26,13 +26,17 @@ if typing.TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
 class RelayHelper:
     """Relay helper for cover either open/close."""
 
-    def __init__(self, relay: BasicRelay, time: timedelta) -> None:
-        """Initialize helper."""
-        self.relay = relay
-        self.steps = 100 / time.total_seconds()
+    relay: BasicRelay
+    time: timedelta
+
+    @property
+    def steps(self) -> int:
+        """Calculate steps for cover."""
+        return int(100 / self.time.total_seconds())
 
 
 @dataclass
@@ -51,18 +55,20 @@ class PreviousCover:
     topic_prefix: str
     restore_state: bool
 
-    lock: anyio.Lock = field(init=False, default_factory=anyio.Lock)
-    timestamp: float = field(init=False, default_factory=time.monotonic)
     current_operation: CoverStateOperation = CoverStateOperation.IDLE
     position: int = 0
     tilt: int = 0
+    requested_closing: bool = field(init=False, default=True)
+    timestamp: float = field(init=False, default_factory=time.monotonic)
+    lock: anyio.Lock = field(init=False, default_factory=anyio.Lock)
+    set_position: int | None = field(init=False, default=None)
+    timer_handle: ListenerJob | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         """Initialize cover class."""
         self._send_topic = f"{self.topic_prefix}/cover/{strip_accents(self.id)}"
         self._open = RelayHelper(relay=self.open_relay, time=self.open_time)
         self._close = RelayHelper(relay=self.close_relay, time=self.close_time)
-        self._set_position = None
         self.current_operation = CoverStateOperation.IDLE
 
         state = self.state_manager.state.cover.get(self.id)
@@ -70,8 +76,6 @@ class PreviousCover:
             self.position = state.position
             if state.tilt is not None:
                 self.tilt = state.tilt
-        self._requested_closing = True
-        self._timer_handle = None
         self.state = (
             CoverStateState.CLOSED if self.position == 0 else CoverStateState.OPEN
         )
@@ -94,7 +98,8 @@ class PreviousCover:
         async with self.lock:
             if inverted_relay.is_active():
                 await inverted_relay.turn_off()
-            self._timer_handle = self.event_bus.add_every_second_listener(
+            # TODO: Check if this works
+            self.timer_handle = self.event_bus.add_every_second_listener(
                 f"cover{self.id}", self.listen_cover
             )
             await relay.turn_on()
@@ -143,10 +148,10 @@ class PreviousCover:
         """Stop cover."""
         await self._open.relay.turn_off()
         await self._close.relay.turn_off()
-        if self._timer_handle is not None:
+        if self.timer_handle is not None:
             self.event_bus.remove_every_second_listener(f"cover{self.id}")
-            self._timer_handle = None
-            self._set_position = None
+            self.timer_handle = None
+            self.set_position = None
             if not on_exit:
                 self.send_state()
         self.current_operation = CoverStateOperation.IDLE
@@ -156,20 +161,19 @@ class PreviousCover:
         if self.current_operation == CoverStateOperation.IDLE:
             return
 
-        def get_step() -> float:
+        def get_step() -> int:
             """Get step for current operation."""
-            if self._requested_closing:
+            if self.requested_closing:
                 return -self._close.steps
             else:
                 return self._open.steps
 
-        step = get_step()
-        self.position += step
+        self.position += get_step()
         rounded_pos = round(self.position, 0)
-        if self._set_position:
+        if self.set_position:
             # Set position is only working for every 10%, so round to nearest 10.
             # Except for start moving time
-            if (self._requested_closing and rounded_pos < 95) or rounded_pos > 5:
+            if (self.requested_closing and rounded_pos < 95) or rounded_pos > 5:
                 rounded_pos = round(self.position, -1)
         else:
             if rounded_pos > 100:
@@ -183,8 +187,8 @@ class PreviousCover:
         self.state = (
             CoverStateState.CLOSED if self.position <= 0 else CoverStateState.OPEN
         )
-        if rounded_pos == self._set_position or (
-            self._set_position is None and (rounded_pos >= 100 or rounded_pos <= 0)
+        if rounded_pos == self.set_position or (
+            self.set_position is None and (rounded_pos >= 100 or rounded_pos <= 0)
         ):
             self.position = rounded_pos
             await self._stop_cover()
@@ -198,7 +202,7 @@ class PreviousCover:
             return
         _LOGGER.info("Closing cover %s.", self.name)
 
-        self._requested_closing = True
+        self.requested_closing = True
         self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=CoverStateState.CLOSING.value
         )
@@ -215,7 +219,7 @@ class PreviousCover:
             return
         _LOGGER.info("Opening cover %s.", self.name)
 
-        self._requested_closing = False
+        self.requested_closing = False
         self.message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=CoverStateState.OPENING.value
         )
@@ -226,17 +230,17 @@ class PreviousCover:
     async def set_cover_position(self, position: int) -> None:
         """Move cover to a specific position."""
         set_position = round(position, -1)
-        if self.position == position or set_position == self._set_position:
+        if self.position == position or set_position == self.set_position:
             return
-        if self._set_position:
+        if self.set_position:
             await self._stop_cover(on_exit=True)
         _LOGGER.info("Setting cover at position %s.", set_position)
-        self._set_position = set_position
+        self.set_position = set_position
 
-        self._requested_closing = set_position < self.position
+        self.requested_closing = set_position < self.position
         current_operation = (
             CoverStateOperation.CLOSING
-            if self._requested_closing
+            if self.requested_closing
             else CoverStateOperation.OPENING
         )
         _LOGGER.debug(

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import time
-import typing
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -10,9 +9,6 @@ import anyio
 
 from boneio.cover.cover import BaseCover
 from boneio.models import CoverDirection, CoverStateOperation
-
-if typing.TYPE_CHECKING:
-    pass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,17 +45,17 @@ class TimeBasedCover(BaseCover):
         while not self.stop_event.is_set():
             current_time = time.monotonic()
             elapsed_time = (current_time - start_time) * 1000
-            progress = elapsed_time / duration
+            progress = int(elapsed_time / duration)
 
             if direction == CoverDirection.OPEN:
-                self.position = min(100.0, self._initial_position + progress * 100)
+                self.position = min(100, self._initial_position + progress * 100)
             elif direction == CoverDirection.CLOSE:
-                self.position = max(0.0, self._initial_position - progress * 100)
+                self.position = max(0, self._initial_position - progress * 100)
 
             self.timestamp = current_time
-            if current_time - self._last_update_time >= 1:
+            if current_time - self.timestamp >= 1:
                 self.send_state()
-                self._last_update_time = current_time
+                self.timestamp = current_time
 
             if target_position is not None:
                 if (
@@ -78,7 +74,7 @@ class TimeBasedCover(BaseCover):
         await relay.turn_off()
         self._current_operation = CoverStateOperation.IDLE
         self.send_state_and_save()
-        self._last_update_time = time.monotonic()
+        self.timestamp = time.monotonic()
 
     async def run_cover(
         self,
@@ -96,7 +92,7 @@ class TimeBasedCover(BaseCover):
         self._current_operation = current_operation
         self._initial_position = self.position
         self.stop_event = anyio.Event()
-        self._last_update_time = time.monotonic() - 1
+        self.timestamp = time.monotonic() - 1
 
         if current_operation == CoverStateOperation.OPENING:
             await self._move_cover(CoverDirection.OPEN, self.open_time, target_position)

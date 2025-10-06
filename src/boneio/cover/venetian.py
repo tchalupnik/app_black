@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 
 import anyio
@@ -13,9 +12,6 @@ from boneio.config import VenetianCoverConfig
 from boneio.cover.cover import BaseCover
 from boneio.models import CoverDirection, CoverStateOperation
 
-if typing.TYPE_CHECKING:
-    pass
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -24,9 +20,14 @@ class VenetianCover(BaseCover):
     """Time-based cover algorithm similar to ESPHome, with tilt support.
     Uses a dedicated thread for precise timing control of cover movement."""
 
-    initial_tilt_position: int | None = None
     tilt_delta: timedelta
-    actuator_activation_duration: timedelta | None = None
+    initial_tilt_position: int = field(init=False)
+    # TODO: requires attention, probably doesnt do anything
+    actuator_activation_duration: timedelta
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.initial_tilt_position = self.tilt
 
     async def _move_cover(
         self,
@@ -73,25 +74,25 @@ class VenetianCover(BaseCover):
 
         await relay.turn_on()
         start_time = time.monotonic()
-        progress = 0.0
-        tilt_progress = 0.0
+        progress = 0
+        tilt_progress = 0
         needed_tilt_duration = tilt_duration * (total_tilt_step / 100)
         if target_tilt_position is None:
-            tilt_delta = 1.0
+            tilt_delta = 1
 
         while not self.stop_event.is_set():
             current_time = time.monotonic()
             elapsed_time = (current_time - start_time) * 1000
 
             if elapsed_time < needed_tilt_duration:
-                tilt_progress = elapsed_time / needed_tilt_duration
-                progress = 0.0
+                tilt_progress = int(elapsed_time / needed_tilt_duration)
+                progress = 0
             else:
-                tilt_progress = 1.0
-                progress = (elapsed_time - needed_tilt_duration) / tilt_duration
+                tilt_progress = 1
+                progress = int((elapsed_time - needed_tilt_duration) / tilt_duration)
 
             if direction == CoverDirection.OPEN:
-                self.position = min(100.0, self.initial_position + progress * 100)
+                self.position = min(100, self.initial_position + progress * 100)
 
                 if target_tilt_position is not None:
                     self.tilt = min(
@@ -100,12 +101,12 @@ class VenetianCover(BaseCover):
                     )
                 else:
                     self.tilt = min(
-                        100.0,
+                        100,
                         self.initial_tilt_position
                         + tilt_progress * (100 - self.initial_tilt_position),
                     )
             elif direction == CoverDirection.CLOSE:
-                self._position = max(0.0, self.initial_position - progress * 100)
+                self._position = max(0, self.initial_position - progress * 100)
 
                 if target_tilt_position is not None:
                     self.tilt = max(
@@ -114,15 +115,15 @@ class VenetianCover(BaseCover):
                     )
                 else:
                     self.tilt = max(
-                        0.0,
+                        0,
                         self.initial_tilt_position
                         - tilt_progress * self.initial_tilt_position,
                     )
 
             self.timestamp = current_time
-            if current_time - self.last_update_time >= 1:
+            if current_time - self.timestamp >= 1:
                 self.send_state()
-                self.last_update_time = current_time
+                self.timestamp = current_time
 
             if target_tilt_position is not None:
                 if (
@@ -157,7 +158,7 @@ class VenetianCover(BaseCover):
         await relay.turn_off()
         self.current_operation = CoverStateOperation.IDLE
         self.send_state_and_save()
-        self.last_update_time = time.monotonic()
+        self.timestamp = time.monotonic()
 
     async def set_tilt(self, tilt_position: int) -> None:
         """Setting tilt position."""
@@ -209,7 +210,7 @@ class VenetianCover(BaseCover):
         self.initial_position = self.position
         self.initial_tilt_position = self.tilt
         self.stop_event = Event()
-        self.last_update_time = time.monotonic()
+        self.timestamp = time.monotonic()
 
         if current_operation == CoverStateOperation.OPENING:
             await self._move_cover(
