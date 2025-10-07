@@ -138,6 +138,7 @@ def configure_relay(
     if isinstance(output_config.interlock_group, str):
         output_config.interlock_group = [output_config.interlock_group]
 
+    relay: BasicRelay
     if isinstance(output_config, MockOutputConfig):
         from boneio.relay.mock import MockRelay
 

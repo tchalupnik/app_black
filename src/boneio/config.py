@@ -414,7 +414,7 @@ class McpOutputConfig(OutputConfigBase):
 class PcaOutputConfig(OutputConfigBase):
     pca_id: str
     kind: Literal["pca"] = "pca"
-    percentage_default_brightness: int | None = None
+    percentage_default_brightness: int = 1
 
 
 class PcfOutputConfig(OutputConfigBase):

@@ -200,7 +200,7 @@ class Manager:
 
     def _get_lazy_i2c(self) -> I2C:
         if self.i2c is None:
-            from board import SCL, SDA  # type: ignore
+            from board import SCL, SDA
             from busio import I2C
 
             self.i2c = I2C(SCL, SDA)
