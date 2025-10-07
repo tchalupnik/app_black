@@ -16,7 +16,6 @@ from pydantic import BaseModel, Discriminator
 
 from boneio.models import (
     CoverState,
-    HostSensorState,
     InputState,
     OutputState,
     SensorState,
@@ -88,7 +87,7 @@ class HostEvent(BaseEvent):
     """Event for host system state changes."""
 
     event_type: Literal[EventType.HOST] = EventType.HOST
-    event_state: HostSensorState
+    event_state: None = None
 
 
 Event = Annotated[

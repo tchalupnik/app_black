@@ -170,7 +170,7 @@ class Manager:
                                     event_bus=event_bus,
                                     gpio_manager=gpio_manager,
                                     message_bus=message_bus,
-                                    output=this.grouped_outputs_by_expander,
+                                    outputs=this.outputs,
                                     inputs=this.inputs,
                                     temp_sensors=this.temp_sensors,
                                     ina219=(
@@ -179,21 +179,13 @@ class Manager:
                                         else None
                                     ),
                                     modbus_coordinators=this.modbus_coordinators,
-                                    grouped_outputs_by_expander=this.grouped_outputs_by_expander.keys(),
                                 )
                             except I2CError as err:
-                                _LOGGER.error("Can't configure OLED display. %s", err)
-                            else:
-                                for sensor in oled.host_data.host_sensors.values():
-                                    this.append_task(
-                                        refresh_wrapper(
-                                            sensor.update,
-                                            sensor.host_stat.update_interval,
-                                        ),
-                                        sensor.id,
-                                    )
-                                oled.render_display()
+                                raise ValueError(
+                                    "Can't configure OLED display. %s", err
+                                )
                             try:
+                                oled_tg.start_soon(oled.render_display)
                                 yield this
                             except BaseException:
                                 oled_tg.cancel_scope.cancel()
@@ -362,9 +354,6 @@ class Manager:
             expanders_config=config.pca9685,
             create_func=pca9685,
         )
-        self.grouped_outputs_by_expander: dict[str, dict[str, BasicRelay]] = {
-            key: {} for key in (self.mcp.keys() | self.pcf.keys() | self.pca.keys())
-        }
 
         create_adc(
             manager=self,

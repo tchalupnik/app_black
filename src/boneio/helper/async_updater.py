@@ -13,10 +13,10 @@ def refresh_wrapper(
     update_interval: timedelta = timedelta(seconds=60),
 ) -> Callable[[], Coroutine[None, None, None]]:
     """Wrap a function to be called periodically."""
-    timestamp = time.time()
 
     async def wrapped() -> None:
         while True:
+            timestamp = time.time()
             if asyncio.iscoroutinefunction(func):
                 await func(timestamp)
             else:

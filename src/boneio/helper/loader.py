@@ -141,14 +141,10 @@ def configure_relay(
     if isinstance(output_config, MockOutputConfig):
         from boneio.relay.mock import MockRelay
 
-        expander_id = "mock"
-        if expander_id not in manager.grouped_outputs_by_expander:
-            manager.grouped_outputs_by_expander[expander_id] = {}
-
         relay = MockRelay(
             id=relay_id,
             pin_id=output_config.pin,
-            expander_id=expander_id,
+            expander_id="mock",
             topic_prefix=topic_prefix,
             message_bus=message_bus,
             event_bus=event_bus,
@@ -162,13 +158,11 @@ def configure_relay(
         from boneio.gpio import GpioRelay
 
         expander_id = "gpio"
-        if expander_id not in manager.grouped_outputs_by_expander:
-            manager.grouped_outputs_by_expander[expander_id] = {}
         relay = GpioRelay(
             gpio_manager=manager.gpio_manager,
             id=relay_id,
             pin_id=output_config.pin,
-            expander_id=expander_id,
+            expander_id="gpio",
             topic_prefix=topic_prefix,
             message_bus=message_bus,
             event_bus=event_bus,
@@ -182,8 +176,7 @@ def configure_relay(
         expander_id = output_config.mcp_id
         mcp = manager.mcp.get(expander_id)
         if mcp is None:
-            _LOGGER.error("No such MCP configured!")
-            return None
+            raise ValueError("No such MCP configured!")
         relay = MCPRelay(
             mcp=mcp,
             id=relay_id,
@@ -202,8 +195,7 @@ def configure_relay(
         expander_id = output_config.pca_id
         pca = manager.pca.get(expander_id)
         if pca is None:
-            _LOGGER.error("No such PCA configured!")
-            return None
+            raise ValueError("No such PCA configured!")
         relay = PWMPCA(
             pca=pca,
             id=relay_id,
@@ -222,9 +214,8 @@ def configure_relay(
     elif isinstance(output_config, PcfOutputConfig):
         expander_id = output_config.pcf_id
         pcf = manager.pcf.get(expander_id)
-        if not pcf:
-            _LOGGER.error("No such PCF configured!")
-            return None
+        if pcf is None:
+            raise ValueError("No such PCF configured!")
         relay = PCFRelay(
             pcf=pcf,
             id=relay_id,
@@ -240,10 +231,9 @@ def configure_relay(
             interlock_groups=output_config.interlock_group,
         )
     else:
-        assert_never(output_config.kind)
+        assert_never(output_config)
 
     manager.interlock_manager.register(relay, output_config.interlock_group)
-    manager.grouped_outputs_by_expander[expander_id][relay_id] = relay
     if relay.is_virtual_power:
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_power",

@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 import socket
 import time
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from functools import partial
 from itertools import cycle
 from math import floor
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
 import anyio.abc
 import psutil
@@ -20,16 +20,17 @@ from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
-from pydantic import BaseModel, Field
+from pydantic import Field
+from qrcode.image.pure import PyPNGImage
 
 from boneio.config import Config, OledScreens
-from boneio.events import EventBus, EventType, HostEvent
-from boneio.gpio_manager import Edge
-from boneio.gpio_manager.base import GpioManagerBase
+from boneio.events import Event, EventBus, EventType, HostEvent
+from boneio.gpio_manager import Edge, GpioManagerBase
 from boneio.helper import I2CError
+from boneio.helper.async_updater import refresh_wrapper
+from boneio.helper.util import batched
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.models import HostSensorState, InputState, OutputState, SensorState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
 from boneio.version import __version__
@@ -54,7 +55,7 @@ MEGABYTE = 1048576
 
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 
-fonts = {
+FONTS = {
     "big": ImageFont.truetype("DejaVuSans.ttf", 12),
     "small": ImageFont.truetype("DejaVuSans.ttf", 9),
     "extraSmall": ImageFont.truetype("DejaVuSans.ttf", 7),
@@ -140,240 +141,12 @@ def get_uptime() -> str:
     return display_time(time.clock_gettime(time.CLOCK_MONOTONIC))
 
 
-@dataclass
-class HostSensor:
-    """Host sensor."""
+class Screen(Protocol):
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        """Render display."""
 
-    host_stat: HostStat
-    event_bus: EventBus
-    id: str
-    name: str
-    _state: dict[str, str] = field(default_factory=dict)
-
-    def update(self, timestamp: float) -> None:
-        self._state = self.host_stat.f()
-        self.event_bus.trigger_event(
-            HostEvent(
-                entity_id=self.id,
-                event_state=HostSensorState(
-                    id=self.id,
-                    name=self.name,
-                    state="new_state",  # doesn't matter here, as we fetch everything in Oled.
-                    timestamp=timestamp,
-                ),
-            )
-        )
-
-    def get_state(self) -> dict[str, str]:
-        if self.host_stat.static is not None:
-            return {
-                **{k: v.model_dump() for k, v in self.host_stat.static.items()},
-                **self._state,
-            }
-        return self._state
-
-
-class FontSizeStatic(BaseModel):
-    data: str
-    fontSize: Literal["small", "medium", "large"]
-    row: int
-    col: int
-
-
-class HostStat(BaseModel):
-    f: Callable[[], dict[str, str]]
-    update_interval: timedelta = Field(default=timedelta(seconds=60))
-    static: dict[Literal["host", "ver"], FontSizeStatic] | None = None
-
-
-@dataclass
-class HostData:
-    """Helper class to store host data."""
-
-    message_bus: MessageBus
-    event_bus: EventBus
-    config: Config
-    output: dict[str, dict[str, BasicRelay]]
-    inputs: dict[str, GpioEventButtonsAndSensors]
-    temp_sensors: list[TempSensor]
-    ina219: INA219 | None
-    modbus_coordinators: dict[str, ModbusCoordinator]
-    _hostname: str = field(default_factory=socket.gethostname, init=False)
-
-    def __post_init__(self) -> None:
-        """Initialize HostData."""
-        oled_config = self.config.oled
-        assert oled_config is not None
-
-        host_stats: dict[str, HostStat] = {
-            "network": HostStat(f=get_network_info),
-            "cpu": HostStat(f=get_cpu_info, update_interval=timedelta(seconds=5)),
-            "disk": HostStat(f=get_disk_info),
-            "memory": HostStat(
-                f=get_memory_info, update_interval=timedelta(seconds=10)
-            ),
-            "swap": HostStat(f=get_swap_info),
-            "uptime": HostStat(
-                f=lambda: (
-                    {
-                        "uptime": FontSizeStatic(
-                            data=get_uptime(),
-                            fontSize="small",
-                            row=2,
-                            col=3,
-                        ),
-                        "MQTT": FontSizeStatic(
-                            data="CONN"
-                            if self.message_bus.is_connection_established()
-                            else "DOWN",
-                            fontSize="small",
-                            row=3,
-                            col=60,
-                        ),
-                        "T": FontSizeStatic(
-                            data=f"{self._any_temp_sensor_value} C",
-                            fontSize="small",
-                            row=3,
-                            col=3,
-                        ),
-                    }
-                    if self.temp_sensors
-                    else {
-                        "uptime": FontSizeStatic(
-                            data=get_uptime(),
-                            fontSize="small",
-                            row=2,
-                            col=3,
-                        ),
-                    }
-                ),
-                static={
-                    "host": FontSizeStatic(
-                        data=self._hostname,
-                        fontSize="small",
-                        row=0,
-                        col=3,
-                    ),
-                    "ver": FontSizeStatic(
-                        data=__version__,
-                        fontSize="small",
-                        row=1,
-                        col=3,
-                    ),
-                },
-                update_interval=timedelta(seconds=30),
-            ),
-        }
-        if self.ina219 is not None:
-
-            def get_ina_values(ina219: INA219) -> dict[str, str]:
-                return {
-                    sensor.device_class: f"{sensor.state} {sensor.unit_of_measurement}"
-                    for sensor in ina219.sensors.values()
-                }
-
-            host_stats["ina219"] = HostStat(
-                f=partial(get_ina_values, self.ina219),
-                update_interval=timedelta(seconds=60),
-            )
-        if oled_config.extra_screen_sensors:
-
-            def get_extra_sensors_values() -> dict[str, str]:
-                output: dict[str, str] = {}
-                for sensor in oled_config.extra_screen_sensors:
-                    if sensor.sensor_type == "modbus":
-                        _modbus_coordinator = self.modbus_coordinators.get(
-                            sensor.modbus_id
-                        )
-                        if _modbus_coordinator is not None:
-                            entity = _modbus_coordinator.get_entity_by_name(
-                                sensor.sensor_id
-                            )
-                            if entity is None:
-                                _LOGGER.warning("Sensor %s not found", sensor.sensor_id)
-                                continue
-                            short_name = "".join([x[:3] for x in entity.name.split()])
-                            output[short_name] = (
-                                f"{round(entity.state, 2)} {entity.unit_of_measurement}"
-                            )
-                    elif sensor.sensor_type == "dallas":
-                        for single_sensor in self.temp_sensors:
-                            if sensor.sensor_id == single_sensor.id.lower():
-                                output[single_sensor.name] = (
-                                    f"{round(single_sensor.state, 2)} C"
-                                )
-                    else:
-                        _LOGGER.warning(
-                            "Sensor type %s not supported", sensor.sensor_type
-                        )
-                return output
-
-            host_stats["extra_sensors"] = HostStat(
-                f=get_extra_sensors_values,
-                update_interval=timedelta(seconds=60),
-            )
-        self.host_sensors: dict[str, HostSensor] = {}
-        for host_stat_name, host_stat in host_stats.items():
-            if host_stat_name not in oled_config.screens:
-                continue
-            sensor = HostSensor(
-                host_stat=host_stat,
-                event_bus=self.event_bus,
-                id=f"{host_stat_name}_hoststats",
-                name=host_stat_name,
-            )
-            self.host_sensors[host_stat_name] = sensor
-        self.inputs_grouped = {
-            f"Inputs screen {i + 1}": list(self.inputs.values())[i * 25 : (i + 1) * 25]
-            for i in range((len(self.inputs) + 24) // 25)
-        }
-
-    @property
-    def _any_temp_sensor_value(self) -> float | None:
-        if self.temp_sensors:
-            return self.temp_sensors[0].state
-        return None
-
-    @property
-    def web_url(self) -> str | None:
-        if self.config.web is None:
-            return None
-        network_state = self.host_sensors["network"].get_state()
-        if "ip" in network_state:
-            return f"http://{network_state['ip']}:{self.config.web.port}"
-        return None
-
-    def get(
-        self, type: str
-    ) -> dict[str, dict[str, str | None]] | dict[str, str] | str | None:
-        """Get saved stats."""
-        if type in self.output:
-            return self._get_output(type)
-        if type in self.inputs:
-            return self._get_input(type)
-        if type == "web":
-            return self.web_url
-        return self.host_sensors[type].get_state()
-
-    def _get_output(self, type: str) -> dict[str, dict[str, str | None]]:
-        """Get stats for output."""
-        out = {}
-        for output in self.output[type].values():
-            out[output.id] = {"name": output.name, "state": output.state}
-
-        return out
-
-    def _get_input(self, type: str) -> dict[str, dict[str, str]]:
-        """Get stats for input."""
-        inputs = {}
-        for input in self.inputs_grouped[type]:
-            inputs[input.pin] = {
-                "name": input.name,
-                "state": input.last_state[0].upper()
-                if input.last_state and input.last_state != "Unknown"
-                else "",
-            }
-        return inputs
+    async def render(self) -> None:
+        """Context manager to handle event listener registration and removal."""
 
 
 @dataclass
@@ -385,80 +158,278 @@ class Oled:
     event_bus: EventBus
     message_bus: MessageBus
     gpio_manager: GpioManagerBase
-    grouped_outputs_by_expander: list[str]
-    output: dict[str, dict[str, BasicRelay]]
+    outputs: dict[str, BasicRelay]
     inputs: dict[str, GpioEventButtonsAndSensors]
     temp_sensors: list[TempSensor]
     ina219: INA219 | None
     modbus_coordinators: dict[str, ModbusCoordinator]
     screen_order: list[OledScreens] = field(init=False)
-    host_data: HostData = field(init=False)
     sleep_timeout: timedelta = field(init=False)
     sleep_event: anyio.Event = field(default_factory=anyio.Event, init=False)
-    sleep: bool = field(default=False, init=False)
+    press_event: anyio.Event = field(default_factory=anyio.Event, init=False)
     input_groups: list[str] = field(default_factory=list, init=False)
     press_time_at: datetime = field(
         default_factory=lambda: datetime.now(tz=timezone.utc), init=False
     )
+    screens: list[Screen] = field(init=False, default_factory=list)
+    cycling_screens: cycle[Screen] = field(init=False)
+    _device: sh1106 = field(init=False)
 
     def __post_init__(self) -> None:
         """Initialize OLED screen."""
         assert self.config.oled is not None
 
         self.screen_order = self.config.oled.screens.copy()
-        self.sleep_timeout = self.config.oled.screensaver_timeout
-
-        self.host_data = HostData(
-            message_bus=self.message_bus,
-            event_bus=self.event_bus,
-            config=self.config,
-            output=self.grouped_outputs_by_expander,
-            inputs=self.inputs,
-            temp_sensors=self.temp_sensors,
-            ina219=self.ina219,
-            modbus_coordinators=self.modbus_coordinators,
-        )
-
-        def configure_outputs() -> None:
-            try:
-                _ind_screen = self.screen_order.index("outputs")
-                if not self.grouped_outputs_by_expander:
-                    _LOGGER.debug("No outputs configured. Omitting in screen.")
-                    return
-                self.screen_order.pop(_ind_screen)
-                self.screen_order[_ind_screen:_ind_screen] = (
-                    self.grouped_outputs_by_expander
-                )
-                self.grouped_outputs_by_expander = self.grouped_outputs_by_expander
-            except ValueError:
-                pass
-
-        def configure_inputs() -> None:
-            try:
-                _inputs_screen = self.screen_order.index("inputs")
-                input_groups = [
-                    f"Inputs screen {i + 1}"
-                    for i in range(0, len(self.host_data.inputs), 1)
-                ]
-                self.screen_order.pop(_inputs_screen)
-                self.screen_order[_inputs_screen:_inputs_screen] = input_groups
-                self.input_groups = input_groups
-            except ValueError:
-                _LOGGER.debug("No inputs configured. Omitting in screen.")
-
-        try:
-            _ina219_screen = self.screen_order.index("ina219")
-            self.screen_order.pop(_ina219_screen)
-        except ValueError:
-            pass
-
-        configure_outputs()
-        configure_inputs()
         if not self.screen_order:
             raise ValueError("No available screens configured. OLED won't be working.")
 
-        self._screen_order = cycle(self.screen_order)
-        self._current_screen = next(self._screen_order)
+        try:
+            serial = i2c(port=2, address=0x3C)
+            self._device = sh1106(serial)
+        except DeviceNotFoundError as err:
+            raise I2CError(err)
+        _LOGGER.debug("Configuring OLED screen.")
+
+        self.sleep_timeout = self.config.oled.screensaver_timeout
+
+        def get_temperature() -> float | None:
+            if not self.temp_sensors:
+                return None
+            return self.temp_sensors[0].state
+
+        def web_url() -> str:
+            if self.config.web is None:
+                return "No IP"
+            network_state = get_network_info()
+            if "ip" in network_state:
+                return f"http://{network_state['ip']}:{self.config.web.port}"
+            return "No IP"
+
+        def update_default_screen(
+            func: Callable[[], dict[str, str]],
+        ) -> Callable[[DefaultScreen], None]:
+            def wrapped(screen: DefaultScreen) -> None:
+                screen.data = func()
+
+            return wrapped
+
+        def update_uptime_screen(screen: UptimeScreen) -> None:
+            screen.temperature = get_temperature()
+            screen.is_connection_established = (
+                self.message_bus.is_connection_established()
+            )
+
+        all_screens: dict[str, Screen] = {
+            "network": UpdatingScreen[DefaultScreen](
+                screen=DefaultScreen(
+                    name="network", device=self._device, data=get_network_info()
+                ),
+                event_bus=self.event_bus,
+                callback=update_default_screen(get_network_info),
+            ),
+            "cpu": UpdatingScreen[DefaultScreen](
+                screen=DefaultScreen(
+                    name="cpu", device=self._device, data=get_cpu_info()
+                ),
+                event_bus=self.event_bus,
+                update_interval=timedelta(seconds=5),
+                callback=update_default_screen(get_cpu_info),
+            ),
+            "disk": UpdatingScreen[DefaultScreen](
+                screen=DefaultScreen(
+                    name="disk", device=self._device, data=get_disk_info()
+                ),
+                event_bus=self.event_bus,
+                callback=update_default_screen(get_disk_info),
+            ),
+            "memory": UpdatingScreen[DefaultScreen](
+                screen=DefaultScreen(
+                    name="memory", device=self._device, data=get_memory_info()
+                ),
+                event_bus=self.event_bus,
+                callback=update_default_screen(get_memory_info),
+            ),
+            "swap": UpdatingScreen(
+                screen=DefaultScreen(
+                    name="swap", device=self._device, data=get_swap_info()
+                ),
+                event_bus=self.event_bus,
+                callback=update_default_screen(get_swap_info),
+            ),
+            "uptime": UpdatingScreen(
+                screen=UptimeScreen(
+                    name="uptime",
+                    device=self._device,
+                    is_connection_established=self.message_bus.is_connection_established(),
+                    temperature=get_temperature(),
+                ),
+                event_bus=self.event_bus,
+                update_interval=timedelta(seconds=30),
+                callback=update_uptime_screen,
+            ),
+            "web": WebScreen(
+                name="web",
+                device=self._device,
+                url=web_url(),
+            ),
+        }
+        if self.ina219 is not None:
+
+            def update_ina219_screen() -> dict[str, str]:
+                if self.ina219 is None:
+                    return {}
+                return {
+                    str(
+                        sensor.device_class
+                    ): f"{sensor.state} {sensor.unit_of_measurement}"
+                    for sensor in self.ina219.sensors.values()
+                }
+
+            all_screens["ina219"] = UpdatingScreen(
+                screen=DefaultScreen(
+                    name="ina219",
+                    device=self._device,
+                    data={
+                        str(
+                            sensor.device_class
+                        ): f"{sensor.state} {sensor.unit_of_measurement}"
+                        for sensor in self.ina219.sensors.values()
+                    },
+                ),
+                event_bus=self.event_bus,
+                callback=update_default_screen(update_ina219_screen),
+            )
+
+        for extra_screen in self.config.oled.extra_screen_sensors:
+            if extra_screen.sensor_type == "modbus":
+                if extra_screen.modbus_id is None:
+                    _LOGGER.warning(
+                        "Modbus ID not set for extra screen sensor %s",
+                        extra_screen.sensor_id,
+                    )
+                    continue
+                _modbus_coordinator = self.modbus_coordinators.get(
+                    extra_screen.modbus_id
+                )
+                if _modbus_coordinator is None:
+                    _LOGGER.warning(
+                        "Modbus ID %s not found for extra screen sensor %s",
+                        extra_screen.modbus_id,
+                        extra_screen.sensor_id,
+                    )
+                    continue
+                entity = _modbus_coordinator.get_entity_by_name(extra_screen.sensor_id)
+                if entity is None:
+                    _LOGGER.warning(
+                        "Sensor %s not found for extra screen sensor %s",
+                        extra_screen.sensor_id,
+                        extra_screen.sensor_id,
+                    )
+                    continue
+                all_screens[extra_screen.sensor_id] = UpdatingScreen(
+                    screen=DefaultScreen(
+                        name=extra_screen.sensor_id,
+                        device=self._device,
+                        data={
+                            "".join(
+                                [x[:3] for x in entity.name.split()]
+                            ): f"{round(entity.state, 2)} {entity.unit_of_measurement}"
+                        },
+                    ),
+                    event_bus=self.event_bus,
+                    callback=update_default_screen(
+                        lambda: {
+                            "".join(
+                                [x[:3] for x in entity.name.split()]
+                            ): f"{round(entity.state, 2)} {entity.unit_of_measurement}"
+                        }
+                    ),
+                )
+            elif extra_screen.sensor_type == "dallas":
+                sensor = next(
+                    (
+                        s
+                        for s in self.temp_sensors
+                        if s.id.lower() == extra_screen.sensor_id.lower()
+                    ),
+                    None,
+                )
+                if sensor is None:
+                    _LOGGER.warning(
+                        "Dallas sensor %s not found for extra screen sensor",
+                        extra_screen.sensor_id,
+                    )
+                    continue
+                all_screens[extra_screen.sensor_id] = UpdatingScreen(
+                    screen=DefaultScreen(
+                        name=extra_screen.sensor_id,
+                        device=self._device,
+                        data={sensor.name: f"{round(sensor.state, 2)} C"},
+                    ),
+                    event_bus=self.event_bus,
+                    callback=update_default_screen(
+                        lambda: {sensor.name: f"{round(sensor.state, 2)} C"}
+                    ),
+                )
+            else:
+                raise ValueError(
+                    f"Sensor type {extra_screen.sensor_type} not supported"
+                )
+
+        for screen_entry in self.screen_order:
+            screen = all_screens.get(screen_entry)
+            if screen is None:
+                _LOGGER.warning("Screen %s not found, omitting.", screen_entry)
+                continue
+            if isinstance(screen, OutputScreen):
+                if self.outputs:
+
+                    def update_output_screen(screen: OutputScreen) -> None:
+                        screen.outputs = tuple(self.outputs.values())
+
+                    outputs_batched = batched(self.outputs.values(), 24)
+                    for i, outputs_chunk in enumerate(outputs_batched):
+                        self.screens.append(
+                            UpdatingScreen(
+                                screen=OutputScreen(
+                                    name=f"outputs_{i + 1}",
+                                    outputs=outputs_chunk,
+                                    device=self._device,
+                                ),
+                                event_bus=self.event_bus,
+                                callback=update_output_screen,
+                            )
+                        )
+                else:
+                    _LOGGER.debug("No outputs configured. Omitting in screen.")
+                    continue
+            if isinstance(screen, InputScreen):
+                if self.inputs:
+
+                    def update_input_screen(screen: InputScreen) -> None:
+                        screen.inputs = tuple(self.inputs.values())
+
+                    inputs_batched = batched(self.inputs.values(), 24)
+                    for i, inputs_chunk in enumerate(inputs_batched):
+                        self.screens.append(
+                            UpdatingScreen(
+                                screen=InputScreen(
+                                    name=f"inputs_{i + 1}",
+                                    inputs=inputs_chunk,
+                                    device=self._device,
+                                ),
+                                event_bus=self.event_bus,
+                                callback=update_input_screen,
+                            )
+                        )
+                else:
+                    _LOGGER.debug("No inputs configured. Omitting in screen.")
+                    continue
+            else:
+                self.screens.append(screen)
+
+        self.cycling_screens = cycle(self.screens)
+
         self.gpio_manager.init(pin=OLED_PIN, mode="in", pull_mode="gpio_pu")
         self.gpio_manager.add_event_callback(
             pin=OLED_PIN,
@@ -466,35 +437,22 @@ class Oled:
             debounce_period=timedelta(milliseconds=240),
             edge=Edge.FALLING,
         )
-        try:
-            serial = i2c(port=2, address=0x3C)
-            self._device = sh1106(serial)
-        except DeviceNotFoundError as err:
-            raise I2CError(err)
-        _LOGGER.debug("Configuring OLED screen.")
-        self.tg.start_soon(self._sleeptime)
-
-    def _draw_standard(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
-        """Draw standard information about host screen."""
-        draw.text(
-            (1, 1),
-            self._current_screen.replace("_", " ").capitalize(),
-            font=fonts["big"],
-            fill="white",
-        )
-        row_no = START_ROW
-        for k in data:
-            draw.text(
-                (3, row_no),
-                f"{k} {data[k]}",
-                font=fonts["small"],
-                fill="white",
+        if self.sleep_timeout.total_seconds() > 0:
+            _LOGGER.debug(
+                "OLED screensaver timeout set to %s seconds.",
+                self.sleep_timeout.total_seconds(),
             )
-            row_no += 15
+            self.tg.start_soon(self._sleeptime)
+        for screen in self.screens:
+            if isinstance(screen, UpdatingScreen):
+                self.tg.start_soon(
+                    refresh_wrapper(
+                        screen.trigger,
+                        screen.update_interval,
+                    )
+                )
 
     async def _sleeptime(self) -> None:
-        if self.sleep_timeout.total_seconds() <= 0:
-            return
         while True:
             delta = datetime.now(tz=timezone.utc) - self.press_time_at
             if delta >= self.sleep_timeout:
@@ -502,170 +460,184 @@ class Oled:
                     draw.rectangle(
                         self._device.bounding_box, outline="black", fill="black"
                     )
-                self.sleep = True
                 _LOGGER.debug("OLED is going to sleep.")
                 await self.sleep_event.wait()
             else:
                 await anyio.sleep((self.sleep_timeout - delta).total_seconds())
 
-    def _draw_uptime(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
-        """Draw uptime screen with boneIO logo."""
-        draw.text((3, 3), "bone", font=fonts["danube"], fill="white")
-        draw.text((53, 3), "iO", font=fonts["danube"], fill="white")
-        for k in data:
-            text = data[k]["data"]
-            fontSize = fonts[data[k]["fontSize"]]
-            draw.text(
-                (data[k]["col"], UPTIME_ROWS[data[k]["row"]]),
-                f"{k}: {text}",
-                font=fontSize,
-                fill="white",
-            )
-
-    def _draw_output(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
-        "Draw outputs of GPIO/MCP relays."
-        cols = cycle(OUTPUT_COLS)
-        draw.text(
-            (1, 1),
-            f"Relay {self._current_screen}",
-            font=fonts["small"],
-            fill="white",
-        )
-        i = 0
-        j = next(cols)
-        for k in data.values():
-            if len(OUTPUT_ROWS) == i:
-                j = next(cols)
-                i = 0
-            draw.text(
-                (j, OUTPUT_ROWS[i]),
-                f"{shorten_name(k['name'])} {k['state']}",
-                font=fonts["extraSmall"],
-                fill="white",
-            )
-            i += 1
-
-    def _draw_input(self, data: dict, draw: ImageDraw.ImageDraw) -> None:
-        "Draw inputs of boneIO Black."
-        cols = cycle(INPUT_COLS)
-        draw.text(
-            (1, 1),
-            f"{self._current_screen}",
-            font=fonts["small"],
-            fill="white",
-        )
-        i = 0
-        j = next(cols)
-        for k in data.values():
-            if len(INPUT_ROWS) == i:
-                j = next(cols)
-                i = 0
-            draw.text(
-                (j, INPUT_ROWS[i]),
-                f"{shorten_name(k['name'])} {k['state']}",
-                font=fonts["extraSmall"],
-                fill="white",
-            )
-            i += 1
-
-    def render_display(self) -> None:
+    async def render_display(self) -> None:
         """Render display."""
-        if self._current_screen is None:
-            return
-        data = self.host_data.get(self._current_screen)
-        if data is not None:
-            if self._current_screen == "web":
-                self.draw_qr_code(url=data)
-            else:
-                with canvas(self._device) as draw:
-                    if self._current_screen in self.grouped_outputs_by_expander:
-                        self._draw_output(data, draw)
-                        for id in data.keys():
-                            self.event_bus.add_event_listener(
-                                event_type=EventType.OUTPUT,
-                                entity_id=id,
-                                listener_id=f"oled_{self._current_screen}",
-                                target=self._output_callback,
-                            )
-                    elif self._current_screen == "uptime":
-                        self._draw_uptime(data, draw)
-                        self.event_bus.add_event_listener(
-                            event_type=EventType.HOST,
-                            entity_id=f"{self._current_screen}_hoststats",
-                            listener_id=f"oled_{self._current_screen}",
-                            target=self._standard_callback,
-                        )
-                    elif (
-                        self.input_groups and self._current_screen in self.input_groups
-                    ):
-                        for id in data.keys():
-                            self.event_bus.add_event_listener(
-                                event_type=EventType.INPUT,
-                                entity_id=id,
-                                listener_id=f"oled_{self._current_screen}",
-                                target=self._input_callback,
-                            )
-                        self._draw_input(data, draw)
-                    else:
-                        self._draw_standard(data, draw)
-                        self.event_bus.add_event_listener(
-                            event_type=EventType.HOST,
-                            entity_id=f"{self._current_screen}_hoststats",
-                            listener_id=f"oled_{self._current_screen}",
-                            target=self._standard_callback,
-                        )
-        else:
-            self._handle_press()
-
-    async def _output_callback(self, event: OutputState) -> None:
-        if self._current_screen in self.grouped_outputs_by_expander:
-            self.handle_data_update(type=self._current_screen)
-
-    async def _standard_callback(self, event: SensorState) -> None:
-        self.handle_data_update(type="uptime")
-
-    async def _input_callback(self, event: InputState) -> None:
-        self.handle_data_update(type="inputs")
-
-    def handle_data_update(self, type: str) -> None:
-        """Callback to handle new data present into screen."""
-        if not self._current_screen:
-            return
-        if (
-            type == "inputs"
-            and self._current_screen in self.input_groups
-            or type == self._current_screen
-        ) and not self.sleep:
-            self.render_display()
+        while True:
+            self.press_event = anyio.Event()
+            screen = next(self.cycling_screens)
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(screen.render)
+                await self.press_event.wait()
+                tg.cancel_scope.cancel()
 
     def _handle_press(self) -> None:
         """Handle press of PIN for OLED display."""
         _LOGGER.debug("Handling press OLED button!")
         self.press_time_at = datetime.now(tz=timezone.utc)
+        self.press_event.set()
         self.sleep_event.set()
-
-        if not self.sleep:
-            self.event_bus.remove_event_listener(
-                listener_id=f"oled_{self._current_screen}"
-            )
-            self._current_screen = next(self._screen_order)
-        else:
-            self.sleep = False
-        self.render_display()
         self.sleep_event = anyio.Event()
 
-    def draw_qr_code(self, url: str) -> None:
-        """Draw QR code on the OLED display."""
-        if not url:
-            return
 
+@dataclass(kw_only=True)
+class ScreenBase(ABC):
+    name: str
+    device: sh1106
+
+    @abstractmethod
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        """Render display."""
+
+    async def render(self) -> None:
+        with canvas(self.device) as draw:
+            self._draw(draw=draw)
+        await anyio.sleep_forever()
+
+
+_T = TypeVar("_T", bound=ScreenBase)
+
+
+@dataclass
+class UpdatingScreen(Generic[_T]):
+    screen: _T
+    event_bus: EventBus
+    callback: Callable[[_T], None]
+    event_type: EventType = EventType.HOST
+    update_interval: timedelta = Field(default=timedelta(seconds=60))
+    callback_triggered_event: anyio.Event = Field(
+        default_factory=anyio.Event, init=False
+    )
+
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw screen."""
+        self.screen._draw(draw=draw)
+
+    @property
+    def name(self) -> str:
+        return self.screen.name
+
+    def _trigger_callback_and_event(self, event: Event) -> None:
+        self.callback(self.screen)
+        self.callback_triggered_event.set()
+
+    async def render(self) -> None:
+        """Context manager to handle event listener registration and removal."""
+        if self.update_interval is not None:
+            self.event_bus.add_event_listener(
+                event_type=self.event_type,
+                entity_id=f"{self.name}_screen",
+                listener_id=f"oled_{self.screen.name}",
+                target=self._trigger_callback_and_event,
+            )
+        try:
+            while True:
+                async with anyio.create_task_group() as tg:
+                    tg.start_soon(self.screen.render)
+                    await self.callback_triggered_event.wait()
+                    self.callback_triggered_event = anyio.Event()
+                    tg.cancel_scope.cancel()
+
+        finally:
+            if self.update_interval is not None:
+                self.event_bus.remove_event_listener(listener_id=f"oled_{self.name}")
+
+    def trigger(self, timestamp: float) -> None:
+        """Update screen."""
+        match self.event_type:
+            case EventType.HOST:
+                event = HostEvent(
+                    event_type=EventType.HOST,
+                    event_state=None,
+                    entity_id=f"{self.name}_screen",
+                )
+        self.event_bus.trigger_event(event=event)
+
+
+@dataclass(kw_only=True)
+class UptimeScreen(ScreenBase):
+    is_connection_established: bool
+    temperature: float | None = None
+
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw uptime screen with boneIO logo."""
+        draw.text((3, 3), "bone", font=FONTS["danube"], fill="white")
+        draw.text((53, 3), "iO", font=FONTS["danube"], fill="white")
+        draw.text(
+            (3, UPTIME_ROWS[0]),
+            "host: " + socket.gethostname(),
+            font=FONTS["small"],
+            fill="white",
+        )
+        draw.text(
+            (3, UPTIME_ROWS[1]),
+            f"ver: {__version__}",
+            font=FONTS["small"],
+            fill="white",
+        )
+        draw.text(
+            (3, UPTIME_ROWS[2]),
+            f"uptime: {get_uptime()}",
+            font=FONTS["small"],
+            fill="white",
+        )
+        draw.text(
+            (60, UPTIME_ROWS[3]),
+            "MQTT: CONN" if self.is_connection_established else "MQTT: DOWN",
+            font=FONTS["small"],
+            fill="white",
+        )
+        if self.temperature is not None:
+            draw.text(
+                (3, UPTIME_ROWS[3]),
+                f"T: {self.temperature} C",
+                font=FONTS["small"],
+                fill="white",
+            )
+
+
+@dataclass(kw_only=True)
+class DefaultScreen(ScreenBase):
+    data: dict[str, str]
+
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw standard information about host screen."""
+        draw.text(
+            (1, 1),
+            self.name.replace("_", " ").capitalize(),
+            font=FONTS["big"],
+            fill="white",
+        )
+        row_no = START_ROW
+        for entry in self.data:
+            draw.text(
+                (3, row_no),
+                f"{entry} {self.data[entry]}",
+                font=FONTS["small"],
+                fill="white",
+            )
+            row_no += 15
+
+
+@dataclass(kw_only=True)
+class WebScreen(ScreenBase):
+    url: str
+
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw QR code on the OLED display."""
         # Create QR code with box_size 2 and scale down later
         qr = qrcode.QRCode(version=1, box_size=2, border=1)
-        qr.add_data(url)
+        qr.add_data(self.url)
         qr.make(fit=True)
 
         # Create QR code image
         qr_image = qr.make_image(fill_color="white", back_color="black")
+        if isinstance(qr_image, PyPNGImage):
+            raise ValueError("PNG image not supported for OLED display.")
         qr_image = qr_image.convert("1")  # Convert to binary mode
 
         # Scale the QR code down to 0.8 of its size
@@ -677,9 +649,9 @@ class Oled:
 
         # Add title text on the left side
         # text_width = fonts["small"].getsize(title)[0]
-        draw.text((2, 2), "Scan to", font=fonts["small"], fill="white")
-        draw.text((2, 12), "access", font=fonts["small"], fill="white")
-        draw.text((2, 22), "webui", font=fonts["small"], fill="white")
+        draw.text((2, 2), "Scan to", font=FONTS["small"], fill="white")
+        draw.text((2, 12), "access", font=FONTS["small"], fill="white")
+        draw.text((2, 22), "webui", font=FONTS["small"], fill="white")
 
         # Calculate position to align QR code to right and center vertically
         x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding
@@ -689,4 +661,60 @@ class Oled:
         display_image.paste(qr_image, (x, y))
 
         # Display the centered QR code
-        self._device.display(display_image)
+        self.device.display(display_image)
+
+
+@dataclass(kw_only=True)
+class InputScreen(ScreenBase):
+    inputs: tuple[GpioEventButtonsAndSensors, ...]
+
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        "Draw inputs of boneIO Black."
+        cols = cycle(INPUT_COLS)
+        draw.text(
+            (1, 1),
+            f"{self.name}",
+            font=FONTS["small"],
+            fill="white",
+        )
+        i = 0
+        j = next(cols)
+        for input in self.inputs:
+            if len(INPUT_ROWS) == i:
+                j = next(cols)
+                i = 0
+            draw.text(
+                (j, INPUT_ROWS[i]),
+                f"{shorten_name(input.name)} {input.state}",
+                font=FONTS["extraSmall"],
+                fill="white",
+            )
+            i += 1
+
+
+@dataclass(kw_only=True)
+class OutputScreen(ScreenBase):
+    outputs: tuple[BasicRelay, ...]
+
+    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+        "Draw outputs of GPIO/MCP relays."
+        cols = cycle(OUTPUT_COLS)
+        draw.text(
+            (1, 1),
+            f"Relay {self.name}",
+            font=FONTS["small"],
+            fill="white",
+        )
+        i = 0
+        j = next(cols)
+        for output in self.outputs:
+            if len(OUTPUT_ROWS) == i:
+                j = next(cols)
+                i = 0
+            draw.text(
+                (j, OUTPUT_ROWS[i]),
+                f"{shorten_name(output.name or output.id)} {output.state}",
+                font=FONTS["extraSmall"],
+                fill="white",
+            )
+            i += 1

@@ -16,8 +16,6 @@ __all__ = [
     "CoverState",
     "SensorState",
     "HostSensorState",
-    "OutputsResponse",
-    "CoverResponse",
     "StateUpdate",
 ]
 
@@ -92,27 +90,6 @@ class SensorState(BaseModel):
     state: float | str | None
     unit: str | None
     timestamp: float | None
-
-
-class HostSensorState(BaseModel):
-    """Host Sensor state model."""
-
-    id: str
-    name: str
-    state: str
-    timestamp: float | None = None
-
-
-class OutputsResponse(BaseModel):
-    """Outputs response model."""
-
-    outputs: list[OutputState]
-
-
-class CoverResponse(BaseModel):
-    """Cover response model."""
-
-    covers: list[CoverState]
 
 
 class StateUpdate(BaseModel):
