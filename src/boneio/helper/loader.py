@@ -61,7 +61,7 @@ def create_adc(
     message_bus: MessageBus,
     topic_prefix: str,
     adc: list[AdcConfig],
-):
+) -> None:
     """Create ADC sensor."""
 
     for gpio in adc:

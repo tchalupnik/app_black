@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Literal
 
 from adafruit_pca9685 import PCA9685, PWMChannel
 
@@ -59,5 +60,5 @@ class PWMPCA(BasicRelay):
         """Call turn off action."""
         self._pin.duty_cycle = 0
 
-    def payload(self) -> dict:
+    def payload(self) -> dict[str, int | Literal["ON", "OFF"]]:
         return {"brightness": self.brightness, "state": self.state}

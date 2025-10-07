@@ -99,7 +99,7 @@ class DallasSensorW1(TempSensor):
 
     async def async_update(self, timestamp: float) -> None:
         try:
-            _temp = await self.get_temperature()
+            _temp = self.pct.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
             self._state = self.filter.apply_filters(value=_temp)
             self._timestamp = timestamp
