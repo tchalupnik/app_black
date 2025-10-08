@@ -20,7 +20,6 @@ from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
-from pydantic import Field
 from qrcode.image.pure import PyPNGImage
 
 from boneio.config import Config, OledScreens
@@ -508,8 +507,8 @@ class UpdatingScreen(Generic[_T]):
     event_bus: EventBus
     callback: Callable[[_T], None]
     event_type: EventType = EventType.HOST
-    update_interval: timedelta = Field(default=timedelta(seconds=60))
-    callback_triggered_event: anyio.Event = Field(
+    update_interval: timedelta = field(default=timedelta(seconds=60))
+    callback_triggered_event: anyio.Event = field(
         default_factory=anyio.Event, init=False
     )
 
