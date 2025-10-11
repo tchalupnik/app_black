@@ -142,6 +142,7 @@ class ModbusCoordinator:
             self._modbus_entities.append({})
             for register in data.registers:
                 entity_type = register.entity_type if register.entity_type else "sensor"
+                single_sensor: BaseSensor
                 if entity_type == "sensor":
                     single_sensor = ModbusNumericSensor(
                         name=register.name,

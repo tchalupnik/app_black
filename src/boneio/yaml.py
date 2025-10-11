@@ -1,12 +1,14 @@
 import fnmatch
+import io
 import logging
 import os
 import re
-from collections.abc import Generator
+from collections.abc import Generator, Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias, Union, cast
 
+import yaml
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
@@ -16,7 +18,9 @@ schema_file = Path(__file__).parent / "schema" / "schema.yaml"
 _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
-_SECRET_VALUES = {}
+
+Primitives: TypeAlias = Union[str, int, float, bool]
+Tree: TypeAlias = Mapping[str, Primitives | Sequence["Tree"] | "Tree" | None]
 
 
 class ConfigurationError(ValueError):
@@ -26,61 +30,61 @@ class ConfigurationError(ValueError):
 class BoneIOLoader(SafeLoader):
     """Loader which support for include in yaml files."""
 
-    def __init__(self, stream) -> None:
+    def __init__(self, stream: io.StringIO) -> None:
         self._root = Path(stream.name).parent
 
         super(BoneIOLoader, self).__init__(stream)
 
-    def include(self, node):
+    def include(self, node: yaml.ScalarNode | yaml.MappingNode) -> Tree:
         filename = self._root / self.construct_scalar(node)
 
         with filename.open() as f:
-            return load(f, BoneIOLoader)
+            return cast(Tree, load(f, BoneIOLoader))
 
-    def _rel_path(self, *args):
-        return self._root / Path(*args)
+    def _rel_path(self, *args: object) -> Path:
+        return self._root / "/".join(str(arg) for arg in args)
 
-    def construct_secret(self, node):
+    def construct_secret(self, node: yaml.Node) -> Any:
         secrets = load_yaml_file(self._rel_path(SECRET_YAML))
         if node.value not in secrets:
             raise MarkedYAMLError(f"Secret '{node.value}' not defined", node.start_mark)
-        val = secrets[node.value]
-        _SECRET_VALUES[str(val)] = node.value
-        return val
+        return secrets[node.value]
 
-    def construct_include_dir_list(self, node):
+    def construct_include_dir_list(self, node: yaml.Node) -> list[Tree]:
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         return [load_yaml_file(f) for f in files]
 
-    def construct_include_dir_merge_list(self, node):
+    def construct_include_dir_merge_list(self, node: yaml.Node) -> list[Tree]:
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
-        merged_list = []
+        merged_list: list[Tree] = []
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
             if isinstance(loaded_yaml, list):
                 merged_list.extend(loaded_yaml)
         return merged_list
 
-    def construct_include_dir_named(self, node):
+    def construct_include_dir_named(self, node: yaml.Node) -> dict[str, Tree]:
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
-        mapping = {}
+        mapping: dict[str, Tree] = {}
         for fname in files:
             filename = fname.stem
             mapping[filename] = load_yaml_file(fname)
         return mapping
 
-    def construct_include_dir_merge_named(self, node):
+    def construct_include_dir_merge_named(self, node: yaml.Node) -> dict[str, Tree]:
         files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
-        mapping = {}
+        mapping: dict[str, Tree] = {}
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
             if isinstance(loaded_yaml, dict):
                 mapping.update(loaded_yaml)
         return mapping
 
-    def construct_include_files(self, node):
+    def construct_include_files(
+        self, node: yaml.ScalarNode | yaml.MappingNode
+    ) -> list[Tree]:
         files = str(self._root / self.construct_scalar(node)).split()
-        merged_list = []
+        merged_list: list[Tree] = []
         for fname in files:
             loaded_yaml = load_yaml_file(fname.strip())
             if isinstance(loaded_yaml, list):
@@ -105,7 +109,7 @@ BoneIOLoader.add_constructor(
 BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
 
 
-def filter_yaml_files(files: list[Path]) -> list[Path]:
+def filter_yaml_files(files: Generator[Path]) -> list[Path]:
     return [
         f
         for f in files
@@ -132,12 +136,12 @@ def _find_files(directory: Path, pattern: str) -> Generator[Path]:
                 yield filename
 
 
-def load_yaml_file(filename: Path | str) -> Any:
+def load_yaml_file(filename: Path | str) -> Tree:
     if isinstance(filename, str):
         filename = Path(filename)
     with filename.open("r") as stream:
         try:
-            return load(stream, Loader=BoneIOLoader)
+            return cast(Tree, load(stream, Loader=BoneIOLoader))
         except YAMLError as exception:
             msg = ""
             if isinstance(exception, MarkedYAMLError):
@@ -152,11 +156,12 @@ def load_yaml_file(filename: Path | str) -> Any:
                         + "\nPlease correct data and retry."
                     )
                 mark = exception.problem_mark
-                msg = f" at line {mark.line + 1} column {mark.column + 1}"
+                if isinstance(mark, yaml.Mark):
+                    msg = f" at line {mark.line + 1} column {mark.column + 1}"
             raise ConfigurationError(f"Error loading yaml{msg}") from exception
 
 
-def get_board_config_path(board_name: str, version: str) -> str:
+def get_board_config_path(board_name: str, version: str) -> Path:
     """Get the appropriate board configuration file path based on version."""
     base_dir = Path(__file__).parent / "boards"
     version_dir = base_dir / version
@@ -228,19 +233,22 @@ def normalize_version(version: str) -> str:
     return version
 
 
-def merge_board_config(config: dict) -> dict:
+def merge_board_config(config: Tree) -> Tree:
     """Merge predefined board configuration with user config."""
-    if not config.get("boneio", {}).get("device_type"):
+    boneio_config = config.get("boneio", {})
+    if not isinstance(boneio_config, dict):
+        return config
+    if not boneio_config.get("device_type"):
         return config
 
-    board_name = normalize_board_name(config["boneio"]["device_type"])
-    version = normalize_version(config["boneio"]["version"])
-    config["boneio"]["version"] = version
+    board_name = normalize_board_name(boneio_config["device_type"])
+    version = normalize_version(boneio_config["version"])
+    boneio_config["version"] = version
 
     try:
         board_file = get_board_config_path(f"output_{board_name}", version)
-        input_file = Path(get_board_config_path("input", version))
-        board_config = load_yaml_file(Path(board_file))
+        input_file = get_board_config_path("input", version)
+        board_config = load_yaml_file(board_file)
         input_config = load_yaml_file(input_file)
         if not board_config:
             raise ConfigurationError(
@@ -257,77 +265,72 @@ def merge_board_config(config: dict) -> dict:
         config["mcp23017"] = board_config["mcp23017"]
 
     # Process outputs
-    if board_name == "cover" and "output" not in config:
+    outputs = config.get("output", [])
+    if not isinstance(outputs, list):
+        raise ConfigurationError("output must be a list")
+
+    if board_name == "cover":
         output_mapping = board_config.get("output_mapping", {})
-        config["output"] = []
+        assert isinstance(output_mapping, dict), "output_mapping must be a dict"
         for boneio_output, mapped_output in output_mapping.items():
-            output = {"id": boneio_output, **mapped_output}
-            config["output"].append(output)
-    if "output" in config:
-        output_mapping = board_config.get("output_mapping", {})
-        for output in config["output"]:
-            if "boneio_output" in output:
-                boneio_output = output["boneio_output"].lower()
-                mapped_output = output_mapping.get(boneio_output)
-                if not mapped_output:
-                    raise ConfigurationError(
-                        f"Output mapping '{output['boneio_output']}' not found in board configuration"
-                    )
-                # Merge mapped output with user config, preserving user-specified values
-                output.update(
-                    {k: v for k, v in mapped_output.items() if k not in output}
-                )
-                del output["boneio_output"]
-    if "event" or "binary_sensor" in config:
-        input_mapping = input_config.get("input_mapping", {})
-        for input in config.get("event", []):
-            if "boneio_input" in input:
-                boneio_input = input["boneio_input"].lower()
-                mapped_input = input_mapping.get(boneio_input)
-                if not mapped_input:
-                    raise ConfigurationError(
-                        f"Input mapping '{input['boneio_input']}' not found in board configuration"
-                    )
-                # Merge mapped output with user config, preserving user-specified values
-                input.update(dict(mapped_input.items()))
+            outputs.append({"id": boneio_output, **mapped_output})
 
-        for input in config.get("binary_sensor", []):
-            if "boneio_input" in input:
-                boneio_input = input["boneio_input"].lower()
-                mapped_input = input_mapping.get(boneio_input)
-                if not mapped_input:
-                    raise ConfigurationError(
-                        f"Input mapping '{input['boneio_input']}' not found in board configuration"
-                    )
-                # Merge mapped output with user config, preserving user-specified values
-                input.update(dict(mapped_input.items()))
-    return config
+    if not isinstance(outputs, list):
+        raise ConfigurationError("output must be a list")
 
+    output_mapping = board_config.get("output_mapping", {})
+    if not isinstance(output_mapping, dict):
+        raise ConfigurationError("output_mapping in board config must be a dict")
 
-def one_of(*values, **kwargs):
-    """Validate that the config option is one of the given values.
-    :param values: The valid values for this type
-    """
-    options = ", ".join(f"'{x}'" for x in values)
+    for output in outputs:
+        if not isinstance(output, dict):
+            raise ConfigurationError("Each output must be a dict")
 
-    def validator(value):
-        if value not in values:
-            import difflib
-
-            options_ = [str(x) for x in values]
-            option = str(value)
-            matches = difflib.get_close_matches(option, options_)
-            if matches:
-                matches_str = ", ".join(f"'{x}'" for x in matches)
-                raise ConfigurationError(
-                    f"Unknown value '{value}', did you mean {matches_str}?"
-                )
+        boneio_output = output.get("boneio_output")
+        if not isinstance(boneio_output, str):
+            raise ConfigurationError("boneio_output must be a string")
+        mapped_output = output_mapping.get(boneio_output.lower())
+        if not isinstance(mapped_output, dict):
             raise ConfigurationError(
-                f"Unknown value '{value}', valid options are {options}."
+                f"Output mapping '{output['boneio_output']}' not found in board configuration"
             )
-        return value
+        # Merge mapped output with user config, preserving user-specified values
+        output.update({k: v for k, v in mapped_output.items() if k not in output})
+        del output["boneio_output"]
 
-    return validator
+    if "event" in config or "binary_sensor" in config:
+        input_mapping = input_config.get("input_mapping", {})
+        if not isinstance(input_mapping, dict):
+            raise ConfigurationError("input_mapping in board config must be a dict")
+        events = config.get("event", [])
+        if not isinstance(events, list):
+            raise ConfigurationError("event must be a list")
+        for input in events:
+            boneio_input = input.get("boneio_input")
+            if boneio_input is not None:
+                mapped_input = input_mapping.get(boneio_input.lower())
+                if not mapped_input:
+                    raise ConfigurationError(
+                        f"Input mapping '{input['boneio_input']}' not found in board configuration"
+                    )
+                # Merge mapped output with user config, preserving user-specified values
+                input.update(dict(mapped_input.items()))
+
+        binary_sensors = config.get("binary_sensor", [])
+        if not isinstance(binary_sensors, list):
+            raise ConfigurationError("binary_sensor must be a list")
+        for input in binary_sensors:
+            boneio_input = input.get("boneio_input")
+            if boneio_input is not None:
+                mapped_input = input_mapping.get(boneio_input.lower())
+                if not mapped_input:
+                    raise ConfigurationError(
+                        f"Input mapping '{input['boneio_input']}' not found in board configuration"
+                    )
+                # Merge mapped output with user config, preserving user-specified values
+                input.update(dict(mapped_input.items()))
+
+    return config
 
 
 timedelta_type = TypeDefinition("timedelta", (timedelta,), ())
@@ -339,11 +342,13 @@ class CustomValidator(Validator):
     types_mapping = Validator.types_mapping.copy()
     types_mapping["timedelta"] = timedelta_type
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
         self.allow_unknown = True
 
-    def _validate_case_insensitive(self, case_insensitive, field, value):
+    def _validate_case_insensitive(
+        self, case_insensitive: bool, field: str, value: str
+    ) -> None:
         """Validate field allowing any case but check against lowercase values.
 
         The rule's arguments are validated against this schema:
@@ -357,7 +362,9 @@ class CustomValidator(Validator):
         if allowed and value.lower() not in [a.lower() for a in allowed]:
             self._error(field, f"unallowed value {value}")
 
-    def _validate_required_if(self, required_if, field, value):
+    def _validate_required_if(
+        self, required_if: dict[str, Any], field: str, value: Any
+    ) -> None:
         """Validate that a field is required if a condition is met.
 
         The rule's arguments are validated against this schema:
@@ -377,7 +384,9 @@ class CustomValidator(Validator):
                 if field not in self.document:
                     self._error(field, f"required when {key} is {doc_value}")
 
-    def _validate_forbidden_if(self, forbidden_if, field, value):
+    def _validate_forbidden_if(
+        self, forbidden_if: dict[str, Any], field: str, value: Any
+    ) -> None:
         """Validate that a field is forbidden if a condition is met.
 
         The rule's arguments are validated against this schema:
@@ -398,7 +407,7 @@ class CustomValidator(Validator):
                 if field in self.document and value != default_value:
                     self._error(field, f"forbidden when {key} is {doc_value}")
 
-    def _normalize_coerce_action_field(self, value):
+    def _normalize_coerce_action_field(self, value: str | None) -> str | None:
         """Handle conditional defaults for action fields."""
         action = self.document.get("action", "").lower()
         field_name = self.schema_path[-1]
@@ -410,31 +419,30 @@ class CustomValidator(Validator):
             return None
         return str(value).upper()
 
-    def _normalize_coerce_lower(self, value):
+    def _normalize_coerce_lower(self, value: Any) -> Any:
         """Convert string to lowercase."""
         if isinstance(value, str):
             return value.lower()
         return value
 
-    def _normalize_coerce_upper(self, value):
+    def _normalize_coerce_upper(self, value: Any) -> Any:
         """Convert string to uppercase."""
         if isinstance(value, str):
             return value.upper()
         return value
 
-    def _normalize_coerce_str(self, value):
+    def _normalize_coerce_str(self, value: Any) -> str:
         """Convert value to string."""
         return str(value)
 
-    def _normalize_coerce_version_to_str(self, value):
+    def _normalize_coerce_version_to_str(self, value: Any) -> str:
         """Convert value to string."""
-        _v = str(value)
-        return _v
+        return str(value)
 
-    def _normalize_coerce_actions_output(self, value):
+    def _normalize_coerce_actions_output(self, value: Any) -> str:
         return str(value).upper()
 
-    def _normalize_coerce_length_to_meters(self, value) -> float | None:
+    def _normalize_coerce_length_to_meters(self, value: Any) -> float | None:
         """
         Convert a length value to meters.
         Accepts:
@@ -468,7 +476,9 @@ class CustomValidator(Validator):
         _LOGGER.debug("Parsed length value '%s' as %s m", value, result)
         return result
 
-    def _normalize_coerce_positive_time_period(self, value) -> timedelta:
+    def _normalize_coerce_positive_time_period(
+        self, value: str | int | timedelta
+    ) -> timedelta:
         """Validate and transform time period with time unit and integer value."""
         if isinstance(value, int):
             raise ConfigurationError(
@@ -514,7 +524,7 @@ class CustomValidator(Validator):
         kwargs = {kwarg: value_num}
         return timedelta(**kwargs)
 
-    def _lookup_field(self, path: str) -> tuple:
+    def _lookup_field(self, path: str) -> Any:
         """
         Implement relative paths with dot (.) notation, following Python
         guidelines: https://www.python.org/dev/peps/pep-0328/#guido-s-decision
@@ -542,23 +552,20 @@ class CustomValidator(Validator):
         else:
             return super()._lookup_field(path)
 
-    def _check_with_output_id_uniqueness(self, field, value):
+    def _check_with_output_id_uniqueness(self, field: str, value: Any) -> None:
         """Check if outputs ids are unique if they exists."""
         if self.document["output"] is not None:
             all_ids = [x["id"] for x in self.document["output"]]
             if len(all_ids) != len(set(all_ids)):
                 self._error(field, "Output IDs are not unique.")
 
-    def _normalize_coerce_to_bool(self, value):
+    def _normalize_coerce_to_bool(self, value: Any) -> bool:
         return True
 
-    def _normalize_coerce_remove_space(self, value):
+    def _normalize_coerce_remove_space(self, value: Any) -> str:
         return str(value).replace(" ", "")
 
-    def _normalize_coerce_actions_output(self, value):
-        return str(value).upper()
-
-    def _normalize_coerce_power_value_to_watts(self, value):
+    def _normalize_coerce_power_value_to_watts(self, value: Any) -> float | None:
         """
         Parse a power or energy value and return it in watts (W).
         Accepts:
@@ -613,7 +620,7 @@ class CustomValidator(Validator):
         _LOGGER.debug("Parsed power value '%s' as %s W", value, result)
         return result
 
-    def _normalize_coerce_volume_flow_rate_to_lph(self, value):
+    def _normalize_coerce_volume_flow_rate_to_lph(self, value: Any) -> float | None:
         """
         Parse a volume flow rate value and return it in liters per minute (L/min).
         Accepts:
@@ -654,18 +661,13 @@ class CustomValidator(Validator):
         return result
 
 
-def _load_config_from_string(config_str: str) -> dict:
+def _load_config_from_string(config_str: str) -> Tree:
     """Load config from string."""
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
 
     # First normalize the document
     doc = v.normalized(config_str, always_return_document=True)
-    # Then merge board config
-    if "modbus_sensors" in doc:
-        _LOGGER.warning(
-            "Modbus sensors are renamed to modbus_devices. Please update your config."
-        )
     merged_doc = merge_board_config(doc)
 
     # Finally validate
@@ -696,7 +698,7 @@ def load_config(config_file_path: Path) -> Config:
     return Config.model_validate(_load_config_from_string(config_yaml))
 
 
-def update_config_section(config_file: Path, section: str, data: dict) -> dict:
+def update_config_section(config_file: Path, section: str, data: Tree) -> Tree:
     """
     Update content of a configuration section with intelligent !include handling.
 
@@ -714,7 +716,9 @@ def update_config_section(config_file: Path, section: str, data: dict) -> dict:
     class IncludeLoader(SafeLoader):
         pass
 
-    def include_constructor(loader, node):
+    def include_constructor(
+        loader: yaml.SafeLoader, node: yaml.ScalarNode | yaml.MappingNode
+    ) -> Any:
         """Constructor for !include tag that preserves the tag info."""
         filename = loader.construct_scalar(node)
         # Return a special object that preserves the include info
