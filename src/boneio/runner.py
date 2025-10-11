@@ -14,6 +14,7 @@ from boneio.config import Config
 from boneio.events import EventBus
 from boneio.logger import configure_logger
 from boneio.manager import Manager
+from boneio.message_bus.basic import MessageBus
 from boneio.message_bus.local import LocalMessageBus
 from boneio.message_bus.mqtt import MqttMessageBus
 from boneio.webui.web_server import WebServer
@@ -45,16 +46,14 @@ async def start(
                 if mqttpassword is not None:
                     config.mqtt.password = mqttpassword
 
-                def create_message_bus() -> AbstractAsyncContextManager[MqttMessageBus]:
+                def create_message_bus() -> AbstractAsyncContextManager[MessageBus]:
                     assert config.mqtt is not None
                     return MqttMessageBus.create(config.mqtt)
 
                 create_message_bus_fun = create_message_bus
             else:
 
-                def create_message_bus() -> AbstractAsyncContextManager[
-                    LocalMessageBus
-                ]:
+                def create_message_bus() -> AbstractAsyncContextManager[MessageBus]:
                     return LocalMessageBus.create()
 
                 create_message_bus_fun = create_message_bus

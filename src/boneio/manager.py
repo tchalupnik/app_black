@@ -76,7 +76,6 @@ from boneio.helper.ha_discovery import (
 from boneio.helper.loader import (
     configure_relay,
     create_adc,
-    create_dallas_sensor,
     create_modbus_coordinators,
 )
 from boneio.helper.onewire.ds2482 import DS2482
@@ -106,6 +105,7 @@ from boneio.relay.basic import BasicRelay
 from boneio.relay.pca import PWMPCA
 from boneio.sensor.ina219 import INA219
 from boneio.sensor.temp import TempSensor
+from boneio.sensor.temp.dallas import DallasSensorDS2482, DallasSensorW1
 from boneio.sensor.temp.lm75 import LM75Sensor
 from boneio.sensor.temp.mcp9808 import MCP9808Sensor
 from boneio.yaml import load_config
@@ -495,7 +495,9 @@ class Manager:
             try:
                 if _id in self.covers:
                     _cover = self.covers[_id]
-                    if isinstance(_cover, VenetianCover):
+                    if isinstance(_cover, VenetianCover) and isinstance(
+                        cover_config, VenetianCoverConfig
+                    ):
                         _cover.update_config_times(cover_config)
                     continue
 
@@ -769,24 +771,52 @@ class Manager:
             except KernelModuleLoadError as err:
                 _LOGGER.error("Can't configure Dallas W1 device %s", err)
 
-        for sensor in sensors:
-            address = _one_wire_devices.get(sensor.address)
+        for sensor_config in sensors:
+            address = _one_wire_devices.get(sensor_config.address)
             if not address:
                 continue
             bus = None
-            if sensor.bus_id and sensor.bus_id in _ds_onewire_bus:
-                bus = _ds_onewire_bus[sensor.bus_id]
+            if sensor_config.bus_id and sensor_config.bus_id in _ds_onewire_bus:
+                bus = _ds_onewire_bus[sensor_config.bus_id]
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
-            self.temp_sensors.append(
-                create_dallas_sensor(
-                    manager=self,
+            name = sensor_config.id or hex(address)
+            id = name.replace(" ", "")
+            sensor: DallasSensorDS2482 | DallasSensorW1
+            send_topic = f"{self.config.get_topic_prefix()}/sensor/{strip_accents(id)}"
+            if bus is None:
+                sensor = DallasSensorW1(
+                    event_bus=self.event_bus,
                     message_bus=self.message_bus,
                     address=address,
-                    topic_prefix=self.config.get_topic_prefix(),
-                    config=sensor,
+                    id=id,
+                    name=name,
+                    update_interval=sensor_config.update_interval,
+                    filter=Filter(sensor_config.filters),
+                    send_topic=send_topic,
+                    unit_of_measurement=sensor_config.unit_of_measurement,
+                )
+            else:
+                sensor = DallasSensorDS2482(
+                    event_bus=self.event_bus,
+                    message_bus=self.message_bus,
+                    address=address,
+                    id=id,
+                    name=name,
+                    update_interval=sensor_config.update_interval,
+                    filter=Filter(sensor_config.filters),
+                    send_topic=send_topic,
+                    unit_of_measurement=sensor_config.unit_of_measurement,
                     bus=bus,
                 )
-            )
+            if sensor_config.show_in_ha:
+                self.send_ha_autodiscovery(
+                    id=sensor.id,
+                    name=sensor.name,
+                    ha_type="sensor",
+                    availability_msg_func=ha_sensor_temp_availabilty_message,
+                    unit_of_measurement=sensor_config.unit_of_measurement,
+                )
+            self.temp_sensors.append(sensor)
 
     def _configure_adc(self, adc: list[AdcConfig]) -> None:
         create_adc(

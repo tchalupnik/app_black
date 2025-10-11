@@ -128,3 +128,7 @@ class MessageBus(ABC):
     @abstractmethod
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
         """Unsubscribe from a topic and stop listening."""
+
+    @abstractmethod
+    async def subscribe(self, receive_message: ReceiveMessage) -> None:
+        """Subscribe to a topic."""

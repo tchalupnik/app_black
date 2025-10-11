@@ -15,14 +15,12 @@ from boneio.config import (
     OutputConfigKinds,
     PcaOutputConfig,
     PcfOutputConfig,
-    SensorConfig,
 )
 from boneio.events import EventBus
 from boneio.helper import (
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
-    ha_sensor_temp_availabilty_message,
     refresh_wrapper,
 )
 from boneio.helper.filter import Filter
@@ -39,8 +37,7 @@ from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.relay import PWMPCA, MCPRelay, PCFRelay
 from boneio.relay.basic import BasicRelay
-from boneio.sensor import DallasSensorDS2482, GpioADCSensor
-from boneio.sensor.temp.dallas import DallasSensorW1
+from boneio.sensor import GpioADCSensor
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
@@ -301,36 +298,3 @@ def find_onewire_devices(
     except RuntimeError as err:
         _LOGGER.error("Problem with scanning %s bus. %s", bus_type, err)
     return out
-
-
-def create_dallas_sensor(
-    manager: Manager,
-    message_bus: MessageBus,
-    address: OneWireAddress,
-    config: SensorConfig,
-    topic_prefix: str,
-    bus: OneWireBus | None = None,
-) -> DallasSensorDS2482 | DallasSensorW1:
-    name = config.id or hex(address)
-    id = name.replace(" ", "")
-    cls = DallasSensorDS2482 if bus else DallasSensorW1
-    sensor = cls(
-        manager=manager,
-        message_bus=message_bus,
-        address=address,
-        id=id,
-        name=name,
-        update_interval=config.update_interval,
-        filters=config.filters,
-        topic_prefix=topic_prefix,
-        bus=bus,
-    )
-    if config.show_in_ha:
-        manager.send_ha_autodiscovery(
-            id=sensor.id,
-            name=sensor.name,
-            ha_type="sensor",
-            availability_msg_func=ha_sensor_temp_availabilty_message,
-            unit_of_measurement=config.unit_of_measurement,
-        )
-    return sensor

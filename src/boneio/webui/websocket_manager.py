@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any
 
 import anyio
 from jose import jwt
@@ -127,7 +126,9 @@ class WebSocketManager:
             except Exception:
                 pass
 
-    async def broadcast_state(self, state_type: str, data: Any) -> None:
+    async def broadcast_state(
+        self, state_type: str, data: SensorState | CoverState | OutputState | InputState
+    ) -> None:
         if self._closing:
             return
 
@@ -135,11 +136,8 @@ class WebSocketManager:
         async with self._lock:
             for connection in self.active_connections[:]:
                 try:
-                    if isinstance(
-                        data, (InputState, OutputState, SensorState, CoverState)
-                    ):
-                        update = StateUpdate(type=state_type, data=data)
-                        await connection.send_text(update.model_dump_json())
+                    update = StateUpdate(type=state_type, data=data)
+                    await connection.send_text(update.model_dump_json())
                 except WebSocketDisconnect:
                     dead_connections.append(connection)
                 except Exception as e:

@@ -38,7 +38,7 @@ from starlette.websockets import WebSocketState
 
 from boneio.config import Config
 from boneio.cover.venetian import VenetianCover
-from boneio.events import EventType
+from boneio.events import CoverEvent, EventType, InputEvent, OutputEvent, SensorEvent
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -49,7 +49,7 @@ from boneio.models import (
 )
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
-from boneio.yaml import ConfigurationError, load_config, update_config_section
+from boneio.yaml import ConfigurationError, Tree, load_config, update_config_section
 
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
 
@@ -271,7 +271,7 @@ async def login(
 def create_token(data: dict[str, str]) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)  # Token expires in 7 days
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire.strftime("%Y-%m-%d %H:%M:%S")})
     encoded_jwt = jwt.encode(to_encode, get_jwt_secret(), algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
@@ -727,8 +727,8 @@ async def list_files(
     if not base_dir.is_dir():
         raise HTTPException(status_code=400, detail="Path is not a directory")
 
-    def scan_directory(directory: Path) -> list[dict[str, str]]:
-        items = []
+    def scan_directory(directory: Path) -> list[FileItem]:
+        items: list[FileItem] = []
         for entry in os.scandir(directory):
             if entry.name == ".git" or entry.name.startswith("venv"):
                 continue
@@ -757,7 +757,7 @@ async def list_files(
                 name="config",
                 path="",
                 type="directory",
-                children=scan_directory(base_dir),
+                children=FileItem.model_validate(scan_directory(base_dir)),
             )
         ]
         return FilesResponse(items=items)
@@ -818,9 +818,9 @@ async def update_file_content(
 @app.put("/api/config/{section}")
 async def update_section_content(
     section: str,
-    data: dict[str, Any] = Body(...),
+    data: Tree = Body(...),
     yaml_config_file: Path = Depends(get_yaml_config_file),
-) -> dict:
+) -> Tree:
     """Update content of a configuration section."""
 
     try:
@@ -832,46 +832,6 @@ async def update_section_content(
     except Exception as e:
         _LOGGER.error("Error saving section '%s': %s", section, e)
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
-
-
-async def input_state_changed(
-    input_: InputState,
-    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-) -> None:
-    """Callback when input state changes."""
-    await websocket_manager.broadcast_state("input", input_)
-
-
-async def output_state_changed(
-    event: OutputState,
-    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-) -> None:
-    """Callback when output state changes."""
-    await websocket_manager.broadcast_state("output", event)
-
-
-async def cover_state_changed(
-    event: CoverState,
-    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-) -> None:
-    """Callback when cover state changes."""
-    await websocket_manager.broadcast_state("cover", event)
-
-
-async def sensor_state_changed(
-    event: SensorState,
-    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-) -> None:
-    """Callback when sensor state changes."""
-    await websocket_manager.broadcast_state("sensor", event)
-
-
-async def modbus_device_state_changed(
-    event: SensorState,
-    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-) -> None:
-    """Callback when modbus device state changes."""
-    await websocket_manager.broadcast_state("modbus_device", event)
 
 
 def init_app(
@@ -912,7 +872,13 @@ def init_app(
     return app
 
 
-def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
+def add_listener_for_all_outputs(
+    boneio_manager: Manager, websocket_manager: WebSocketManager
+) -> None:
+    async def output_state_changed(event: OutputEvent) -> None:
+        """Callback when output state changes."""
+        await websocket_manager.broadcast_state("output", event.event_state)
+
     for output in boneio_manager.outputs.values():
         if output.output_type == "cover" or output.output_type == "none":
             continue
@@ -924,13 +890,13 @@ def add_listener_for_all_outputs(boneio_manager: Manager) -> None:
         )
 
 
-def remove_listener_for_all_outputs(boneio_manager: Manager) -> None:
-    boneio_manager.event_bus.remove_event_listener(
-        event_type=EventType.OUTPUT, listener_id="ws"
-    )
+def add_listener_for_all_covers(
+    boneio_manager: Manager, websocket_manager: WebSocketManager
+) -> None:
+    async def cover_state_changed(event: CoverEvent) -> None:
+        """Callback when cover state changes."""
+        await websocket_manager.broadcast_state("cover", event.event_state)
 
-
-def add_listener_for_all_covers(boneio_manager: Manager) -> None:
     for cover in boneio_manager.covers.values():
         boneio_manager.event_bus.add_event_listener(
             event_type=EventType.COVER,
@@ -940,11 +906,13 @@ def add_listener_for_all_covers(boneio_manager: Manager) -> None:
         )
 
 
-def remove_listener_for_all_covers(boneio_manager: Manager) -> None:
-    boneio_manager.event_bus.remove_event_listener(event_type="cover")
+def add_listener_for_all_inputs(
+    boneio_manager: Manager, websocket_manager: WebSocketManager
+) -> None:
+    async def input_state_changed(input_: InputEvent) -> None:
+        """Callback when input state changes."""
+        await websocket_manager.broadcast_state("input", input_.event_state)
 
-
-def add_listener_for_all_inputs(boneio_manager: Manager) -> None:
     for input in boneio_manager.inputs.values():
         boneio_manager.event_bus.add_event_listener(
             event_type=EventType.INPUT,
@@ -954,14 +922,17 @@ def add_listener_for_all_inputs(boneio_manager: Manager) -> None:
         )
 
 
-def remove_listener_for_all_inputs(boneio_manager: Manager) -> None:
-    boneio_manager.event_bus.remove_event_listener(EventType.INPUT)
-
-
-def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
+def add_listener_for_all_sensors(
+    boneio_manager: Manager, websocket_manager: WebSocketManager
+) -> None:
     for modbus_coordinator in boneio_manager.modbus_coordinators.values():
         if not modbus_coordinator:
             continue
+
+        async def modbus_device_state_changed(event: SensorEvent) -> None:
+            """Callback when modbus device state changes."""
+            await websocket_manager.broadcast_state("modbus_device", event.event_state)
+
         for entities in modbus_coordinator.get_all_entities():
             for entity in entities.values():
                 boneio_manager.event_bus.add_event_listener(
@@ -970,6 +941,11 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
                     listener_id="ws",
                     target=modbus_device_state_changed,
                 )
+
+    async def sensor_state_changed(event: SensorEvent) -> None:
+        """Callback when sensor state changes."""
+        await websocket_manager.broadcast_state("sensor", event.event_state)
+
     for single_ina_device in boneio_manager.ina219_sensors:
         for ina in single_ina_device.sensors.values():
             boneio_manager.event_bus.add_event_listener(
@@ -985,13 +961,6 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager) -> None:
             listener_id="ws",
             target=sensor_state_changed,
         )
-
-
-def remove_listener_for_all_sensors(boneio_manager: Manager) -> None:
-    boneio_manager.event_bus.remove_event_listener(listener_id="ws")
-    boneio_manager.event_bus.remove_event_listener(
-        event_type=EventType.SENSOR, listener_id="ws"
-    )
 
 
 @app.websocket("/ws/state")
@@ -1160,10 +1129,10 @@ async def websocket_endpoint(
 
             if websocket.application_state == WebSocketState.CONNECTED:
                 _LOGGER.debug("Initial states sent, setting up event listeners")
-                add_listener_for_all_outputs(boneio_manager=boneio_manager)
-                add_listener_for_all_covers(boneio_manager=boneio_manager)
-                add_listener_for_all_inputs(boneio_manager=boneio_manager)
-                sensor_listener_for_all_sensors(boneio_manager=boneio_manager)
+                add_listener_for_all_outputs(boneio_manager, websocket_manager)
+                add_listener_for_all_covers(boneio_manager, websocket_manager)
+                add_listener_for_all_inputs(boneio_manager, websocket_manager)
+                add_listener_for_all_sensors(boneio_manager, websocket_manager)
 
                 while True:
                     data = await websocket.receive_text()
@@ -1189,10 +1158,7 @@ async def websocket_endpoint(
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
         if not websocket_manager.active_connections:
-            remove_listener_for_all_outputs(boneio_manager=boneio_manager)
-            remove_listener_for_all_covers(boneio_manager=boneio_manager)
-            remove_listener_for_all_inputs(boneio_manager=boneio_manager)
-            remove_listener_for_all_sensors(boneio_manager=boneio_manager)
+            boneio_manager.event_bus.remove_event_listener(listener_id="ws")
 
 
 # Static files setup

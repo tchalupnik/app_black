@@ -37,7 +37,13 @@ class GpioBase:
     actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]]
     empty_message_after: bool
     manager_press_callback: Callable[
-        [EventActionTypes | BinarySensorActionTypes, GpioBase, str, bool, float | None],
+        [
+            EventActionTypes | BinarySensorActionTypes,
+            GpioBase,
+            bool,
+            bool,
+            float | None,
+        ],
         Coroutine[Any, Any, None],
     ]
 
