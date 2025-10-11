@@ -52,9 +52,9 @@ async def start(
                 create_message_bus_fun = create_message_bus
             else:
 
-                def create_message_bus() -> (
-                    AbstractAsyncContextManager[LocalMessageBus]
-                ):
+                def create_message_bus() -> AbstractAsyncContextManager[
+                    LocalMessageBus
+                ]:
                     return LocalMessageBus.create()
 
                 create_message_bus_fun = create_message_bus

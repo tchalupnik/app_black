@@ -37,12 +37,12 @@ def test_device_config_files_exist(device_config_files: list[Path]):
 
     # Check if all files are JSON files
     for config_file in device_config_files:
-        assert (
-            config_file.suffix == ".json"
-        ), f"File {config_file.name} is not a JSON file"
-        assert (
-            config_file.is_file()
-        ), f"File {config_file} does not exist or is not a file"
+        assert config_file.suffix == ".json", (
+            f"File {config_file.name} is not a JSON file"
+        )
+        assert config_file.is_file(), (
+            f"File {config_file} does not exist or is not a file"
+        )
 
 
 def test_device_config_files_are_valid_json(device_config_data: dict[str, str]):
@@ -70,9 +70,9 @@ def test_individual_device_config_validation(
     device = ModbusDevice.model_validate_json(json_content)
     # Additional checks for correctly validated devices
     assert device.model, f"Device {device_name} model cannot be empty"
-    assert (
-        len(device.registers_base) > 0
-    ), f"Device {device_name} must have at least one register base"
+    assert len(device.registers_base) > 0, (
+        f"Device {device_name} must have at least one register base"
+    )
 
     # Check if all registers have unique names
     all_register_names = []
@@ -80,6 +80,6 @@ def test_individual_device_config_validation(
         for register in base.registers:
             all_register_names.append(register.name)
 
-    assert len(all_register_names) == len(
-        set(all_register_names)
-    ), f"Device {device_name} has duplicate register names"
+    assert len(all_register_names) == len(set(all_register_names)), (
+        f"Device {device_name} has duplicate register names"
+    )
