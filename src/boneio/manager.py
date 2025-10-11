@@ -241,7 +241,6 @@ class Manager:
         self.ina219_sensors: list[INA219] = []
         self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         self.modbus: Modbus | None = None
-        self.i2c: I2C | None = None
 
         if config.modbus is not None:
             self._configure_modbus(modbus=config.modbus)
@@ -249,6 +248,7 @@ class Manager:
         temp_sensor: TempSensor
         for temp_config in chain(config.lm75, config.mcp9808):
             id = temp_config.identifier()
+            send_topic = f"{self.config.get_topic_prefix()}/sensor/{strip_accents(id)}"
             try:
                 if isinstance(temp_config, Lm75Config):
                     temp_sensor = LM75Sensor(
@@ -258,11 +258,10 @@ class Manager:
                         address=temp_config.address,
                         event_bus=self.event_bus,
                         message_bus=message_bus,
-                        topic_prefix=self.config.get_topic_prefix(),
                         update_interval=temp_config.update_interval,
                         filter=Filter(temp_config.filters),
                         unit_of_measurement=temp_config.unit_of_measurement,
-                        send_topic=f"{self.config.get_topic_prefix()}/sensor/{strip_accents(self.id)}",
+                        send_topic=send_topic,
                     )
                 elif isinstance(temp_config, Mcp9808Config):
                     temp_sensor = MCP9808Sensor(
@@ -272,14 +271,13 @@ class Manager:
                         address=temp_config.address,
                         event_bus=self.event_bus,
                         message_bus=message_bus,
-                        topic_prefix=self.config.get_topic_prefix(),
                         update_interval=temp_config.update_interval,
-                        filters=Filter(temp_config.filters),
+                        filter=Filter(temp_config.filters),
                         unit_of_measurement=temp_config.unit_of_measurement,
-                        send_topic=f"{self.config.get_topic_prefix()}/sensor/{strip_accents(self.id)}",
+                        send_topic=send_topic,
                     )
                 else:
-                    assert_never(temp_config)
+                    raise ValueError("Wrong temperature sensor platform.")
             except I2CError as err:
                 _LOGGER.error("Can't configure Temp lm75. %s", err)
                 continue
@@ -296,7 +294,6 @@ class Manager:
                 refresh_wrapper(temp_sensor.update, temp_sensor.update_interval), id
             )
 
-        self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         if config.ina219 is not None:
             self._configure_ina219_sensors(sensors=config.ina219)
         self._configure_sensors(
@@ -738,7 +735,7 @@ class Manager:
         from boneio.helper.loader import find_onewire_devices
 
         _one_wire_devices: dict[int, OneWireAddress] = {}
-        _ds_onewire_bus: dict[int, OneWireBus] = {}
+        _ds_onewire_bus: dict[str, OneWireBus] = {}
 
         for _single_ds in ds2482:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds.address)
@@ -764,7 +761,7 @@ class Manager:
 
                 _one_wire_devices.update(
                     find_onewire_devices(
-                        ow_bus=AsyncBoneIOW1ThermSensor(),
+                        ow_bus=AsyncBoneIOW1ThermSensor,
                         bus_id=dallas.id,
                         bus_type="dallas",
                     )
@@ -1140,20 +1137,26 @@ class Manager:
             elif isinstance(cover_message, CoverPosMqttMessage):
                 await cover.set_cover_position(position=cover_message.message)
             elif isinstance(cover_message, CoverTiltMqttMessage):
+                if not isinstance(cover, VenetianCover):
+                    _LOGGER.warning(
+                        "This cover %s is not Venetian cover. Ignoring tilt message.",
+                        cover_message.device_id,
+                    )
+                    return
                 if isinstance(cover_message.message, int):
                     await cover.set_tilt(tilt_position=cover_message.message)
                 else:
                     await cover.stop()
         elif isinstance(mqtt_message, GroupMqttMessage):
-            target_device = self.output_groups.get(mqtt_message.device_id)
-            if target_device is not None and target_device.output_type != "none":
+            output_group = self.output_groups.get(mqtt_message.device_id)
+            if output_group is not None and output_group.output_type != "none":
                 match mqtt_message.message:
                     case "ON":
-                        await target_device.turn_on()
+                        await output_group.turn_on()
                     case "OFF":
-                        await target_device.turn_off()
+                        await output_group.turn_off()
                     case "TOGGLE":
-                        await target_device.toggle()
+                        await output_group.toggle()
                     case _:
                         assert_never(mqtt_message)
             else:
@@ -1183,9 +1186,9 @@ class Manager:
                 raise ValueError("Wrong button command!")
 
         elif isinstance(mqtt_message, ModbusMqttMessage):
-            target_device = self.modbus_coordinators.get(mqtt_message.device_id)
-            if target_device is not None:
-                await target_device.write_register(
+            coordinator = self.modbus_coordinators.get(mqtt_message.device_id)
+            if coordinator is not None:
+                await coordinator.write_register(
                     value=mqtt_message.message.value,
                     entity=mqtt_message.message.device,
                 )

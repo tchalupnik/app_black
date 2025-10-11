@@ -287,7 +287,7 @@ def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus
 
 
 def find_onewire_devices(
-    ow_bus: OneWireBus | AsyncBoneIOW1ThermSensor,
+    ow_bus: type[OneWireBus] | type[AsyncBoneIOW1ThermSensor],
     bus_id: str,
     bus_type: Literal["ds2482", "dallas"],
 ) -> dict[int, OneWireAddress]:
