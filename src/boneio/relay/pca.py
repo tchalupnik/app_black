@@ -34,7 +34,7 @@ class PWMPCA(BasicRelay):
         try:
             if self._pin.duty_cycle > 65535:
                 return 0
-            return self._pin.duty_cycle
+            return int(self._pin.duty_cycle)
         except KeyError:
             _LOGGER.error("Cant read value form driver on pin %s", self.pin_id)
             return 0

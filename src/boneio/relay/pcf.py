@@ -29,7 +29,7 @@ class PCFRelay(BasicRelay):
 
     def is_active(self) -> bool:
         """Is relay active."""
-        return self._pin.value
+        return bool(self._pin.value)
 
     def _turn_on(self) -> None:
         """Call turn on action."""

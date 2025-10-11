@@ -37,7 +37,7 @@ class GpioBase:
     actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]]
     empty_message_after: bool
     manager_press_callback: Callable[
-        [ClickTypes, GpioBase, str, bool, float | None],
+        [EventActionTypes | BinarySensorActionTypes, GpioBase, str, bool, float | None],
         Coroutine[Any, Any, None],
     ]
 
@@ -60,7 +60,7 @@ class GpioBase:
 
     def press_callback(
         self,
-        click_type: ClickTypes,
+        click_type: EventActionTypes | BinarySensorActionTypes,
         duration: float | None = None,
         start_time: float | None = None,
     ) -> None:
@@ -71,7 +71,7 @@ class GpioBase:
 
     async def _handle_press_with_lock(
         self,
-        click_type: ClickTypes,
+        click_type: EventActionTypes | BinarySensorActionTypes,
         duration: float | None = None,
         start_time: float | None = None,
     ) -> None:

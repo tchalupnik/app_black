@@ -42,7 +42,7 @@ class _VirtualEnergySensor:
     water_consumed_L = 0.0
 
     def __post_init__(self) -> None:
-        self._virtual_sensors_task = None
+        self._virtual_sensors_task: asyncio.Task[None] | None = None
         self.virtual_energy_topic = f"{self.topic_prefix}/energy/{self.id}"
         self._subscribe_restore_energy_state()
         self._loop = asyncio.get_running_loop()
@@ -242,10 +242,10 @@ class BasicRelay(ABC):
             and self.virtual_energy_sensor.virtual_volume_flow_rate is not None
         )
 
-    def payload(self) -> dict[str, Literal["ON", "OFF"]]:
+    def payload(self) -> dict[str, int | Literal["ON", "OFF"]]:
         return {"state": self.state}
 
-    def send_state(self, optimized_value: str | None = None) -> None:
+    def send_state(self, optimized_value: Literal["ON", "OFF"] | None = None) -> None:
         """Send state to Mqtt on action asynchronously."""
         if optimized_value:
             state = optimized_value
@@ -271,7 +271,7 @@ class BasicRelay(ABC):
                 entity_id=self.id,
                 event_state=OutputState(
                     id=self.id,
-                    name=self.name,
+                    name=self.name or self.id,
                     state=state,
                     type=self.output_type,
                     pin=self.pin_id,

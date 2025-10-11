@@ -135,6 +135,7 @@ class Manager:
         config_file_path: Path,
         dry: bool = False,
     ) -> AsyncGenerator[Manager]:
+        GpioManagerClass: type[GpioManagerBase]
         if dry:
             from boneio.gpio_manager.mock import GpioManagerMock
 
@@ -239,6 +240,7 @@ class Manager:
         if config.modbus is not None:
             self._configure_modbus(modbus=config.modbus)
 
+        temp_sensor: TempSensor
         for sensor in config.lm75:
             id = sensor.identifier()
             try:
@@ -265,8 +267,7 @@ class Manager:
                 availability_msg_func=ha_sensor_temp_availabilty_message,
                 unit_of_measurement=temp_sensor.unit_of_measurement,
             )
-            if temp_sensor:
-                self.temp_sensors.append(temp_sensor)
+            self.temp_sensors.append(temp_sensor)
         for sensor in config.mcp9808:
             id = sensor.identifier()
             try:
@@ -293,8 +294,7 @@ class Manager:
                 availability_msg_func=ha_sensor_temp_availabilty_message,
                 unit_of_measurement=temp_sensor.unit_of_measurement,
             )
-            if temp_sensor:
-                self.temp_sensors.append(temp_sensor)
+            self.temp_sensors.append(temp_sensor)
 
         self.modbus_coordinators = {}
         if config.ina219 is not None:
@@ -502,6 +502,7 @@ class Manager:
                         _cover.update_config_times(cover_config)
                     continue
 
+                cover: PreviousCover | TimeBasedCover | VenetianCover
                 if isinstance(cover_config, VenetianCoverConfig):
                     if not cover_config.tilt_duration:
                         raise CoverConfigurationError(
@@ -757,7 +758,7 @@ class Manager:
             _LOGGER.debug("Preparing Dallas bus.")
 
             try:
-                from w1thermsensor.kernel import load_kernel_modules  # type: ignore
+                from w1thermsensor.kernel import load_kernel_modules
 
                 load_kernel_modules()
 

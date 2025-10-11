@@ -389,7 +389,7 @@ class BinarySensorConfig(BaseModel):
         return self.pin
 
 
-OutputTypes: TypeAlias = Literal["cover", "light", "switch", "valve", "none"]
+OutputTypes: TypeAlias = Literal["cover", "led", "light", "switch", "valve", "none"]
 
 
 class OutputConfigBase(BaseModel):
