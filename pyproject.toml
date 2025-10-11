@@ -23,8 +23,8 @@ dependencies = [
   "adafruit-circuitpython-pca9685==3.4.19",
   "adafruit-circuitpython-pcf8575==1.0.11",
   "adafruit-circuitpython-typing==1.12.2",
-  "fastapi==0.118.0",
-  "pydantic==2.11.10",
+  "fastapi==0.118.3",
+  "pydantic==2.12.0",
   "hypercorn==0.17.3",
   "python-jose[cryptography]==3.5.0",
   "qrcode==8.2",
@@ -40,7 +40,7 @@ license = { text = "GNU General Public License v3.0" }
 
 [dependency-groups]
 dev = [
-  "ruff>=0.13.2",
+  "ruff>=0.14.0",
   "ty>=0.0.1a20",
   "pre-commit>=3.8.0",
   "bandit>=1.7.5",
@@ -70,6 +70,7 @@ build-backend = "uv_build"
 python_version = "3.11"
 mypy_path = "stubs"
 strict = true
+ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py311"
