@@ -6,54 +6,37 @@ import logging
 import time
 import typing
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import timedelta
 
-from boneio.config import Filters
-from boneio.events import SensorEvent
-from boneio.helper import refresh_wrapper
+from boneio.events import EventBus, SensorEvent
 from boneio.helper.filter import Filter
-from boneio.helper.util import strip_accents
 from boneio.models import SensorState
 
 if typing.TYPE_CHECKING:
-    from boneio.manager import Manager
     from boneio.message_bus.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
 class TempSensor(ABC):
     """Represent Temp sensor in BoneIO."""
 
-    def __init__(
-        self,
-        id: str,
-        manager: Manager,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        name: str,
-        update_interval: timedelta,
-        filters: list[dict[Filters, float]],
-        unit_of_measurement: str,
-    ):
-        """Initialize Temp class."""
-        if not filters:
-            filters = [{"round": 2}]
-        self.id = id.replace(" ", "")
-        self.name = name
-        self.message_bus = message_bus
-        self.manager = manager
-        self._send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
-
-        self.filter = Filter(filters)
-        self.unit_of_measurement = unit_of_measurement
-        self._state: float | None = None
-        self.last_timestamp = time.time()
-        manager.append_task(refresh_wrapper(self.update, update_interval), self.name)
+    id: str
+    message_bus: MessageBus
+    event_bus: EventBus
+    send_topic: str
+    name: str
+    update_interval: timedelta
+    filter: Filter
+    unit_of_measurement: str
+    last_timestamp: float = field(default_factory=time.time, init=False)
+    _state: float | None = field(default=None, init=False)
 
     @abstractmethod
     def get_temperature(self) -> float:
-        pass
+        """Get temperature from sensor."""
 
     @property
     def state(self) -> float:
@@ -71,7 +54,7 @@ class TempSensor(ABC):
             return
         self._state = _temp
         self.last_timestamp = timestamp
-        self.manager.event_bus.trigger_event(
+        self.event_bus.trigger_event(
             SensorEvent(
                 entity_id=self.id,
                 event_state=SensorState(
@@ -84,6 +67,6 @@ class TempSensor(ABC):
             )
         )
         self.message_bus.send_message(
-            topic=self._send_topic,
+            topic=self.send_topic,
             payload={"state": self._state},
         )

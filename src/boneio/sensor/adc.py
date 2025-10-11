@@ -38,7 +38,7 @@ class GpioADCSensor:
         """Setup GPIO ADC Sensor"""
         self.send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
         self.filter = Filter(filters)
-        self.filename: str = {
+        filename: str | None = {
             "P9_39": "in_voltage0_raw",
             "P9_40": "in_voltage1_raw",
             "P9_37": "in_voltage2_raw",
@@ -47,8 +47,9 @@ class GpioADCSensor:
             "P9_36": "in_voltage5_raw",
             "P9_35": "in_voltage6_raw",
         }.get(self.pin)
-        if self.filename is None:
+        if filename is None:
             raise ValueError("ADC pin %s is not valid.", self.pin)
+        self.filename = filename
         _LOGGER.debug("Configured sensor pin %s", self.pin)
 
     def update(self, timestamp: float) -> None:
@@ -57,12 +58,12 @@ class GpioADCSensor:
         self._timestamp = timestamp
         self.message_bus.send_message(
             topic=self.send_topic,
-            payload=self.state,
+            payload=str(self.state),
         )
 
     def read(self) -> float:
         """Read value from ADC pin."""
-        path = Path("/sys/bus/iio/devices/iio:device0/" / self.filename)
+        path = Path("/sys/bus/iio/devices/iio:device0/") / self.filename
         try:
             with path.open() as file:
                 value = int(file.read().strip())

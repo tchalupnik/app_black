@@ -92,7 +92,7 @@ class INA219:
                 id=_id.replace(" ", ""),
                 name=sensor_id,
                 message_bus=message_bus,
-                filters=Filter(sensor.filters),
+                filter=Filter(sensor.filters),
                 send_topic=f"{topic_prefix}/sensor/{strip_accents(_id)}",
                 device_class=sensor.device_class,
             )

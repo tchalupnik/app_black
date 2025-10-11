@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing
-from datetime import timedelta
+from dataclasses import dataclass
 
 from adafruit_pct2075 import PCT2075
 
@@ -14,43 +14,23 @@ from . import TempSensor
 if typing.TYPE_CHECKING:
     from busio import I2C
 
-    from boneio.config import Filters
-    from boneio.manager import Manager
-    from boneio.message_bus.basic import MessageBus
 
-
+@dataclass
 class LM75Sensor(TempSensor):
     """Represent MCP9808 sensor in BoneIO."""
 
-    def __init__(
+    i2c: I2C
+    address: int
+
+    def __post_init__(
         self,
-        id: str,
-        i2c: I2C,
-        address: int,
-        manager: Manager,
-        message_bus: MessageBus,
-        topic_prefix: str,
-        name: str,
-        update_interval: timedelta,
-        filters: list[dict[Filters, float]],
-        unit_of_measurement: str,
     ) -> None:
         """Initialize Temp class."""
 
         try:
-            self.pct = PCT2075(i2c, address)
+            self.pct = PCT2075(self.i2c, self.address)
         except ValueError as err:
             raise I2CError(err)
-        super().__init__(
-            id=id,
-            manager=manager,
-            message_bus=message_bus,
-            topic_prefix=topic_prefix,
-            name=name,
-            update_interval=update_interval,
-            filters=filters,
-            unit_of_measurement=unit_of_measurement,
-        )
 
     def get_temperature(self) -> float:
-        return self.pct.temperature
+        return float(self.pct.temperature)

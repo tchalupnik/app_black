@@ -8,6 +8,7 @@ from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
+from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, assert_never
 
@@ -29,6 +30,8 @@ from boneio.config import (
     Ds2482Config,
     EventActionTypes,
     Ina219Config,
+    Lm75Config,
+    Mcp9808Config,
     Mcp23017Config,
     ModbusConfig,
     ModbusDeviceConfig,
@@ -58,6 +61,7 @@ from boneio.helper import (
 )
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.exceptions import CoverConfigurationError
+from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import (
     HaDiscoveryMessage,
     ha_binary_sensor_availabilty_message,
@@ -243,50 +247,41 @@ class Manager:
             self._configure_modbus(modbus=config.modbus)
 
         temp_sensor: TempSensor
-        for lm75 in config.lm75:
-            id = lm75.identifier()
+        for temp_config in chain(config.lm75, config.mcp9808):
+            id = temp_config.identifier()
             try:
-                temp_lm75 = LM75Sensor(
-                    id=id,
-                    name=lm75.id,
-                    i2c=self._get_lazy_i2c(),
-                    address=lm75.address,
-                    manager=self,
-                    message_bus=message_bus,
-                    topic_prefix=self.config.get_topic_prefix(),
-                    update_interval=lm75.update_interval,
-                    filters=lm75.filters,
-                    unit_of_measurement=lm75.unit_of_measurement,
-                )
+                if isinstance(temp_config, Lm75Config):
+                    temp_sensor = LM75Sensor(
+                        id=id,
+                        name=temp_config.id,
+                        i2c=self._get_lazy_i2c(),
+                        address=temp_config.address,
+                        event_bus=self.event_bus,
+                        message_bus=message_bus,
+                        topic_prefix=self.config.get_topic_prefix(),
+                        update_interval=temp_config.update_interval,
+                        filter=Filter(temp_config.filters),
+                        unit_of_measurement=temp_config.unit_of_measurement,
+                        send_topic=f"{self.config.get_topic_prefix()}/sensor/{strip_accents(self.id)}",
+                    )
+                elif isinstance(temp_config, Mcp9808Config):
+                    temp_sensor = MCP9808Sensor(
+                        id=id,
+                        name=temp_config.id,
+                        i2c=self._get_lazy_i2c(),
+                        address=temp_config.address,
+                        event_bus=self.event_bus,
+                        message_bus=message_bus,
+                        topic_prefix=self.config.get_topic_prefix(),
+                        update_interval=temp_config.update_interval,
+                        filters=Filter(temp_config.filters),
+                        unit_of_measurement=temp_config.unit_of_measurement,
+                        send_topic=f"{self.config.get_topic_prefix()}/sensor/{strip_accents(self.id)}",
+                    )
+                else:
+                    assert_never(temp_config)
             except I2CError as err:
                 _LOGGER.error("Can't configure Temp lm75. %s", err)
-                continue
-
-            self.send_ha_autodiscovery(
-                id=id,
-                name=lm75.id,
-                ha_type="sensor",
-                availability_msg_func=ha_sensor_temp_availabilty_message,
-                unit_of_measurement=temp_lm75.unit_of_measurement,
-            )
-            self.temp_sensors.append(temp_lm75)
-        for mcp9808 in config.mcp9808:
-            id = mcp9808.identifier()
-            try:
-                temp_sensor = MCP9808Sensor(
-                    id=id,
-                    name=mcp9808.id,
-                    i2c=self._get_lazy_i2c(),
-                    address=mcp9808.address,
-                    manager=self,
-                    message_bus=message_bus,
-                    topic_prefix=self.config.get_topic_prefix(),
-                    update_interval=mcp9808.update_interval,
-                    filters=mcp9808.filters,
-                    unit_of_measurement=mcp9808.unit_of_measurement,
-                )
-            except I2CError as err:
-                _LOGGER.error("Can't configure Temp sensor. %s", err)
                 continue
 
             self.send_ha_autodiscovery(
@@ -297,6 +292,9 @@ class Manager:
                 unit_of_measurement=temp_sensor.unit_of_measurement,
             )
             self.temp_sensors.append(temp_sensor)
+            self.append_task(
+                refresh_wrapper(temp_sensor.update, temp_sensor.update_interval), id
+            )
 
         self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         if config.ina219 is not None:
