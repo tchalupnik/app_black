@@ -23,7 +23,7 @@ AutodiscoveryType = Literal[
     "sensor",
     "cover",
     "button",
-    "event_entity",
+    "event",
     "valve",
     "text_sensor",
     "select",

@@ -15,11 +15,12 @@ import anyio
 import anyio.abc
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
-from pydantic import BaseModel, TypeAdapter
+from pydantic import TypeAdapter
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
     AdcConfig,
+    AutodiscoveryType,
     BinarySensorActionTypes,
     Config,
     CoverActionConfig,
@@ -58,6 +59,7 @@ from boneio.helper import (
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.exceptions import CoverConfigurationError
 from boneio.helper.ha_discovery import (
+    HaDiscoveryMessage,
     ha_binary_sensor_availabilty_message,
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
@@ -114,7 +116,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-AVAILABILITY_FUNCTION_CHOOSER = {
+AVAILABILITY_FUNCTION_CHOOSER: dict[str, Callable[..., HaDiscoveryMessage]] = {
     "light": ha_light_availabilty_message,
     "led": ha_led_availabilty_message,
     "switch": ha_switch_availabilty_message,
@@ -241,47 +243,47 @@ class Manager:
             self._configure_modbus(modbus=config.modbus)
 
         temp_sensor: TempSensor
-        for sensor in config.lm75:
-            id = sensor.identifier()
+        for lm75 in config.lm75:
+            id = lm75.identifier()
             try:
-                temp_sensor = LM75Sensor(
+                temp_lm75 = LM75Sensor(
                     id=id,
-                    name=sensor.id,
+                    name=lm75.id,
                     i2c=self._get_lazy_i2c(),
-                    address=sensor.address,
+                    address=lm75.address,
                     manager=self,
                     message_bus=message_bus,
                     topic_prefix=self.config.get_topic_prefix(),
-                    update_interval=sensor.update_interval,
-                    filters=sensor.filters,
-                    unit_of_measurement=sensor.unit_of_measurement,
+                    update_interval=lm75.update_interval,
+                    filters=lm75.filters,
+                    unit_of_measurement=lm75.unit_of_measurement,
                 )
             except I2CError as err:
-                _LOGGER.error("Can't configure Temp sensor. %s", err)
+                _LOGGER.error("Can't configure Temp lm75. %s", err)
                 continue
 
             self.send_ha_autodiscovery(
                 id=id,
-                name=sensor.id,
+                name=lm75.id,
                 ha_type="sensor",
                 availability_msg_func=ha_sensor_temp_availabilty_message,
-                unit_of_measurement=temp_sensor.unit_of_measurement,
+                unit_of_measurement=temp_lm75.unit_of_measurement,
             )
-            self.temp_sensors.append(temp_sensor)
-        for sensor in config.mcp9808:
-            id = sensor.identifier()
+            self.temp_sensors.append(temp_lm75)
+        for mcp9808 in config.mcp9808:
+            id = mcp9808.identifier()
             try:
                 temp_sensor = MCP9808Sensor(
                     id=id,
-                    name=sensor.id,
+                    name=mcp9808.id,
                     i2c=self._get_lazy_i2c(),
-                    address=sensor.address,
+                    address=mcp9808.address,
                     manager=self,
                     message_bus=message_bus,
                     topic_prefix=self.config.get_topic_prefix(),
-                    update_interval=sensor.update_interval,
-                    filters=sensor.filters,
-                    unit_of_measurement=sensor.unit_of_measurement,
+                    update_interval=mcp9808.update_interval,
+                    filters=mcp9808.filters,
+                    unit_of_measurement=mcp9808.unit_of_measurement,
                 )
             except I2CError as err:
                 _LOGGER.error("Can't configure Temp sensor. %s", err)
@@ -289,14 +291,14 @@ class Manager:
 
             self.send_ha_autodiscovery(
                 id=id,
-                name=sensor.id,
+                name=temp_sensor.id,
                 ha_type="sensor",
                 availability_msg_func=ha_sensor_temp_availabilty_message,
                 unit_of_measurement=temp_sensor.unit_of_measurement,
             )
             self.temp_sensors.append(temp_sensor)
 
-        self.modbus_coordinators = {}
+        self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
         if config.ina219 is not None:
             self._configure_ina219_sensors(sensors=config.ina219)
         self._configure_sensors(
@@ -386,8 +388,8 @@ class Manager:
             if out.output_type not in ("none", "cover"):
                 self.send_ha_autodiscovery(
                     id=out.id,
-                    name=out.name,
-                    ha_type=("light" if out.output_type == "led" else out.output_type),
+                    name=out.name or out.id,
+                    ha_type="light" if out.output_type == "led" else out.output_type,
                     availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
                         out.output_type, ha_switch_availabilty_message
                     ),
@@ -660,7 +662,7 @@ class Manager:
 
             from boneio.gpio import GpioInputBinarySensorNew, GpioInputBinarySensorOld
 
-            input = (self.inputs.get(sensor_config.pin),)  # for reload actions.
+            input = self.inputs.get(sensor_config.pin)
 
             if input:
                 GpioInputBinarySensorClass = (
@@ -1205,8 +1207,8 @@ class Manager:
         self,
         id: str,
         name: str,
-        ha_type: str,
-        availability_msg_func: Callable[..., BaseModel],
+        ha_type: AutodiscoveryType,
+        availability_msg_func: Callable[..., HaDiscoveryMessage],
         topic_prefix: str | None = None,
         **kwargs,
     ) -> None:
