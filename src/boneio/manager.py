@@ -58,16 +58,16 @@ from boneio.helper import (
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.exceptions import CoverConfigurationError
 from boneio.helper.ha_discovery import (
+    ha_binary_sensor_availabilty_message,
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
+    ha_event_availabilty_message,
     ha_sensor_availability_message,
     ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
     ha_valve_availabilty_message,
 )
 from boneio.helper.loader import (
-    configure_binary_sensor,
-    configure_event_sensor,
     configure_relay,
     create_adc,
     create_dallas_sensor,
@@ -594,33 +594,126 @@ class Manager:
             if self.config.mqtt is not None:
                 self.config.mqtt.autodiscovery_messages.clear_type(type="event")
                 self.config.mqtt.autodiscovery_messages.clear_type(type="binary_sensor")
-        for gpio in self.config.event:
-            if check_if_pin_configured(pin=gpio.pin):
+        for event_config in self.config.event:
+            if check_if_pin_configured(pin=event_config.pin):
                 return
-            input = configure_event_sensor(
-                tg=self.tg,
-                event_config=gpio,
-                manager_press_callback=self.press_callback,
-                event_bus=self.event_bus,
-                send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self.inputs.get(gpio.pin),  # for reload actions.
-                gpio_manager=self.gpio_manager,
-            )
+            from boneio.gpio import GpioEventButtonNew, GpioEventButtonOld
+
+            input = self.inputs.get(event_config.pin)
+
+            if input:
+                GpioEventButtonClass = (
+                    GpioEventButtonNew
+                    if event_config.detection_type == "new"
+                    else GpioEventButtonOld
+                )
+                if not isinstance(input, GpioEventButtonClass):
+                    _LOGGER.warning(
+                        "You reconfigured type of input. It's forbidden. Please restart boneIO."
+                    )
+                    continue
+                input.actions = event_config.actions
+            else:
+                if event_config.detection_type == "new":
+                    input = GpioEventButtonNew(
+                        tg=self.tg,
+                        manager_press_callback=self.press_callback,
+                        event_bus=self.event_bus,
+                        gpio_manager=self.gpio_manager,
+                        pin=event_config.pin,
+                        name=event_config.identifier(),
+                        actions=event_config.actions,
+                        empty_message_after=event_config.clear_message,
+                        boneio_input=event_config.boneio_input,
+                        bounce_time=event_config.bounce_time,
+                        gpio_mode=event_config.gpio_mode,
+                    )
+                else:
+                    input = GpioEventButtonOld(
+                        tg=self.tg,
+                        manager_press_callback=self.press_callback,
+                        event_bus=self.event_bus,
+                        gpio_manager=self.gpio_manager,
+                        pin=event_config.pin,
+                        name=event_config.identifier(),
+                        actions=event_config.actions,
+                        empty_message_after=event_config.clear_message,
+                        boneio_input=event_config.boneio_input,
+                        bounce_time=event_config.bounce_time,
+                        gpio_mode=event_config.gpio_mode,
+                    )
+            if event_config.show_in_ha:
+                self.send_ha_autodiscovery(
+                    id=event_config.pin,
+                    name=event_config.identifier(),
+                    ha_type="event",
+                    device_class=event_config.device_class,
+                    availability_msg_func=ha_event_availabilty_message,
+                )
             if input:
                 self.inputs[input.pin] = input
 
-        for gpio in self.config.binary_sensor:
-            if check_if_pin_configured(pin=gpio.pin):
+        for sensor_config in self.config.binary_sensor:
+            if check_if_pin_configured(pin=sensor_config.pin):
                 return
-            input = configure_binary_sensor(
-                tg=self.tg,
-                sensor_config=gpio,
-                manager_press_callback=self.press_callback,
-                event_bus=self.event_bus,
-                send_ha_autodiscovery=self.send_ha_autodiscovery,
-                input=self.inputs.get(gpio.pin),  # for reload actions.
-                gpio_manager=self.gpio_manager,
-            )
+
+            from boneio.gpio import GpioInputBinarySensorNew, GpioInputBinarySensorOld
+
+            input = (self.inputs.get(sensor_config.pin),)  # for reload actions.
+
+            if input:
+                GpioInputBinarySensorClass = (
+                    GpioInputBinarySensorNew
+                    if sensor_config.detection_type == "new"
+                    else GpioInputBinarySensorOld
+                )
+                if not isinstance(input, GpioInputBinarySensorClass):
+                    _LOGGER.warning(
+                        "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                    )
+                    continue
+                input.actions = sensor_config.actions
+            else:
+                if sensor_config.detection_type == "new":
+                    input = GpioInputBinarySensorNew(
+                        tg=self.tg,
+                        pin=sensor_config.pin,
+                        name=sensor_config.identifier(),
+                        actions=sensor_config.actions,
+                        empty_message_after=sensor_config.clear_message,
+                        manager_press_callback=self.press_callback,
+                        event_bus=self.event_bus,
+                        gpio_manager=self.gpio_manager,
+                        boneio_input=sensor_config.boneio_input,
+                        bounce_time=sensor_config.bounce_time,
+                        gpio_mode=sensor_config.gpio_mode,
+                        inverted=sensor_config.inverted,
+                        initial_send=sensor_config.initial_send,
+                    )
+                else:
+                    input = GpioInputBinarySensorOld(
+                        tg=self.tg,
+                        pin=sensor_config.pin,
+                        name=sensor_config.identifier(),
+                        actions=sensor_config.actions,
+                        empty_message_after=sensor_config.clear_message,
+                        manager_press_callback=self.press_callback,
+                        event_bus=self.event_bus,
+                        gpio_manager=self.gpio_manager,
+                        boneio_input=sensor_config.boneio_input,
+                        bounce_time=sensor_config.bounce_time,
+                        gpio_mode=sensor_config.gpio_mode,
+                        inverted=sensor_config.inverted,
+                    )
+
+            if sensor_config.show_in_ha:
+                self.send_ha_autodiscovery(
+                    id=sensor_config.pin,
+                    name=sensor_config.identifier(),
+                    ha_type="binary_sensor",
+                    device_class=sensor_config.device_class,
+                    availability_msg_func=ha_binary_sensor_availabilty_message,
+                )
             if input:
                 self.inputs[input.pin] = input
 

@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, assert_never
 
-import anyio.abc
 from busio import I2C
 
 from boneio.config import (
     AdcConfig,
-    BinarySensorConfig,
     Config,
-    EventConfig,
     GpioOutputConfig,
     McpOutputConfig,
     MockOutputConfig,
@@ -22,13 +18,10 @@ from boneio.config import (
     SensorConfig,
 )
 from boneio.events import EventBus
-from boneio.gpio_manager import GpioManagerBase
 from boneio.helper import (
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
-    ha_binary_sensor_availabilty_message,
-    ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
     refresh_wrapper,
 )
@@ -50,7 +43,6 @@ from boneio.sensor import DallasSensorDS2482, GpioADCSensor
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 if TYPE_CHECKING:
-    from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -286,138 +278,6 @@ def configure_relay(
             value_template="{{ value_json.water }}",
         )
     return relay
-
-
-def configure_event_sensor(
-    tg: anyio.abc.TaskGroup,
-    event_config: EventConfig,
-    gpio_manager: GpioManagerBase,
-    manager_press_callback: Callable,
-    event_bus: EventBus,
-    send_ha_autodiscovery: Callable,
-    input: GpioEventButtonsAndSensors | None = None,
-) -> GpioEventButtonsAndSensors:
-    """Configure input sensor or button."""
-    from boneio.gpio import GpioEventButtonNew, GpioEventButtonOld
-
-    if input:
-        GpioEventButtonClass = (
-            GpioEventButtonNew
-            if event_config.detection_type == "new"
-            else GpioEventButtonOld
-        )
-        if not isinstance(input, GpioEventButtonClass):
-            _LOGGER.warning(
-                "You reconfigured type of input. It's forbidden. Please restart boneIO."
-            )
-            return input
-        input.actions = event_config.actions
-    else:
-        if event_config.detection_type == "new":
-            input = GpioEventButtonNew(
-                tg=tg,
-                manager_press_callback=manager_press_callback,
-                event_bus=event_bus,
-                gpio_manager=gpio_manager,
-                pin=event_config.pin,
-                name=event_config.identifier(),
-                actions=event_config.actions,
-                empty_message_after=event_config.clear_message,
-                boneio_input=event_config.boneio_input,
-                bounce_time=event_config.bounce_time,
-                gpio_mode=event_config.gpio_mode,
-            )
-        else:
-            input = GpioEventButtonOld(
-                tg=tg,
-                manager_press_callback=manager_press_callback,
-                event_bus=event_bus,
-                gpio_manager=gpio_manager,
-                pin=event_config.pin,
-                name=event_config.identifier(),
-                actions=event_config.actions,
-                empty_message_after=event_config.clear_message,
-                boneio_input=event_config.boneio_input,
-                bounce_time=event_config.bounce_time,
-                gpio_mode=event_config.gpio_mode,
-            )
-    if event_config.show_in_ha:
-        send_ha_autodiscovery(
-            id=event_config.pin,
-            name=event_config.identifier(),
-            ha_type="event",
-            device_class=event_config.device_class,
-            availability_msg_func=ha_event_availabilty_message,
-        )
-    return input
-
-
-def configure_binary_sensor(
-    tg: anyio.abc.TaskGroup,
-    sensor_config: BinarySensorConfig,
-    manager_press_callback: Callable,
-    event_bus: EventBus,
-    send_ha_autodiscovery: Callable,
-    gpio_manager: GpioManagerBase,
-    input: GpioEventButtonsAndSensors | None = None,
-) -> GpioEventButtonsAndSensors:
-    """Configure input sensor or button."""
-    from boneio.gpio import GpioInputBinarySensorNew, GpioInputBinarySensorOld
-
-    if input:
-        GpioInputBinarySensorClass = (
-            GpioInputBinarySensorNew
-            if sensor_config.detection_type == "new"
-            else GpioInputBinarySensorOld
-        )
-        if not isinstance(input, GpioInputBinarySensorClass):
-            _LOGGER.warning(
-                "You preconfigured type of input. It's forbidden. Please restart boneIO."
-            )
-            return input
-        input.actions = sensor_config.actions
-    else:
-        if sensor_config.detection_type == "new":
-            input = GpioInputBinarySensorNew(
-                tg=tg,
-                pin=sensor_config.pin,
-                name=sensor_config.identifier(),
-                actions=sensor_config.actions,
-                empty_message_after=sensor_config.clear_message,
-                manager_press_callback=manager_press_callback,
-                event_bus=event_bus,
-                gpio_manager=gpio_manager,
-                boneio_input=sensor_config.boneio_input,
-                bounce_time=sensor_config.bounce_time,
-                gpio_mode=sensor_config.gpio_mode,
-                inverted=sensor_config.inverted,
-                initial_send=sensor_config.initial_send,
-            )
-        else:
-            input = GpioInputBinarySensorOld(
-                tg=tg,
-                pin=sensor_config.pin,
-                name=sensor_config.identifier(),
-                actions=sensor_config.actions,
-                empty_message_after=sensor_config.clear_message,
-                manager_press_callback=manager_press_callback,
-                event_bus=event_bus,
-                gpio_manager=gpio_manager,
-                boneio_input=sensor_config.boneio_input,
-                bounce_time=sensor_config.bounce_time,
-                gpio_mode=sensor_config.gpio_mode,
-                inverted=sensor_config.inverted,
-            )
-
-    if sensor_config.show_in_ha:
-        send_ha_autodiscovery(
-            id=sensor_config.pin,
-            name=sensor_config.identifier(),
-            ha_type="binary_sensor",
-            device_class=sensor_config.device_class,
-            availability_msg_func=ha_binary_sensor_availabilty_message,
-        )
-    return input
 
 
 def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
