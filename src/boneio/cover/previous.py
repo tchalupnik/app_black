@@ -10,7 +10,7 @@ from datetime import timedelta
 
 import anyio
 
-from boneio.events import CoverEvent, EventBus, ListenerJob
+from boneio.events import CoverEvent, EventBus
 from boneio.helper.state_manager import CoverStateEntry, StateManager
 from boneio.helper.util import strip_accents
 from boneio.models import (
@@ -62,7 +62,7 @@ class PreviousCover:
     timestamp: float = field(init=False, default_factory=time.monotonic)
     lock: anyio.Lock = field(init=False, default_factory=anyio.Lock)
     set_position: int | None = field(init=False, default=None)
-    timer_handle: ListenerJob | None = field(init=False, default=None)
+    is_started: bool = field(init=False, default=False)
 
     def __post_init__(self) -> None:
         """Initialize cover class."""
@@ -98,8 +98,8 @@ class PreviousCover:
         async with self.lock:
             if inverted_relay.is_active():
                 await inverted_relay.turn_off()
-            # TODO: Check if this works
-            self.timer_handle = self.event_bus.add_every_second_listener(
+            self.is_started = True
+            self.event_bus.add_every_second_listener(
                 f"cover{self.id}", self.listen_cover
             )
             await relay.turn_on()
@@ -148,9 +148,9 @@ class PreviousCover:
         """Stop cover."""
         await self._open.relay.turn_off()
         await self._close.relay.turn_off()
-        if self.timer_handle is not None:
+        if self.is_started:
             self.event_bus.remove_every_second_listener(f"cover{self.id}")
-            self.timer_handle = None
+            self.is_started = False
             self.set_position = None
             if not on_exit:
                 self.send_state()

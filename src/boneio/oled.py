@@ -520,7 +520,7 @@ class UpdatingScreen(Generic[_T]):
     def name(self) -> str:
         return self.screen.name
 
-    def _trigger_callback_and_event(self, event: Event) -> None:
+    async def _trigger_callback_and_event(self, event: Event) -> None:
         self.callback(self.screen)
         self.callback_triggered_event.set()
 

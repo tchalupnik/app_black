@@ -102,6 +102,10 @@ Event = Annotated[
     Discriminator("event_type"),
 ]
 
+EventCallback = Callable[[Event], Coroutine[Any, Any, None]]
+SigtermCallback = Callable[[], Coroutine[Any, Any, None]]
+EverySecondCallback = Callable[[], Coroutine[Any, Any, None]]
+
 
 async def _async_create_timer(
     tg: anyio.abc.TaskGroup, event_callback: Callable[[], None]
@@ -123,20 +127,6 @@ async def _async_create_timer(
     await schedule_tick(datetime.now(timezone.utc))
 
 
-class ListenerJob:
-    """Listener to represent jobs during runtime."""
-
-    def __init__(self, target: Callable[..., Coroutine[Any, Any, None] | None]) -> None:
-        """Initialize listener."""
-        self.target = target
-
-    def set_target(
-        self, target: Callable[..., Coroutine[Any, Any, None] | None]
-    ) -> None:
-        """Set target."""
-        self.target = target
-
-
 @dataclass
 class EventBus:
     """
@@ -151,27 +141,25 @@ class EventBus:
     listener_id_index: dict[str, list[tuple[EventType, str]]] = field(
         default_factory=dict, init=False
     )
-    every_second_listeners: dict[str, ListenerJob] = field(
+    every_second_listeners: dict[str, EverySecondCallback] = field(
         default_factory=dict, init=False
     )
-    sigterm_listeners: list[Callable[[], Coroutine[Any, Any, None] | None]] = field(
-        default_factory=list, init=False
-    )
+    sigterm_listeners: list[SigtermCallback] = field(default_factory=list, init=False)
     haonline_listeners: list[Callable[[], None]] = field(
         default_factory=list, init=False
     )
-    event_listeners: dict[EventType, dict[EntityId, dict[ListenerId, ListenerJob]]] = (
-        field(
-            default_factory=lambda: {
-                EventType.INPUT: {},
-                EventType.OUTPUT: {},
-                EventType.COVER: {},
-                EventType.MODBUS_DEVICE: {},
-                EventType.SENSOR: {},
-                EventType.HOST: {},
-            },
-            init=False,
-        )
+    event_listeners: dict[
+        EventType, dict[EntityId, dict[ListenerId, EventCallback]]
+    ] = field(
+        default_factory=lambda: {
+            EventType.INPUT: {},
+            EventType.OUTPUT: {},
+            EventType.COVER: {},
+            EventType.MODBUS_DEVICE: {},
+            EventType.SENSOR: {},
+            EventType.HOST: {},
+        },
+        init=False,
     )
 
     @classmethod
@@ -211,10 +199,7 @@ class EventBus:
         )
         for listener in entity_id_listeners.values():
             try:
-                if asyncio.iscoroutinefunction(listener.target):
-                    await listener.target(event.event_state)
-                else:
-                    listener.target(event.event_state)
+                await listener(event)
             except Exception as exc:
                 _LOGGER.error("Listener error: %s", exc)
 
@@ -228,7 +213,7 @@ class EventBus:
     def _run_second_event(self) -> None:
         """Run event every second."""
         for listener in self.every_second_listeners.values():
-            self.tg.start_soon(listener.target)
+            self.tg.start_soon(listener)
 
     async def _handle_sigterm_listeners(self) -> None:
         """Handle all sigterm listeners, supporting both async and sync listeners."""
@@ -236,23 +221,15 @@ class EventBus:
         for target in self.sigterm_listeners:
             try:
                 _LOGGER.debug("Invoking sigterm listener %s", target)
-                if asyncio.iscoroutinefunction(target):
-                    await target()
-                else:
-                    target()
+                await target()
             except Exception as e:
                 _LOGGER.error("Error in sigterm listener %s: %s", target, e)
 
-    def add_every_second_listener(
-        self, name: str, target: Callable[[], Coroutine[Any, Any, None]]
-    ) -> ListenerJob:
+    def add_every_second_listener(self, name: str, target: EverySecondCallback) -> None:
         """Add listener on every second job."""
-        self.every_second_listeners[name] = ListenerJob(target=target)
-        return self.every_second_listeners[name]
+        self.every_second_listeners[name] = target
 
-    def add_sigterm_listener(
-        self, target: Callable[[], Coroutine[Any, Any, None] | None]
-    ) -> None:
+    def add_sigterm_listener(self, target: SigtermCallback) -> None:
         """Add sigterm listener."""
         self.sigterm_listeners.append(target)
 
@@ -261,29 +238,22 @@ class EventBus:
         event_type: EventType,
         entity_id: str,
         listener_id: str,
-        target: Callable[[Event], Coroutine[Any, Any, None] | None],
-    ) -> ListenerJob | None:
+        target: EventCallback,
+    ) -> None:
         """Add event listener.
 
         listener_id is typically group_id for group outputs or ws (websocket)
         """
         if entity_id not in self.event_listeners[event_type]:
             self.event_listeners[event_type][entity_id] = {}
-        if listener_id in self.event_listeners[event_type][entity_id]:
-            listener = self.event_listeners[event_type][entity_id][listener_id]
-            listener.set_target(target)
-            return listener
 
         # Add to main listeners
-        listener_job = ListenerJob(target=target)
-        self.event_listeners[event_type][entity_id][listener_id] = listener_job
+        self.event_listeners[event_type][entity_id][listener_id] = target
 
         # Add to index
         if listener_id not in self.listener_id_index:
             self.listener_id_index[listener_id] = []
         self.listener_id_index[listener_id].append((event_type, entity_id))
-
-        return listener_job
 
     def remove_event_listener(
         self,
