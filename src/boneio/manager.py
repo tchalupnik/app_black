@@ -128,8 +128,55 @@ AVAILABILITY_FUNCTION_CHOOSER: dict[str, Callable[..., HaDiscoveryMessage]] = {
 }
 
 
+@dataclass
+class SoftwareInterlockManager:
+    groups: defaultdict[str, set[BasicRelay]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+
+    def register(self, relay: BasicRelay, group_names: list[str]) -> None:
+        for group in group_names:
+            self.groups[group].add(relay)
+
+    def can_turn_on(self, relay: BasicRelay, group_names: list[str]) -> bool:
+        for group in group_names:
+            for other_relay in self.groups.get(group, []):
+                if (
+                    other_relay is not relay
+                    and getattr(other_relay, "state", None) == "ON"
+                ):
+                    return False
+        return True
+
+
+@dataclass
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
+
+    tg: anyio.abc.TaskGroup
+    config: Config
+    message_bus: MessageBus
+    event_bus: EventBus
+    config_file_path: Path
+    gpio_manager: GpioManagerBase
+    state_manager: StateManager
+    inputs: dict[str, GpioEventButtonsAndSensors] = field(
+        default_factory=dict, init=False
+    )
+    outputs: dict[str, BasicRelay] = field(default_factory=dict, init=False)
+    output_groups: dict[str, OutputGroup] = field(default_factory=dict, init=False)
+    interlock_manager: SoftwareInterlockManager = field(
+        default_factory=SoftwareInterlockManager, init=False
+    )
+    covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = field(
+        default_factory=dict, init=False
+    )
+    temp_sensors: list[TempSensor] = field(default_factory=list, init=False)
+    ina219_sensors: list[INA219] = field(default_factory=list, init=False)
+    modbus_coordinators: dict[str, ModbusCoordinator] = field(
+        default_factory=dict, init=False
+    )
+    modbus: Modbus | None = field(default=None, init=False)
 
     @classmethod
     @asynccontextmanager
@@ -213,40 +260,13 @@ class Manager:
             self.i2c = I2C(SCL, SDA)
         return self.i2c
 
-    def __init__(
-        self,
-        tg: anyio.abc.TaskGroup,
-        config: Config,
-        message_bus: MessageBus,
-        event_bus: EventBus,
-        config_file_path: Path,
-        gpio_manager: GpioManagerBase,
-        state_manager: StateManager,
-    ) -> None:
-        self.tg = tg
-        self.gpio_manager = gpio_manager
-        self.state_manager = state_manager
+    def __post_init__(self) -> None:
         _LOGGER.info("Initializing manager module.")
-
-        self.config = config
-        self._config_file_path = config_file_path
-        self.event_bus = event_bus
-        self.message_bus = message_bus
-        self.inputs: dict[str, GpioEventButtonsAndSensors] = {}
-        self.outputs: dict[str, BasicRelay] = {}
-        self.output_groups: dict[str, OutputGroup] = {}
-        self.interlock_manager = SoftwareInterlockManager()
-        self.covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
-        self.temp_sensors: list[TempSensor] = []
-        self.ina219_sensors: list[INA219] = []
-        self.modbus_coordinators: dict[str, ModbusCoordinator] = {}
-        self.modbus: Modbus | None = None
-
-        if config.modbus is not None:
-            self._configure_modbus(modbus=config.modbus)
+        if self.config.modbus is not None:
+            self._configure_modbus(modbus=self.config.modbus)
 
         temp_sensor: TempSensor
-        for temp_config in chain(config.lm75, config.mcp9808):
+        for temp_config in chain(self.config.lm75, self.config.mcp9808):
             id = temp_config.identifier()
             send_topic = f"{self.config.get_topic_prefix()}/sensor/{strip_accents(id)}"
             try:
@@ -257,7 +277,7 @@ class Manager:
                         i2c=self._get_lazy_i2c(),
                         address=temp_config.address,
                         event_bus=self.event_bus,
-                        message_bus=message_bus,
+                        message_bus=self.message_bus,
                         update_interval=temp_config.update_interval,
                         filter=Filter(temp_config.filters),
                         unit_of_measurement=temp_config.unit_of_measurement,
@@ -270,7 +290,7 @@ class Manager:
                         i2c=self._get_lazy_i2c(),
                         address=temp_config.address,
                         event_bus=self.event_bus,
-                        message_bus=message_bus,
+                        message_bus=self.message_bus,
                         update_interval=temp_config.update_interval,
                         filter=Filter(temp_config.filters),
                         unit_of_measurement=temp_config.unit_of_measurement,
@@ -294,10 +314,12 @@ class Manager:
                 refresh_wrapper(temp_sensor.update, temp_sensor.update_interval), id
             )
 
-        if config.ina219 is not None:
-            self._configure_ina219_sensors(sensors=config.ina219)
+        if self.config.ina219 is not None:
+            self._configure_ina219_sensors(sensors=self.config.ina219)
         self._configure_sensors(
-            dallas=config.dallas, ds2482=config.ds2482, sensors=config.sensor
+            dallas=self.config.dallas,
+            ds2482=self.config.ds2482,
+            sensors=self.config.sensor,
         )
 
         _E = TypeVar("_E", bound="MCP23017 | PCF8575 | PCA9685")
@@ -340,15 +362,15 @@ class Manager:
             return PCA9685(self._get_lazy_i2c(), address=expander.address)
 
         self.mcp = create_expander(
-            expanders_config=config.mcp23017,
+            expanders_config=self.config.mcp23017,
             create_func=mcp23017,
         )
         self.pcf = create_expander(
-            expanders_config=config.pcf8575,
+            expanders_config=self.config.pcf8575,
             create_func=pcf8575,
         )
         self.pca = create_expander(
-            expanders_config=config.pca9685,
+            expanders_config=self.config.pca9685,
             create_func=pca9685,
         )
 
@@ -359,14 +381,14 @@ class Manager:
             adc=self.config.adc,
         )
 
-        for _output in config.output:
+        for _output in self.config.output:
             output = _output.root
             _id = strip_accents(output.id)
             _LOGGER.debug("Configuring relay: %s", _id)
             out = configure_relay(  # grouped_output updated here.
                 manager=self,
                 output_config=output,
-                message_bus=message_bus,
+                message_bus=self.message_bus,
                 state_manager=self.state_manager,
                 topic_prefix=self.config.get_topic_prefix(),
                 relay_id=_id,
@@ -401,7 +423,7 @@ class Manager:
 
         self.create_serial_number_sensor()
         self.modbus_coordinators = self._configure_modbus_coordinators(
-            devices=config.modbus_devices
+            devices=self.config.modbus_devices
         )
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
@@ -463,7 +485,7 @@ class Manager:
     def _configure_covers(self, reload_config: bool = False) -> None:
         """Configure covers."""
         if reload_config:
-            self.config.cover = load_config(self._config_file_path).cover
+            self.config.cover = load_config(self.config_file_path).cover
             if self.config.mqtt is not None:
                 self.config.mqtt.autodiscovery_messages.clear_type(type="cover")
         for _cover_config in self.config.cover:
@@ -588,7 +610,7 @@ class Manager:
             return False
 
         if reload_config:
-            config = load_config(self._config_file_path)
+            config = load_config(self.config_file_path)
             self.config.event = config.event
             self.config.binary_sensor = config.binary_sensor
             if self.config.mqtt is not None:
@@ -912,7 +934,7 @@ class Manager:
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
-        _config = load_config(config_file_path=self._config_file_path)
+        _config = load_config(config_file_path=self.config_file_path)
         configure_logger(log_config=_config.logger, debug=-1)
 
     def prepare_ha_buttons(self) -> None:
@@ -1274,24 +1296,3 @@ class Manager:
         self.message_bus.send_message(
             topic=topic, payload=payload.model_dump_json(exclude_none=True), retain=True
         )
-
-
-@dataclass
-class SoftwareInterlockManager:
-    groups: defaultdict[str, set[BasicRelay]] = field(
-        default_factory=lambda: defaultdict(set)
-    )
-
-    def register(self, relay: BasicRelay, group_names: list[str]) -> None:
-        for group in group_names:
-            self.groups[group].add(relay)
-
-    def can_turn_on(self, relay: BasicRelay, group_names: list[str]) -> bool:
-        for group in group_names:
-            for other_relay in self.groups.get(group, []):
-                if (
-                    other_relay is not relay
-                    and getattr(other_relay, "state", None) == "ON"
-                ):
-                    return False
-        return True
