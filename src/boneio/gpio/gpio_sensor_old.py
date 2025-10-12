@@ -8,6 +8,8 @@ from typing import Literal
 
 import anyio
 
+from boneio.config import ActionConfig, BinarySensorActionTypes
+
 from .base import GpioBase
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,6 +19,8 @@ _LOGGER = logging.getLogger(__name__)
 class GpioInputBinarySensor(GpioBase):
     """Represent Gpio sensor on input boards."""
 
+    # Redefinition to match types
+    actions: dict[BinarySensorActionTypes, list[ActionConfig]]
     inverted: bool = False
     input_type: Literal["inputsensor"] = field(default="inputsensor", init=False)
 

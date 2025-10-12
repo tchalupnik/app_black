@@ -7,6 +7,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal
 
+from boneio.config import ActionConfig, BinarySensorActionTypes
+
 from .base import GpioBase
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,6 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 class GpioInputBinarySensorNew(GpioBase):
     """Represent Gpio sensor on input boards."""
 
+    # Redefinition to match types
+    actions: dict[BinarySensorActionTypes, list[ActionConfig]]
     inverted: bool = False
     initial_send: bool = False
 

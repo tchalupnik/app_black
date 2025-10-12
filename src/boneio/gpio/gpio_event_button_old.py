@@ -8,6 +8,7 @@ from typing import Literal
 
 import anyio
 
+from boneio.config import ActionConfig, EventActionTypes
 from boneio.helper import ClickTimer
 
 from .base import GpioBase
@@ -24,6 +25,8 @@ _LOGGER = logging.getLogger(__name__)
 class GpioEventButton(GpioBase):
     """Represent Gpio input switch."""
 
+    # Redefinition to match types
+    actions: dict[EventActionTypes, list[ActionConfig]]
     input_type: Literal["input"] = field(default="input", init=False)
     double_click_ran: bool = field(default=False, init=False)
     is_waiting_for_second_click: bool = field(default=False, init=False)

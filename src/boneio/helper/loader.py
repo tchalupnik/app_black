@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from busio import I2C
-
 from boneio.config import (
     AdcConfig,
     Config,
@@ -26,8 +24,6 @@ from boneio.helper import (
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import ha_virtual_energy_sensor_discovery_message
 from boneio.helper.onewire import (
-    DS2482,
-    DS2482_ADDRESS,
     AsyncBoneIOW1ThermSensor,
     OneWireAddress,
     OneWireBus,
@@ -275,12 +271,6 @@ def configure_relay(
             value_template="{{ value_json.water }}",
         )
     return relay
-
-
-def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
-    ds2482 = DS2482(i2c=i2cbusio, address=address)
-    ow_bus = OneWireBus(ds2482=ds2482)
-    return ow_bus
 
 
 def find_onewire_devices(
