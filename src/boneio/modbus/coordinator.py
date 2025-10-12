@@ -68,7 +68,7 @@ class ModbusCoordinator:
         self.discovery_sent = False
         self.payload_online = "offline"
         self.sensors_filters = device_config.sensor_filters
-        self._modbus_entities: list[
+        self.modbus_entities: list[
             dict[
                 str,
                 ModbusNumericSensor
@@ -118,7 +118,7 @@ class ModbusCoordinator:
             "Available single sensors for %s: %s",
             self.name,
             ", ".join(
-                [s.name for sensors in self._modbus_entities for s in sensors.values()]
+                [s.name for sensors in self.modbus_entities for s in sensors.values()]
             ),
         )
         if self._additional_sensors:
@@ -139,7 +139,7 @@ class ModbusCoordinator:
     def init_modbus_entities(self) -> None:
         # Standard sensors
         for index, data in enumerate(self.device.registers_base):
-            self._modbus_entities.append({})
+            self.modbus_entities.append({})
             for register in data.registers:
                 entity_type = register.entity_type if register.entity_type else "sensor"
                 single_sensor: BaseSensor
@@ -275,17 +275,17 @@ class ModbusCoordinator:
                 else:
                     typing.assert_never(entity_type)
                 if self.sensors_filters is not None:
-                    single_sensor.set_user_filters(
+                    single_sensor.user_filters = Filter(
                         self.sensors_filters.get(single_sensor.decoded_name, [])
                     )
 
-                self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
+                self.modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
     def init_derived_sensors(self) -> None:
         for _additional in self.device.additional_sensors:
             additional = _additional.root
             source_sensor: BaseSensor | None = None
-            for sensors in self._modbus_entities:
+            for sensors in self.modbus_entities:
                 for s in sensors.values():
                     if s.decoded_name == additional.source.replace("_", ""):
                         source_sensor = s
@@ -404,29 +404,17 @@ class ModbusCoordinator:
         | None
     ):
         """Return sensor by name."""
-        for sensors in self._modbus_entities:
+        for sensors in self.modbus_entities:
             if name in sensors:
                 return sensors.get(name)
         return None
-
-    def get_all_entities(
-        self,
-    ) -> list[
-        dict[
-            str,
-            ModbusNumericSensor
-            | ModbusNumericWriteableEntity
-            | ModbusNumericWriteableEntityDiscrete,
-        ]
-    ]:
-        return self._modbus_entities
 
     def set_payload_offline(self) -> None:
         self.payload_online = "offline"
 
     def _send_discovery_for_all_registers(self) -> None:
         """Send discovery message to HA for each register."""
-        for sensors in self._modbus_entities:
+        for sensors in self.modbus_entities:
             for sensor in sensors.values():
                 sensor.send_ha_discovery()
         for sensors in self._additional_sensors:
@@ -567,7 +555,7 @@ class ModbusCoordinator:
             elif update_interval != self.update_interval.total_seconds():
                 update_interval = self.update_interval.total_seconds()
             output = {}
-            current_modbus_entities = self._modbus_entities[index]
+            current_modbus_entities = self.modbus_entities[index]
             for sensor in current_modbus_entities.values():
                 start_index = sensor.register_address - sensor.base_address
                 count = {

@@ -3,6 +3,7 @@ from __future__ import annotations
 # Typing imports that create a circular dependency
 from dataclasses import dataclass
 
+from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import (
     HaModbusMessage,
     modbus_numeric_availabilty_message,
@@ -16,7 +17,7 @@ class ModbusBinaryWriteableEntityDiscrete(BaseSensor):
     write_address: int | None = None
     payload_off: str = "OFF"
     payload_on: str = "ON"
-    write_filters: list | None = None
+    write_filters: Filter | None = None
 
     def discovery_message(self) -> HaModbusMessage:
         return modbus_numeric_availabilty_message(

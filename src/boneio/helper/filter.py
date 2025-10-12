@@ -11,7 +11,7 @@ from boneio.config import Filters
 _LOGGER = logging.getLogger(__name__)
 
 
-FILTERS: dict[Filters, Callable[[float, float], float]] = {
+FILTERS: dict[Filters, Callable[[float, float], float | None]] = {
     "offset": lambda x, y: x + y,
     "round": lambda x, y: round(x, int(y)),
     "multiply": lambda x, y: x * y if x else x,
@@ -27,8 +27,8 @@ class Filter:
     filter: list[dict[Filters, float]] = field(default_factory=list)
 
     def apply_filters(
-        self, value: float, filters: list[dict[Filters, float]] | None = None
-    ) -> float:
+        self, value: float | None, filters: list[dict[Filters, float]] | None = None
+    ) -> float | None:
         filters = filters if filters is not None else self.filter
         for filter in filters:
             for k, v in filter.items():

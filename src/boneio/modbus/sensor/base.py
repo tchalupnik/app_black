@@ -6,7 +6,7 @@ from abc import ABC
 from dataclasses import dataclass, field
 from typing import Literal
 
-from boneio.config import Config, Filters, MqttAutodiscoveryMessage
+from boneio.config import Config, MqttAutodiscoveryMessage
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import (
     HaModbusMessage,
@@ -46,9 +46,6 @@ class BaseSensor(ABC):
             f"{self.config.get_ha_autodiscovery_topic_prefix()}/{self._ha_type_}/{self.config.get_topic_prefix()}{self.parent['id']}"
             f"/{self.parent['id']}{self.decoded_name.replace('_', '')}/config"
         )
-
-    def set_user_filters(self, user_filters: list[dict[Filters, float]]) -> None:
-        self.user_filters = Filter(user_filters)
 
     def set_value(self, value: float | None, timestamp: float) -> None:
         if value is not None:
