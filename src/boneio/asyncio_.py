@@ -27,10 +27,10 @@ _T = TypeVar("_T")
 def asyncio_run(
     handler: Callable[..., Coroutine[Any, Any, _T]],
     *,
-    backend_options,
+    backend_options: dict[str, Any] | None = None,
     **kwargs: object,
-) -> _T:
-    async def fun() -> _T:
+) -> None:
+    async def fun() -> None:
         def asyncio_loop_exception_handler(
             loop: asyncio.AbstractEventLoop, context: dict[str, Any]
         ) -> None:
@@ -43,7 +43,7 @@ def asyncio_run(
         asyncio.get_event_loop().set_exception_handler(asyncio_loop_exception_handler)
 
         try:
-            return await handler(**kwargs)
+            await handler(**kwargs)
         except* CommandInterrupted:
             pass
 
