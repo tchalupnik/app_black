@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from boneio.config import AdcPins, Filters
+from boneio.config import AdcPins
 from boneio.helper.filter import Filter
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
@@ -25,19 +25,16 @@ class GpioADCSensor:
 
     id: str
     pin: AdcPins
-    filters: list[dict[Filters, float]]
+    filter: Filter
     message_bus: MessageBus
     topic_prefix: str
     state: float | None = field(default=None, init=False)
 
     def ___post_init__(
         self,
-        filters: list[dict[Filters, float]],
-        topic_prefix: str,
     ) -> None:
         """Setup GPIO ADC Sensor"""
-        self.send_topic = f"{topic_prefix}/sensor/{strip_accents(self.id)}"
-        self.filter = Filter(filters)
+        self.send_topic = f"{self.topic_prefix}/sensor/{strip_accents(self.id)}"
         filename: str | None = {
             "P9_39": "in_voltage0_raw",
             "P9_40": "in_voltage1_raw",
