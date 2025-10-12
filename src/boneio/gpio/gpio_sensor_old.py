@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import anyio
@@ -18,7 +18,7 @@ class GpioInputBinarySensor(GpioBase):
     """Represent Gpio sensor on input boards."""
 
     inverted: bool = False
-    input_type: Literal["inpusensor"] = "inpusensor"
+    input_type: Literal["inputsensor"] = field(default="inputsensor", init=False)
 
     def __post_init__(
         self,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from typing import Literal
 
 from boneio.helper import ClickTimer
 
@@ -21,7 +22,7 @@ LONG_PRESS_DURATION_S = 0.4
 class GpioEventButtonNew(GpioBase):
     """Represent Gpio input switch."""
 
-    input_type: str = field(default="input", init=False)
+    input_type: Literal["input"] = field(default="input", init=False)
     button_pressed_time: float = field(default=0.0, init=False)
     last_click_time: float = field(default=0.0, init=False)
 

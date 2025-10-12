@@ -2,47 +2,56 @@ from __future__ import annotations
 
 import logging
 import secrets
+from dataclasses import dataclass
 from pathlib import Path
 
 import anyio
 from anyio import Event
-from fastapi import FastAPI
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
 
 from boneio.config import Config
 from boneio.manager import Manager
-from boneio.webui.app import init_app
+
+from .app import init_app
+from .context_var import State, state_var
+from .websocket_manager import WebSocketManager
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
 class WebServer:
-    def __init__(
-        self,
-        config: Config,
-        config_file_path: Path,
-        manager: Manager,
-    ) -> None:
+    config: Config
+    config_file_path: Path
+    manager: Manager
+
+    def __post_init__(self) -> None:
         """Initialize the web server."""
-        self.config = config
         assert self.config.web is not None, "Web config must be provided"
-        self.manager = manager
 
         # Get yaml config file path
-        self._yaml_config_file_path = config_file_path
+        self._yaml_config_file_path = self.config_file_path
 
         # Set up JWT secret
-        self.jwt_secret = self._get_jwt_secret_or_generate()
+        jwt_secret = self._get_jwt_secret_or_generate()
+
+        websocket_manager = WebSocketManager(
+            jwt_secret=jwt_secret, auth_required=self.config.web.is_auth_required()
+        )
+
+        state_var.set(
+            State(
+                manager=self.manager,
+                config=self.config,
+                yaml_config_file=self._yaml_config_file_path,
+                websocket_manager=websocket_manager,
+                jwt_secret=jwt_secret,
+            )
+        )
 
         # Initialize FastAPI app
-        self.app: FastAPI = init_app(
-            manager=self.manager,
-            yaml_config_file=self._yaml_config_file_path,
-            jwt_secret=self.jwt_secret,
-            config=self.config,
-            web_server=self,
-        )
+        self.app = init_app(config=self.config)
 
         # Configure hypercorn with shared logging config
         self._hypercorn_config = HypercornConfig()

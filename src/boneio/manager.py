@@ -983,17 +983,9 @@ class Manager:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt.
         """
-        actions = gpio.actions.get(x, [])
         topic = f"{self.config.get_topic_prefix()}/{gpio.input_type}/{gpio.pin}"
 
-        def generate_payload() -> str | dict[str, str | float]:
-            if gpio.input_type == "input":
-                if duration:
-                    return {"event_type": x, "duration": duration}
-                return {"event_type": x}
-            return x
-
-        for action in actions:
+        for action in gpio.actions.get(x, []):
             if isinstance(action, MqttActionConfig):
                 self.message_bus.send_message(
                     topic=action.topic, payload=action.action_mqtt_msg, retain=False
@@ -1077,7 +1069,14 @@ class Manager:
             else:
                 raise ValueError("Wrong action definitiony type!")
 
-        payload = generate_payload()
+        if gpio.input_type == "input":
+            if duration is not None:
+                payload = {"event_type": x, "duration": duration}
+            else:
+                payload = {"event_type": x}
+        else:
+            payload = x
+
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
         self.message_bus.send_message(topic=topic, payload=payload, retain=False)
         # This is similar how Z2M is clearing click sensor.

@@ -18,8 +18,8 @@ class GpioInputBinarySensorNew(GpioBase):
 
     inverted: bool = False
     initial_send: bool = False
-    input_type: Literal["inpusensor"] = "inpusensor"
 
+    input_type: Literal["inputsensor"] = field(default="inputsensor", init=False)
     button_pressed_time: float = field(default=0.0, init=False)
 
     def __post_init__(

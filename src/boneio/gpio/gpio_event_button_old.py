@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Literal
 
 import anyio
 
@@ -23,8 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 class GpioEventButton(GpioBase):
     """Represent Gpio input switch."""
 
-    input_type: str = "input"
-
+    input_type: Literal["input"] = field(default="input", init=False)
     double_click_ran: bool = field(default=False, init=False)
     is_waiting_for_second_click: bool = field(default=False, init=False)
     long_press_ran: bool = field(default=False, init=False)

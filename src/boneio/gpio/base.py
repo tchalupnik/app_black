@@ -5,15 +5,13 @@ import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 import anyio.abc
 
 from boneio.config import (
     ActionConfig,
-    BinarySensorActionTypes,
     BoneIOInput,
-    EventActionTypes,
 )
 from boneio.events import EventBus, InputEvent
 from boneio.gpio_manager import GpioManagerBase
@@ -21,7 +19,7 @@ from boneio.models import InputState
 
 _LOGGER = logging.getLogger(__name__)
 
-ClickTypes: TypeAlias = Literal["single", "double", "long", "pressed", "released"]
+ActionTypes = Literal["single", "double", "long", "pressed", "released"]
 
 
 @dataclass(kw_only=True)
@@ -33,15 +31,15 @@ class GpioBase:
     tg: anyio.abc.TaskGroup
     gpio_manager: GpioManagerBase
     event_bus: EventBus
-    input_type: str
-    actions: dict[EventActionTypes | BinarySensorActionTypes, list[ActionConfig]]
+    input_type: Literal["input", "inputsensor"]
+    actions: dict[ActionTypes, list[ActionConfig]]
     empty_message_after: bool
     manager_press_callback: Callable[
         [
-            EventActionTypes | BinarySensorActionTypes,
+            ActionTypes,
             GpioBase,
             bool,
-            bool,
+            float | None,
             float | None,
         ],
         Coroutine[Any, Any, None],
@@ -56,7 +54,7 @@ class GpioBase:
         | tuple[Literal["released"], Literal["pressed"]]
     ) = field(default_factory=lambda: ("pressed", "released"), init=False)
     event_lock: anyio.Lock = field(default_factory=anyio.Lock, init=False)
-    last_state: str = field(default="Unknown", init=False)
+    last_state: ActionTypes | Literal["Unknown"] = field(default="Unknown", init=False)
     last_press_timestamp: float = field(default=0.0, init=False)
     state: bool = field(default=False, init=False)
 
@@ -66,7 +64,7 @@ class GpioBase:
 
     def press_callback(
         self,
-        click_type: EventActionTypes | BinarySensorActionTypes,
+        click_type: ActionTypes,
         duration: float | None = None,
         start_time: float | None = None,
     ) -> None:
@@ -77,7 +75,7 @@ class GpioBase:
 
     async def _handle_press_with_lock(
         self,
-        click_type: EventActionTypes | BinarySensorActionTypes,
+        click_type: ActionTypes,
         duration: float | None = None,
         start_time: float | None = None,
     ) -> None:

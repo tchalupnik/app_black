@@ -9,11 +9,9 @@ import os
 import re
 import tempfile
 from collections.abc import Awaitable, Callable
-from contextvars import ContextVar
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, assert_never
+from typing import Any, Literal, assert_never
 
 import httpx
 from fastapi import (
@@ -51,11 +49,8 @@ from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
 from boneio.yaml import ConfigurationError, Tree, load_config, update_config_section
 
+from .context_var import state_var
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
-
-if TYPE_CHECKING:
-    from .web_server import WebServer
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,19 +134,6 @@ app = FastAPI(
 )
 
 
-@dataclass
-class State:
-    manager: Manager
-    config: Config
-    web_server: WebServer
-    yaml_config_file: Path
-    websocket_manager: WebSocketManager
-    jwt_secret: str
-
-
-state_var: ContextVar[State] = ContextVar("State")
-
-
 # Dependency to get manager instance
 def get_manager() -> Manager:
     """Get manager instance."""
@@ -161,11 +143,6 @@ def get_manager() -> Manager:
 def get_config() -> Config:
     """Get config instance."""
     return state_var.get().config
-
-
-def get_web_server() -> WebServer:
-    """Get web server instance."""
-    return state_var.get().web_server
 
 
 def get_yaml_config_file() -> Path:
@@ -528,17 +505,13 @@ async def set_cover_tilt(
 
 
 @app.post("/api/restart")
-async def restart_service(
-    background_tasks: BackgroundTasks, web_server: WebServer = Depends(get_web_server)
-) -> StatusResponse:
+async def restart_service(background_tasks: BackgroundTasks) -> StatusResponse:
     """Restart the BoneIO service."""
     if not is_running_as_service():
         return StatusResponse(status="not available")
 
     async def shutdown_and_restart() -> None:
-        # First stop the web server
-        if web_server:
-            os._exit(0)  # Terminate the process
+        os._exit(0)  # Terminate the process
 
     background_tasks.add_task(shutdown_and_restart)
     return StatusResponse(status="success")
@@ -757,7 +730,9 @@ async def list_files(
                 name="config",
                 path="",
                 type="directory",
-                children=FileItem.model_validate(scan_directory(base_dir)),
+                children=[
+                    FileItem.model_validate(item) for item in scan_directory(base_dir)
+                ],
             )
         ]
         return FilesResponse(items=items)
@@ -835,29 +810,10 @@ async def update_section_content(
 
 
 def init_app(
-    manager: Manager,
-    yaml_config_file: Path,
     config: Config,
-    jwt_secret: str,
-    web_server: WebServer,
 ) -> FastAPI:
     """Initialize the FastAPI application with manager."""
     assert config.web is not None, "Web config must be provided"
-
-    websocket_manager = WebSocketManager(
-        jwt_secret=jwt_secret, auth_required=config.web.is_auth_required()
-    )
-
-    state_var.set(
-        State(
-            manager=manager,
-            config=config,
-            yaml_config_file=yaml_config_file,
-            web_server=web_server,
-            websocket_manager=websocket_manager,
-            jwt_secret=jwt_secret,
-        )
-    )
 
     if config.web.is_auth_required():
         app.add_middleware(AuthMiddleware)
