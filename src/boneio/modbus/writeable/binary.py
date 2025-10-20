@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-# Typing imports that create a circular dependency
 from dataclasses import dataclass
 
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import (
+    HaAvailabilityTopic,
+    HaDeviceInfo,
     HaModbusMessage,
-    modbus_numeric_availability_message,
 )
 from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
-from boneio.modbus.sensor.base import BaseSensor
+from boneio.modbus.sensor import BaseSensor
 
 
 @dataclass(kw_only=True)
@@ -21,16 +21,20 @@ class ModbusBinaryWriteableEntityDiscrete(BaseSensor):
     payload_on: str = "ON"
     write_filters: Filter | None = None
 
-    def discovery_message(self) -> HaModbusMessage:
-        return modbus_numeric_availability_message(
-            topic=self.config.get_topic_prefix(),
-            id=self.parent_id,
-            name=self.parent_name,
-            state_topic_base=str(self.base_address),
-            model=self.parent_model,
-            device_type="sensor",  # because we send everything to boneio/sensor from modbus.
+    def discovery_message(
+        self,
+        topic: str,
+        device_info: HaDeviceInfo,
+        availability: list[HaAvailabilityTopic],
+    ) -> HaModbusMessage:
+        return HaModbusMessage(
+            availability=availability,
+            device=device_info,
+            name=self.name,
+            state_topic=f"{topic}/sensor/{self.parent_id}/{str(self.base_address)}",
+            unique_id=f"{topic}{self.name.replace('_', '').lower()}{self.parent_name.lower()}",
+            unit_of_measurement=self.unit_of_measurement,
             value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
-            entity_id=self.name,
             payload_off=self.payload_off,
             payload_on=self.payload_on,
         )

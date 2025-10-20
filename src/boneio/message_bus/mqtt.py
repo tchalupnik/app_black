@@ -5,7 +5,6 @@ Code based on cgarwood/python-openzwave-mqtt.
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
@@ -18,11 +17,11 @@ import anyio.abc
 from aiomqtt import MqttError, Will
 from anyio import TASK_STATUS_IGNORED
 from anyio.abc import TaskStatus
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from paho.mqtt.properties import Properties
 
 from boneio.config import MqttConfig
 from boneio.events import EventBus
-from boneio.helper.queue import UniqueQueue
 from boneio.message_bus.basic import (
     MqttAutoDiscoveryMessage,
     MqttAutoDiscoveryMessageType,
@@ -34,6 +33,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
+class StreamMessage:
+    topic: str
+    payload: str | None
+    retain: bool = False
+
+
+@dataclass
 class MqttMessageBus(MessageBus):
     """Represent an MQTT client."""
 
@@ -41,14 +47,15 @@ class MqttMessageBus(MessageBus):
     client: aiomqtt.Client
     config: MqttConfig
     event_bus: EventBus
+    _send_stream: MemoryObjectSendStream[StreamMessage]
+    _receive_stream: MemoryObjectReceiveStream[StreamMessage]
     connection_established: bool = False
-    publish_queue: UniqueQueue = field(default_factory=UniqueQueue)
-    _mqtt_energy_listeners: dict[
-        str, Callable[[str, str], Coroutine[Any, Any, None]]
-    ] = field(default_factory=dict)
+    _mqtt_energy_listeners: dict[str, Callable[[str], Coroutine[Any, Any, None]]] = (
+        field(default_factory=dict)
+    )
     _autodiscovery_messages: dict[
         MqttAutoDiscoveryMessageType, list[MqttAutoDiscoveryMessage]
-    ]
+    ] = field(default_factory=dict)
 
     @classmethod
     @asynccontextmanager
@@ -58,8 +65,18 @@ class MqttMessageBus(MessageBus):
         async with anyio.create_task_group() as tg:
             # it is done that way because aiomqtt doesn't propagate exceptions.
             client = await tg.start(cls._create_client, config)
+            send_stream, receive_stream = anyio.create_memory_object_stream[
+                StreamMessage
+            ]()
             try:
-                this = cls(tg, client, config, event_bus)
+                this = cls(
+                    _tg=tg,
+                    client=client,
+                    config=config,
+                    event_bus=event_bus,
+                    _send_stream=send_stream,
+                    _receive_stream=receive_stream,
+                )
                 yield this
             finally:
                 _LOGGER.info("Cleaning up MQTT...")
@@ -104,8 +121,6 @@ class MqttMessageBus(MessageBus):
 
     async def subscribe(self, receive_messages: ReceiveMessage) -> None:
         """Connect and subscribe to manager topics + host stats."""
-        self.publish_queue.set_connected(True)
-
         self._tg.start_soon(self._handle_publish)
         self._tg.start_soon(self._handle_messages, receive_messages)
 
@@ -143,16 +158,13 @@ class MqttMessageBus(MessageBus):
     def send_message(
         self,
         topic: str,
-        payload: str | int | dict | None,
+        payload: str | None,
         retain: bool = False,
     ) -> None:
         """Send a message from the manager options."""
-        to_publish = (
-            topic,
-            json.dumps(payload) if isinstance(payload, dict) else payload,
-            retain,
+        self._send_stream.send_nowait(
+            StreamMessage(topic=topic, payload=payload, retain=retain)
         )
-        self.publish_queue.put_nowait(to_publish)
 
     def is_connection_established(self) -> bool:
         """State of MQTT Client."""
@@ -187,27 +199,39 @@ class MqttMessageBus(MessageBus):
         """Handle messages with callback or remove obsolete HA discovery messages."""
 
         async for message in self.client.messages:
-            payload = message.payload.decode()
-            callback_start = True
+            payload = message.payload
+            if isinstance(payload, (bytes, bytearray)):
+                payload = payload.decode()
+            elif isinstance(payload, (int, float)):
+                payload = str(payload)
+
+            if not isinstance(payload, str):
+                _LOGGER.warning(
+                    "Received message with unsupported payload type: %s",
+                    type(payload),
+                )
+                continue
+
+            is_already_handled = False
             if message.topic.matches(f"{self.config.ha_discovery.topic_prefix}/status"):
-                if message == "online":
+                if payload == "online":
                     for messages in self._autodiscovery_messages.values():
                         for msg in messages:
                             self.send_message(
                                 topic=msg.topic,
-                                payload=msg.payload.model_dump(),
+                                payload=msg.payload.model_dump_json(),
                                 retain=True,
                             )
 
                     self.event_bus.signal_ha_online()
-                callback_start = False
+                is_already_handled = True
             if message.topic.matches(f"{self.config.topic_prefix}/energy/#"):
                 for topic, listener_callback in self._mqtt_energy_listeners.items():
                     if message.topic.matches(topic):
-                        callback_start = False
+                        is_already_handled = True
                         await listener_callback(payload)
                         break
-            if callback_start:
+            if not is_already_handled:
                 _LOGGER.debug(
                     "Received message topic: %s, payload: %s",
                     message.topic,
@@ -216,13 +240,12 @@ class MqttMessageBus(MessageBus):
                 await receive_message(str(message.topic), payload)
 
     async def _handle_publish(self) -> None:
-        """Publish messages as they are put on the queue."""
-        while True:
-            to_publish: tuple[
-                str, str | int | None, bool
-            ] = await self.publish_queue.get()
-            await self._publish(*to_publish)
-            self.publish_queue.task_done()
+        """Publish messages as they are put on the stream."""
+        async with self._receive_stream as receiver:
+            async for message in receiver:
+                await self._publish(
+                    topic=message.topic, payload=message.payload, retain=message.retain
+                )
 
     def add_autodiscovery_message(self, message: MqttAutoDiscoveryMessage) -> None:
         if not self.config.ha_discovery.enabled:
@@ -234,7 +257,7 @@ class MqttMessageBus(MessageBus):
         )
         self._autodiscovery_messages[message.type].append(message)
         self.send_message(
-            topic=message.topic, payload=message.payload.model_dump(), retain=True
+            topic=message.topic, payload=message.payload.model_dump_json(), retain=True
         )
 
     def clear_autodiscovery_messages_by_type(

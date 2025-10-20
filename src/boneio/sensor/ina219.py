@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import secrets
 import time
@@ -58,8 +59,7 @@ class _INA219Sensor:
         self.state = state
         self.last_timestamp = timestamp
         self.message_bus.send_message(
-            topic=self.send_topic,
-            payload={"state": self.state},
+            topic=self.send_topic, payload=json.dumps({"state": self.state})
         )
 
 

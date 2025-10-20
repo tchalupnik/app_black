@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from boneio.helper.ha_discovery import (
+    HaAvailabilityTopic,
+    HaDeviceInfo,
     HaModbusMessage,
-    modbus_select_availability_message,
 )
 from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
-from boneio.modbus.sensor.base import BaseSensor
+from boneio.modbus.sensor import BaseSensor
 
 
 @dataclass(kw_only=True)
@@ -16,18 +17,21 @@ class ModbusDerivedSelect(BaseSensor):
     value_mapping: dict[str, str]
     _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.SELECT
 
-    def discovery_message(self) -> HaModbusMessage:
-        return modbus_select_availability_message(
-            topic=self.config.get_topic_prefix(),
-            id=self.parent_id,
-            name=self.parent_name,
-            state_topic_base=str(self.base_address),
-            model=self.parent_model,
-            device_type="sensor",  # because we send everything to boneio/sensor from modbus.
+    def discovery_message(
+        self,
+        topic: str,
+        device_info: HaDeviceInfo,
+        availability: list[HaAvailabilityTopic],
+    ) -> HaModbusMessage:
+        return HaModbusMessage(
+            availability=availability,
+            device=device_info,
+            name=self.name,
+            state_topic=f"{topic}/sensor/{self.parent_id}/{str(self.base_address)}",
+            unique_id=f"{topic}{self.name.replace('_', '').lower()}{self.parent_name.lower()}",
             value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
-            entity_id=self.name,
             options=[*self.value_mapping.values()],
-            command_topic=f"{self.config.get_topic_prefix()}/cmd/modbus/{self.parent_id.lower()}/set",
+            command_topic=f"{topic}/cmd/modbus/{self.parent_id.lower()}/set",
             command_template='{"device": "'
             + self.decoded_name
             + '", "value": "{{ value }}"}',

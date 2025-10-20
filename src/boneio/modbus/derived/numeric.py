@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 
 from boneio.config import ModbusDeviceData
-from boneio.modbus.sensor.base import BaseSensor
-
-_LOGGER = logging.getLogger(__name__)
+from boneio.modbus.sensor import BaseSensor
 
 
 @dataclass(kw_only=True)
@@ -16,10 +13,10 @@ class ModbusDerivedNumericSensor(BaseSensor):
     decoded_name: str
 
     def evaluate_state(
-        self, source_sensor_value: int | float, timestamp: float
+        self, source_sensor_value: str | float | None, timestamp: float
     ) -> None:
         code = compile(self.formula, "<string>", "eval")
-        context: dict[str, str | float | int] = {
+        context: dict[str, str | float | None] = {
             "X": source_sensor_value,
             **self.context_config,
         }

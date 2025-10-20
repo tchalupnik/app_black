@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 import typing
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from itertools import chain
 from pathlib import Path
 from typing import Literal
 
@@ -18,7 +20,8 @@ from boneio.config import (
 )
 from boneio.events import EventBus, ModbusDeviceEvent
 from boneio.helper.filter import Filter
-from boneio.message_bus.basic import MessageBus
+from boneio.helper.ha_discovery import HaAvailabilityTopic, HaDeviceInfo
+from boneio.message_bus.basic import MessageBus, MqttAutoDiscoveryMessage
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
@@ -33,9 +36,12 @@ from boneio.modbus.models import (
     TextAdditionalSensor,
     ValueType,
 )
-from boneio.modbus.sensor import ModbusBinarySensor, ModbusNumericSensor
-from boneio.modbus.sensor.base import BaseSensor
-from boneio.modbus.sensor.text import ModbusTextSensor
+from boneio.modbus.sensor import (
+    BaseSensor,
+    ModbusBinarySensor,
+    ModbusNumericSensor,
+    ModbusTextSensor,
+)
 from boneio.modbus.writeable.binary import ModbusBinaryWriteableEntityDiscrete
 from boneio.modbus.writeable.numeric import (
     ModbusNumericWriteableEntity,
@@ -72,9 +78,7 @@ class ModbusCoordinator:
     modbus_entities: list[
         dict[
             str,
-            ModbusNumericSensor
-            | ModbusNumericWriteableEntity
-            | ModbusNumericWriteableEntityDiscrete,
+            BaseSensor,
         ]
     ] = field(init=False, default_factory=list)
     _modbus_entities_by_name: dict[
@@ -163,7 +167,6 @@ class ModbusCoordinator:
                         return_type=register.return_type,
                         filter=Filter(register.filters),
                         message_bus=self.message_bus,
-                        config=self.config,
                         ha_filter=register.ha_filter,
                     )
                 elif entity_type == "text_sensor":
@@ -181,7 +184,6 @@ class ModbusCoordinator:
                         return_type=register.return_type,
                         filter=Filter(register.filters),
                         message_bus=self.message_bus,
-                        config=self.config,
                         value_mapping=register.x_mapping,
                     )
                 elif entity_type == "binary_sensor":
@@ -199,7 +201,6 @@ class ModbusCoordinator:
                         return_type=register.return_type,
                         filter=Filter(register.filters),
                         message_bus=self.message_bus,
-                        config=self.config,
                         payload_on=register.payload_on,
                         payload_off=register.payload_off,
                     )
@@ -218,8 +219,6 @@ class ModbusCoordinator:
                         return_type=register.return_type,
                         filter=Filter(register.filters),
                         message_bus=self.message_bus,
-                        config=self.config,
-                        coordinator=self,
                         write_filters=Filter(register.write_filters),
                         write_address=register.write_address,
                         ha_filter=register.ha_filter,
@@ -239,7 +238,6 @@ class ModbusCoordinator:
                         return_type=register.return_type,
                         filter=Filter(register.filters),
                         message_bus=self.message_bus,
-                        config=self.config,
                         write_address=register.write_address,
                         write_filters=Filter(register.write_filters),
                         ha_filter=register.ha_filter,
@@ -259,7 +257,6 @@ class ModbusCoordinator:
                         return_type=register.return_type,
                         filter=Filter(register.filters),
                         message_bus=self.message_bus,
-                        config=self.config,
                         write_address=register.write_address,
                         payload_on=register.payload_on,
                         payload_off=register.payload_off,
@@ -299,7 +296,6 @@ class ModbusCoordinator:
                     parent_model=self.device.model,
                     base_address=source_sensor.base_address,
                     message_bus=self.message_bus,
-                    config=self.config,
                     decoded_name=source_sensor.decoded_name,
                     value_mapping=additional.x_mapping,
                     register_address=source_sensor.register_address,
@@ -324,7 +320,6 @@ class ModbusCoordinator:
                     state_class=additional.state_class,
                     device_class=additional.device_class,
                     message_bus=self.message_bus,
-                    config=self.config,
                     formula=additional.formula,
                     context_config=self.additional_data,
                     register_address=source_sensor.register_address,
@@ -338,7 +333,6 @@ class ModbusCoordinator:
                     parent_model=self.device.model,
                     base_address=source_sensor.base_address,
                     message_bus=self.message_bus,
-                    config=self.config,
                     decoded_name=source_sensor.decoded_name,
                     value_mapping=additional.x_mapping,
                     register_address=source_sensor.register_address,
@@ -352,7 +346,6 @@ class ModbusCoordinator:
                     parent_model=self.device.model,
                     base_address=source_sensor.base_address,
                     message_bus=self.message_bus,
-                    config=self.config,
                     decoded_name=source_sensor.decoded_name,
                     value_mapping=additional.x_mapping,
                     payload_off=additional.payload_off,
@@ -380,14 +373,7 @@ class ModbusCoordinator:
                 derived_sensor
             )
 
-    def get_entity_by_name(
-        self, name: str
-    ) -> (
-        ModbusNumericSensor
-        | ModbusNumericWriteableEntity
-        | ModbusNumericWriteableEntityDiscrete
-        | None
-    ):
+    def get_entity_by_name(self, name: str) -> BaseSensor | None:
         """Return sensor by name."""
         for sensors in self.modbus_entities:
             if name in sensors:
@@ -399,12 +385,40 @@ class ModbusCoordinator:
 
     def _send_discovery_for_all_registers(self) -> None:
         """Send discovery message to HA for each register."""
-        for sensors in self.modbus_entities:
+        if self.config.mqtt is None:
+            return
+
+        topic = self.config.get_topic_prefix()
+        availability = [
+            HaAvailabilityTopic(
+                topic=f"{self.config.get_topic_prefix()}/{self.id}/state"
+            )
+        ]
+        device_info = HaDeviceInfo(
+            identifiers=[self.config.get_topic_prefix()],
+            name=self.name,
+            model=self.device.model,
+        )
+
+        for sensors in chain(self.modbus_entities, self._additional_sensors):
             for sensor in sensors.values():
-                sensor.send_ha_discovery()
-        for sensors in self._additional_sensors:
-            for sensor in sensors.values():
-                sensor.send_ha_discovery()
+                _LOGGER.debug(
+                    "Sending %s discovery message for %s of %s",
+                    sensor._ha_type_,
+                    sensor.name,
+                    sensor.parent_id,
+                )
+                self.message_bus.add_autodiscovery_message(
+                    MqttAutoDiscoveryMessage(
+                        type=sensor._ha_type_,
+                        payload=sensor.discovery_message(
+                            topic=topic,
+                            device_info=device_info,
+                            availability=availability,
+                        ),
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{sensor._ha_type_.value.lower()}/{self.config.get_topic_prefix()}{sensor.parent_id}/{sensor.parent_id}{sensor.decoded_name.replace('_', '')}/config",
+                    )
+                )
 
     async def write_register(self, value: str | float | int, entity: str) -> None:
         _LOGGER.debug("Writing register %s for %s", value, entity)
@@ -434,7 +448,7 @@ class ModbusCoordinator:
             output[source_sensor.decoded_name] = source_sensor.state
             self.message_bus.send_message(
                 topic=f"{self.send_topic}/{source_sensor.base_address}",
-                payload=output,
+                payload=json.dumps(output),
             )
             return
         modbus_sensor = self.get_entity_by_name(entity)
@@ -471,7 +485,7 @@ class ModbusCoordinator:
         self._timestamp = timestamp
         self.message_bus.send_message(
             topic=f"{self.send_topic}/{modbus_sensor.base_address}",
-            payload=output,
+            payload=json.dumps(output),
         )
         _LOGGER.debug("Register written %s", status)
 
@@ -510,10 +524,10 @@ class ModbusCoordinator:
                 unit=self.address,
                 address=data.base,
                 count=data.length,
-                register_type=data.register_type.value,
+                register_type=data.register_type,
             )
             if self.state == "offline" and values:
-                _LOGGER.info("Sending online payload about device %s.", self.name)
+                _LOGGER.info("Sending online message about device %s.", self.name)
                 self.state = "online"
                 self.message_bus.send_message(
                     topic=f"{self.config.get_topic_prefix()}/{self.id}/state",
@@ -530,7 +544,7 @@ class ModbusCoordinator:
                         topic=f"{self.config.get_topic_prefix()}/{self.id}/state",
                         payload=self.state,
                     )
-                    self.discovery_sent = False
+                    self.discovery_sent = None
                 _LOGGER.warning(
                     "Can't fetch data from modbus device %s. Will sleep for %s seconds",
                     self.id,
@@ -598,5 +612,5 @@ class ModbusCoordinator:
             self._timestamp = timestamp
             self.message_bus.send_message(
                 topic=f"{self.send_topic}/{data.base}",
-                payload=output,
+                payload=json.dumps(output),
             )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import typing
@@ -46,7 +47,7 @@ class TempSensor(ABC):
     def update(self, timestamp: float) -> None:
         """Fetch temperature periodically and send to MQTT."""
         try:
-            _temp = self.get_temperature()
+            _temp: float | None = self.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
             _temp = self.filter.apply_filters(value=_temp)
         except RuntimeError as err:
@@ -68,5 +69,5 @@ class TempSensor(ABC):
         )
         self.message_bus.send_message(
             topic=self.send_topic,
-            payload={"state": self._state},
+            payload=json.dumps({"state": self._state}),
         )

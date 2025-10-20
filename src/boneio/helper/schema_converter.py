@@ -17,7 +17,7 @@ class BoneIOLoader(SafeLoader):
         self._root = Path(stream.name).parent
         super().__init__(stream)
 
-    def include(self, node: ScalarNode):
+    def include(self, node: ScalarNode) -> Any:
         """Include file referenced at node."""
         filename = self._root / self.construct_scalar(node)
         with filename.open("r") as f:
@@ -101,6 +101,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
 
         # Handle required fields - only if required and no default
         if schema.get("required", False) and "default" not in schema:
+            assert isinstance(json_schema["required"], list)
             json_schema["required"].append(field)
 
         # Handle default values

@@ -18,7 +18,7 @@ class ModbusHelper:
     """Modbus Helper."""
 
     device: str
-    uart: str
+    uart: Uarts
     address: int
     baudrate: int
     modbus_device: ModbusDevice | None = None
@@ -100,7 +100,7 @@ class ModbusHelper:
         _LOGGER.error("Operation failed.")
         return 1
 
-    async def set_new_address(self, new_address: int) -> None:
+    async def set_new_address(self, new_address: int) -> Literal[0, 1]:
         if self.modbus_device is None or self.modbus_device.set_base is None:
             _LOGGER.error("No set_base defined in device configuration.")
             return 1
@@ -119,8 +119,10 @@ class ModbusHelper:
                 _LOGGER.info(
                     "Operation succeeded. Now restart device by disconnecting it."
                 )
+                return 0
         else:
             _LOGGER.error("Invalid new address.")
+        return 1
 
     async def set_custom_command(
         self, register_address: int, value: int | float
@@ -184,8 +186,7 @@ async def async_run_modbus_set(
         if new_baudrate is not None:
             return await modbus_helper.set_connection_speed(new_baudrate=new_baudrate)
         if new_address is not None:
-            await modbus_helper.set_new_address(new_address=new_address)
-            return 0
+            return await modbus_helper.set_new_address(new_address=new_address)
         raise ValueError("It should not happen.")
 
     if not custom_cmd:

@@ -1,24 +1,20 @@
 from __future__ import annotations
 
-import logging
 import time
 from abc import ABC
 from dataclasses import dataclass, field
 
-from boneio.config import Config
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import (
+    HaAvailabilityTopic,
+    HaDeviceInfo,
     HaModbusMessage,
-    modbus_sensor_availability_message,
 )
 from boneio.message_bus.basic import (
     MessageBus,
-    MqttAutoDiscoveryMessage,
     MqttAutoDiscoveryMessageType,
 )
 from boneio.modbus.models import ValueType
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
@@ -30,7 +26,6 @@ class BaseSensor(ABC):
     register_address: int
     base_address: int
     message_bus: MessageBus
-    config: Config
     value_type: ValueType
     user_filters: Filter = field(default_factory=lambda: Filter())
     filter: Filter = field(default_factory=lambda: Filter())
@@ -38,7 +33,7 @@ class BaseSensor(ABC):
     state_class: str | None = None
     device_class: str | None = None
     return_type: str | None = None
-    ha_filter: str = "round(2)"
+    ha_filter: str | None = None
     last_timestamp: float = field(default_factory=time.time)
     write_address: int | None = None
     state: int | float | str | None = field(init=False, default=None)
@@ -47,10 +42,6 @@ class BaseSensor(ABC):
 
     def __post_init__(self) -> None:
         self.decoded_name = self.name.replace(" ", "").lower()
-        self._topic = (
-            f"{self.config.get_ha_autodiscovery_topic_prefix()}/{self._ha_type_.value.lower()}/{self.config.get_topic_prefix()}{self.parent_id}"
-            f"/{self.parent_id}{self.decoded_name.replace('_', '')}/config"
-        )
 
     def set_state(self, value: int | float | str | None, timestamp: float) -> None:
         if isinstance(value, (int, float)):
@@ -63,38 +54,67 @@ class BaseSensor(ABC):
     def id(self) -> str:
         return f"{self.parent_id}{self.decoded_name}"
 
-    def send_ha_discovery(self) -> None:
-        payload = self.discovery_message()
-        _LOGGER.debug(
-            "Sending %s discovery message for %s of %s",
-            self._ha_type_,
-            self.name,
-            self.parent_id,
-        )
-        if self.config.mqtt is not None:
-            self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=self._ha_type_, payload=payload, topic=self._topic
-                )
-            )
-
-    def discovery_message(self) -> HaModbusMessage:
-        return modbus_sensor_availability_message(
-            topic=self.config.get_topic_prefix(),
-            id=self.parent_id,
-            name=self.parent_name,
-            state_topic_base=str(self.base_address),
-            model=self.parent_model,
-            device_class=self.device_class,
+    def discovery_message(
+        self,
+        topic: str,
+        device_info: HaDeviceInfo,
+        availability: list[HaAvailabilityTopic],
+    ) -> HaModbusMessage:
+        return HaModbusMessage(
+            availability=availability,
+            device=device_info,
+            name=self.name,
+            state_topic=f"{topic}/sensor/{self.parent_id}/{str(self.base_address)}",
+            unique_id=f"{topic}{self.name.replace('_', '').lower()}{self.name.lower()}",
             unit_of_measurement=self.unit_of_measurement,
+            device_class=self.device_class,
             state_class=self.state_class,
             value_template=(
                 f"{{{{ value_json.{self.decoded_name} | {self.ha_filter} }}}}"
                 if self.ha_filter
                 else f"{{{{ value_json.{self.decoded_name} }}}}"
             ),
-            sensor_id=self.name,
         )
 
-    def encode_value(self, value: int | float) -> int:
+    def encode_value(self, value: str | float | int) -> int:
         raise NotImplementedError
+
+
+@dataclass
+class ModbusNumericSensor(BaseSensor):
+    """"""
+
+
+@dataclass
+class ModbusBinarySensor(BaseSensor):
+    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.BINARY_SENSOR
+    payload_off: str = "OFF"
+    payload_on: str = "ON"
+
+    def discovery_message(
+        self,
+        topic: str,
+        device_info: HaDeviceInfo,
+        availability: list[HaAvailabilityTopic],
+    ) -> HaModbusMessage:
+        return HaModbusMessage(
+            availability=availability,
+            device=device_info,
+            name=self.name,
+            state_topic=f"{topic}/sensor/{self.parent_id}/{str(self.base_address)}",
+            unique_id=f"{topic}{self.name.replace('_', '').lower()}{self.parent_name.lower()}",
+            unit_of_measurement=self.unit_of_measurement,
+            device_class=self.device_class,
+            payload_off=self.payload_off,
+            payload_on=self.payload_on,
+            value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
+        )
+
+
+@dataclass(kw_only=True)
+class ModbusTextSensor(BaseSensor):
+    value_mapping: dict[str, str]
+
+    def set_state(self, value: str, timestamp: float) -> None:
+        self.last_timestamp = timestamp
+        self.state = self.value_mapping.get(str(value), "Unknown")

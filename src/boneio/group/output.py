@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -79,6 +80,6 @@ class OutputGroup:
         """Send state to Mqtt on action."""
         self.message_bus.send_message(
             topic=f"{self.topic_prefix}/relay/{strip_accents(self.id)}",
-            payload={"state": self.state},
+            payload=json.dumps({"state": self.state}),
             retain=True,
         )

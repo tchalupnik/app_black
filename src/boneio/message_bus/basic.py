@@ -40,7 +40,7 @@ class MqttMessageBase(ABC, BaseModel):
     type_: str
     device_id: str
     command: str
-    message: str
+    message: str | int | ModbusMqttMessageValue
 
 
 class RelaySetMqttMessage(MqttMessageBase):
@@ -130,11 +130,11 @@ class ReceiveMessage(Protocol):
 
 
 class MessageBus(ABC):
-    """Base class for message handling."""
+    """Base class for payload handling."""
 
     @abstractmethod
     def send_message(
-        self, topic: str, payload: str | dict, retain: bool = False
+        self, topic: str, payload: str | None, retain: bool = False
     ) -> None:
         """Send a message."""
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import anyio
@@ -20,13 +20,12 @@ class LocalMessageBus(MessageBus):
     """Local message bus that doesn't use MQTT."""
 
     tg: anyio.abc.TaskGroup
-    send_stream: MemoryObjectSendStream[tuple[str, str | dict[str, Any]]]
-    receive_stream: MemoryObjectReceiveStream[tuple[str, str | dict[str, Any]]]
+    send_stream: MemoryObjectSendStream[tuple[str, str | None]]
+    receive_stream: MemoryObjectReceiveStream[tuple[str, str | None]]
     connection_established: bool = True
-    _subscribers: dict[str, set[Callable]] = field(default_factory=dict)
 
     def send_message(
-        self, topic: str, payload: str | dict, retain: bool = False
+        self, topic: str, payload: str | None, retain: bool = False
     ) -> None:
         """Route message locally."""
         self.tg.start_soon(self.send_stream.send, (topic, payload))
@@ -49,7 +48,7 @@ class LocalMessageBus(MessageBus):
         _LOGGER.info("Starting LOCAL message bus!")
         async with anyio.create_task_group() as tg:
             send_stream, receive_stream = anyio.create_memory_object_stream[
-                tuple[str, str | dict[str, Any]]
+                tuple[str, str | None]
             ]()
             this = cls(tg, send_stream, receive_stream)
             _LOGGER.info("Sending online state.")

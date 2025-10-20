@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -16,7 +17,9 @@ from pydantic import BaseModel, ValidationError
 from boneio.config import OutputTypes
 from boneio.events import EventBus, OutputEvent
 from boneio.helper.util import strip_accents
-from boneio.message_bus.basic import MessageBus
+from boneio.message_bus.basic import (
+    MessageBus,
+)
 from boneio.models import OutputState
 
 if TYPE_CHECKING:
@@ -26,6 +29,16 @@ _LOGGER = logging.getLogger(__name__)
 
 class TurnOnOrTurnOff(Protocol):
     async def __call__(self, is_momentary_turn: bool = True) -> None: ...
+
+
+class PublishVirtualVolumeFlowRateMessage(BaseModel):
+    volume_flow_rate: float
+    water: float
+
+
+class PublishPowerUsageMessage(BaseModel):
+    power: float
+    energy: float
 
 
 @dataclass
@@ -150,23 +163,27 @@ class _VirtualEnergySensor:
 
     def send_virtual_energy_state(self) -> None:
         """Send virtual power/energy state to MQTT for Home Assistant."""
-        payload: dict[str, float] = {}
+        payload: PublishVirtualVolumeFlowRateMessage | PublishPowerUsageMessage
         if self.virtual_power_usage is not None:
-            payload["power"] = (
-                self.virtual_power_usage if self.parent.state == "ON" else 0.0
+            payload = PublishPowerUsageMessage(
+                power=self.virtual_power_usage if self.parent.state == "ON" else 0.0,
+                energy=round(self.energy_consumed_Wh, 3),
             )
-            payload["energy"] = round(self.energy_consumed_Wh, 3)
         if self.virtual_volume_flow_rate is not None:
-            payload["volume_flow_rate"] = (
-                self.virtual_volume_flow_rate if self.parent.state == "ON" else 0.0
+            payload = PublishVirtualVolumeFlowRateMessage(
+                volume_flow_rate=self.virtual_volume_flow_rate
+                if self.parent.state == "ON"
+                else 0.0,
+                water=round(self.water_consumed_L, 3),
             )
-            payload["water"] = round(self.water_consumed_L, 3)
         self.message_bus.send_message(
             topic=self.virtual_energy_topic,
-            payload=payload,
+            payload=payload.model_dump_json(),
             retain=True,
         )
-        _LOGGER.info("Sent virtual energy state for %s: %s", self.id, payload)
+        _LOGGER.info(
+            "Sent virtual energy state for %s: %s", self.id, payload.model_dump_json()
+        )
 
 
 class _EnergyMessage(BaseModel):
@@ -255,7 +272,7 @@ class BasicRelay(ABC):
         if self.output_type not in ("cover", "none"):
             self.message_bus.send_message(
                 topic=self._send_topic,
-                payload={"state": state},
+                payload=json.dumps({"state": self.state}),
                 retain=True,
             )
             if self.virtual_energy_sensor and not optimized_value:

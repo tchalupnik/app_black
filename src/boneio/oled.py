@@ -325,6 +325,11 @@ class Oled:
                         extra_screen.sensor_id,
                     )
                     continue
+                value = (
+                    round(entity.state, 2)
+                    if isinstance(entity.state, float)
+                    else entity.state
+                )
                 all_screens[extra_screen.sensor_id] = UpdatingScreen(
                     screen=DefaultScreen(
                         name=extra_screen.sensor_id,
@@ -332,7 +337,7 @@ class Oled:
                         data={
                             "".join(
                                 [x[:3] for x in entity.name.split()]
-                            ): f"{round(entity.state, 2)} {entity.unit_of_measurement}"
+                            ): f"{value} {entity.unit_of_measurement}"
                         },
                     ),
                     event_bus=self.event_bus,
@@ -340,7 +345,7 @@ class Oled:
                         lambda: {
                             "".join(
                                 [x[:3] for x in entity.name.split()]
-                            ): f"{round(entity.state, 2)} {entity.unit_of_measurement}"
+                            ): f"{value} {entity.unit_of_measurement}"
                         }
                     ),
                 )

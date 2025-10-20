@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 import anyio
-from jose import jwt
+from jose import JWTError, jwt
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
 from boneio.models import CoverState, InputState, OutputState, SensorState, StateUpdate
@@ -59,7 +59,7 @@ class WebSocketManager:
                 _LOGGER.debug("WebSocket token verified successfully")
                 return True
 
-            except jwt.JWTError:
+            except JWTError:
                 _LOGGER.debug("Invalid token")
                 return False
         except Exception as e:

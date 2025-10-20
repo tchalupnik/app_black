@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import typing
@@ -139,7 +140,7 @@ class PreviousCover:
         )
         pos = round(self.position, 0)
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/pos", payload={"position": str(pos)}
+            topic=f"{self._send_topic}/pos", payload=json.dumps({"position": str(pos)})
         )
         self.state_manager.state.cover[self.id] = CoverStateEntry(position=pos)
         self.state_manager.save()
@@ -181,7 +182,8 @@ class PreviousCover:
             elif rounded_pos < 0:
                 rounded_pos = 0
         self.message_bus.send_message(
-            topic=f"{self._send_topic}/pos", payload={"position": str(rounded_pos)}
+            topic=f"{self._send_topic}/pos",
+            payload=json.dumps({"position": str(rounded_pos)}),
         )
         self.send_cover_state()
         self.state = (

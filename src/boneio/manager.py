@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -260,6 +261,14 @@ class Manager:
 
         self.topic_prefix = self.config.get_topic_prefix()
 
+        self.device_info = HaDeviceInfo(
+            identifiers=[self.topic_prefix],
+            model=self.config.boneio.device_type.title(),
+            name=self.config.boneio.name,
+            configuration_url=self.web_url,
+        )
+        self.availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
+
         self.web_url: str | None = None
         if self.config.web is not None:
             network_state = get_network_info()
@@ -308,17 +317,10 @@ class Manager:
                     type=MqttAutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{id}/config",
                     payload=HaSensorMessage(
-                        device=HaDeviceInfo(
-                            identifiers=[self.topic_prefix],
-                            model=self.config.boneio.device_type.title(),
-                            name=self.config.boneio.name,
-                            configuration_url=self.web_url,
-                        ),
-                        availability=[
-                            HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                        ],
+                        device=self.device_info,
+                        availability=self.availability,
                         name=temp_sensor.id,
-                        state_topic=f"{self.topic_prefix}/sensor/{id}",
+                        state_topic=send_topic,
                         unique_id=f"{self.topic_prefix}sensor{id}",
                         device_class="temperature",
                         state_class="measurement",
@@ -414,17 +416,8 @@ class Manager:
                             type=MqttAutoDiscoveryMessageType.SENSOR,
                             topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{self.topic_prefix}/{id}/config",
                             payload=HaSensorMessage(
-                                device=HaDeviceInfo(
-                                    identifiers=[self.topic_prefix],
-                                    model=self.config.boneio.device_type.title(),
-                                    name=self.config.boneio.name,
-                                    configuration_url=self.web_url,
-                                ),
-                                availability=[
-                                    HaAvailabilityTopic(
-                                        topic=f"{self.topic_prefix}/state"
-                                    )
-                                ],
+                                device=self.device_info,
+                                availability=self.availability,
                                 name=id,
                                 state_topic=f"{self.topic_prefix}/{ha_type}/{id}",
                                 unique_id=f"{self.topic_prefix}{ha_type}{id}",
@@ -453,20 +446,12 @@ class Manager:
                 )
             self.outputs[_id] = out
             if out.output_type not in ("none", "cover"):
-                device_info = HaDeviceInfo(
-                    identifiers=[self.topic_prefix],
-                    model=self.config.boneio.device_type.title(),
-                    name=self.config.boneio.name,
-                    configuration_url=self.web_url,
-                )
-                availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
-
                 payload: HaBaseMessage
                 if out.output_type == "led":
                     ha_type = MqttAutoDiscoveryMessageType.LIGHT
                     payload = HaLedMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=out.name or out.id,
                         state_topic=f"{self.topic_prefix}/relay/{out.id}",
                         unique_id=f"{self.topic_prefix}relay{out.id}",
@@ -477,8 +462,8 @@ class Manager:
                 elif out.output_type == "light":
                     ha_type = MqttAutoDiscoveryMessageType.LIGHT
                     payload = HaLightMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=out.name or out.id,
                         state_topic=f"{self.topic_prefix}/relay/{out.id}",
                         unique_id=f"{self.topic_prefix}relay{out.id}",
@@ -487,8 +472,8 @@ class Manager:
                 elif out.output_type == "switch":
                     ha_type = MqttAutoDiscoveryMessageType.SWITCH
                     payload = HaSwitchMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=out.name or out.id,
                         state_topic=f"{self.topic_prefix}/relay/{out.id}",
                         unique_id=f"{self.topic_prefix}relay{out.id}",
@@ -497,8 +482,8 @@ class Manager:
                 elif out.output_type == "valve":
                     ha_type = MqttAutoDiscoveryMessageType.VALVE
                     payload = HaValveMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=out.name or out.id,
                         state_topic=f"{self.topic_prefix}/relay/{out.id}",
                         unique_id=f"{self.topic_prefix}relay{out.id}",
@@ -567,13 +552,6 @@ class Manager:
             )
             self.output_groups[output_group.id] = output_group
             if output_group.output_type != "none":
-                device_info = HaDeviceInfo(
-                    identifiers=[self.topic_prefix],
-                    model=self.config.boneio.device_type.title(),
-                    name=self.config.boneio.name,
-                    configuration_url=self.web_url,
-                )
-                availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
                 icon = (
                     "mdi:lightbulb-group"
                     if output_group.output_type == "light"
@@ -588,8 +566,8 @@ class Manager:
                 if output_group.output_type == "light":
                     mqtt_type = MqttAutoDiscoveryMessageType.LIGHT
                     payload = HaLightMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=output_group.id,
                         state_topic=state_topic,
                         unique_id=unique_id,
@@ -599,8 +577,8 @@ class Manager:
                 elif output_group.output_type == "switch":
                     mqtt_type = MqttAutoDiscoveryMessageType.SWITCH
                     payload = HaSwitchMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=output_group.id,
                         state_topic=state_topic,
                         unique_id=unique_id,
@@ -610,8 +588,8 @@ class Manager:
                 elif output_group.output_type == "valve":
                     mqtt_type = MqttAutoDiscoveryMessageType.VALVE
                     payload = HaValveMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=output_group.id,
                         state_topic=state_topic,
                         unique_id=unique_id,
@@ -621,8 +599,8 @@ class Manager:
                 elif output_group.output_type == "cover":
                     mqtt_type = MqttAutoDiscoveryMessageType.COVER
                     payload = HaCoverMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=output_group.id,
                         state_topic=state_topic,
                         unique_id=unique_id,
@@ -741,20 +719,10 @@ class Manager:
                     raise ValueError(f"Wrong cover platform: {cover_config}")
 
                 if cover_config.show_in_ha:
-                    device_info = HaDeviceInfo(
-                        identifiers=[self.topic_prefix],
-                        model=self.config.boneio.device_type.title(),
-                        name=self.config.boneio.name,
-                        configuration_url=self.web_url,
-                    )
-                    availability = [
-                        HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                    ]
-
                     if isinstance(cover_config, VenetianCoverConfig):
                         payload = HaCoverMessage(
-                            device=device_info,
-                            availability=availability,
+                            device=self.device_info,
+                            availability=self.availability,
                             name=cover.name,
                             state_topic=f"{self.topic_prefix}/cover/{cover.id}/state",
                             unique_id=f"{self.topic_prefix}cover{cover.id}",
@@ -769,8 +737,8 @@ class Manager:
                         )
                     else:
                         payload = HaCoverMessage(
-                            device=device_info,
-                            availability=availability,
+                            device=self.device_info,
+                            availability=self.availability,
                             name=cover.name,
                             state_topic=f"{self.topic_prefix}/cover/{cover.id}/state",
                             unique_id=f"{self.topic_prefix}cover{cover.id}",
@@ -873,15 +841,8 @@ class Manager:
                         type=MqttAutoDiscoveryMessageType.EVENT,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/event/{self.topic_prefix}/{event_config.pin}/config",
                         payload=HaEventMessage(
-                            device=HaDeviceInfo(
-                                identifiers=[self.topic_prefix],
-                                model=self.config.boneio.device_type.title(),
-                                name=self.config.boneio.name,
-                                configuration_url=self.web_url,
-                            ),
-                            availability=[
-                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                            ],
+                            device=self.device_info,
+                            availability=self.availability,
                             name=event_config.identifier(),
                             state_topic=f"{self.topic_prefix}/input/{event_config.pin}",
                             unique_id=f"{self.topic_prefix}input{event_config.pin}",
@@ -951,15 +912,8 @@ class Manager:
                         type=MqttAutoDiscoveryMessageType.BINARY_SENSOR,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/binary_sensor/{self.topic_prefix}/{sensor_config.pin}/config",
                         payload=HaBinarySensorMessage(
-                            device=HaDeviceInfo(
-                                identifiers=[self.topic_prefix],
-                                model=self.config.boneio.device_type.title(),
-                                name=self.config.boneio.name,
-                                configuration_url=self.web_url,
-                            ),
-                            availability=[
-                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                            ],
+                            device=self.device_info,
+                            availability=self.availability,
                             name=sensor_config.identifier(),
                             state_topic=f"{self.topic_prefix}/inputsensor/{sensor_config.pin}",
                             unique_id=f"{self.topic_prefix}inputsensor{sensor_config.pin}",
@@ -1072,15 +1026,8 @@ class Manager:
                         type=MqttAutoDiscoveryMessageType.SENSOR,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{sensor.id}/config",
                         payload=HaSensorMessage(
-                            device=HaDeviceInfo(
-                                identifiers=[self.topic_prefix],
-                                model=self.config.boneio.device_type.title(),
-                                name=self.config.boneio.name,
-                                configuration_url=self.web_url,
-                            ),
-                            availability=[
-                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                            ],
+                            device=self.device_info,
+                            availability=self.availability,
                             name=sensor.name,
                             state_topic=f"{self.topic_prefix}/sensor/{sensor.id}",
                             unique_id=f"{self.topic_prefix}sensor{sensor.id}",
@@ -1122,15 +1069,8 @@ class Manager:
                         type=MqttAutoDiscoveryMessageType.SENSOR,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{sensor.id}/config",
                         payload=HaSensorMessage(
-                            device=HaDeviceInfo(
-                                identifiers=[self.topic_prefix],
-                                model=self.config.boneio.device_type.title(),
-                                name=self.config.boneio.name,
-                                configuration_url=self.web_url,
-                            ),
-                            availability=[
-                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                            ],
+                            device=self.device_info,
+                            availability=self.availability,
                             name=sensor.name,
                             state_topic=f"{self.topic_prefix}/sensor/{sensor.id}",
                             unique_id=f"{self.topic_prefix}sensor{sensor.id}",
@@ -1289,21 +1229,13 @@ class Manager:
 
         self.interlock_manager.register(relay, output_config.interlock_group)
         if relay.is_virtual_power:
-            device_info = HaDeviceInfo(
-                identifiers=[self.topic_prefix],
-                model=self.config.boneio.device_type.title(),
-                name=self.config.boneio.name,
-                configuration_url=self.web_url,
-            )
-            availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
-
             self.message_bus.add_autodiscovery_message(
                 message=MqttAutoDiscoveryMessage(
                     type=MqttAutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_power/config",
                     payload=HaSensorMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=f"{output_config.id} Virtual Power",
                         state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
                         unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_power",
@@ -1319,8 +1251,8 @@ class Manager:
                     type=MqttAutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_energy/config",
                     payload=HaSensorMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=f"{output_config.id} Virtual Energy",
                         state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
                         unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_energy",
@@ -1332,21 +1264,13 @@ class Manager:
                 )
             )
         if relay.is_virtual_volume_flow_rate:
-            device_info = HaDeviceInfo(
-                identifiers=[self.topic_prefix],
-                model=self.config.boneio.device_type.title(),
-                name=self.config.boneio.name,
-                configuration_url=self.web_url,
-            )
-            availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
-
             self.message_bus.add_autodiscovery_message(
                 message=MqttAutoDiscoveryMessage(
                     type=MqttAutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_volume_flow_rate/config",
                     payload=HaSensorMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=f"{output_config.id} Virtual Volume Flow Rate",
                         state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
                         unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_volume_flow_rate",
@@ -1362,8 +1286,8 @@ class Manager:
                     type=MqttAutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_consumption/config",
                     payload=HaSensorMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name=f"{output_config.id} Virtual consumption",
                         state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
                         unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_consumption",
@@ -1400,15 +1324,8 @@ class Manager:
                 type=MqttAutoDiscoveryMessageType.SENSOR,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{id}/config",
                 payload=HaSensorMessage(
-                    device=HaDeviceInfo(
-                        identifiers=[self.topic_prefix],
-                        model=self.config.boneio.device_type.title(),
-                        name=self.config.boneio.name,
-                        configuration_url=self.web_url,
-                    ),
-                    availability=[
-                        HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
-                    ],
+                    device=self.device_info,
+                    availability=self.availability,
                     name=name,
                     state_topic=f"{self.topic_prefix}/sensor/{id}",
                     unique_id=f"{self.topic_prefix}sensor{id}",
@@ -1431,21 +1348,13 @@ class Manager:
 
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""
-        device_info = HaDeviceInfo(
-            identifiers=[self.topic_prefix],
-            model=self.config.boneio.device_type.title(),
-            name=self.config.boneio.name,
-            configuration_url=self.web_url,
-        )
-        availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
-
         self.message_bus.add_autodiscovery_message(
             message=MqttAutoDiscoveryMessage(
                 type=MqttAutoDiscoveryMessageType.BUTTON,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/logger/config",
                 payload=HaButtonMessage(
-                    device=device_info,
-                    availability=availability,
+                    device=self.device_info,
+                    availability=self.availability,
                     name="Logger reload",
                     unique_id=f"{self.topic_prefix}buttonlogger",
                     command_topic=f"{self.topic_prefix}/cmd/button/logger/set",
@@ -1459,8 +1368,8 @@ class Manager:
                 type=MqttAutoDiscoveryMessageType.BUTTON,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/restart/config",
                 payload=HaButtonMessage(
-                    device=device_info,
-                    availability=availability,
+                    device=self.device_info,
+                    availability=self.availability,
                     name="Restart boneIO",
                     unique_id=f"{self.topic_prefix}buttonrestart",
                     command_topic=f"{self.topic_prefix}/cmd/button/restart/set",
@@ -1474,8 +1383,8 @@ class Manager:
                 type=MqttAutoDiscoveryMessageType.BUTTON,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/inputs_reload/config",
                 payload=HaButtonMessage(
-                    device=device_info,
-                    availability=availability,
+                    device=self.device_info,
+                    availability=self.availability,
                     name="Reload actions",
                     unique_id=f"{self.topic_prefix}buttoninputs_reload",
                     command_topic=f"{self.topic_prefix}/cmd/button/inputs_reload/set",
@@ -1490,8 +1399,8 @@ class Manager:
                     type=MqttAutoDiscoveryMessageType.BUTTON,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/cover_reload/config",
                     payload=HaButtonMessage(
-                        device=device_info,
-                        availability=availability,
+                        device=self.device_info,
+                        availability=self.availability,
                         name="Reload times of covers",
                         unique_id=f"{self.topic_prefix}buttoncover_reload",
                         command_topic=f"{self.topic_prefix}/cmd/button/cover_reload/set",
@@ -1599,9 +1508,9 @@ class Manager:
         payload: dict[str, str | float] | str
         if gpio.input_type == "input":
             if duration is not None:
-                payload = {"event_type": action_type, "duration": duration}
+                payload = json.dumps({"event_type": action_type, "duration": duration})
             else:
-                payload = {"event_type": action_type}
+                payload = json.dumps({"event_type": action_type})
         else:
             # TODO: check later looks like a bug?
             payload = action_type

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,8 +55,7 @@ class GpioADCSensor:
         self.state = self.filter.apply_filters(value=self.read())
         self._timestamp = timestamp
         self.message_bus.send_message(
-            topic=self.send_topic,
-            payload=str(self.state),
+            topic=self.send_topic, payload=json.dumps({"state": self.state})
         )
 
     def read(self) -> float:

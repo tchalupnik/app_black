@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -197,7 +198,7 @@ class BaseCover(BaseCoverABC):
         )
         self.message_bus.send_message(
             topic=f"{self.send_topic}/pos",
-            payload={"position": self.position, "tilt": self.tilt},
+            payload=json.dumps({"position": self.position, "tilt": self.tilt}),
         )
 
     def send_state_and_save(self) -> None:
