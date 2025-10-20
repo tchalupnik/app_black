@@ -25,56 +25,6 @@ class HaDeviceInfo(BaseModel):
     configuration_url: str | None = None
 
 
-class HaMqttBinarySensor(BaseModel):
-    platform: str = "binary_sensor"
-    state_topic: str
-
-
-class HaMqttSensor(BaseModel):
-    platform: str = "sensor"
-    state_topic: str
-
-
-class HaMqttButton(BaseModel):
-    platform: str = "button"
-    command_topic: str
-
-
-class HaMqttNumber(BaseModel):
-    platform: str = "number"
-    command_topic: str
-
-
-class HaMqttSelect(BaseModel):
-    platform: str = "select"
-    command_topic: str
-    options: list[str]
-
-
-class HaMqttSwitch(BaseModel):
-    platform: str = "switch"
-    command_topic: str
-
-
-class HaMqttLight(BaseModel):
-    platform: str = "light"
-    command_topic: str
-
-
-class HaMqttValve(BaseModel):
-    platform: str = "valve"
-
-
-class HaMqttCover(BaseModel):
-    platform: str = "cover"
-
-
-class HaMqttEvent(BaseModel):
-    platform: str = "event"
-    state_topic: str
-    event_types: list[str]
-
-
 class HaBaseMessage(BaseModel):
     """Base Home Assistant MQTT discovery message."""
 
