@@ -1008,13 +1008,13 @@ async def websocket_endpoint(
                 for modbus_coordinator in boneio_manager.modbus_coordinators.values():
                     if not modbus_coordinator:
                         continue
-                    for entities in modbus_coordinator.get_all_entities():
+                    for entities in modbus_coordinator.modbus_entities:
                         for entity in entities.values():
                             try:
                                 sensor_state = SensorState(
                                     id=entity.id,
                                     name=entity.name,
-                                    state=entity.value,
+                                    state=entity.state,
                                     unit=entity.unit_of_measurement,
                                     timestamp=entity.last_timestamp,
                                 )

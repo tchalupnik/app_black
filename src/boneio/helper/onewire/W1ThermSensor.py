@@ -30,7 +30,7 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
         self._ds18b20_str_id = hex(Sensor.DS18B20)[2:]
         super().__init__(sensor_id=sensor_id)
         _crc = crc82(
-            bytes.fromhex(f"{self._ds18b20_str_id}{reverse_dallas_id(self.id)}")
+            bytearray.fromhex(f"{self._ds18b20_str_id}{reverse_dallas_id(self.id)}")
         )
         self._hex_id = f"{hex(_crc)}{self.id}{self._ds18b20_str_id}".lower()
 
@@ -41,9 +41,9 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
         def is_sensor(dir_name: str) -> bool:
             return dir_name.startswith(hex(Sensor.DS18B20)[2:])
 
-        def get_hex(name: str) -> bytes:
-            _hex_id = bytes.fromhex(f"{name[:2]}{reverse_dallas_id(name[3:])}")
-            return _hex_id + bytes([crc82(_hex_id)])
+        def get_hex(name: str) -> bytearray:
+            _hex_id = bytearray.fromhex(f"{name[:2]}{reverse_dallas_id(name[3:])}")
+            return _hex_id + bytearray([crc82(_hex_id)])
 
         return [
             OneWireAddress(get_hex(name=s.name))
@@ -52,7 +52,7 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
         ]
 
     @property
-    def rom(self) -> bytes:
+    def rom(self) -> bytearray:
         """Get rom id."""
         return bytearray.fromhex(self.hex_id)
 
@@ -61,7 +61,7 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
         """Get hex representation of sensor."""
         if not self._hex_id:
             _crc = crc82(
-                bytes.fromhex(f"{self._ds18b20_str_id}{reverse_dallas_id(self.id)}")
+                bytearray.fromhex(f"{self._ds18b20_str_id}{reverse_dallas_id(self.id)}")
             )
             self._hex_id = f"{hex(_crc)}{self.id}{self._ds18b20_str_id}".lower()
         return self._hex_id

@@ -31,7 +31,7 @@ def device_config_data(device_config_files: list[Path]) -> dict[str, str]:
     return configs
 
 
-def test_device_config_files_exist(device_config_files: list[Path]):
+def test_device_config_files_exist(device_config_files: list[Path]) -> None:
     """Test checking if device configuration files exist."""
     assert len(device_config_files) > 0, "No device configuration files found"
 
@@ -45,7 +45,7 @@ def test_device_config_files_exist(device_config_files: list[Path]):
         )
 
 
-def test_device_config_files_are_valid_json(device_config_data: dict[str, str]):
+def test_device_config_files_are_valid_json(device_config_data: dict[str, str]) -> None:
     """Test checking if all configuration files are valid JSON."""
     for device_name, json_content in device_config_data.items():
         try:
@@ -60,7 +60,7 @@ def test_device_config_files_are_valid_json(device_config_data: dict[str, str]):
 @pytest.mark.parametrize("device_name", get_args(ModbusModels))
 def test_individual_device_config_validation(
     device_config_data: dict[str, str], device_name: str
-):
+) -> None:
     """Parametrized test for individual validation of each device."""
     if device_name not in device_config_data:
         pytest.skip(f"Configuration for device {device_name} not found")

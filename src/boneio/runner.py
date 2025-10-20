@@ -48,7 +48,9 @@ async def start(
 
                 def create_message_bus() -> AbstractAsyncContextManager[MessageBus]:
                     assert config.mqtt is not None
-                    return MqttMessageBus.create(config.mqtt)
+                    return MqttMessageBus.create(
+                        config=config.mqtt, event_bus=event_bus
+                    )
 
                 create_message_bus_fun = create_message_bus
             else:

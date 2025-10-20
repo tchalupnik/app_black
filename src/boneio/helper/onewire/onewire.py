@@ -56,7 +56,7 @@ class OneWire(OneWireIO):
         """
         return self.ds2482.single_bit()
 
-    def write_bit(self, value) -> None:
+    def write_bit(self, value: int) -> None:
         """
         Write out a bit based on value.
         """

@@ -4,9 +4,36 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
-from typing import Any, Literal, Protocol, TypeAlias
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeAlias
 
 from pydantic import BaseModel, Field, RootModel
+
+if TYPE_CHECKING:
+    from boneio.helper.ha_discovery import HaDiscoveryMessage
+
+
+class MqttAutoDiscoveryMessageType(str, Enum):
+    """Enum for Auto Discovery Message Types."""
+
+    SWITCH = "SWITCH"
+    LIGHT = "LIGHT"
+    BINARY_SENSOR = "BINARY_SENSOR"
+    SENSOR = "SENSOR"
+    COVER = "COVER"
+    BUTTON = "BUTTON"
+    EVENT = "EVENT"
+    VALVE = "VALVE"
+    TEXT_SENSOR = "TEXT_SENSOR"
+    SELECT = "SELECT"
+    NUMERIC = "NUMERIC"
+    NUMBER = "NUMBER"
+
+
+class MqttAutoDiscoveryMessage(BaseModel):
+    type: MqttAutoDiscoveryMessageType
+    topic: str
+    payload: HaDiscoveryMessage
 
 
 class MqttMessageBase(ABC, BaseModel):
@@ -99,7 +126,7 @@ class MqttMessage(RootModel[_MqqtMessage]):
 
 
 class ReceiveMessage(Protocol):
-    async def __call__(self, topic: str, payload: str) -> None: ...
+    async def __call__(self, topic: str, message: str) -> None: ...
 
 
 class MessageBus(ABC):
@@ -132,3 +159,13 @@ class MessageBus(ABC):
     @abstractmethod
     async def subscribe(self, receive_message: ReceiveMessage) -> None:
         """Subscribe to a topic."""
+
+    @abstractmethod
+    def add_autodiscovery_message(self, message: MqttAutoDiscoveryMessage) -> None:
+        """Add an autodiscovery message."""
+
+    @abstractmethod
+    def clear_autodiscovery_messages_by_type(
+        self, type: MqttAutoDiscoveryMessageType
+    ) -> None:
+        """Clean autodiscovery messages."""

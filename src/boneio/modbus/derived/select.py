@@ -4,8 +4,9 @@ from dataclasses import dataclass
 
 from boneio.helper.ha_discovery import (
     HaModbusMessage,
-    modbus_select_availabilty_message,
+    modbus_select_availability_message,
 )
+from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
 from boneio.modbus.sensor.base import BaseSensor
 
 
@@ -13,35 +14,30 @@ from boneio.modbus.sensor.base import BaseSensor
 class ModbusDerivedSelect(BaseSensor):
     decoded_name: str
     value_mapping: dict[str, str]
-    _ha_type_: str = "select"
-
-    @property
-    def state(self) -> str:
-        """Give rounded value of temperature."""
-        return self._value or ""
+    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.SELECT
 
     def discovery_message(self) -> HaModbusMessage:
-        return modbus_select_availabilty_message(
+        return modbus_select_availability_message(
             topic=self.config.get_topic_prefix(),
-            id=self.parent["id"],
-            name=self.parent["name"],
+            id=self.parent_id,
+            name=self.parent_name,
             state_topic_base=str(self.base_address),
-            model=self.parent["model"],
+            model=self.parent_model,
             device_type="sensor",  # because we send everything to boneio/sensor from modbus.
             value_template=f"{{{{ value_json.{self.decoded_name} }}}}",
             entity_id=self.name,
             options=[*self.value_mapping.values()],
-            command_topic=f"{self.config.get_topic_prefix()}/cmd/modbus/{self.parent['id'].lower()}/set",
+            command_topic=f"{self.config.get_topic_prefix()}/cmd/modbus/{self.parent_id.lower()}/set",
             command_template='{"device": "'
             + self.decoded_name
             + '", "value": "{{ value }}"}',
         )
 
     def evaluate_state(
-        self, source_sensor_value: int | float, timestamp: float
+        self, source_sensor_value: str | float | None, timestamp: float
     ) -> None:
         self._timestamp = timestamp
-        self._value = self.value_mapping.get(str(source_sensor_value), "Unknown")
+        self.state = self.value_mapping.get(str(source_sensor_value), "Unknown")
 
     def encode_value(self, value: str | float | int) -> int:
         for k, v in self.value_mapping.items():

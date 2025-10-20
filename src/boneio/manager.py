@@ -20,63 +20,56 @@ from pydantic import TypeAdapter
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
-    AdcConfig,
-    AutodiscoveryType,
     BinarySensorActionTypes,
     Config,
     CoverActionConfig,
     CoverOverMqttActionConfig,
-    DallasConfig,
-    Ds2482Config,
     EventActionTypes,
+    GpioOutputConfig,
     Ina219Config,
     Lm75Config,
     Mcp9808Config,
     Mcp23017Config,
+    McpOutputConfig,
+    MockOutputConfig,
     ModbusConfig,
-    ModbusDeviceConfig,
     MqttActionConfig,
-    MqttAutodiscoveryMessage,
     OutputActionConfig,
+    OutputConfigKinds,
     OutputOverMqttActionConfig,
     Pca9685Config,
+    PcaOutputConfig,
     Pcf8575Config,
+    PcfOutputConfig,
     PreviousCoverConfig,
-    SensorConfig,
     TimeBasedCoverConfig,
     UartsConfig,
     VenetianCoverConfig,
 )
 from boneio.cover import PreviousCover, TimeBasedCover
 from boneio.cover.venetian import VenetianCover
-from boneio.events import EventBus, EventType
+from boneio.events import EventBus, EventType, OutputEvent
 from boneio.group.output import OutputGroup
 from boneio.helper import (
     I2CError,
     StateManager,
-    ha_button_availabilty_message,
-    ha_led_availabilty_message,
-    ha_light_availabilty_message,
-    ha_switch_availabilty_message,
 )
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.exceptions import CoverConfigurationError
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import (
-    HaDiscoveryMessage,
-    ha_binary_sensor_availabilty_message,
-    ha_cover_availabilty_message,
-    ha_cover_with_tilt_availabilty_message,
-    ha_event_availabilty_message,
-    ha_sensor_availability_message,
-    ha_sensor_ina_availabilty_message,
-    ha_sensor_temp_availabilty_message,
-    ha_valve_availabilty_message,
-)
-from boneio.helper.loader import (
-    configure_relay,
-    create_adc,
-    create_modbus_coordinators,
+    HaAvailabilityTopic,
+    HaBaseMessage,
+    HaBinarySensorMessage,
+    HaButtonMessage,
+    HaCoverMessage,
+    HaDeviceInfo,
+    HaEventMessage,
+    HaLedMessage,
+    HaLightMessage,
+    HaSensorMessage,
+    HaSwitchMessage,
+    HaValveMessage,
 )
 from boneio.helper.onewire.ds2482 import DS2482
 from boneio.helper.onewire.onewire import OneWireAddress, OneWireBus
@@ -97,12 +90,18 @@ from boneio.message_bus import (
     RelaySetBrightnessMqttMessage,
     RelaySetMqttMessage,
 )
+from boneio.message_bus.basic import (
+    MqttAutoDiscoveryMessage,
+    MqttAutoDiscoveryMessageType,
+)
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.models import OutputState
 from boneio.oled import get_network_info
 from boneio.relay.basic import BasicRelay
+from boneio.relay.mcp import MCPRelay
 from boneio.relay.pca import PWMPCA
+from boneio.relay.pcf import PCFRelay
+from boneio.sensor.adc import GpioADCSensor
 from boneio.sensor.ina219 import INA219
 from boneio.sensor.temp import TempSensor
 from boneio.sensor.temp.dallas import DallasSensorDS2482, DallasSensorW1
@@ -119,13 +118,6 @@ if TYPE_CHECKING:
     from boneio.gpio_manager import GpioManagerBase
 
 _LOGGER = logging.getLogger(__name__)
-
-AVAILABILITY_FUNCTION_CHOOSER: dict[str, Callable[..., HaDiscoveryMessage]] = {
-    "light": ha_light_availabilty_message,
-    "led": ha_led_availabilty_message,
-    "switch": ha_switch_availabilty_message,
-    "valve": ha_valve_availabilty_message,
-}
 
 
 @dataclass
@@ -253,10 +245,11 @@ class Manager:
                             raise
 
     def _get_lazy_i2c(self) -> I2C:
-        if self.i2c is None:
-            from board import SCL, SDA
-            from busio import I2C
+        from board import SCL, SDA
+        from busio import I2C
 
+        self.i2c: I2C | None
+        if self.i2c is None:
             self.i2c = I2C(SCL, SDA)
         return self.i2c
 
@@ -265,10 +258,18 @@ class Manager:
         if self.config.modbus is not None:
             self._configure_modbus(modbus=self.config.modbus)
 
+        self.topic_prefix = self.config.get_topic_prefix()
+
+        self.web_url: str | None = None
+        if self.config.web is not None:
+            network_state = get_network_info()
+            if "ip" in network_state:
+                self.web_url = f"http://{network_state['ip']}:{self.config.web.port}"
+
         temp_sensor: TempSensor
         for temp_config in chain(self.config.lm75, self.config.mcp9808):
             id = temp_config.identifier()
-            send_topic = f"{self.config.get_topic_prefix()}/sensor/{strip_accents(id)}"
+            send_topic = f"{self.topic_prefix}/sensor/{strip_accents(id)}"
             try:
                 if isinstance(temp_config, Lm75Config):
                     temp_sensor = LM75Sensor(
@@ -302,12 +303,29 @@ class Manager:
                 _LOGGER.error("Can't configure Temp lm75. %s", err)
                 continue
 
-            self.send_ha_autodiscovery(
-                id=id,
-                name=temp_sensor.id,
-                ha_type="sensor",
-                availability_msg_func=ha_sensor_temp_availabilty_message,
-                unit_of_measurement=temp_sensor.unit_of_measurement,
+            self.message_bus.add_autodiscovery_message(
+                message=MqttAutoDiscoveryMessage(
+                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                    topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{id}/config",
+                    payload=HaSensorMessage(
+                        device=HaDeviceInfo(
+                            identifiers=[self.topic_prefix],
+                            model=self.config.boneio.device_type.title(),
+                            name=self.config.boneio.name,
+                            configuration_url=self.web_url,
+                        ),
+                        availability=[
+                            HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                        ],
+                        name=temp_sensor.id,
+                        state_topic=f"{self.topic_prefix}/sensor/{id}",
+                        unique_id=f"{self.topic_prefix}sensor{id}",
+                        device_class="temperature",
+                        state_class="measurement",
+                        value_template="{{ value_json.state }}",
+                        unit_of_measurement=temp_sensor.unit_of_measurement,
+                    ),
+                )
             )
             self.temp_sensors.append(temp_sensor)
             self.append_task(
@@ -316,11 +334,7 @@ class Manager:
 
         if self.config.ina219 is not None:
             self._configure_ina219_sensors(sensors=self.config.ina219)
-        self._configure_sensors(
-            dallas=self.config.dallas,
-            ds2482=self.config.ds2482,
-            sensors=self.config.sensor,
-        )
+        self._configure_sensors()
 
         _E = TypeVar("_E", bound="MCP23017 | PCF8575 | PCA9685")
         _C = TypeVar("_C", bound="Mcp23017Config | Pcf8575Config | Pca9685Config")
@@ -374,25 +388,61 @@ class Manager:
             create_func=pca9685,
         )
 
-        create_adc(
-            manager=self,
-            message_bus=self.message_bus,
-            topic_prefix=self.config.get_topic_prefix(),
-            adc=self.config.adc,
-        )
+        for adc_config in self.config.adc:
+            id = adc_config.identifier()
+            try:
+                sensor = GpioADCSensor(
+                    id=id,
+                    pin=adc_config.pin,
+                    message_bus=self.message_bus,
+                    topic_prefix=self.topic_prefix,
+                    filter=Filter(adc_config.filters),
+                )
+
+            except I2CError as err:
+                _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
+
+            else:
+                self.append_task(
+                    refresh_wrapper(sensor.update, adc_config.update_interval),
+                    sensor.id,
+                )
+                if adc_config.show_in_ha:
+                    ha_type = "sensor"
+                    self.message_bus.add_autodiscovery_message(
+                        message=MqttAutoDiscoveryMessage(
+                            type=MqttAutoDiscoveryMessageType.SENSOR,
+                            topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{self.topic_prefix}/{id}/config",
+                            payload=HaSensorMessage(
+                                device=HaDeviceInfo(
+                                    identifiers=[self.topic_prefix],
+                                    model=self.config.boneio.device_type.title(),
+                                    name=self.config.boneio.name,
+                                    configuration_url=self.web_url,
+                                ),
+                                availability=[
+                                    HaAvailabilityTopic(
+                                        topic=f"{self.topic_prefix}/state"
+                                    )
+                                ],
+                                name=id,
+                                state_topic=f"{self.topic_prefix}/{ha_type}/{id}",
+                                unique_id=f"{self.topic_prefix}{ha_type}{id}",
+                                unit_of_measurement="V",
+                                device_class="voltage",
+                                state_class="measurement",
+                            ),
+                        ),
+                    )
 
         for _output in self.config.output:
             output = _output.root
             _id = strip_accents(output.id)
             _LOGGER.debug("Configuring relay: %s", _id)
-            out = configure_relay(  # grouped_output updated here.
-                manager=self,
+            out = self.configure_relay(  # grouped_output updated here.
                 output_config=output,
-                message_bus=self.message_bus,
-                state_manager=self.state_manager,
-                topic_prefix=self.config.get_topic_prefix(),
+                topic_prefix=self.topic_prefix,
                 relay_id=_id,
-                event_bus=self.event_bus,
             )
             if output.restore_state:
                 self.event_bus.add_event_listener(
@@ -403,13 +453,66 @@ class Manager:
                 )
             self.outputs[_id] = out
             if out.output_type not in ("none", "cover"):
-                self.send_ha_autodiscovery(
-                    id=out.id,
-                    name=out.name or out.id,
-                    ha_type="light" if out.output_type == "led" else out.output_type,
-                    availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
-                        out.output_type, ha_switch_availabilty_message
-                    ),
+                device_info = HaDeviceInfo(
+                    identifiers=[self.topic_prefix],
+                    model=self.config.boneio.device_type.title(),
+                    name=self.config.boneio.name,
+                    configuration_url=self.web_url,
+                )
+                availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
+
+                payload: HaBaseMessage
+                if out.output_type == "led":
+                    ha_type = MqttAutoDiscoveryMessageType.LIGHT
+                    payload = HaLedMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=out.name or out.id,
+                        state_topic=f"{self.topic_prefix}/relay/{out.id}",
+                        unique_id=f"{self.topic_prefix}relay{out.id}",
+                        command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set",
+                        brightness_state_topic=f"{self.topic_prefix}/relay/{out.id}",
+                        brightness_command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set_brightness",
+                    )
+                elif out.output_type == "light":
+                    ha_type = MqttAutoDiscoveryMessageType.LIGHT
+                    payload = HaLightMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=out.name or out.id,
+                        state_topic=f"{self.topic_prefix}/relay/{out.id}",
+                        unique_id=f"{self.topic_prefix}relay{out.id}",
+                        command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set",
+                    )
+                elif out.output_type == "switch":
+                    ha_type = MqttAutoDiscoveryMessageType.SWITCH
+                    payload = HaSwitchMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=out.name or out.id,
+                        state_topic=f"{self.topic_prefix}/relay/{out.id}",
+                        unique_id=f"{self.topic_prefix}relay{out.id}",
+                        command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set",
+                    )
+                elif out.output_type == "valve":
+                    ha_type = MqttAutoDiscoveryMessageType.VALVE
+                    payload = HaValveMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=out.name or out.id,
+                        state_topic=f"{self.topic_prefix}/relay/{out.id}",
+                        unique_id=f"{self.topic_prefix}relay{out.id}",
+                        command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set",
+                    )
+                else:
+                    raise ValueError(f"Wrong output type: {out.output_type}")
+
+                self.message_bus.add_autodiscovery_message(
+                    message=MqttAutoDiscoveryMessage(
+                        type=ha_type,
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type.value.lower()}/{self.topic_prefix}/{out.id}/config",
+                        payload=payload,
+                    )
                 )
             self.tg.start_soon(self._delayed_send_state, out)
 
@@ -422,9 +525,7 @@ class Manager:
         self.configure_inputs()
 
         self.create_serial_number_sensor()
-        self.modbus_coordinators = self._configure_modbus_coordinators(
-            devices=self.config.modbus_devices
-        )
+        self.modbus_coordinators = self.create_modbus_coordinators()
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
 
@@ -456,38 +557,99 @@ class Manager:
             )
             output_group = OutputGroup(
                 id=strip_accents(group.identifier()),
+                name=group.identifier(),
                 message_bus=self.message_bus,
                 state_manager=self.state_manager,
                 topic_prefix=self.config.get_topic_prefix(),
                 event_bus=self.event_bus,
                 members=members,
-                config=group,
+                output_type=group.output_type,
             )
             self.output_groups[output_group.id] = output_group
             if output_group.output_type != "none":
-                self.send_ha_autodiscovery(
-                    id=output_group.id,
-                    name=output_group.id,
-                    ha_type=output_group.output_type,
-                    availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
-                        output_group.output_type,
-                        ha_switch_availabilty_message,
-                    ),
-                    device_type="group",
-                    icon=(
-                        "mdi:lightbulb-group"
-                        if output_group.output_type == "light"
-                        else "mdi:toggle-switch-variant"
-                    ),
+                device_info = HaDeviceInfo(
+                    identifiers=[self.topic_prefix],
+                    model=self.config.boneio.device_type.title(),
+                    name=self.config.boneio.name,
+                    configuration_url=self.web_url,
                 )
-            self.append_task(coro=output_group.event_listener, name=output_group.id)
+                availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
+                icon = (
+                    "mdi:lightbulb-group"
+                    if output_group.output_type == "light"
+                    else "mdi:toggle-switch-variant"
+                )
+
+                payload: HaBaseMessage
+                state_topic = f"{self.topic_prefix}/group/{output_group.id}"
+                unique_id = f"{self.topic_prefix}group{output_group.id}"
+                command_topic = f"{self.topic_prefix}/cmd/group/{output_group.id}/set"
+                mqtt_type: MqttAutoDiscoveryMessageType
+                if output_group.output_type == "light":
+                    mqtt_type = MqttAutoDiscoveryMessageType.LIGHT
+                    payload = HaLightMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=output_group.id,
+                        state_topic=state_topic,
+                        unique_id=unique_id,
+                        command_topic=command_topic,
+                        icon=icon,
+                    )
+                elif output_group.output_type == "switch":
+                    mqtt_type = MqttAutoDiscoveryMessageType.SWITCH
+                    payload = HaSwitchMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=output_group.id,
+                        state_topic=state_topic,
+                        unique_id=unique_id,
+                        command_topic=command_topic,
+                        icon=icon,
+                    )
+                elif output_group.output_type == "valve":
+                    mqtt_type = MqttAutoDiscoveryMessageType.VALVE
+                    payload = HaValveMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=output_group.id,
+                        state_topic=state_topic,
+                        unique_id=unique_id,
+                        command_topic=command_topic,
+                        icon=icon,
+                    )
+                elif output_group.output_type == "cover":
+                    mqtt_type = MqttAutoDiscoveryMessageType.COVER
+                    payload = HaCoverMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=output_group.id,
+                        state_topic=state_topic,
+                        unique_id=unique_id,
+                        command_topic=command_topic,
+                        icon=icon,
+                    )
+                else:
+                    raise ValueError(
+                        f"Wrong output group type: {output_group.output_type}"
+                    )
+
+                self.message_bus.add_autodiscovery_message(
+                    message=MqttAutoDiscoveryMessage(
+                        type=mqtt_type,
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{output_group.output_type}/{self.topic_prefix}/{output_group.id}/config",
+                        payload=payload,
+                    )
+                )
 
     def _configure_covers(self, reload_config: bool = False) -> None:
         """Configure covers."""
         if reload_config:
             self.config.cover = load_config(self.config_file_path).cover
             if self.config.mqtt is not None:
-                self.config.mqtt.autodiscovery_messages.clear_type(type="cover")
+                self.message_bus.clear_autodiscovery_messages_by_type(
+                    MqttAutoDiscoveryMessageType.COVER
+                )
         for _cover_config in self.config.cover:
             cover_config = _cover_config.root
             _id = strip_accents(cover_config.id)
@@ -545,7 +707,6 @@ class Manager:
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
-                    availability_msg_func = ha_cover_with_tilt_availabilty_message
                 elif isinstance(cover_config, TimeBasedCoverConfig):
                     _LOGGER.debug("Configuring time-based cover %s", _id)
                     cover = TimeBasedCover(
@@ -561,7 +722,6 @@ class Manager:
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
-                    availability_msg_func = ha_cover_availabilty_message
                 elif isinstance(cover_config, PreviousCoverConfig):
                     _LOGGER.debug("Configuring previous cover %s", _id)
                     cover = PreviousCover(
@@ -577,17 +737,56 @@ class Manager:
                         event_bus=self.event_bus,
                         topic_prefix=self.config.get_topic_prefix(),
                     )
-                    availability_msg_func = ha_cover_availabilty_message
                 else:
-                    raise ValueError(f"Wrong cover platform: {cover_config.platform}")
+                    raise ValueError(f"Wrong cover platform: {cover_config}")
 
                 if cover_config.show_in_ha:
-                    self.send_ha_autodiscovery(
-                        id=cover.id,
-                        name=cover.name,
-                        ha_type="cover",
-                        device_class=cover_config.device_class,
-                        availability_msg_func=availability_msg_func,
+                    device_info = HaDeviceInfo(
+                        identifiers=[self.topic_prefix],
+                        model=self.config.boneio.device_type.title(),
+                        name=self.config.boneio.name,
+                        configuration_url=self.web_url,
+                    )
+                    availability = [
+                        HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                    ]
+
+                    if isinstance(cover_config, VenetianCoverConfig):
+                        payload = HaCoverMessage(
+                            device=device_info,
+                            availability=availability,
+                            name=cover.name,
+                            state_topic=f"{self.topic_prefix}/cover/{cover.id}/state",
+                            unique_id=f"{self.topic_prefix}cover{cover.id}",
+                            device_class=cover_config.device_class,
+                            command_topic=f"{self.topic_prefix}/cmd/cover/{cover.id}/set",
+                            set_position_topic=f"{self.topic_prefix}/cmd/cover/{cover.id}/pos",
+                            tilt_command_topic=f"{self.topic_prefix}/cmd/cover/{cover.id}/tilt",
+                            position_topic=f"{self.topic_prefix}/cover/{cover.id}/pos",
+                            tilt_status_topic=f"{self.topic_prefix}/cover/{cover.id}/tilt",
+                            position_template="{{ value_json.position }}",
+                            tilt_status_template="{{ value_json.tilt }}",
+                        )
+                    else:
+                        payload = HaCoverMessage(
+                            device=device_info,
+                            availability=availability,
+                            name=cover.name,
+                            state_topic=f"{self.topic_prefix}/cover/{cover.id}/state",
+                            unique_id=f"{self.topic_prefix}cover{cover.id}",
+                            device_class=cover_config.device_class,
+                            command_topic=f"{self.topic_prefix}/cmd/cover/{cover.id}/set",
+                            set_position_topic=f"{self.topic_prefix}/cmd/cover/{cover.id}/pos",
+                            position_template="{{ value_json.position }}",
+                            position_topic=f"{self.topic_prefix}/cover/{cover.id}/pos",
+                        )
+
+                    self.message_bus.add_autodiscovery_message(
+                        message=MqttAutoDiscoveryMessage(
+                            type=MqttAutoDiscoveryMessageType.COVER,
+                            topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/cover/{self.topic_prefix}/{cover.id}/config",
+                            payload=payload,
+                        )
                     )
                 _LOGGER.debug("Configured cover %s", _id)
 
@@ -614,8 +813,12 @@ class Manager:
             self.config.event = config.event
             self.config.binary_sensor = config.binary_sensor
             if self.config.mqtt is not None:
-                self.config.mqtt.autodiscovery_messages.clear_type(type="event")
-                self.config.mqtt.autodiscovery_messages.clear_type(type="binary_sensor")
+                self.message_bus.clear_autodiscovery_messages_by_type(
+                    MqttAutoDiscoveryMessageType.EVENT
+                )
+                self.message_bus.clear_autodiscovery_messages_by_type(
+                    MqttAutoDiscoveryMessageType.BINARY_SENSOR
+                )
         for event_config in self.config.event:
             if check_if_pin_configured(pin=event_config.pin):
                 return
@@ -665,12 +868,26 @@ class Manager:
                         gpio_mode=event_config.gpio_mode,
                     )
             if event_config.show_in_ha:
-                self.send_ha_autodiscovery(
-                    id=event_config.pin,
-                    name=event_config.identifier(),
-                    ha_type="event",
-                    device_class=event_config.device_class,
-                    availability_msg_func=ha_event_availabilty_message,
+                self.message_bus.add_autodiscovery_message(
+                    message=MqttAutoDiscoveryMessage(
+                        type=MqttAutoDiscoveryMessageType.EVENT,
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/event/{self.topic_prefix}/{event_config.pin}/config",
+                        payload=HaEventMessage(
+                            device=HaDeviceInfo(
+                                identifiers=[self.topic_prefix],
+                                model=self.config.boneio.device_type.title(),
+                                name=self.config.boneio.name,
+                                configuration_url=self.web_url,
+                            ),
+                            availability=[
+                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                            ],
+                            name=event_config.identifier(),
+                            state_topic=f"{self.topic_prefix}/input/{event_config.pin}",
+                            unique_id=f"{self.topic_prefix}input{event_config.pin}",
+                            device_class=event_config.device_class,
+                        ),
+                    )
                 )
             if input:
                 self.inputs[input.pin] = input
@@ -729,12 +946,26 @@ class Manager:
                     )
 
             if sensor_config.show_in_ha:
-                self.send_ha_autodiscovery(
-                    id=sensor_config.pin,
-                    name=sensor_config.identifier(),
-                    ha_type="binary_sensor",
-                    device_class=sensor_config.device_class,
-                    availability_msg_func=ha_binary_sensor_availabilty_message,
+                self.message_bus.add_autodiscovery_message(
+                    message=MqttAutoDiscoveryMessage(
+                        type=MqttAutoDiscoveryMessageType.BINARY_SENSOR,
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/binary_sensor/{self.topic_prefix}/{sensor_config.pin}/config",
+                        payload=HaBinarySensorMessage(
+                            device=HaDeviceInfo(
+                                identifiers=[self.topic_prefix],
+                                model=self.config.boneio.device_type.title(),
+                                name=self.config.boneio.name,
+                                configuration_url=self.web_url,
+                            ),
+                            availability=[
+                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                            ],
+                            name=sensor_config.identifier(),
+                            state_topic=f"{self.topic_prefix}/inputsensor/{sensor_config.pin}",
+                            unique_id=f"{self.topic_prefix}inputsensor{sensor_config.pin}",
+                            device_class=sensor_config.device_class,
+                        ),
+                    )
                 )
             if input:
                 self.inputs[input.pin] = input
@@ -745,79 +976,71 @@ class Manager:
         _LOGGER.debug("Appending update task for %s", name)
         self.tg.start_soon(coro)
 
-    def _configure_sensors(
-        self,
-        dallas: DallasConfig | None,
-        ds2482: list[Ds2482Config],
-        sensors: list[SensorConfig],
-    ) -> None:
+    def _configure_sensors(self) -> None:
         """
         Configure Dallas sensors via GPIO PIN bus or DS2482 bus.
         """
-        if not ds2482 and not dallas:
-            return
-        from boneio.helper.loader import find_onewire_devices
-
         _one_wire_devices: dict[int, OneWireAddress] = {}
-        _ds_onewire_bus: dict[str, OneWireBus] = {}
+        _ds_onewire_bus: dict[int, OneWireBus] = {}
 
-        for _single_ds in ds2482:
+        for _single_ds in self.config.ds2482:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds.address)
-            id = _single_ds.identifier()
+            ds_address = int(_single_ds.address)
 
-            _ds_onewire_bus[id] = OneWireBus(
-                DS2482(i2c=self._get_lazy_i2c(), address=int(_single_ds.address))
+            _ds_onewire_bus[ds_address] = OneWireBus(
+                DS2482(i2c=self._get_lazy_i2c(), address=ds_address)
             )
-            _one_wire_devices.update(
-                find_onewire_devices(
-                    ow_bus=_ds_onewire_bus[id],
-                    bus_id=id,
-                    bus_type="ds2482",
-                )
-            )
-        if dallas is not None:
+            try:
+                devices = _ds_onewire_bus[ds_address].scan()
+            except RuntimeError as err:
+                _LOGGER.error("Problem with scanning ds2482 bus. %s", err)
+            else:
+                for device in devices:
+                    _LOGGER.debug(
+                        "Found device on bus %s with address %s",
+                        ds_address,
+                        hex(device.int_address),
+                    )
+                    _one_wire_devices[device.int_address] = device
+
+        if self.config.dallas is not None:
             _LOGGER.debug("Preparing Dallas bus.")
-
             try:
                 from w1thermsensor.kernel import load_kernel_modules
 
                 load_kernel_modules()
 
-                _one_wire_devices.update(
-                    find_onewire_devices(
-                        ow_bus=AsyncBoneIOW1ThermSensor,
-                        bus_id=dallas.id,
-                        bus_type="dallas",
-                    )
-                )
             except KernelModuleLoadError as err:
                 _LOGGER.error("Can't configure Dallas W1 device %s", err)
 
-        for sensor_config in sensors:
+            try:
+                devices = AsyncBoneIOW1ThermSensor.scan()
+            except RuntimeError as err:
+                _LOGGER.error("Problem with scanning dallas bus. %s", err)
+            else:
+                for device in devices:
+                    _LOGGER.debug(
+                        "Found device on bus %s with address %s",
+                        self.config.dallas.id,
+                        hex(device.int_address),
+                    )
+                    _one_wire_devices[device.int_address] = device
+
+        for sensor_config in self.config.sensor:
             address = _one_wire_devices.get(sensor_config.address)
-            if not address:
+            if address is None:
                 continue
-            bus = None
-            if sensor_config.bus_id and sensor_config.bus_id in _ds_onewire_bus:
-                bus = _ds_onewire_bus[sensor_config.bus_id]
+
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
             name = sensor_config.id or hex(address)
             id = name.replace(" ", "")
             sensor: DallasSensorDS2482 | DallasSensorW1
             send_topic = f"{self.config.get_topic_prefix()}/sensor/{strip_accents(id)}"
-            if bus is None:
-                sensor = DallasSensorW1(
-                    event_bus=self.event_bus,
-                    message_bus=self.message_bus,
-                    address=address,
-                    id=id,
-                    name=name,
-                    update_interval=sensor_config.update_interval,
-                    filter=Filter(sensor_config.filters),
-                    send_topic=send_topic,
-                    unit_of_measurement=sensor_config.unit_of_measurement,
-                )
-            else:
+            if (
+                sensor_config.bus_id is not None
+                and sensor_config.bus_id in _ds_onewire_bus
+            ):
+                bus = _ds_onewire_bus[sensor_config.bus_id]
                 sensor = DallasSensorDS2482(
                     event_bus=self.event_bus,
                     message_bus=self.message_bus,
@@ -830,23 +1053,45 @@ class Manager:
                     unit_of_measurement=sensor_config.unit_of_measurement,
                     bus=bus,
                 )
-            if sensor_config.show_in_ha:
-                self.send_ha_autodiscovery(
-                    id=sensor.id,
-                    name=sensor.name,
-                    ha_type="sensor",
-                    availability_msg_func=ha_sensor_temp_availabilty_message,
+            else:
+                sensor = DallasSensorW1(
+                    event_bus=self.event_bus,
+                    message_bus=self.message_bus,
+                    address=address,
+                    id=id,
+                    name=name,
+                    update_interval=sensor_config.update_interval,
+                    filter=Filter(sensor_config.filters),
+                    send_topic=send_topic,
                     unit_of_measurement=sensor_config.unit_of_measurement,
                 )
-            self.temp_sensors.append(sensor)
 
-    def _configure_adc(self, adc: list[AdcConfig]) -> None:
-        create_adc(
-            manager=self,
-            message_bus=self.message_bus,
-            topic_prefix=self.config.get_topic_prefix(),
-            adc=adc,
-        )
+            if sensor_config.show_in_ha:
+                self.message_bus.add_autodiscovery_message(
+                    message=MqttAutoDiscoveryMessage(
+                        type=MqttAutoDiscoveryMessageType.SENSOR,
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{sensor.id}/config",
+                        payload=HaSensorMessage(
+                            device=HaDeviceInfo(
+                                identifiers=[self.topic_prefix],
+                                model=self.config.boneio.device_type.title(),
+                                name=self.config.boneio.name,
+                                configuration_url=self.web_url,
+                            ),
+                            availability=[
+                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                            ],
+                            name=sensor.name,
+                            state_topic=f"{self.topic_prefix}/sensor/{sensor.id}",
+                            unique_id=f"{self.topic_prefix}sensor{sensor.id}",
+                            device_class="temperature",
+                            state_class="measurement",
+                            value_template="{{ value_json.state }}",
+                            unit_of_measurement=sensor_config.unit_of_measurement,
+                        ),
+                    )
+                )
+            self.temp_sensors.append(sensor)
 
     def _configure_modbus(self, modbus: ModbusConfig) -> None:
         uart = modbus.uart
@@ -872,30 +1117,264 @@ class Manager:
             )
 
             for device_class, sensor in ina219.sensors.items():
-                self.send_ha_autodiscovery(
-                    id=sensor.id,
-                    name=sensor.name,
-                    ha_type="sensor",
-                    availability_msg_func=ha_sensor_ina_availabilty_message,
-                    unit_of_measurement=sensor.unit_of_measurement,
-                    device_class=device_class,
+                self.message_bus.add_autodiscovery_message(
+                    message=MqttAutoDiscoveryMessage(
+                        type=MqttAutoDiscoveryMessageType.SENSOR,
+                        topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{sensor.id}/config",
+                        payload=HaSensorMessage(
+                            device=HaDeviceInfo(
+                                identifiers=[self.topic_prefix],
+                                model=self.config.boneio.device_type.title(),
+                                name=self.config.boneio.name,
+                                configuration_url=self.web_url,
+                            ),
+                            availability=[
+                                HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                            ],
+                            name=sensor.name,
+                            state_topic=f"{self.topic_prefix}/sensor/{sensor.id}",
+                            unique_id=f"{self.topic_prefix}sensor{sensor.id}",
+                            state_class="measurement",
+                            value_template="{{ value_json.state }}",
+                            unit_of_measurement=sensor.unit_of_measurement,
+                            device_class=device_class,
+                        ),
+                    )
                 )
             if ina219:
                 self.ina219_sensors.append(ina219)
 
-    def _configure_modbus_coordinators(
-        self, devices: list[ModbusDeviceConfig]
-    ) -> dict[str, ModbusCoordinator]:
+    def create_modbus_coordinators(self) -> dict[str, ModbusCoordinator]:
+        """Create Modbus sensor for each device."""
         if self.modbus is None:
             return {}
-        return create_modbus_coordinators(
-            manager=self,
-            message_bus=self.message_bus,
-            event_bus=self.event_bus,
-            entries=devices,
-            modbus=self.modbus,
-            config=self.config,
+        modbus_coordinators = {}
+        for entry in self.config.modbus_devices:
+            id = entry.identifier()
+            coordinator = ModbusCoordinator(
+                id=id,
+                name=entry.id,
+                address=entry.address,
+                model=entry.model,
+                send_topic=f"{self.config.get_topic_prefix()}/sensor/{strip_accents(id)}",
+                sensors_filters=entry.sensor_filters,
+                additional_data=entry.data,
+                message_bus=self.message_bus,
+                modbus=self.modbus,
+                event_bus=self.event_bus,
+                update_interval=entry.update_interval,
+                config=self.config,
+            )
+            self.append_task(refresh_wrapper(coordinator.async_update), id)
+            modbus_coordinators[id] = coordinator
+        return modbus_coordinators
+
+    def configure_relay(
+        self,
+        topic_prefix: str,
+        relay_id: str,
+        output_config: OutputConfigKinds,
+    ) -> BasicRelay:
+        """Configure kind of relay. Most common MCP."""
+        restored_state = (
+            self.state_manager.state.relay.get(relay_id, False)
+            if output_config.restore_state
+            else False
         )
+        if (
+            output_config.output_type == "none"
+            and self.state_manager.state.relay.get(relay_id) is not None
+        ):
+            self.state_manager.remove_relay_from_state(relay_id)
+            restored_state = False
+
+        if isinstance(output_config.interlock_group, str):
+            output_config.interlock_group = [output_config.interlock_group]
+
+        relay: BasicRelay
+        if isinstance(output_config, MockOutputConfig):
+            from boneio.relay.mock import MockRelay
+
+            relay = MockRelay(
+                id=relay_id,
+                pin_id=output_config.pin,
+                expander_id="mock",
+                topic_prefix=topic_prefix,
+                message_bus=self.message_bus,
+                event_bus=self.event_bus,
+                name=output_config.id,
+                output_type=output_config.output_type,
+                restored_state=restored_state,
+                interlock_manager=self.interlock_manager,
+                interlock_groups=output_config.interlock_group,
+            )
+        elif isinstance(output_config, GpioOutputConfig):
+            from boneio.gpio import GpioRelay
+
+            expander_id = "gpio"
+            relay = GpioRelay(
+                gpio_manager=self.gpio_manager,
+                id=relay_id,
+                pin_id=output_config.pin,
+                expander_id="gpio",
+                topic_prefix=topic_prefix,
+                message_bus=self.message_bus,
+                event_bus=self.event_bus,
+                name=output_config.id,
+                output_type=output_config.output_type,
+                restored_state=restored_state,
+                interlock_manager=self.interlock_manager,
+                interlock_groups=output_config.interlock_group,
+            )
+        elif isinstance(output_config, McpOutputConfig):
+            expander_id = output_config.mcp_id
+            mcp = self.mcp.get(expander_id)
+            if mcp is None:
+                raise ValueError("No such MCP configured!")
+            relay = MCPRelay(
+                mcp=mcp,
+                id=relay_id,
+                pin_id=output_config.pin,
+                expander_id=output_config.mcp_id,
+                topic_prefix=topic_prefix,
+                message_bus=self.message_bus,
+                event_bus=self.event_bus,
+                name=output_config.id,
+                output_type=output_config.output_type,
+                restored_state=restored_state,
+                interlock_manager=self.interlock_manager,
+                interlock_groups=output_config.interlock_group,
+            )
+        elif isinstance(output_config, PcaOutputConfig):
+            expander_id = output_config.pca_id
+            pca = self.pca.get(expander_id)
+            if pca is None:
+                raise ValueError("No such PCA configured!")
+            relay = PWMPCA(
+                pca=pca,
+                id=relay_id,
+                pin_id=output_config.pin,
+                expander_id=expander_id,
+                topic_prefix=topic_prefix,
+                message_bus=self.message_bus,
+                event_bus=self.event_bus,
+                name=output_config.id,
+                output_type=output_config.output_type,
+                restored_state=restored_state,
+                interlock_manager=self.interlock_manager,
+                interlock_groups=output_config.interlock_group,
+                percentage_default_brightness=output_config.percentage_default_brightness,
+            )
+        elif isinstance(output_config, PcfOutputConfig):
+            expander_id = output_config.pcf_id
+            pcf = self.pcf.get(expander_id)
+            if pcf is None:
+                raise ValueError("No such PCF configured!")
+            relay = PCFRelay(
+                pcf=pcf,
+                id=relay_id,
+                pin_id=output_config.pin,
+                expander_id=expander_id,
+                topic_prefix=topic_prefix,
+                message_bus=self.message_bus,
+                event_bus=self.event_bus,
+                name=output_config.id,
+                output_type=output_config.output_type,
+                restored_state=restored_state,
+                interlock_manager=self.interlock_manager,
+                interlock_groups=output_config.interlock_group,
+            )
+        else:
+            assert_never(output_config)
+
+        self.interlock_manager.register(relay, output_config.interlock_group)
+        if relay.is_virtual_power:
+            device_info = HaDeviceInfo(
+                identifiers=[self.topic_prefix],
+                model=self.config.boneio.device_type.title(),
+                name=self.config.boneio.name,
+                configuration_url=self.web_url,
+            )
+            availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
+
+            self.message_bus.add_autodiscovery_message(
+                message=MqttAutoDiscoveryMessage(
+                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                    topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_power/config",
+                    payload=HaSensorMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=f"{output_config.id} Virtual Power",
+                        state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
+                        unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_power",
+                        unit_of_measurement="W",
+                        device_class="power",
+                        state_class="measurement",
+                        value_template="{{ value_json.power }}",
+                    ),
+                )
+            )
+            self.message_bus.add_autodiscovery_message(
+                message=MqttAutoDiscoveryMessage(
+                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                    topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_energy/config",
+                    payload=HaSensorMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=f"{output_config.id} Virtual Energy",
+                        state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
+                        unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_energy",
+                        unit_of_measurement="Wh",
+                        device_class="energy",
+                        state_class="total_increasing",
+                        value_template="{{ value_json.energy }}",
+                    ),
+                )
+            )
+        if relay.is_virtual_volume_flow_rate:
+            device_info = HaDeviceInfo(
+                identifiers=[self.topic_prefix],
+                model=self.config.boneio.device_type.title(),
+                name=self.config.boneio.name,
+                configuration_url=self.web_url,
+            )
+            availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
+
+            self.message_bus.add_autodiscovery_message(
+                message=MqttAutoDiscoveryMessage(
+                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                    topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_volume_flow_rate/config",
+                    payload=HaSensorMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=f"{output_config.id} Virtual Volume Flow Rate",
+                        state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
+                        unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_volume_flow_rate",
+                        unit_of_measurement="L/h",
+                        device_class="volume_flow_rate",
+                        state_class="measurement",
+                        value_template="{{ value_json.volume_flow_rate }}",
+                    ),
+                )
+            )
+            self.message_bus.add_autodiscovery_message(
+                message=MqttAutoDiscoveryMessage(
+                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                    topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_consumption/config",
+                    payload=HaSensorMessage(
+                        device=device_info,
+                        availability=availability,
+                        name=f"{output_config.id} Virtual consumption",
+                        state_topic=f"{self.topic_prefix}/sensor/{relay_id}",
+                        unique_id=f"{self.topic_prefix}sensor{relay_id}_virtual_consumption",
+                        unit_of_measurement="L",
+                        device_class="water",
+                        state_class="total_increasing",
+                        value_template="{{ value_json.water }}",
+                    ),
+                )
+            )
+        return relay
 
     def create_serial_number_sensor(self) -> None:
         """Create Serial number sensor in manager."""
@@ -916,20 +1395,33 @@ class Manager:
             )
 
         self.append_task(refresh_wrapper(update, timedelta(minutes=60)), name)
-        self.send_ha_autodiscovery(
-            id=id,
-            name=name,
-            ha_type="sensor",
-            entity_category="diagnostic",
-            availability_msg_func=ha_sensor_availability_message,
+        self.message_bus.add_autodiscovery_message(
+            message=MqttAutoDiscoveryMessage(
+                type=MqttAutoDiscoveryMessageType.SENSOR,
+                topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{id}/config",
+                payload=HaSensorMessage(
+                    device=HaDeviceInfo(
+                        identifiers=[self.topic_prefix],
+                        model=self.config.boneio.device_type.title(),
+                        name=self.config.boneio.name,
+                        configuration_url=self.web_url,
+                    ),
+                    availability=[
+                        HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")
+                    ],
+                    name=name,
+                    state_topic=f"{self.topic_prefix}/sensor/{id}",
+                    unique_id=f"{self.topic_prefix}sensor{id}",
+                    entity_category="diagnostic",
+                ),
+            )
         )
 
-    async def _relay_callback(
-        self,
-        event: OutputState,
-    ) -> None:
+    async def _relay_callback(self, event: OutputEvent) -> None:
         """Relay callback function."""
-        self.state_manager.state.relay[event.id] = event.state == "ON"
+        self.state_manager.state.relay[event.event_state.id] = (
+            event.event_state.state == "ON"
+        )
         self.state_manager.save()
 
     def _logger_reload(self) -> None:
@@ -939,42 +1431,79 @@ class Manager:
 
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""
-        self.send_ha_autodiscovery(
-            id="logger",
-            name="Logger reload",
-            ha_type="button",
-            availability_msg_func=ha_button_availabilty_message,
-            entity_category="config",
+        device_info = HaDeviceInfo(
+            identifiers=[self.topic_prefix],
+            model=self.config.boneio.device_type.title(),
+            name=self.config.boneio.name,
+            configuration_url=self.web_url,
         )
-        self.send_ha_autodiscovery(
-            id="restart",
-            name="Restart boneIO",
-            ha_type="button",
-            payload_press="restart",
-            availability_msg_func=ha_button_availabilty_message,
-            entity_category="config",
+        availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
+
+        self.message_bus.add_autodiscovery_message(
+            message=MqttAutoDiscoveryMessage(
+                type=MqttAutoDiscoveryMessageType.BUTTON,
+                topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/logger/config",
+                payload=HaButtonMessage(
+                    device=device_info,
+                    availability=availability,
+                    name="Logger reload",
+                    unique_id=f"{self.topic_prefix}buttonlogger",
+                    command_topic=f"{self.topic_prefix}/cmd/button/logger/set",
+                    payload_press="reload",
+                    entity_category="config",
+                ),
+            )
         )
-        self.send_ha_autodiscovery(
-            id="inputs_reload",
-            name="Reload actions",
-            ha_type="button",
-            payload_press="inputs_reload",
-            availability_msg_func=ha_button_availabilty_message,
-            entity_category="config",
+        self.message_bus.add_autodiscovery_message(
+            message=MqttAutoDiscoveryMessage(
+                type=MqttAutoDiscoveryMessageType.BUTTON,
+                topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/restart/config",
+                payload=HaButtonMessage(
+                    device=device_info,
+                    availability=availability,
+                    name="Restart boneIO",
+                    unique_id=f"{self.topic_prefix}buttonrestart",
+                    command_topic=f"{self.topic_prefix}/cmd/button/restart/set",
+                    payload_press="restart",
+                    entity_category="config",
+                ),
+            )
+        )
+        self.message_bus.add_autodiscovery_message(
+            message=MqttAutoDiscoveryMessage(
+                type=MqttAutoDiscoveryMessageType.BUTTON,
+                topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/inputs_reload/config",
+                payload=HaButtonMessage(
+                    device=device_info,
+                    availability=availability,
+                    name="Reload actions",
+                    unique_id=f"{self.topic_prefix}buttoninputs_reload",
+                    command_topic=f"{self.topic_prefix}/cmd/button/inputs_reload/set",
+                    payload_press="inputs_reload",
+                    entity_category="config",
+                ),
+            )
         )
         if self.covers:
-            self.send_ha_autodiscovery(
-                id="cover_reload",
-                name="Reload times of covers",
-                ha_type="button",
-                payload_press="cover_reload",
-                availability_msg_func=ha_button_availabilty_message,
-                entity_category="config",
+            self.message_bus.add_autodiscovery_message(
+                message=MqttAutoDiscoveryMessage(
+                    type=MqttAutoDiscoveryMessageType.BUTTON,
+                    topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/cover_reload/config",
+                    payload=HaButtonMessage(
+                        device=device_info,
+                        availability=availability,
+                        name="Reload times of covers",
+                        unique_id=f"{self.topic_prefix}buttoncover_reload",
+                        command_topic=f"{self.topic_prefix}/cmd/button/cover_reload/set",
+                        payload_press="cover_reload",
+                        entity_category="config",
+                    ),
+                )
             )
 
     async def press_callback(
         self,
-        x: EventActionTypes | BinarySensorActionTypes,
+        action_type: EventActionTypes | BinarySensorActionTypes,
         gpio: GpioBase,
         empty_message_after: bool = False,
         duration: float | None = None,
@@ -985,10 +1514,10 @@ class Manager:
         """
         topic = f"{self.config.get_topic_prefix()}/{gpio.input_type}/{gpio.pin}"
 
-        for action in gpio.actions.get(x, []):
+        for action in gpio.actions.get(action_type, []):
             if isinstance(action, MqttActionConfig):
                 self.message_bus.send_message(
-                    topic=action.topic, payload=action.action_mqtt_msg, retain=False
+                    topic=action.topic, payload=action.action_mqtt_msg
                 )
                 continue
             elif isinstance(action, OutputActionConfig):
@@ -1058,27 +1587,27 @@ class Manager:
                 self.message_bus.send_message(
                     topic=f"{action.boneio_id}/cmd/relay/{action.pin}/set",
                     payload=action.action_output,
-                    retain=False,
                 )
             elif isinstance(action, CoverOverMqttActionConfig):
                 self.message_bus.send_message(
                     topic=f"{action.boneio_id}/cmd/cover/{action.pin}/set",
                     payload=action.action_cover,
-                    retain=False,
                 )
             else:
                 raise ValueError("Wrong action definitiony type!")
 
+        payload: dict[str, str | float] | str
         if gpio.input_type == "input":
             if duration is not None:
-                payload = {"event_type": x, "duration": duration}
+                payload = {"event_type": action_type, "duration": duration}
             else:
-                payload = {"event_type": x}
+                payload = {"event_type": action_type}
         else:
-            payload = x
+            # TODO: check later looks like a bug?
+            payload = action_type
 
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
-        self.message_bus.send_message(topic=topic, payload=payload, retain=False)
+        self.message_bus.send_message(topic=topic, payload=payload)
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
             await anyio.sleep(0.2)
@@ -1099,16 +1628,6 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from message bus."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        if self.config.mqtt is not None:
-            if topic.startswith(f"{self.config.mqtt.ha_discovery.topic_prefix}/status"):
-                if message == "online":
-                    for msg in self.config.mqtt.autodiscovery_messages.root.values():
-                        self.message_bus.send_message(
-                            topic=msg.topic, payload=msg.payload, retain=True
-                        )
-
-                    self.event_bus.signal_ha_online()
-                return
         if not topic.startswith(f"{self.config.get_topic_prefix()}/cmd/"):
             _LOGGER.error("Wrong topic %s!", topic)
             return
@@ -1254,44 +1773,3 @@ class Manager:
         """Send state after a delay."""
         await anyio.sleep(0.5)
         output.send_state()
-
-    def send_ha_autodiscovery(
-        self,
-        id: str,
-        name: str,
-        ha_type: AutodiscoveryType,
-        availability_msg_func: Callable[..., HaDiscoveryMessage],
-        topic_prefix: str | None = None,
-        **kwargs,
-    ) -> None:
-        """Send HA autodiscovery information for each relay."""
-        if self.config.mqtt is None:
-            return
-        if not self.config.mqtt.ha_discovery.enabled:
-            return
-        topic_prefix = topic_prefix or self.config.get_topic_prefix()
-        web_url = None
-        if self.config.web is not None:
-            network_state = get_network_info()
-            if "ip" in network_state:
-                web_url = f"http://{network_state['ip']}:{self.config.web.port}"
-        payload = availability_msg_func(
-            topic=topic_prefix,
-            id=id,
-            name=name,
-            model=self.config.boneio.device_type.title(),
-            device_name=self.config.boneio.name,
-            web_url=web_url,
-            **kwargs,
-        )
-        topic = f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{topic_prefix}/{id}/config"
-        _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
-        self.config.mqtt.autodiscovery_messages.add_message(
-            message=MqttAutodiscoveryMessage(
-                topic=topic, payload=payload.model_dump(exclude_none=True)
-            ),
-            type=ha_type,
-        )
-        self.message_bus.send_message(
-            topic=topic, payload=payload.model_dump_json(exclude_none=True), retain=True
-        )

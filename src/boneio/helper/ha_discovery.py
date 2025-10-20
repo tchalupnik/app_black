@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from boneio.config import EventActionTypes
 from boneio.version import __version__
@@ -27,44 +25,105 @@ class HaDeviceInfo(BaseModel):
     configuration_url: str | None = None
 
 
-class HaDiscoveryMessage(BaseModel):
-    """Base Home Assistant discovery message."""
-
-    availability: list[HaAvailabilityTopic]
-    device: HaDeviceInfo
-    name: str
+class HaMqttBinarySensor(BaseModel):
+    platform: str = "binary_sensor"
     state_topic: str
-    unique_id: str
-    optimistic: bool = False
 
-    # Optional fields that many entities use
+
+class HaMqttSensor(BaseModel):
+    platform: str = "sensor"
+    state_topic: str
+
+
+class HaMqttButton(BaseModel):
+    platform: str = "button"
+    command_topic: str
+
+
+class HaMqttNumber(BaseModel):
+    platform: str = "number"
+    command_topic: str
+
+
+class HaMqttSelect(BaseModel):
+    platform: str = "select"
+    command_topic: str
+    options: list[str]
+
+
+class HaMqttSwitch(BaseModel):
+    platform: str = "switch"
+    command_topic: str
+
+
+class HaMqttLight(BaseModel):
+    platform: str = "light"
+    command_topic: str
+
+
+class HaMqttValve(BaseModel):
+    platform: str = "valve"
+
+
+class HaMqttCover(BaseModel):
+    platform: str = "cover"
+
+
+class HaMqttEvent(BaseModel):
+    platform: str = "event"
+    state_topic: str
+    event_types: list[str]
+
+
+class HaBaseMessage(BaseModel):
+    """Base Home Assistant MQTT discovery message."""
+
+    # Core entity identification
+    device: HaDeviceInfo
+    name: str | None = None
+    unique_id: str
+
+    # Availability configuration
+    availability: list[HaAvailabilityTopic] = Field(default_factory=list)
+    availability_mode: str = "latest"  # "all", "any", "latest"
+
+    # Common entity configuration
     device_class: str | None = None
+    entity_category: str | None = None
+    icon: str | None = None
+
+
+class HaDiscoveryMessage(HaBaseMessage):
+    """Home Assistant discovery message with state_topic (for most entities)."""
+
+    state_topic: str | None = None
+
+    # Value processing
+    value_template: str | None = None
+    force_update: bool = False
+
+    # Sensor-specific fields
     unit_of_measurement: str | None = None
     state_class: str | None = None
-    state_value_template: str | None = None
-    entity_category: str | None = None
 
 
 class HaLightMessage(HaDiscoveryMessage):
-    """Home Assistant light discovery message."""
+    """Home Assistant MQTT light discovery message."""
 
     command_topic: str
     payload_off: str = "OFF"
     payload_on: str = "ON"
-    state_value_template: str = "{{ value_json.state }}"
+    retain: bool = False
 
 
-class HaLedMessage(HaDiscoveryMessage):
+class HaLedMessage(HaLightMessage):
     """Home Assistant LED (dimmable light) discovery message."""
 
-    command_topic: str
+    # Required brightness support for LEDs
     brightness_state_topic: str
     brightness_command_topic: str
-    brightness_scale: int = 65535
-    payload_off: str = "OFF"
-    payload_on: str = "ON"
-    state_value_template: str = "{{ value_json.state }}"
-    brightness_value_template: str = "{{ value_json.brightness }}"
+    brightness_scale: int = 65535  # Higher precision for LEDs
+    brightness_value_template: str | None = None
 
 
 class HaButtonMessage(HaDiscoveryMessage):
@@ -75,73 +134,69 @@ class HaButtonMessage(HaDiscoveryMessage):
 
 
 class HaSwitchMessage(HaDiscoveryMessage):
-    """Home Assistant switch discovery message."""
+    """Home Assistant MQTT switch discovery message."""
 
     command_topic: str
     payload_off: str = "OFF"
     payload_on: str = "ON"
-    value_template: str = "{{ value_json.state }}"
+    retain: bool = False
 
 
 class HaValveMessage(HaDiscoveryMessage):
-    """Home Assistant valve discovery message."""
+    """Home Assistant MQTT valve discovery message."""
 
     command_topic: str
-    payload_close: str = "OFF"
-    payload_open: str = "ON"
-    state_open: str = "ON"
-    state_closed: str = "OFF"
-    reports_position: bool = False
-    value_template: str = "{{ value_json.state }}"
 
 
 class HaEventMessage(HaDiscoveryMessage):
-    """Home Assistant event discovery message."""
+    """Home Assistant MQTT event discovery message."""
 
-    icon: str = "mdi:gesture-double-tap"
     event_types: list[EventActionTypes] = ["single", "double", "long"]
+    icon: str = "mdi:gesture-double-tap"
 
 
 class HaSensorMessage(HaDiscoveryMessage):
-    """Home Assistant sensor discovery message."""
+    """Home Assistant MQTT sensor discovery message.
 
-    # Sensor-specific fields are handled via the base class optional fields
+    Inherits all needed fields from HaDiscoveryMessage.
+    """
 
 
 class HaBinarySensorMessage(HaDiscoveryMessage):
-    """Home Assistant binary sensor discovery message."""
+    """Home Assistant MQTT binary sensor discovery message."""
 
-    payload_on: Literal["pressed"] = "pressed"
-    payload_off: Literal["released"] = "released"
+    payload_on: str = "ON"
+    payload_off: str = "OFF"
 
 
 class HaCoverMessage(HaDiscoveryMessage):
-    """Home Assistant cover discovery message."""
+    """Home Assistant MQTT cover discovery message."""
 
     command_topic: str
-    set_position_topic: str | None = None
+
+    # Optional position and tilt support
     position_topic: str | None = None
+    set_position_topic: str | None = None
     position_template: str | None = None
     tilt_command_topic: str | None = None
     tilt_status_topic: str | None = None
     tilt_status_template: str | None = None
-    payload_open: Literal["open"] = "open"
-    payload_close: Literal["close"] = "close"
-    payload_stop: Literal["stop"] = "stop"
-    payload_stop_tilt: str | None = None
-    state_open: Literal["open"] = "open"
-    state_opening: Literal["opening"] = "opening"
-    state_closed: Literal["closed"] = "closed"
-    state_closing: Literal["closing"] = "closing"
 
 
 class HaModbusMessage(HaDiscoveryMessage):
-    """Home Assistant modbus discovery message with different unique_id pattern."""
+    """Home Assistant modbus discovery message with different unique_id."""
 
+    # Command topic for writable entities (number, select, etc.)
+    command_topic: str | None = None
+
+    # Number entity configuration
     min: float | None = None
     max: float | None = None
     step: float | None = None
-    options: list[str] | None = None
+    mode: str | None = None  # \"auto\", \"slider\", \"box\"
+
+    # Enhanced modbus-specific fields
+    retain: bool = False
 
 
 def ha_sensor_availability_message(
@@ -155,6 +210,8 @@ def ha_sensor_availability_message(
     state_class: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
+    value_template: str | None = None,
+    icon: str | None = None,
 ) -> HaSensorMessage:
     """Create SENSOR availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -169,13 +226,15 @@ def ha_sensor_availability_message(
     return HaSensorMessage(
         availability=availability,
         device=device_info,
-        name=name or f"Sensor {id}",
+        name=name,
         state_topic=f"{topic}/sensor/{id}",
         unique_id=f"{topic}sensor{id}",
         unit_of_measurement=unit_of_measurement,
         device_class=device_class,
         state_class=state_class,
         entity_category=entity_category,
+        value_template=value_template,
+        icon=icon,
     )
 
 
@@ -214,7 +273,7 @@ def ha_virtual_energy_sensor_discovery_message(
     )
 
 
-def ha_light_availabilty_message(
+def ha_light_availability_message(
     id: str,
     topic: str = "boneIO",
     device_type: str = "relay",
@@ -245,7 +304,7 @@ def ha_light_availabilty_message(
     )
 
 
-def ha_led_availabilty_message(
+def ha_led_availability_message(
     id: str,
     topic: str = "boneIO",
     name: str | None = None,
@@ -277,7 +336,7 @@ def ha_led_availabilty_message(
     )
 
 
-def ha_button_availabilty_message(
+def ha_button_availability_message(
     id: str,
     topic: str = "boneIO",
     payload_press: str = "reload",
@@ -301,7 +360,6 @@ def ha_button_availabilty_message(
         availability=availability,
         device=device_info,
         name=name or f"Button {id}",
-        state_topic=f"{topic}/button/{id}",
         unique_id=f"{topic}button{id}",
         command_topic=f"{topic}/cmd/button/{id}/set",
         payload_press=payload_press,
@@ -309,7 +367,7 @@ def ha_button_availabilty_message(
     )
 
 
-def ha_switch_availabilty_message(
+def ha_switch_availability_message(
     id: str,
     topic: str = "boneIO",
     device_type: str = "relay",
@@ -340,7 +398,7 @@ def ha_switch_availabilty_message(
     )
 
 
-def ha_valve_availabilty_message(
+def ha_valve_availability_message(
     id: str,
     topic: str = "boneIO",
     device_type: str = "relay",
@@ -371,7 +429,7 @@ def ha_valve_availabilty_message(
     )
 
 
-def ha_event_availabilty_message(
+def ha_event_availability_message(
     id: str,
     name: str,
     device_class: str,
@@ -402,7 +460,7 @@ def ha_event_availabilty_message(
     )
 
 
-def ha_adc_sensor_availabilty_message(
+def ha_adc_sensor_availability_message(
     id: str,
     topic: str = "boneIO",
     name: str | None = None,
@@ -434,7 +492,7 @@ def ha_adc_sensor_availabilty_message(
     )
 
 
-def ha_binary_sensor_availabilty_message(
+def ha_binary_sensor_availability_message(
     id: str,
     name: str,
     device_class: str,
@@ -465,7 +523,7 @@ def ha_binary_sensor_availabilty_message(
     )
 
 
-def ha_sensor_ina_availabilty_message(
+def ha_sensor_ina_availability_message(
     id: str,
     name: str,
     topic: str = "boneIO",
@@ -493,14 +551,14 @@ def ha_sensor_ina_availabilty_message(
         state_topic=f"{topic}/sensor/{id}",
         unique_id=f"{topic}sensor{id}",
         state_class="measurement",
-        state_value_template="{{ value_json.state }}",
+        value_template="{{ value_json.state }}",
         unit_of_measurement=unit_of_measurement,
         device_class=device_class,
         entity_category=entity_category,
     )
 
 
-def ha_sensor_temp_availabilty_message(
+def ha_sensor_temp_availability_message(
     id: str,
     name: str,
     topic: str = "boneIO",
@@ -528,13 +586,13 @@ def ha_sensor_temp_availabilty_message(
         unique_id=f"{topic}sensor{id}",
         device_class="temperature",
         state_class="measurement",
-        state_value_template="{{ value_json.state }}",
+        value_template="{{ value_json.state }}",
         unit_of_measurement=unit_of_measurement,
         entity_category=entity_category,
     )
 
 
-def modbus_availabilty_message(
+def modbus_availability_message(
     id: str,
     entity_id: str,
     name: str,
@@ -571,7 +629,7 @@ def modbus_availabilty_message(
     )
 
 
-def modbus_sensor_availabilty_message(
+def modbus_sensor_availability_message(
     id: str,
     sensor_id: str,
     name: str,
@@ -608,7 +666,7 @@ def modbus_sensor_availabilty_message(
     )
 
 
-def modbus_select_availabilty_message(
+def modbus_select_availability_message(
     id: str,
     entity_id: str,
     name: str,
@@ -641,7 +699,7 @@ def modbus_select_availabilty_message(
     )
 
 
-def modbus_numeric_availabilty_message(
+def modbus_numeric_availability_message(
     id: str,
     entity_id: str,
     name: str,
@@ -655,6 +713,7 @@ def modbus_numeric_availabilty_message(
     unit_of_measurement: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
+    value_template: str | None = None,
 ) -> HaModbusMessage:
     """Create Modbus Numeric availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -677,10 +736,11 @@ def modbus_numeric_availabilty_message(
         max=max,
         step=step,
         entity_category=entity_category,
+        value_template=value_template,
     )
 
 
-def ha_cover_availabilty_message(
+def ha_cover_availability_message(
     id: str,
     name: str,
     device_class: str,
@@ -689,6 +749,7 @@ def ha_cover_availabilty_message(
     device_name: str | None = None,
     entity_category: str | None = None,
     web_url: str | None = None,
+    value_template: str | None = None,
 ) -> HaCoverMessage:
     """Create Cover availability topic for HA."""
     device_info = HaDeviceInfo(
@@ -712,10 +773,11 @@ def ha_cover_availabilty_message(
         position_template="{{ value_json.position }}",
         position_topic=f"{topic}/cover/{id}/pos",
         entity_category=entity_category,
+        value_template=value_template,
     )
 
 
-def ha_cover_with_tilt_availabilty_message(
+def ha_cover_with_tilt_availability_message(
     id: str,
     name: str,
     device_class: str,

@@ -21,7 +21,12 @@ from anyio.abc import TaskStatus
 from paho.mqtt.properties import Properties
 
 from boneio.config import MqttConfig
+from boneio.events import EventBus
 from boneio.helper.queue import UniqueQueue
+from boneio.message_bus.basic import (
+    MqttAutoDiscoveryMessage,
+    MqttAutoDiscoveryMessageType,
+)
 
 from . import MessageBus, ReceiveMessage
 
@@ -35,32 +40,26 @@ class MqttMessageBus(MessageBus):
     _tg: anyio.abc.TaskGroup
     client: aiomqtt.Client
     config: MqttConfig
+    event_bus: EventBus
     connection_established: bool = False
     publish_queue: UniqueQueue = field(default_factory=UniqueQueue)
     _mqtt_energy_listeners: dict[
         str, Callable[[str, str], Coroutine[Any, Any, None]]
     ] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Set up client."""
-        _LOGGER.info("Starting MQTT message bus!")
-        self._discovery_topics = (
-            [
-                f"{self.config.ha_discovery.topic_prefix}/{ha_type}/{self.config.topic_prefix}/#"
-                for ha_type in self.config.autodiscovery_messages
-            ]
-            if self.config.ha_discovery.enabled
-            else []
-        )
+    _autodiscovery_messages: dict[
+        MqttAutoDiscoveryMessageType, list[MqttAutoDiscoveryMessage]
+    ]
 
     @classmethod
     @asynccontextmanager
-    async def create(cls, config: MqttConfig) -> AsyncGenerator[MqttMessageBus]:
+    async def create(
+        cls, config: MqttConfig, event_bus: EventBus
+    ) -> AsyncGenerator[MqttMessageBus]:
         async with anyio.create_task_group() as tg:
             # it is done that way because aiomqtt doesn't propagate exceptions.
             client = await tg.start(cls._create_client, config)
             try:
-                this = cls(tg, client, config)
+                this = cls(tg, client, config, event_bus)
                 yield this
             finally:
                 _LOGGER.info("Cleaning up MQTT...")
@@ -80,12 +79,7 @@ class MqttMessageBus(MessageBus):
                     config.port,
                     username=config.username,
                     password=config.password,
-                    will=Will(
-                        topic=f"{config.topic_prefix}/state",
-                        payload="offline",
-                        qos=0,
-                        retain=False,
-                    ),
+                    will=Will(topic=f"{config.topic_prefix}/state", payload="offline"),
                     clean_session=True,
                 ) as client:
                     # yield this
@@ -97,12 +91,7 @@ class MqttMessageBus(MessageBus):
                         _LOGGER.info(
                             "Sending message topic: %s, payload: offline", topic
                         )
-                        await client.publish(
-                            topic,
-                            qos=0,
-                            payload="offline",
-                            retain=True,
-                        )
+                        await client.publish(topic, payload="offline", retain=True)
 
             except MqttError as err:
                 _LOGGER.error(
@@ -132,7 +121,7 @@ class MqttMessageBus(MessageBus):
                 "homeassistant/status",
             ]
             + list(self._mqtt_energy_listeners.keys())
-            + self._discovery_topics
+            + [k.value.lower() for k in self._autodiscovery_messages.keys()]
         )
 
         args = [(topic, 0) for topic in topics]
@@ -182,34 +171,36 @@ class MqttMessageBus(MessageBus):
         topic: str,
         payload: str | None = None,
         retain: bool = False,
-        qos: int = 0,
         properties: Properties | None = None,
-        timeout: float = 10,
+        timeout: float = 10.0,
     ) -> None:
-        params: dict = {"qos": qos, "retain": retain, "timeout": timeout}
-        if payload:
-            params["payload"] = payload
-        if properties:
-            params["properties"] = properties
-
         _LOGGER.debug("Sending message topic: %s, payload: %s", topic, payload)
-        await self.client.publish(topic, **params)
+        await self.client.publish(
+            topic,
+            payload=payload,
+            properties=properties,
+            retain=retain,
+            timeout=timeout,
+        )
 
     async def _handle_messages(self, receive_message: ReceiveMessage) -> None:
         """Handle messages with callback or remove obsolete HA discovery messages."""
+
         async for message in self.client.messages:
             payload = message.payload.decode()
             callback_start = True
-            for discovery_topic in self._discovery_topics:
-                if message.topic.matches(discovery_topic):
-                    callback_start = False
-                    topic = str(message.topic)
-                    if message.payload and not self.config.is_topic_in_autodiscovery(
-                        topic
-                    ):
-                        _LOGGER.info("Removing unused discovery entity %s", topic)
-                        self.send_message(topic=topic, payload=None, retain=True)
-                    break
+            if message.topic.matches(f"{self.config.ha_discovery.topic_prefix}/status"):
+                if message == "online":
+                    for messages in self._autodiscovery_messages.values():
+                        for msg in messages:
+                            self.send_message(
+                                topic=msg.topic,
+                                payload=msg.payload.model_dump(),
+                                retain=True,
+                            )
+
+                    self.event_bus.signal_ha_online()
+                callback_start = False
             if message.topic.matches(f"{self.config.topic_prefix}/energy/#"):
                 for topic, listener_callback in self._mqtt_energy_listeners.items():
                     if message.topic.matches(topic):
@@ -232,3 +223,21 @@ class MqttMessageBus(MessageBus):
             ] = await self.publish_queue.get()
             await self._publish(*to_publish)
             self.publish_queue.task_done()
+
+    def add_autodiscovery_message(self, message: MqttAutoDiscoveryMessage) -> None:
+        if not self.config.ha_discovery.enabled:
+            return
+        _LOGGER.debug(
+            "Sending HA discovery for %s entity, %s.",
+            message.type,
+            message.payload.name,
+        )
+        self._autodiscovery_messages[message.type].append(message)
+        self.send_message(
+            topic=message.topic, payload=message.payload.model_dump(), retain=True
+        )
+
+    def clear_autodiscovery_messages_by_type(
+        self, type: MqttAutoDiscoveryMessageType
+    ) -> None:
+        self._autodiscovery_messages[type] = []

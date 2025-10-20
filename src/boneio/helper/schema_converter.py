@@ -260,7 +260,7 @@ def generate_section_schema(
         }
 
 
-def main():
+def main() -> None:
     """Main function to convert schema."""
     script_dir = Path(__file__).resolve().parent
     schema_file = script_dir / ".." / "schema" / "schema.yaml"

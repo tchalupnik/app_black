@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import BaseModel, Discriminator, Field, RootModel, field_validator
 
@@ -10,25 +10,6 @@ class MqttHADiscoveryConfig(BaseModel):
     enabled: bool = True
     topic_prefix: str = "homeassistant"
 
-
-class MqttAutodiscoveryMessage(BaseModel):
-    topic: str
-    payload: str | dict[str, Any]
-
-
-AutodiscoveryType = Literal[
-    "switch",
-    "light",
-    "binary_sensor",
-    "sensor",
-    "cover",
-    "button",
-    "event",
-    "valve",
-    "text_sensor",
-    "select",
-    "numeric",
-]
 
 BoneIOInput = Literal[
     "in_01",
@@ -83,35 +64,6 @@ BoneIOInput = Literal[
 ]
 
 
-class MqttAutodiscoveryMessages(
-    RootModel[dict[AutodiscoveryType, MqttAutodiscoveryMessage]]
-):
-    def model_post_init(self, __context: Any) -> None:
-        for type in (
-            "switch",
-            "light",
-            "binary_sensor",
-            "sensor",
-            "cover",
-            "button",
-            "event",
-            "valve",
-            "text_sensor",
-            "select",
-            "numeric",
-        ):
-            if type not in self.root:
-                self.root[type] = {}
-
-    def clear_type(self, type: AutodiscoveryType) -> None:
-        self.root[type] = {}
-
-    def add_message(
-        self, type: AutodiscoveryType, message: MqttAutodiscoveryMessage
-    ) -> None:
-        self.root[type] = message
-
-
 class MqttConfig(BaseModel):
     host: str
     port: int = 1883
@@ -119,16 +71,6 @@ class MqttConfig(BaseModel):
     password: str = "boneio123"
     topic_prefix: str = "boneio"
     ha_discovery: MqttHADiscoveryConfig = Field(default_factory=MqttHADiscoveryConfig)
-    autodiscovery_messages: MqttAutodiscoveryMessages = Field(
-        default_factory=lambda: MqttAutodiscoveryMessages(root={})
-    )
-
-    def is_topic_in_autodiscovery(self, topic: str) -> bool:
-        topic_parts_raw = topic[len(f"{self.ha_discovery.topic_prefix}/") :].split("/")
-        ha_type = topic_parts_raw[0]
-        if ha_type in self.autodiscovery_messages.root:
-            return topic in self.autodiscovery_messages.root[ha_type]
-        return False
 
 
 class OledExtraScreenSensorConfig(BaseModel):
@@ -443,11 +385,13 @@ class OutputConfig(RootModel[OutputConfigKinds]):
     root: OutputConfigKinds = Field(discriminator="kind")
 
 
+OutputGroupTypes: TypeAlias = Literal["switch", "light", "cover", "valve", "none"]
+
+
 class OutputGroupConfig(BaseModel):
     id: str
     outputs: list[str]
-    all_on_behaviour: bool = False
-    output_type: Literal["switch", "light"] = "switch"
+    output_type: OutputGroupTypes = "switch"
 
     def identifier(self) -> str:
         return self.id.replace(" ", "")
@@ -500,6 +444,8 @@ class WebConfig(BaseModel):
         )
 
     def validate_auth(self, username: str, password: str) -> bool:
+        if self.auth is None:
+            return True
         if not self.is_auth_required():
             return True
         return self.auth.username == username and self.auth.password == password

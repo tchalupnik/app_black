@@ -87,7 +87,7 @@ class SensorState(BaseModel):
 
     id: str
     name: str
-    state: float | str | None
+    state: float | str | int | None
     unit: str | None
     timestamp: float | None
 

@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import anyio
 
-from boneio.config import OutputGroupConfig
-from boneio.events import EventBus, EventType
+from boneio.config import OutputGroupTypes
+from boneio.events import EventBus, EventType, OutputEvent
 from boneio.helper.state_manager import StateManager
 from boneio.helper.util import strip_accents
 from boneio.message_bus.basic import MessageBus
-from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 
 
@@ -21,14 +20,14 @@ class OutputGroup:
     """Cover class of boneIO"""
 
     id: str
-    config: OutputGroupConfig
+    name: str
     state_manager: StateManager
     event_bus: EventBus
     message_bus: MessageBus
     members: list[BasicRelay]
     topic_prefix: str
-    output_type: str = "switch"
-    state: Literal["ON", "OFF"] = "OFF"
+    output_type: OutputGroupTypes = "switch"
+    state: Literal["ON", "OFF"] = field(default="OFF", init=False)
 
     def __post_init__(self) -> None:
         """Initialize cover class."""
@@ -38,14 +37,16 @@ class OutputGroup:
             self.event_bus.add_event_listener(
                 event_type=EventType.OUTPUT,
                 entity_id=member.id,
-                listener_id=self.config.id,
+                listener_id=self.id,
                 target=self.event_listener,
             )
 
-    async def event_listener(self, event: OutputState | None = None) -> None:
+    async def event_listener(self, event: OutputEvent) -> None:
         """Listen for events called by children relays."""
-        state = "ON" if any(x.state == "ON" for x in self._group_members) else "OFF"
-        if state != self.state or not event:
+        state: Literal["ON", "OFF"] = (
+            "ON" if any(x.state == "ON" for x in self._group_members) else "OFF"
+        )
+        if state != self.state:
             self.state = state
             self.send_state()
 
