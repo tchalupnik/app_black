@@ -187,9 +187,7 @@ class Modbus:
             registers=payload, data_type=data_type, word_order=byteorder
         )
 
-    async def write_register(
-        self, unit: int | str, address: int, value: int
-    ) -> ModbusPDU:
+    async def write_register(self, unit: int, address: int, value: int) -> ModbusPDU:
         """Call async pymodbus."""
         async with self.lock:
             start_time = time.perf_counter()
