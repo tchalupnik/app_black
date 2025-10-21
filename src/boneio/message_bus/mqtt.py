@@ -6,7 +6,8 @@ Code based on cgarwood/python-openzwave-mqtt.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncGenerator, Callable, Coroutine
+from collections import defaultdict
+from collections.abc import AsyncGenerator, Callable, Coroutine, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -53,9 +54,9 @@ class MqttMessageBus(MessageBus):
     _mqtt_energy_listeners: dict[str, Callable[[str], Coroutine[Any, Any, None]]] = (
         field(default_factory=dict)
     )
-    _autodiscovery_messages: dict[
+    _autodiscovery_messages: Mapping[
         AutoDiscoveryMessageType, list[AutoDiscoveryMessage]
-    ] = field(default_factory=dict)
+    ] = field(default_factory=lambda: defaultdict(list))
 
     @classmethod
     @asynccontextmanager
@@ -162,8 +163,10 @@ class MqttMessageBus(MessageBus):
         retain: bool = False,
     ) -> None:
         """Send a message from the manager options."""
-        self._send_stream.send_nowait(
-            StreamMessage(topic=topic, payload=payload, retain=retain)
+        self._tg.start_soon(
+            lambda: self._send_stream.send(
+                StreamMessage(topic=topic, payload=payload, retain=retain)
+            )
         )
 
     def is_connection_established(self) -> bool:

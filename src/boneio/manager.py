@@ -152,6 +152,7 @@ class Manager:
     inputs: dict[str, GpioEventButtonsAndSensors] = field(
         default_factory=dict, init=False
     )
+    i2c: I2C | None = field(default=None, init=None)
     outputs: dict[str, BasicRelay] = field(default_factory=dict, init=False)
     output_groups: dict[str, OutputGroup] = field(default_factory=dict, init=False)
     interlock_manager: SoftwareInterlockManager = field(
@@ -245,7 +246,6 @@ class Manager:
         from board import SCL, SDA
         from busio import I2C
 
-        self.i2c: I2C | None
         if self.i2c is None:
             self.i2c = I2C(SCL, SDA)
         return self.i2c
