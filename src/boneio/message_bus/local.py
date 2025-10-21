@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -30,7 +31,7 @@ class LocalMessageBus(MessageBus):
     connection_established: bool = True
     _autodiscovery_messages: dict[
         AutoDiscoveryMessageType, list[AutoDiscoveryMessage]
-    ] = field(default_factory=dict)
+    ] = field(default_factory=lambda: defaultdict(list))
 
     def send_message(
         self, topic: str, payload: str | None, retain: bool = False

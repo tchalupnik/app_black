@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from boneio.helper.ha_discovery import (
+from boneio.message_bus.basic import (
+    AutoDiscoveryMessageType,
     HaAvailabilityTopic,
     HaDeviceInfo,
     HaModbusMessage,
     HaSelectMessage,
 )
-from boneio.message_bus.basic import AutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
 
 

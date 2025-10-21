@@ -57,20 +57,6 @@ from boneio.helper import (
 from boneio.helper.async_updater import refresh_wrapper
 from boneio.helper.exceptions import CoverConfigurationError
 from boneio.helper.filter import Filter
-from boneio.helper.ha_discovery import (
-    HaAvailabilityTopic,
-    HaBaseMessage,
-    HaBinarySensorMessage,
-    HaButtonMessage,
-    HaCoverMessage,
-    HaDeviceInfo,
-    HaEventMessage,
-    HaLedMessage,
-    HaLightMessage,
-    HaSensorMessage,
-    HaSwitchMessage,
-    HaValveMessage,
-)
 from boneio.helper.onewire.ds2482 import DS2482
 from boneio.helper.onewire.onewire import OneWireAddress, OneWireBus
 from boneio.helper.onewire.W1ThermSensor import AsyncBoneIOW1ThermSensor
@@ -93,6 +79,19 @@ from boneio.message_bus import (
 from boneio.message_bus.basic import (
     AutoDiscoveryMessage,
     AutoDiscoveryMessageType,
+    HaAvailabilityTopic,
+    HaBaseMessage,
+    HaBinarySensorMessage,
+    HaButtonMessage,
+    HaCoverMessage,
+    HaDeviceInfo,
+    HaDiscoveryMessage,
+    HaEventMessage,
+    HaLedMessage,
+    HaLightMessage,
+    HaSensorMessage,
+    HaSwitchMessage,
+    HaValveMessage,
 )
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -257,10 +256,13 @@ class Manager:
 
     def __post_init__(self) -> None:
         _LOGGER.info("Initializing manager module.")
-        if self.config.modbus is not None:
-            self._configure_modbus(modbus=self.config.modbus)
-
         self.topic_prefix = self.config.get_topic_prefix()
+
+        self.web_url: str | None = None
+        if self.config.web is not None:
+            network_state = get_network_info()
+            if "ip" in network_state:
+                self.web_url = f"http://{network_state['ip']}:{self.config.web.port}"
 
         self.device_info = HaDeviceInfo(
             identifiers=[self.topic_prefix],
@@ -270,11 +272,10 @@ class Manager:
         )
         self.availability = [HaAvailabilityTopic(topic=f"{self.topic_prefix}/state")]
 
-        self.web_url: str | None = None
-        if self.config.web is not None:
-            network_state = get_network_info()
-            if "ip" in network_state:
-                self.web_url = f"http://{network_state['ip']}:{self.config.web.port}"
+        ### Configure devices ###
+
+        if self.config.modbus is not None:
+            self._configure_modbus(modbus=self.config.modbus)
 
         temp_sensor: TempSensor
         for temp_config in chain(self.config.lm75, self.config.mcp9808):
@@ -447,7 +448,7 @@ class Manager:
                 )
             self.outputs[_id] = out
             if out.output_type not in ("none", "cover"):
-                payload: HaBaseMessage
+                payload: HaDiscoveryMessage
                 if out.output_type == "led":
                     ha_type = AutoDiscoveryMessageType.LIGHT
                     payload = HaLedMessage(

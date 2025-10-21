@@ -6,12 +6,13 @@ from abc import ABC
 from dataclasses import dataclass, field
 
 from boneio.helper.filter import Filter
-from boneio.helper.ha_discovery import (
+from boneio.message_bus.basic import (
+    AutoDiscoveryMessageType,
     HaAvailabilityTopic,
     HaDeviceInfo,
     HaModbusMessage,
+    MessageBus,
 )
-from boneio.message_bus.basic import AutoDiscoveryMessageType, MessageBus
 from boneio.modbus.models import ValueType
 
 _LOGGER = logging.getLogger(__name__)

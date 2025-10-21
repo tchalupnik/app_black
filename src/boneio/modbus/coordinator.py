@@ -20,8 +20,12 @@ from boneio.config import (
 )
 from boneio.events import EventBus, ModbusDeviceEvent
 from boneio.helper.filter import Filter
-from boneio.helper.ha_discovery import HaAvailabilityTopic, HaDeviceInfo
-from boneio.message_bus.basic import AutoDiscoveryMessage, MessageBus
+from boneio.message_bus.basic import (
+    AutoDiscoveryMessage,
+    HaAvailabilityTopic,
+    HaDeviceInfo,
+    MessageBus,
+)
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
