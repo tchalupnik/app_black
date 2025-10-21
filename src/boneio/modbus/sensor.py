@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from abc import ABC
 from dataclasses import dataclass, field
@@ -10,11 +11,10 @@ from boneio.helper.ha_discovery import (
     HaDeviceInfo,
     HaModbusMessage,
 )
-from boneio.message_bus.basic import (
-    MessageBus,
-    MqttAutoDiscoveryMessageType,
-)
+from boneio.message_bus.basic import MessageBus, MqttAutoDiscoveryMessageType
 from boneio.modbus.models import ValueType
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
@@ -115,6 +115,11 @@ class ModbusBinarySensor(BaseSensor):
 class ModbusTextSensor(BaseSensor):
     value_mapping: dict[str, str]
 
-    def set_state(self, value: str, timestamp: float) -> None:
+    def set_state(self, value: int | float | str | None, timestamp: float) -> None:
         self.last_timestamp = timestamp
+        if not isinstance(value, str):
+            _LOGGER.warning(
+                "ModbusTextSensor expected str value but got %s", type(value)
+            )
+            return
         self.state = self.value_mapping.get(str(value), "Unknown")

@@ -265,9 +265,9 @@ class ModbusCoordinator:
                 else:
                     typing.assert_never(entity_type)
                 if self.sensors_filters is not None:
-                    single_sensor.user_filters = Filter(
-                        self.sensors_filters.get(single_sensor.decoded_name, [])
-                    )
+                    if single_sensor.decoded_name in ("temperature", "humidity"):
+                        filters = self.sensors_filters[single_sensor.decoded_name]
+                        single_sensor.user_filters = Filter(filters)
 
                 self.modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
@@ -581,6 +581,13 @@ class ModbusCoordinator:
                         sensor.base_address,
                         data.length,
                         e,
+                    )
+                    continue
+                if isinstance(decoded_value, list):
+                    _LOGGER.warning(
+                        "Decoded value is list for sensor %s at address %s. Skipping.",
+                        sensor.name,
+                        sensor.register_address,
                     )
                     continue
                 sensor.set_state(value=decoded_value, timestamp=timestamp)

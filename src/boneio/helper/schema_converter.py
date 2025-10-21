@@ -227,6 +227,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 # Add title for better IDE support
                 field_schema["title"] = field.replace("_", " ").capitalize()
 
+        assert isinstance(json_schema["properties"], dict)
         json_schema["properties"][field] = field_schema
 
     # Remove required array if empty

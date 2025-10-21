@@ -16,7 +16,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
         self, source_sensor_value: str | float | None, timestamp: float
     ) -> None:
         code = compile(self.formula, "<string>", "eval")
-        context: dict[str, str | float | None] = {
+        context: dict[str, str | int | float | None] = {
             "X": source_sensor_value,
             **self.context_config,
         }

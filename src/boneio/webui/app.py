@@ -36,7 +36,14 @@ from starlette.websockets import WebSocketState
 
 from boneio.config import Config
 from boneio.cover.venetian import VenetianCover
-from boneio.events import CoverEvent, EventType, InputEvent, OutputEvent, SensorEvent
+from boneio.events import (
+    CoverEvent,
+    EventType,
+    InputEvent,
+    ModbusDeviceEvent,
+    OutputEvent,
+    SensorEvent,
+)
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,
@@ -885,11 +892,11 @@ def add_listener_for_all_sensors(
         if not modbus_coordinator:
             continue
 
-        async def modbus_device_state_changed(event: SensorEvent) -> None:
+        async def modbus_device_state_changed(event: ModbusDeviceEvent) -> None:
             """Callback when modbus device state changes."""
             await websocket_manager.broadcast_state("modbus_device", event.event_state)
 
-        for entities in modbus_coordinator.get_all_entities():
+        for entities in modbus_coordinator.modbus_entities:
             for entity in entities.values():
                 boneio_manager.event_bus.add_event_listener(
                     event_type=EventType.MODBUS_DEVICE,

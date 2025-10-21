@@ -124,9 +124,7 @@ class ModbusHelper:
             _LOGGER.error("Invalid new address.")
         return 1
 
-    async def set_custom_command(
-        self, register_address: int, value: int | float
-    ) -> None:
+    async def set_custom_command(self, register_address: int, value: int) -> None:
         result = await self.modbus.client.write_register(
             address=register_address,
             value=value,

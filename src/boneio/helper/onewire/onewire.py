@@ -18,7 +18,7 @@ def reverse_dallas_id(a: str) -> str:
     return "".join(reversed([a[i : i + 2] for i in range(0, len(a), 2)]))
 
 
-class OneWireAddress(AdafruitOneWireAddress):
+class OneWireAddress(AdafruitOneWireAddress):  # type: ignore[misc]
     @property
     def int_address(self) -> int:
         return ds_address(self.rom)
@@ -32,8 +32,8 @@ class OneWireAddress(AdafruitOneWireAddress):
         return self.hex_id[2:-2]
 
 
-class OneWire(OneWireIO):
-    def __init__(self, ds2482: DS2482):
+class OneWire(OneWireIO):  # type: ignore[misc]
+    def __init__(self, ds2482: DS2482) -> None:
         self.ds2482 = ds2482
 
     def deinit(self) -> None:
@@ -63,7 +63,7 @@ class OneWire(OneWireIO):
         self.ds2482.single_bit(value)
 
 
-class OneWireBus(adafruit_onewire.bus.OneWireBus):
+class OneWireBus(adafruit_onewire.bus.OneWireBus):  # type: ignore[misc]
     def __init__(self, ds2482: DS2482):
         self._ow = OneWire(ds2482)
         self._readbit = self._ow.read_bit

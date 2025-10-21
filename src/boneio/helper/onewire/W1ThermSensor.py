@@ -24,7 +24,7 @@ def crc82(data: bytearray) -> int:
     return crc
 
 
-class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
+class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):  # type: ignore[misc]
     def __init__(self, sensor_id: OneWireAddress) -> None:
         """Custom init function to work with same addressing type as esphome."""
         self._ds18b20_str_id = hex(Sensor.DS18B20)[2:]

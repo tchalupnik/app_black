@@ -141,3 +141,10 @@ class HaModbusMessage(HaDiscoveryMessage):
     command_template: str | None = None
     payload_off: str | None = None
     payload_on: str | None = None
+
+
+class HaSelectMessage(HaModbusMessage):
+    """Home Assistant MQTT select discovery message."""
+
+    options: list[str] = Field(default_factory=list)
+    command_topic: str

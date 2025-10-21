@@ -6,6 +6,7 @@ from boneio.helper.ha_discovery import (
     HaAvailabilityTopic,
     HaDeviceInfo,
     HaModbusMessage,
+    HaSelectMessage,
 )
 from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
@@ -23,7 +24,7 @@ class ModbusDerivedSelect(BaseSensor):
         device_info: HaDeviceInfo,
         availability: list[HaAvailabilityTopic],
     ) -> HaModbusMessage:
-        return HaModbusMessage(
+        return HaSelectMessage(
             availability=availability,
             device=device_info,
             name=self.name,

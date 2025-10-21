@@ -336,7 +336,7 @@ def merge_board_config(config: Tree) -> Tree:
 timedelta_type = TypeDefinition("timedelta", (timedelta,), ())
 
 
-class CustomValidator(Validator):
+class CustomValidator(Validator):  # type: ignore[misc]
     """Custom validator of cerberus"""
 
     types_mapping = Validator.types_mapping.copy()

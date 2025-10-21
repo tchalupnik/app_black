@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypeVar, overload
 
 import anyio
 import anyio.abc
@@ -102,7 +102,9 @@ Event = Annotated[
     Discriminator("event_type"),
 ]
 
-EventCallback = Callable[[Event], Coroutine[Any, Any, None]]
+# TypeVar for event callbacks - allows both generic Event and specific event types
+EventT = TypeVar("EventT", bound=BaseEvent)
+EventCallback = Callable[[EventT], Coroutine[Any, Any, None]]
 SigtermCallback = Callable[[], Coroutine[Any, Any, None]]
 EverySecondCallback = Callable[[], Coroutine[Any, Any, None]]
 
@@ -149,7 +151,7 @@ class EventBus:
         default_factory=list, init=False
     )
     event_listeners: dict[
-        EventType, dict[EntityId, dict[ListenerId, EventCallback]]
+        EventType, dict[EntityId, dict[ListenerId, EventCallback[Any]]]
     ] = field(
         default_factory=lambda: {
             EventType.INPUT: {},
@@ -233,12 +235,75 @@ class EventBus:
         """Add sigterm listener."""
         self.sigterm_listeners.append(target)
 
+    @overload
+    def add_event_listener(
+        self,
+        event_type: Literal[EventType.INPUT],
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[InputEvent],
+    ) -> None: ...
+
+    @overload
+    def add_event_listener(
+        self,
+        event_type: Literal[EventType.OUTPUT],
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[OutputEvent],
+    ) -> None: ...
+
+    @overload
+    def add_event_listener(
+        self,
+        event_type: Literal[EventType.COVER],
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[CoverEvent],
+    ) -> None: ...
+
+    @overload
+    def add_event_listener(
+        self,
+        event_type: Literal[EventType.SENSOR],
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[SensorEvent],
+    ) -> None: ...
+
+    @overload
+    def add_event_listener(
+        self,
+        event_type: Literal[EventType.MODBUS_DEVICE],
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[ModbusDeviceEvent],
+    ) -> None: ...
+
+    @overload
+    def add_event_listener(
+        self,
+        event_type: Literal[EventType.HOST],
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[HostEvent],
+    ) -> None: ...
+
+    @overload
     def add_event_listener(
         self,
         event_type: EventType,
         entity_id: str,
         listener_id: str,
-        target: EventCallback,
+        target: EventCallback[Event],
+    ) -> None: ...
+
+    def add_event_listener(
+        self,
+        event_type: EventType,
+        entity_id: str,
+        listener_id: str,
+        target: EventCallback[Any],
     ) -> None:
         """Add event listener.
 

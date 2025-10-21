@@ -42,8 +42,12 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             + '", "value": "{{ value }}"}',
         )
 
-    def encode_value(self, value: float) -> int:
-        value = self.write_filters.apply_filters(value=value)
-        if value is None:
+    def encode_value(self, value: str | float | int) -> int:
+        try:
+            value = float(value)
+        except ValueError:
             return 0
-        return int(value)
+        result = self.write_filters.apply_filters(value=value)
+        if result is None:
+            return 0
+        return int(result)

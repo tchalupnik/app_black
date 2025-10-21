@@ -35,5 +35,7 @@ class Filter:
                 if k not in FILTERS:
                     _LOGGER.warning("Filter %s doesn't exists. Fix it in config.", k)
                     continue
+                if value is None:
+                    return None
                 value = FILTERS[k](value, v)
         return value
