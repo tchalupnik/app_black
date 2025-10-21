@@ -7,7 +7,7 @@ from boneio.helper.ha_discovery import (
     HaDeviceInfo,
     HaModbusMessage,
 )
-from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
+from boneio.message_bus.basic import AutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
 
 
@@ -17,7 +17,7 @@ class ModbusDerivedSwitch(BaseSensor):
     value_mapping: dict[str, str] = field(default_factory=dict)
     payload_off: str = "OFF"
     payload_on: str = "ON"
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.SWITCH
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.SWITCH
 
     def discovery_message(
         self,

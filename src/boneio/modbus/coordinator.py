@@ -21,7 +21,7 @@ from boneio.config import (
 from boneio.events import EventBus, ModbusDeviceEvent
 from boneio.helper.filter import Filter
 from boneio.helper.ha_discovery import HaAvailabilityTopic, HaDeviceInfo
-from boneio.message_bus.basic import MessageBus, MqttAutoDiscoveryMessage
+from boneio.message_bus.basic import AutoDiscoveryMessage, MessageBus
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
@@ -413,7 +413,7 @@ class ModbusCoordinator:
                     sensor.parent_id,
                 )
                 self.message_bus.add_autodiscovery_message(
-                    MqttAutoDiscoveryMessage(
+                    AutoDiscoveryMessage(
                         type=sensor._ha_type_,
                         payload=sensor.discovery_message(
                             topic=topic,

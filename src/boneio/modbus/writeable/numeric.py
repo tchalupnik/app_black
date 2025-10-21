@@ -8,7 +8,7 @@ from boneio.helper.ha_discovery import (
     HaDeviceInfo,
     HaModbusMessage,
 )
-from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
+from boneio.message_bus.basic import AutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
 
 
@@ -20,7 +20,7 @@ class ModbusNumericWriteableEntityDiscrete(BaseSensor):
 
 @dataclass(kw_only=True)
 class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.NUMBER
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.NUMBER
 
     def discovery_message(
         self,

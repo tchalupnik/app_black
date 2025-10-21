@@ -8,7 +8,7 @@ from boneio.helper.ha_discovery import (
     HaModbusMessage,
     HaSelectMessage,
 )
-from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
+from boneio.message_bus.basic import AutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
 
 
@@ -16,7 +16,7 @@ from boneio.modbus.sensor import BaseSensor
 class ModbusDerivedSelect(BaseSensor):
     decoded_name: str
     value_mapping: dict[str, str]
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.SELECT
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.SELECT
 
     def discovery_message(
         self,

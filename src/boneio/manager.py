@@ -77,22 +77,22 @@ from boneio.helper.onewire.W1ThermSensor import AsyncBoneIOW1ThermSensor
 from boneio.helper.util import strip_accents
 from boneio.logger import configure_logger
 from boneio.message_bus import (
-    ButtonMqttMessage,
-    CoverMqttMessage,
-    CoverPosMqttMessage,
-    CoverSetMqttMessage,
-    CoverTiltMqttMessage,
-    GroupMqttMessage,
+    ButtonMessage,
+    CoverMessage,
+    CoverPosMessage,
+    CoverSetMessage,
+    CoverTiltMessage,
+    GroupMessage,
+    Message,
     MessageBus,
-    ModbusMqttMessage,
-    MqttMessage,
-    RelayMqttMessage,
-    RelaySetBrightnessMqttMessage,
-    RelaySetMqttMessage,
+    ModbusMessage,
+    RelayMessage,
+    RelaySetBrightnessMessage,
+    RelaySetMessage,
 )
 from boneio.message_bus.basic import (
-    MqttAutoDiscoveryMessage,
-    MqttAutoDiscoveryMessageType,
+    AutoDiscoveryMessage,
+    AutoDiscoveryMessageType,
 )
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -314,8 +314,8 @@ class Manager:
                 continue
 
             self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                message=AutoDiscoveryMessage(
+                    type=AutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{id}/config",
                     payload=HaSensorMessage(
                         device=self.device_info,
@@ -413,8 +413,8 @@ class Manager:
                 if adc_config.show_in_ha:
                     ha_type = "sensor"
                     self.message_bus.add_autodiscovery_message(
-                        message=MqttAutoDiscoveryMessage(
-                            type=MqttAutoDiscoveryMessageType.SENSOR,
+                        message=AutoDiscoveryMessage(
+                            type=AutoDiscoveryMessageType.SENSOR,
                             topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type}/{self.topic_prefix}/{id}/config",
                             payload=HaSensorMessage(
                                 device=self.device_info,
@@ -449,7 +449,7 @@ class Manager:
             if out.output_type not in ("none", "cover"):
                 payload: HaBaseMessage
                 if out.output_type == "led":
-                    ha_type = MqttAutoDiscoveryMessageType.LIGHT
+                    ha_type = AutoDiscoveryMessageType.LIGHT
                     payload = HaLedMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -461,7 +461,7 @@ class Manager:
                         brightness_command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set_brightness",
                     )
                 elif out.output_type == "light":
-                    ha_type = MqttAutoDiscoveryMessageType.LIGHT
+                    ha_type = AutoDiscoveryMessageType.LIGHT
                     payload = HaLightMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -471,7 +471,7 @@ class Manager:
                         command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set",
                     )
                 elif out.output_type == "switch":
-                    ha_type = MqttAutoDiscoveryMessageType.SWITCH
+                    ha_type = AutoDiscoveryMessageType.SWITCH
                     payload = HaSwitchMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -481,7 +481,7 @@ class Manager:
                         command_topic=f"{self.topic_prefix}/cmd/relay/{out.id}/set",
                     )
                 elif out.output_type == "valve":
-                    ha_type = MqttAutoDiscoveryMessageType.VALVE
+                    ha_type = AutoDiscoveryMessageType.VALVE
                     payload = HaValveMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -494,7 +494,7 @@ class Manager:
                     raise ValueError(f"Wrong output type: {out.output_type}")
 
                 self.message_bus.add_autodiscovery_message(
-                    message=MqttAutoDiscoveryMessage(
+                    message=AutoDiscoveryMessage(
                         type=ha_type,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{ha_type.value.lower()}/{self.topic_prefix}/{out.id}/config",
                         payload=payload,
@@ -563,9 +563,9 @@ class Manager:
                 state_topic = f"{self.topic_prefix}/group/{output_group.id}"
                 unique_id = f"{self.topic_prefix}group{output_group.id}"
                 command_topic = f"{self.topic_prefix}/cmd/group/{output_group.id}/set"
-                mqtt_type: MqttAutoDiscoveryMessageType
+                mqtt_type: AutoDiscoveryMessageType
                 if output_group.output_type == "light":
-                    mqtt_type = MqttAutoDiscoveryMessageType.LIGHT
+                    mqtt_type = AutoDiscoveryMessageType.LIGHT
                     payload = HaLightMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -576,7 +576,7 @@ class Manager:
                         icon=icon,
                     )
                 elif output_group.output_type == "switch":
-                    mqtt_type = MqttAutoDiscoveryMessageType.SWITCH
+                    mqtt_type = AutoDiscoveryMessageType.SWITCH
                     payload = HaSwitchMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -587,7 +587,7 @@ class Manager:
                         icon=icon,
                     )
                 elif output_group.output_type == "valve":
-                    mqtt_type = MqttAutoDiscoveryMessageType.VALVE
+                    mqtt_type = AutoDiscoveryMessageType.VALVE
                     payload = HaValveMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -598,7 +598,7 @@ class Manager:
                         icon=icon,
                     )
                 elif output_group.output_type == "cover":
-                    mqtt_type = MqttAutoDiscoveryMessageType.COVER
+                    mqtt_type = AutoDiscoveryMessageType.COVER
                     payload = HaCoverMessage(
                         device=self.device_info,
                         availability=self.availability,
@@ -614,7 +614,7 @@ class Manager:
                     )
 
                 self.message_bus.add_autodiscovery_message(
-                    message=MqttAutoDiscoveryMessage(
+                    message=AutoDiscoveryMessage(
                         type=mqtt_type,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/{output_group.output_type}/{self.topic_prefix}/{output_group.id}/config",
                         payload=payload,
@@ -627,7 +627,7 @@ class Manager:
             self.config.cover = load_config(self.config_file_path).cover
             if self.config.mqtt is not None:
                 self.message_bus.clear_autodiscovery_messages_by_type(
-                    MqttAutoDiscoveryMessageType.COVER
+                    AutoDiscoveryMessageType.COVER
                 )
         for _cover_config in self.config.cover:
             cover_config = _cover_config.root
@@ -751,8 +751,8 @@ class Manager:
                         )
 
                     self.message_bus.add_autodiscovery_message(
-                        message=MqttAutoDiscoveryMessage(
-                            type=MqttAutoDiscoveryMessageType.COVER,
+                        message=AutoDiscoveryMessage(
+                            type=AutoDiscoveryMessageType.COVER,
                             topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/cover/{self.topic_prefix}/{cover.id}/config",
                             payload=payload,
                         )
@@ -783,10 +783,10 @@ class Manager:
             self.config.binary_sensor = config.binary_sensor
             if self.config.mqtt is not None:
                 self.message_bus.clear_autodiscovery_messages_by_type(
-                    MqttAutoDiscoveryMessageType.EVENT
+                    AutoDiscoveryMessageType.EVENT
                 )
                 self.message_bus.clear_autodiscovery_messages_by_type(
-                    MqttAutoDiscoveryMessageType.BINARY_SENSOR
+                    AutoDiscoveryMessageType.BINARY_SENSOR
                 )
         for event_config in self.config.event:
             if check_if_pin_configured(pin=event_config.pin):
@@ -838,8 +838,8 @@ class Manager:
                     )
             if event_config.show_in_ha:
                 self.message_bus.add_autodiscovery_message(
-                    message=MqttAutoDiscoveryMessage(
-                        type=MqttAutoDiscoveryMessageType.EVENT,
+                    message=AutoDiscoveryMessage(
+                        type=AutoDiscoveryMessageType.EVENT,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/event/{self.topic_prefix}/{event_config.pin}/config",
                         payload=HaEventMessage(
                             device=self.device_info,
@@ -909,8 +909,8 @@ class Manager:
 
             if sensor_config.show_in_ha:
                 self.message_bus.add_autodiscovery_message(
-                    message=MqttAutoDiscoveryMessage(
-                        type=MqttAutoDiscoveryMessageType.BINARY_SENSOR,
+                    message=AutoDiscoveryMessage(
+                        type=AutoDiscoveryMessageType.BINARY_SENSOR,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/binary_sensor/{self.topic_prefix}/{sensor_config.pin}/config",
                         payload=HaBinarySensorMessage(
                             device=self.device_info,
@@ -1023,8 +1023,8 @@ class Manager:
 
             if sensor_config.show_in_ha:
                 self.message_bus.add_autodiscovery_message(
-                    message=MqttAutoDiscoveryMessage(
-                        type=MqttAutoDiscoveryMessageType.SENSOR,
+                    message=AutoDiscoveryMessage(
+                        type=AutoDiscoveryMessageType.SENSOR,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{sensor.id}/config",
                         payload=HaSensorMessage(
                             device=self.device_info,
@@ -1066,8 +1066,8 @@ class Manager:
 
             for device_class, sensor in ina219.sensors.items():
                 self.message_bus.add_autodiscovery_message(
-                    message=MqttAutoDiscoveryMessage(
-                        type=MqttAutoDiscoveryMessageType.SENSOR,
+                    message=AutoDiscoveryMessage(
+                        type=AutoDiscoveryMessageType.SENSOR,
                         topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{sensor.id}/config",
                         payload=HaSensorMessage(
                             device=self.device_info,
@@ -1231,8 +1231,8 @@ class Manager:
         self.interlock_manager.register(relay, output_config.interlock_group)
         if relay.is_virtual_power:
             self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                message=AutoDiscoveryMessage(
+                    type=AutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_power/config",
                     payload=HaSensorMessage(
                         device=self.device_info,
@@ -1248,8 +1248,8 @@ class Manager:
                 )
             )
             self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                message=AutoDiscoveryMessage(
+                    type=AutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_energy/config",
                     payload=HaSensorMessage(
                         device=self.device_info,
@@ -1266,8 +1266,8 @@ class Manager:
             )
         if relay.is_virtual_volume_flow_rate:
             self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                message=AutoDiscoveryMessage(
+                    type=AutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_volume_flow_rate/config",
                     payload=HaSensorMessage(
                         device=self.device_info,
@@ -1283,8 +1283,8 @@ class Manager:
                 )
             )
             self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=MqttAutoDiscoveryMessageType.SENSOR,
+                message=AutoDiscoveryMessage(
+                    type=AutoDiscoveryMessageType.SENSOR,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{relay_id}_virtual_consumption/config",
                     payload=HaSensorMessage(
                         device=self.device_info,
@@ -1321,8 +1321,8 @@ class Manager:
 
         self.append_task(refresh_wrapper(update, timedelta(minutes=60)), name)
         self.message_bus.add_autodiscovery_message(
-            message=MqttAutoDiscoveryMessage(
-                type=MqttAutoDiscoveryMessageType.SENSOR,
+            message=AutoDiscoveryMessage(
+                type=AutoDiscoveryMessageType.SENSOR,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/sensor/{self.topic_prefix}/{id}/config",
                 payload=HaSensorMessage(
                     device=self.device_info,
@@ -1350,8 +1350,8 @@ class Manager:
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""
         self.message_bus.add_autodiscovery_message(
-            message=MqttAutoDiscoveryMessage(
-                type=MqttAutoDiscoveryMessageType.BUTTON,
+            message=AutoDiscoveryMessage(
+                type=AutoDiscoveryMessageType.BUTTON,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/logger/config",
                 payload=HaButtonMessage(
                     device=self.device_info,
@@ -1365,8 +1365,8 @@ class Manager:
             )
         )
         self.message_bus.add_autodiscovery_message(
-            message=MqttAutoDiscoveryMessage(
-                type=MqttAutoDiscoveryMessageType.BUTTON,
+            message=AutoDiscoveryMessage(
+                type=AutoDiscoveryMessageType.BUTTON,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/restart/config",
                 payload=HaButtonMessage(
                     device=self.device_info,
@@ -1380,8 +1380,8 @@ class Manager:
             )
         )
         self.message_bus.add_autodiscovery_message(
-            message=MqttAutoDiscoveryMessage(
-                type=MqttAutoDiscoveryMessageType.BUTTON,
+            message=AutoDiscoveryMessage(
+                type=AutoDiscoveryMessageType.BUTTON,
                 topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/inputs_reload/config",
                 payload=HaButtonMessage(
                     device=self.device_info,
@@ -1396,8 +1396,8 @@ class Manager:
         )
         if self.covers:
             self.message_bus.add_autodiscovery_message(
-                message=MqttAutoDiscoveryMessage(
-                    type=MqttAutoDiscoveryMessageType.BUTTON,
+                message=AutoDiscoveryMessage(
+                    type=AutoDiscoveryMessageType.BUTTON,
                     topic=f"{self.config.get_ha_autodiscovery_topic_prefix()}/button/{self.topic_prefix}/cover_reload/config",
                     payload=HaButtonMessage(
                         device=self.device_info,
@@ -1564,7 +1564,7 @@ class Manager:
             "/"
         )
         mqtt_message = (
-            TypeAdapter(MqttMessage)
+            TypeAdapter(Message)
             .validate_python(
                 {
                     "type_": topic_parts_raw[-3],
@@ -1576,9 +1576,9 @@ class Manager:
             .root
         )
 
-        if isinstance(mqtt_message, RelayMqttMessage):
+        if isinstance(mqtt_message, RelayMessage):
             relay_message = mqtt_message.root
-            if isinstance(relay_message, RelaySetMqttMessage):
+            if isinstance(relay_message, RelaySetMessage):
                 target_device = self.outputs.get(relay_message.device_id)
                 if target_device is None or target_device.output_type == "none":
                     _LOGGER.warning(
@@ -1594,7 +1594,7 @@ class Manager:
                         await target_device.toggle()
                     case _:
                         assert_never(relay_message)
-            elif isinstance(relay_message, RelaySetBrightnessMqttMessage):
+            elif isinstance(relay_message, RelaySetBrightnessMessage):
                 target_device = self.outputs.get(relay_message.device_id)
                 if not (
                     isinstance(target_device, PWMPCA)
@@ -1608,7 +1608,7 @@ class Manager:
                 target_device.set_brightness(relay_message.message)
             else:
                 assert_never(relay_message)
-        elif isinstance(mqtt_message, CoverMqttMessage):
+        elif isinstance(mqtt_message, CoverMessage):
             cover_message = mqtt_message.root
             cover = self.covers.get(cover_message.device_id)
             if cover is None:
@@ -1617,7 +1617,7 @@ class Manager:
                     cover_message.device_id,
                 )
                 return
-            if isinstance(cover_message, CoverSetMqttMessage):
+            if isinstance(cover_message, CoverSetMessage):
                 match cover_message.message:
                     case "stop":
                         await cover.stop()
@@ -1633,9 +1633,9 @@ class Manager:
                         await cover.toggle_close()
                     case _:
                         assert_never(cover_message)
-            elif isinstance(cover_message, CoverPosMqttMessage):
+            elif isinstance(cover_message, CoverPosMessage):
                 await cover.set_cover_position(position=cover_message.message)
-            elif isinstance(cover_message, CoverTiltMqttMessage):
+            elif isinstance(cover_message, CoverTiltMessage):
                 if not isinstance(cover, VenetianCover):
                     _LOGGER.warning(
                         "This cover %s is not Venetian cover. Ignoring tilt message.",
@@ -1646,7 +1646,7 @@ class Manager:
                     await cover.set_tilt(tilt_position=cover_message.message)
                 else:
                     await cover.stop()
-        elif isinstance(mqtt_message, GroupMqttMessage):
+        elif isinstance(mqtt_message, GroupMessage):
             output_group = self.output_groups.get(mqtt_message.device_id)
             if output_group is not None and output_group.output_type != "none":
                 match mqtt_message.message:
@@ -1660,7 +1660,7 @@ class Manager:
                         assert_never(mqtt_message)
             else:
                 _LOGGER.debug("Target device not found %s.", mqtt_message.device_id)
-        elif isinstance(mqtt_message, ButtonMqttMessage):
+        elif isinstance(mqtt_message, ButtonMessage):
             if mqtt_message.device_id == "logger" and mqtt_message.message == "reload":
                 _LOGGER.info("Reloading logger configuration.")
                 self._logger_reload()
@@ -1684,7 +1684,7 @@ class Manager:
             else:
                 raise ValueError("Wrong button command!")
 
-        elif isinstance(mqtt_message, ModbusMqttMessage):
+        elif isinstance(mqtt_message, ModbusMessage):
             coordinator = self.modbus_coordinators.get(mqtt_message.device_id)
             if coordinator is not None:
                 await coordinator.write_register(

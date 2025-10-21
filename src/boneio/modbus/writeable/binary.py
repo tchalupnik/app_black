@@ -8,13 +8,13 @@ from boneio.helper.ha_discovery import (
     HaDeviceInfo,
     HaModbusMessage,
 )
-from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
+from boneio.message_bus.basic import AutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
 
 
 @dataclass(kw_only=True)
 class ModbusBinaryWriteableEntityDiscrete(BaseSensor):
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.BINARY_SENSOR
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.BINARY_SENSOR
 
     write_address: int | None = None
     payload_off: str = "OFF"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from boneio.message_bus.basic import MqttAutoDiscoveryMessageType
+from boneio.message_bus.basic import AutoDiscoveryMessageType
 from boneio.modbus.sensor import BaseSensor
 
 
@@ -10,7 +10,7 @@ from boneio.modbus.sensor import BaseSensor
 class ModbusDerivedTextSensor(BaseSensor):
     decoded_name: str
     value_mapping: dict[str, str]
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.TEXT_SENSOR
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.TEXT_SENSOR
 
     def evaluate_state(
         self, source_sensor_value: str | float | None, timestamp: float

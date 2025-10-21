@@ -11,7 +11,7 @@ from boneio.helper.ha_discovery import (
     HaDeviceInfo,
     HaModbusMessage,
 )
-from boneio.message_bus.basic import MessageBus, MqttAutoDiscoveryMessageType
+from boneio.message_bus.basic import AutoDiscoveryMessageType, MessageBus
 from boneio.modbus.models import ValueType
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class BaseSensor(ABC):
     write_address: int | None = None
     state: int | float | str | None = field(init=False, default=None)
 
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.SENSOR
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.SENSOR
 
     def __post_init__(self) -> None:
         self.decoded_name = self.name.replace(" ", "").lower()
@@ -87,7 +87,7 @@ class ModbusNumericSensor(BaseSensor):
 
 @dataclass
 class ModbusBinarySensor(BaseSensor):
-    _ha_type_: MqttAutoDiscoveryMessageType = MqttAutoDiscoveryMessageType.BINARY_SENSOR
+    _ha_type_: AutoDiscoveryMessageType = AutoDiscoveryMessageType.BINARY_SENSOR
     payload_off: str = "OFF"
     payload_on: str = "ON"
 

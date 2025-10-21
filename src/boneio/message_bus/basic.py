@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from boneio.helper.ha_discovery import HaDiscoveryMessage
 
 
-class MqttAutoDiscoveryMessageType(str, Enum):
+class AutoDiscoveryMessageType(str, Enum):
     """Enum for Auto Discovery Message Types."""
 
     SWITCH = "SWITCH"
@@ -30,99 +30,93 @@ class MqttAutoDiscoveryMessageType(str, Enum):
     NUMBER = "NUMBER"
 
 
-class MqttAutoDiscoveryMessage(BaseModel):
-    type: MqttAutoDiscoveryMessageType
+class AutoDiscoveryMessage(BaseModel):
+    type: AutoDiscoveryMessageType
     topic: str
     payload: HaDiscoveryMessage
 
 
-class MqttMessageBase(ABC, BaseModel):
+class MessageBase(ABC, BaseModel):
     type_: str
     device_id: str
     command: str
-    message: str | int | ModbusMqttMessageValue
+    message: str | int | ModbusMessageValue
 
 
-class RelaySetMqttMessage(MqttMessageBase):
+class RelaySetMessage(MessageBase):
     type_: Literal["relay"] = "relay"
     command: Literal["set"] = "set"
     message: Literal["ON", "OFF", "TOGGLE"]
 
 
-class RelaySetBrightnessMqttMessage(MqttMessageBase):
+class RelaySetBrightnessMessage(MessageBase):
     type_: Literal["relay"] = "relay"
     command: Literal["set_brightness"] = "set_brightness"
     message: int
 
 
-_RelayMqttMessage: TypeAlias = RelaySetMqttMessage | RelaySetBrightnessMqttMessage
+_RelayMessage: TypeAlias = RelaySetMessage | RelaySetBrightnessMessage
 
 
-class RelayMqttMessage(RootModel[_RelayMqttMessage]):
-    root: _RelayMqttMessage = Field(discriminator="command")
+class RelayMessage(RootModel[_RelayMessage]):
+    root: _RelayMessage = Field(discriminator="command")
 
 
-class CoverSetMqttMessage(MqttMessageBase):
+class CoverSetMessage(MessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["set"] = "set"
     message: Literal["open", "close", "stop", "toggle", "toggle_open", "toggle_close"]
 
 
-class CoverPosMqttMessage(MqttMessageBase):
+class CoverPosMessage(MessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["pos"] = "pos"
     message: int
 
 
-class CoverTiltMqttMessage(MqttMessageBase):
+class CoverTiltMessage(MessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["tilt"] = "tilt"
     message: int | Literal["stop"]
 
 
-_CoverMqttMessage: TypeAlias = (
-    CoverSetMqttMessage | CoverPosMqttMessage | CoverTiltMqttMessage
-)
+_CoverMessage: TypeAlias = CoverSetMessage | CoverPosMessage | CoverTiltMessage
 
 
-class CoverMqttMessage(RootModel[_CoverMqttMessage]):
-    root: _CoverMqttMessage = Field(discriminator="command")
+class CoverMessage(RootModel[_CoverMessage]):
+    root: _CoverMessage = Field(discriminator="command")
 
 
-class GroupMqttMessage(MqttMessageBase):
+class GroupMessage(MessageBase):
     type_: Literal["group"] = "group"
     command: Literal["set"] = "set"
     message: Literal["ON", "OFF", "TOGGLE"]
 
 
-class ButtonMqttMessage(MqttMessageBase):
+class ButtonMessage(MessageBase):
     type_: Literal["button"] = "button"
     command: Literal["set"] = "set"
     message: Literal["reload", "restart", "inputs_reload", "cover_reload"]
 
 
-class ModbusMqttMessageValue(BaseModel):
+class ModbusMessageValue(BaseModel):
     device: str
     value: int | float | str
 
 
-class ModbusMqttMessage(MqttMessageBase):
+class ModbusMessage(MessageBase):
     type_: Literal["modbus"] = "modbus"
     command: Literal["set"] = "set"
-    message: ModbusMqttMessageValue
+    message: ModbusMessageValue
 
 
-_MqqtMessage: TypeAlias = (
-    RelayMqttMessage
-    | CoverMqttMessage
-    | GroupMqttMessage
-    | ButtonMqttMessage
-    | ModbusMqttMessage
+_Message: TypeAlias = (
+    RelayMessage | CoverMessage | GroupMessage | ButtonMessage | ModbusMessage
 )
 
 
-class MqttMessage(RootModel[_MqqtMessage]):
-    root: _MqqtMessage = Field(discriminator="type_")
+class Message(RootModel[_Message]):
+    root: _Message = Field(discriminator="type_")
 
 
 class ReceiveMessage(Protocol):
@@ -161,11 +155,11 @@ class MessageBus(ABC):
         """Subscribe to a topic."""
 
     @abstractmethod
-    def add_autodiscovery_message(self, message: MqttAutoDiscoveryMessage) -> None:
+    def add_autodiscovery_message(self, message: AutoDiscoveryMessage) -> None:
         """Add an autodiscovery message."""
 
     @abstractmethod
     def clear_autodiscovery_messages_by_type(
-        self, type: MqttAutoDiscoveryMessageType
+        self, type: AutoDiscoveryMessageType
     ) -> None:
         """Clean autodiscovery messages."""

@@ -3,12 +3,17 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import anyio
 import anyio.abc
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+
+from boneio.message_bus.basic import (
+    AutoDiscoveryMessage,
+    AutoDiscoveryMessageType,
+)
 
 from . import MessageBus, ReceiveMessage
 
@@ -23,6 +28,9 @@ class LocalMessageBus(MessageBus):
     send_stream: MemoryObjectSendStream[tuple[str, str | None]]
     receive_stream: MemoryObjectReceiveStream[tuple[str, str | None]]
     connection_established: bool = True
+    _autodiscovery_messages: dict[
+        AutoDiscoveryMessageType, list[AutoDiscoveryMessage]
+    ] = field(default_factory=dict)
 
     def send_message(
         self, topic: str, payload: str | None, retain: bool = False
@@ -74,3 +82,19 @@ class LocalMessageBus(MessageBus):
 
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
         """Unsubscribe from a topic and stop listening."""
+
+    def add_autodiscovery_message(self, message: AutoDiscoveryMessage) -> None:
+        _LOGGER.debug(
+            "Sending HA discovery for %s entity, %s.",
+            message.type,
+            message.payload.name,
+        )
+        self._autodiscovery_messages[message.type].append(message)
+        self.send_message(
+            topic=message.topic, payload=message.payload.model_dump_json(), retain=True
+        )
+
+    def clear_autodiscovery_messages_by_type(
+        self, type: AutoDiscoveryMessageType
+    ) -> None:
+        self._autodiscovery_messages[type] = []

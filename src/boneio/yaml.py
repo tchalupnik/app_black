@@ -665,28 +665,20 @@ class CustomValidator(Validator):  # type: ignore[misc]
         return result
 
 
-def _load_config_from_string(config_str: str) -> Tree:
+def _load_config_from_string(config: Tree) -> Tree:
     """Load config from string."""
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
 
     # First normalize the document
-    doc = v.normalized(config_str, always_return_document=True)
+    doc = v.normalized(config, always_return_document=True)
     merged_doc = merge_board_config(doc)
 
     # Finally validate
     if not v.validate(merged_doc):
         error_msg = "Configuration validation failed:\n"
         for field, errors in v.errors.items():
-            error_lines = []
-            if "line" in v.errors[field][0]:
-                error_lines = [
-                    f"{v.errors[field][0]['line'] + 1}: {line}"
-                    for line in config_str.splitlines()[
-                        v.errors[field][0]["line"] - 1 : v.errors[field][0]["line"] + 1
-                    ]
-                ]
-            error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
+            error_msg += f"\n- {field}: {errors}"
         raise ConfigurationError(error_msg)
 
     return merged_doc
@@ -697,8 +689,6 @@ def load_config(config_file_path: Path) -> Config:
         config_yaml = load_yaml_file(config_file_path)
     except FileNotFoundError as err:
         raise ConfigurationError(err)
-    if not isinstance(config_yaml, str):
-        raise ValueError(f"Invalid configuration format: {type(config_yaml)}")
     if not config_yaml:
         raise ValueError(f"Empty configuration file: {config_file_path}")
     return Config.model_validate(_load_config_from_string(config_yaml))

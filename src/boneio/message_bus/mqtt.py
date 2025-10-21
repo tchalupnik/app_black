@@ -23,8 +23,8 @@ from paho.mqtt.properties import Properties
 from boneio.config import MqttConfig
 from boneio.events import EventBus
 from boneio.message_bus.basic import (
-    MqttAutoDiscoveryMessage,
-    MqttAutoDiscoveryMessageType,
+    AutoDiscoveryMessage,
+    AutoDiscoveryMessageType,
 )
 
 from . import MessageBus, ReceiveMessage
@@ -54,7 +54,7 @@ class MqttMessageBus(MessageBus):
         field(default_factory=dict)
     )
     _autodiscovery_messages: dict[
-        MqttAutoDiscoveryMessageType, list[MqttAutoDiscoveryMessage]
+        AutoDiscoveryMessageType, list[AutoDiscoveryMessage]
     ] = field(default_factory=dict)
 
     @classmethod
@@ -247,7 +247,7 @@ class MqttMessageBus(MessageBus):
                     topic=message.topic, payload=message.payload, retain=message.retain
                 )
 
-    def add_autodiscovery_message(self, message: MqttAutoDiscoveryMessage) -> None:
+    def add_autodiscovery_message(self, message: AutoDiscoveryMessage) -> None:
         if not self.config.ha_discovery.enabled:
             return
         _LOGGER.debug(
@@ -261,6 +261,6 @@ class MqttMessageBus(MessageBus):
         )
 
     def clear_autodiscovery_messages_by_type(
-        self, type: MqttAutoDiscoveryMessageType
+        self, type: AutoDiscoveryMessageType
     ) -> None:
         self._autodiscovery_messages[type] = []
