@@ -5,7 +5,7 @@ import logging
 import os
 import time
 from collections import defaultdict
-from collections.abc import AsyncGenerator, Callable, Coroutine
+from collections.abc import AsyncGenerator, Callable, Collection, Coroutine, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -112,9 +112,7 @@ if TYPE_CHECKING:
     from adafruit_pcf8575 import PCF8575
     from busio import I2C
 
-    from boneio.gpio import (
-        GpioEventButtonsAndSensors,
-    )
+    from boneio.gpio import GpioEventButtonsAndSensors
     from boneio.gpio.base import GpioBase
     from boneio.gpio_manager import GpioManagerBase
 
@@ -123,21 +121,19 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class SoftwareInterlockManager:
-    groups: defaultdict[str, set[BasicRelay]] = field(
+    groups: Mapping[str, set[BasicRelay]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
-    def register(self, relay: BasicRelay, group_names: list[str]) -> None:
+    def register(self, relay: BasicRelay, group_names: Collection[str]) -> None:
         for group in group_names:
             self.groups[group].add(relay)
 
-    def can_turn_on(self, relay: BasicRelay, group_names: list[str]) -> bool:
-        for group in group_names:
-            for other_relay in self.groups.get(group, []):
-                if (
-                    other_relay is not relay
-                    and getattr(other_relay, "state", None) == "ON"
-                ):
+    def can_turn_on(self, relay: BasicRelay, group_names: Collection[str]) -> bool:
+        for group_name in group_names:
+            group = self.groups.get(group_name, set())
+            for other_relay in group:
+                if other_relay is not relay and other_relay.state == "ON":
                     return False
         return True
 
