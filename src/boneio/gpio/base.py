@@ -9,10 +9,7 @@ from typing import Any, Literal
 
 import anyio.abc
 
-from boneio.config import (
-    ActionConfig,
-    BoneIOInput,
-)
+from boneio.config import BoneIOInput
 from boneio.events import EventBus, InputEvent
 from boneio.gpio_manager import GpioManagerBase
 from boneio.models import InputState
@@ -32,7 +29,6 @@ class GpioBase:
     gpio_manager: GpioManagerBase
     event_bus: EventBus
     input_type: Literal["input", "inputsensor"]
-    actions: dict[ActionTypes, list[ActionConfig]]
     empty_message_after: bool
     manager_press_callback: Callable[
         [

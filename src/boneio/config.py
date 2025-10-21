@@ -94,20 +94,22 @@ OledScreens = Literal[
 ]
 
 
+def _default_oled_screens() -> list[OledScreens]:
+    return [
+        "uptime",
+        "network",
+        "ina219",
+        "cpu",
+        "disk",
+        "memory",
+        "swap",
+        "outputs",
+    ]
+
+
 class OledConfig(BaseModel):
     enabled: bool = False
-    screens: list[OledScreens] = Field(
-        default_factory=lambda: [
-            "uptime",
-            "network",
-            "ina219",
-            "cpu",
-            "disk",
-            "memory",
-            "swap",
-            "outputs",
-        ]
-    )
+    screens: list[OledScreens] = Field(default_factory=_default_oled_screens)
     extra_screen_sensors: list[OledExtraScreenSensorConfig] = Field(
         default_factory=list
     )
@@ -125,11 +127,15 @@ Filters = Literal[
 ]
 
 
+def _default_filters() -> list[dict[Filters, float]]:
+    return [{"round": 2}]
+
+
 class TemperatureConfig(BaseModel):
     address: int
     id: str
     update_interval: timedelta = Field(default_factory=lambda: timedelta(seconds=60))
-    filters: list[dict[Filters, float]] = Field(default_factory=lambda: [{"round": 2}])
+    filters: list[dict[Filters, float]] = Field(default_factory=_default_filters)
     unit_of_measurement: Literal["°C", "°F"] = "°C"
 
     def identifier(self) -> str:
@@ -237,7 +243,7 @@ class CoverOverMqttActionConfig(BaseModel):
         return v.lower()
 
 
-ActionConfig = Annotated[
+ActionConfigTypes = Annotated[
     (
         OutputActionConfig
         | MqttActionConfig
@@ -256,7 +262,9 @@ class EventConfig(BaseModel):
     pin: str
     id: str | None = None
     boneio_input: BoneIOInput | None = None
-    actions: dict[EventActionTypes, list[ActionConfig]] = Field(default_factory=dict)
+    actions: dict[EventActionTypes, list[ActionConfigTypes]] = Field(
+        default_factory=dict
+    )
     device_class: Literal["button", "doorbell", "motion"] = "button"
     show_in_ha: bool = True
     inverted: bool = False
@@ -309,7 +317,7 @@ class BinarySensorConfig(BaseModel):
         ]
         | None
     ) = None
-    actions: dict[BinarySensorActionTypes, list[ActionConfig]] = Field(
+    actions: dict[BinarySensorActionTypes, list[ActionConfigTypes]] = Field(
         default_factory=dict
     )
     show_in_ha: bool = True
@@ -336,7 +344,7 @@ OutputTypes: TypeAlias = Literal["cover", "led", "light", "switch", "valve", "no
 
 class OutputConfigBase(BaseModel):
     id: str
-    pin: int
+    pin: int | str
     output_type: OutputTypes
     kind: Literal["gpio", "mcp", "pca", "pcf", "mock"]
     boneio_output: str | None = None
@@ -350,25 +358,30 @@ class OutputConfigBase(BaseModel):
 
 class McpOutputConfig(OutputConfigBase):
     mcp_id: str
+    pin: int
     kind: Literal["mcp"] = "mcp"
 
 
 class PcaOutputConfig(OutputConfigBase):
     pca_id: str
+    pin: int
     kind: Literal["pca"] = "pca"
     percentage_default_brightness: int = 1
 
 
 class PcfOutputConfig(OutputConfigBase):
     pcf_id: str
+    pin: int
     kind: Literal["pcf"] = "pcf"
 
 
 class GpioOutputConfig(OutputConfigBase):
+    pin: str
     kind: Literal["gpio"] = "gpio"
 
 
 class MockOutputConfig(OutputConfigBase):
+    pin: int
     kind: Literal["mock"] = "mock"
 
 

@@ -196,7 +196,7 @@ class BasicRelay(ABC):
     """Basic relay class."""
 
     id: str
-    pin_id: int
+    pin_id: int | str
     expander_id: str
     topic_prefix: str
     message_bus: MessageBus

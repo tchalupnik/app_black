@@ -17,6 +17,7 @@ class GpioRelay(BasicRelay):
     """Represents GPIO Relay output"""
 
     gpio_manager: GpioManagerBase
+    pin_id: str
 
     def __post_init__(self) -> None:
         """Initialize Gpio relay."""

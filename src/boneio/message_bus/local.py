@@ -38,7 +38,8 @@ class LocalMessageBus(MessageBus):
                 _LOGGER.debug("Received message on topic %s: %s", topic, payload)
                 if not topic.startswith("boneio/boneio"):
                     continue
-                await receive_message(topic, payload)
+                if payload is not None:
+                    await receive_message(topic, payload)
 
         self.tg.start_soon(_message_processor)
 

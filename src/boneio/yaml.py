@@ -261,7 +261,11 @@ def merge_board_config(config: Tree) -> Tree:
     _LOGGER.debug("Loaded board configuration: %s", board_name)
 
     # Copy MCP configuration if not already defined
-    if "mcp23017" not in config and "mcp23017" in board_config:
+    if (
+        isinstance(config, dict)
+        and "mcp23017" not in config
+        and "mcp23017" in board_config
+    ):
         config["mcp23017"] = board_config["mcp23017"]
 
     # Process outputs
@@ -693,6 +697,8 @@ def load_config(config_file_path: Path) -> Config:
         config_yaml = load_yaml_file(config_file_path)
     except FileNotFoundError as err:
         raise ConfigurationError(err)
+    if not isinstance(config_yaml, str):
+        raise ValueError(f"Invalid configuration format: {type(config_yaml)}")
     if not config_yaml:
         raise ValueError(f"Empty configuration file: {config_file_path}")
     return Config.model_validate(_load_config_from_string(config_yaml))

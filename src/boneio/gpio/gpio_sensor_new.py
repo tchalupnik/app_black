@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal
 
-from boneio.config import ActionConfig, BinarySensorActionTypes
+from boneio.config import ActionConfigTypes, BinarySensorActionTypes
 
 from .base import GpioBase
 
@@ -19,7 +19,7 @@ class GpioInputBinarySensorNew(GpioBase):
     """Represent Gpio sensor on input boards."""
 
     # Redefinition to match types
-    actions: dict[BinarySensorActionTypes, list[ActionConfig]]
+    actions: dict[BinarySensorActionTypes, list[ActionConfigTypes]]
     inverted: bool = False
     initial_send: bool = False
 

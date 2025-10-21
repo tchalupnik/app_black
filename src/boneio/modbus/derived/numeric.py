@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from boneio.config import ModbusDeviceData
 from boneio.modbus.sensor import BaseSensor
@@ -18,7 +19,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
         code = compile(self.formula, "<string>", "eval")
         context: dict[str, str | int | float | None] = {
             "X": source_sensor_value,
-            **self.context_config,
         }
+        context.update(cast(dict[str, str | int | float], self.context_config))
         value = eval(code, {"__builtins__": {}}, context)
         self.set_state(value, timestamp)

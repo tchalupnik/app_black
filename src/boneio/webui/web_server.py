@@ -4,11 +4,13 @@ import logging
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import anyio
 from anyio import Event
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HypercornConfig
+from hypercorn.typing import ASGIFramework
 
 from boneio.config import Config
 from boneio.manager import Manager
@@ -108,7 +110,7 @@ class WebServer:
         async def run() -> None:
             try:
                 await serve(
-                    self.app,
+                    cast(ASGIFramework, self.app),
                     self._hypercorn_config,
                     shutdown_trigger=Event().wait,
                 )

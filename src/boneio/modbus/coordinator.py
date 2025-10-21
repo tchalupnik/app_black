@@ -265,8 +265,11 @@ class ModbusCoordinator:
                 else:
                     typing.assert_never(entity_type)
                 if self.sensors_filters is not None:
-                    if single_sensor.decoded_name in ("temperature", "humidity"):
-                        filters = self.sensors_filters[single_sensor.decoded_name]
+                    if single_sensor.decoded_name == "temperature":
+                        filters = self.sensors_filters["temperature"]
+                        single_sensor.user_filters = Filter(filters)
+                    elif single_sensor.decoded_name == "humidity":
+                        filters = self.sensors_filters["humidity"]
                         single_sensor.user_filters = Filter(filters)
 
                 self.modbus_entities[index][single_sensor.decoded_name] = single_sensor
@@ -401,6 +404,7 @@ class ModbusCoordinator:
         )
 
         for sensors in chain(self.modbus_entities, self._additional_sensors):
+            assert isinstance(sensors, dict)
             for sensor in sensors.values():
                 _LOGGER.debug(
                     "Sending %s discovery message for %s of %s",

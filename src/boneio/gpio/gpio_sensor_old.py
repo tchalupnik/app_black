@@ -8,7 +8,7 @@ from typing import Literal
 
 import anyio
 
-from boneio.config import ActionConfig, BinarySensorActionTypes
+from boneio.config import ActionConfigTypes, BinarySensorActionTypes
 
 from .base import GpioBase
 
@@ -20,7 +20,7 @@ class GpioInputBinarySensor(GpioBase):
     """Represent Gpio sensor on input boards."""
 
     # Redefinition to match types
-    actions: dict[BinarySensorActionTypes, list[ActionConfig]]
+    actions: dict[BinarySensorActionTypes, list[ActionConfigTypes]]
     inverted: bool = False
     input_type: Literal["inputsensor"] = field(default="inputsensor", init=False)
 

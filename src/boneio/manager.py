@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar, assert_never
+from typing import TYPE_CHECKING, Literal, TypeVar, assert_never
 
 import anyio
 import anyio.abc
@@ -21,11 +21,10 @@ from pydantic import TypeAdapter
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.config import (
-    BinarySensorActionTypes,
+    ActionConfigTypes,
     Config,
     CoverActionConfig,
     CoverOverMqttActionConfig,
-    EventActionTypes,
     GpioOutputConfig,
     Ina219Config,
     Lm75Config,
@@ -114,7 +113,9 @@ if TYPE_CHECKING:
     from adafruit_pcf8575 import PCF8575
     from busio import I2C
 
-    from boneio.gpio import GpioEventButtonsAndSensors
+    from boneio.gpio import (
+        GpioEventButtonsAndSensors,
+    )
     from boneio.gpio.base import GpioBase
     from boneio.gpio_manager import GpioManagerBase
 
@@ -1412,7 +1413,7 @@ class Manager:
 
     async def press_callback(
         self,
-        action_type: EventActionTypes | BinarySensorActionTypes,
+        action_type: Literal["single", "double", "long", "pressed", "released"],
         gpio: GpioBase,
         empty_message_after: bool = False,
         duration: float | None = None,
@@ -1421,9 +1422,28 @@ class Manager:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt.
         """
+        from boneio.gpio import (
+            GpioEventButtonNew,
+            GpioEventButtonOld,
+            GpioInputBinarySensorNew,
+            GpioInputBinarySensorOld,
+        )
+
         topic = f"{self.config.get_topic_prefix()}/{gpio.input_type}/{gpio.pin}"
 
-        for action in gpio.actions.get(action_type, []):
+        actions: list[ActionConfigTypes] = []
+        if isinstance(gpio, (GpioEventButtonNew, GpioEventButtonOld)):
+            if (
+                action_type == "single"
+                or action_type == "double"
+                or action_type == "long"
+            ):
+                actions = gpio.actions.get(action_type, [])
+        elif isinstance(gpio, (GpioInputBinarySensorNew, GpioInputBinarySensorOld)):
+            if action_type == "pressed" or action_type == "released":
+                actions = gpio.actions.get(action_type, [])
+
+        for action in actions:
             if isinstance(action, MqttActionConfig):
                 self.message_bus.send_message(
                     topic=action.topic, payload=action.action_mqtt_msg
