@@ -498,8 +498,11 @@ class ScreenBase(ABC):
         """Render display."""
 
     async def render(self) -> None:
-        with canvas(self.device) as draw:
-            self._draw(draw=draw)
+        try:
+            with canvas(self.device) as draw:
+                self._draw(draw=draw)
+        except DeviceNotFoundError as e:
+            _LOGGER.warning("Got an unexpected error while rendering a screen! Error=%s", str(e))
         await anyio.sleep_forever()
 
 
@@ -541,10 +544,12 @@ class UpdatingScreen(Generic[_T]):
         try:
             while True:
                 async with anyio.create_task_group() as tg:
-                    tg.start_soon(self.screen.render)
-                    await self.callback_triggered_event.wait()
-                    self.callback_triggered_event = anyio.Event()
-                    tg.cancel_scope.cancel()
+                    try:
+                        tg.start_soon(self.screen.render)
+                        await self.callback_triggered_event.wait()
+                        self.callback_triggered_event = anyio.Event()
+                    finally:
+                        tg.cancel_scope.cancel()
 
         finally:
             if self.update_interval is not None:

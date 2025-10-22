@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import typing
 from dataclasses import dataclass
 
@@ -13,6 +15,9 @@ from . import TempSensor
 
 if typing.TYPE_CHECKING:
     from busio import I2C
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,4 +36,8 @@ class MCP9808Sensor(TempSensor):
             raise I2CError(err)
 
     def get_temperature(self) -> float:
-        return float(self.pct.temperature)
+        try:
+            return float(self.pct.temperature)
+        except OSError as e:
+            _LOGGER.warning("Error while getting a temperature! Error=%s", str(e))
+            return 0.0
