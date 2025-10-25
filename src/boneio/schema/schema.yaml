@@ -92,16 +92,16 @@ logger:
     default:
       type: string
       required: False
-      coerce: lower  # Convert to lowercase
-      allowed: ['critical', 'error', 'warning', 'info', 'debug']
+      coerce: lower # Convert to lowercase
+      allowed: ["critical", "error", "warning", "info", "debug"]
       meta:
         label: Module which you want logger to set. Default for app logger.
     logs:
       type: dict
       valueschema:
         type: string
-        coerce: lower  # Convert to lowercase for all values
-        allowed: ['critical', 'error', 'warning', 'info', 'debug']
+        coerce: lower # Convert to lowercase for all values
+        allowed: ["critical", "error", "warning", "info", "debug"]
       meta:
         label: "Each line suppose to have one python module name and logging level eg pymodbus.client: INFO."
 
@@ -122,17 +122,17 @@ oled:
       required: True
       allowed:
         [
-          'uptime',
-          'network',
-          'ina219',
-          'cpu',
-          'disk',
-          'memory',
-          'swap',
-          'outputs',
-          'inputs',
-          'extra_sensors',
-          'web'
+          "uptime",
+          "network",
+          "ina219",
+          "cpu",
+          "disk",
+          "memory",
+          "swap",
+          "outputs",
+          "inputs",
+          "extra_sensors",
+          "web",
         ]
       default:
         - uptime
@@ -154,7 +154,7 @@ oled:
           sensor_type:
             type: string
             required: True
-            allowed: ['modbus', 'dallas']
+            allowed: ["modbus", "dallas"]
           modbus_id:
             type: string
             required: False
@@ -188,7 +188,7 @@ modbus:
     uart:
       type: string
       required: True
-      allowed: ['uart1', 'uart2', 'uart3', 'uart4', 'uart5']
+      allowed: ["uart1", "uart2", "uart3", "uart4", "uart5"]
       meta:
         label: Uart ID to use
     baudrate:
@@ -203,8 +203,8 @@ modbus:
       default: 8
     parity:
       type: string
-      allowed: ['N', 'E', 'O']
-      default: 'N'
+      allowed: ["N", "E", "O"]
+      default: "N"
 
 modbus_devices:
   type: list
@@ -234,21 +234,21 @@ modbus_devices:
           - lower
         allowed:
           [
-            'cwt',
-            'dts1964_3f',
-            'liquid-sensor',
-            'orno-or-we-517',
-            'pt100',
-            'fujitsu-ac',
-            'r4dcb08',
-            'sdm120',
-            'sdm630',
-            'sht20',
-            'sht30',
-            'socomec_e03',
-            'socomec_e23',
-            'sofar',
-            'ventclear',
+            "cwt",
+            "dts1964_3f",
+            "liquid-sensor",
+            "orno-or-we-517",
+            "pt100",
+            "fujitsu-ac",
+            "r4dcb08",
+            "sdm120",
+            "sdm630",
+            "sht20",
+            "sht30",
+            "socomec_e03",
+            "socomec_e23",
+            "sofar",
+            "ventclear",
           ]
         meta:
           label: Model to load from database.
@@ -344,7 +344,7 @@ ina219:
             id: !include id.yaml
             device_class:
               type: string
-              allowed: ['current', 'power', 'voltage']
+              allowed: ["current", "power", "voltage"]
             filters: !include filters.yaml
         default:
           - id: INA219 Current
@@ -474,7 +474,7 @@ output:
       kind:
         type: string
         required: False
-        allowed: ['gpio', 'mcp', 'pca', 'pcf', "mock"]
+        allowed: ["gpio", "mcp", "pca", "pcf", "mock"]
         meta:
           label: Output kind (mcp, gpio, etc)
       mcp_id:
@@ -545,8 +545,6 @@ output:
           description: |
             Assigns this output to a software interlock group (or groups). Outputs with the same group name cannot be active at the same time.
             You can provide a single group name (string) or a list of names (if the output should belong to multiple groups).
-        meta:
-          label: Restore saved state of boneio. Not used for "none" and output_type!
       percentage_default_brightness:
         type: integer
         required: False
@@ -555,7 +553,7 @@ output:
       output_type:
         type: string
         required: True
-        allowed: ['switch', 'light', 'cover', 'valve', 'none']
+        allowed: ["switch", "led", "light", "cover", "valve", "none"]
         coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).
@@ -588,8 +586,8 @@ output_group:
       output_type:
         type: string
         required: True
-        allowed: ['switch', 'light']
-        default: 'switch'
+        allowed: ["switch", "light"]
+        default: "switch"
         coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch.
@@ -614,15 +612,15 @@ binary_sensor:
       gpio_mode:
         type: string
         required: True
-        default: 'gpio'
-        allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
+        default: "gpio"
+        allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
       detection_type:
         type: string
         required: True
-        default: 'new'
-        allowed: ['new', 'old']
+        default: "new"
+        allowed: ["new", "old"]
         meta:
           label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
@@ -637,13 +635,64 @@ binary_sensor:
         coerce:
           - positive_time_period
         required: True
-        default: '120ms'
+        default: "120ms"
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       boneio_input:
         type: string
         required: False
-        allowed: ["in_01", "in_02", "in_03", "in_04", "in_05", "in_06", "in_07", "in_08", "in_09", "in_10", "in_11", "in_12", "in_13", "in_14", "in_15", "in_16", "in_17", "in_18", "in_19", "in_20", "in_21", "in_22", "in_23", "in_24", "in_25", "in_26", "in_27", "in_28", "in_29", "in_30", "in_31", "in_32", "in_33", "in_34", "in_35", "in_36", "in_37", "in_38", "in_39", "in_40", "in_41", "in_42", "in_43", "in_44", "in_45", "in_46", "in_47", "in_48", "in_49"]
+        allowed:
+          [
+            "in_01",
+            "in_02",
+            "in_03",
+            "in_04",
+            "in_05",
+            "in_06",
+            "in_07",
+            "in_08",
+            "in_09",
+            "in_10",
+            "in_11",
+            "in_12",
+            "in_13",
+            "in_14",
+            "in_15",
+            "in_16",
+            "in_17",
+            "in_18",
+            "in_19",
+            "in_20",
+            "in_21",
+            "in_22",
+            "in_23",
+            "in_24",
+            "in_25",
+            "in_26",
+            "in_27",
+            "in_28",
+            "in_29",
+            "in_30",
+            "in_31",
+            "in_32",
+            "in_33",
+            "in_34",
+            "in_35",
+            "in_36",
+            "in_37",
+            "in_38",
+            "in_39",
+            "in_40",
+            "in_41",
+            "in_42",
+            "in_43",
+            "in_44",
+            "in_45",
+            "in_46",
+            "in_47",
+            "in_48",
+            "in_49",
+          ]
         coerce:
           - str
           - lower
@@ -672,33 +721,33 @@ binary_sensor:
         required: False
         allowed:
           [
-            'battery',
-            'battery_charging',
-            'carbon_monoxide',
-            'cold',
-            'connectivity',
-            'door',
-            'garage_door',
-            'gas',
-            'heat',
-            'light',
-            'lock',
-            'moisture',
-            'motion',
-            'moving',
-            'occupancy',
-            'opening',
-            'plug',
-            'power',
-            'presence',
-            'problem',
-            'running',
-            'safety',
-            'smoke',
-            'sound',
-            'tamper',
-            'vibration',
-            'window',
+            "battery",
+            "battery_charging",
+            "carbon_monoxide",
+            "cold",
+            "connectivity",
+            "door",
+            "garage_door",
+            "gas",
+            "heat",
+            "light",
+            "lock",
+            "moisture",
+            "motion",
+            "moving",
+            "occupancy",
+            "opening",
+            "plug",
+            "power",
+            "presence",
+            "problem",
+            "running",
+            "safety",
+            "smoke",
+            "sound",
+            "tamper",
+            "vibration",
+            "window",
           ]
         meta:
           label: Device class to use in HA
@@ -729,15 +778,15 @@ event:
       gpio_mode:
         type: string
         required: True
-        default: 'gpio'
-        allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
+        default: "gpio"
+        allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
       detection_type:
         type: string
         required: True
-        default: 'new'
-        allowed: ['new', 'old']
+        default: "new"
+        allowed: ["new", "old"]
         meta:
           label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
@@ -752,13 +801,64 @@ event:
         coerce:
           - positive_time_period
         required: True
-        default: '30ms'
+        default: "30ms"
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       boneio_input:
         type: string
         required: False
-        allowed: ["in_01", "in_02", "in_03", "in_04", "in_05", "in_06", "in_07", "in_08", "in_09", "in_10", "in_11", "in_12", "in_13", "in_14", "in_15", "in_16", "in_17", "in_18", "in_19", "in_20", "in_21", "in_22", "in_23", "in_24", "in_25", "in_26", "in_27", "in_28", "in_29", "in_30", "in_31", "in_32", "in_33", "in_34", "in_35", "in_36", "in_37", "in_38", "in_39", "in_40", "in_41", "in_42", "in_43", "in_44", "in_45", "in_46", "in_47", "in_48", "in_49"]
+        allowed:
+          [
+            "in_01",
+            "in_02",
+            "in_03",
+            "in_04",
+            "in_05",
+            "in_06",
+            "in_07",
+            "in_08",
+            "in_09",
+            "in_10",
+            "in_11",
+            "in_12",
+            "in_13",
+            "in_14",
+            "in_15",
+            "in_16",
+            "in_17",
+            "in_18",
+            "in_19",
+            "in_20",
+            "in_21",
+            "in_22",
+            "in_23",
+            "in_24",
+            "in_25",
+            "in_26",
+            "in_27",
+            "in_28",
+            "in_29",
+            "in_30",
+            "in_31",
+            "in_32",
+            "in_33",
+            "in_34",
+            "in_35",
+            "in_36",
+            "in_37",
+            "in_38",
+            "in_39",
+            "in_40",
+            "in_41",
+            "in_42",
+            "in_43",
+            "in_44",
+            "in_45",
+            "in_46",
+            "in_47",
+            "in_48",
+            "in_49",
+          ]
         coerce:
           - str
           - lower
@@ -779,8 +879,8 @@ event:
       device_class:
         type: string
         required: False
-        default: 'button'
-        allowed: ['button', 'doorbell', 'motion']
+        default: "button"
+        allowed: ["button", "doorbell", "motion"]
         meta:
           label: Device class to use in HA
       actions:
@@ -805,7 +905,7 @@ adc:
       pin:
         type: string
         required: True
-        allowed: ['P9_33', 'P9_35', 'P9_36', 'P9_37', 'P9_38', 'P9_39', 'P9_40']
+        allowed: ["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
         meta:
           label: PIN to use.
       update_interval: !include update_interval.yaml
@@ -849,7 +949,7 @@ cover:
         type: string
         required: True
         default: previous
-        allowed: ['time_based', 'venetian', 'previous']
+        allowed: ["time_based", "venetian", "previous"]
         meta:
           label: Platform to use for cover.
       open_time:
@@ -893,16 +993,16 @@ cover:
         required: False
         allowed:
           [
-            'awning',
-            'blind',
-            'curtain',
-            'damper',
-            'door',
-            'garage',
-            'gate',
-            'shade',
-            'shutter',
-            'window',
+            "awning",
+            "blind",
+            "curtain",
+            "damper",
+            "door",
+            "garage",
+            "gate",
+            "shade",
+            "shutter",
+            "window",
           ]
         meta:
           label: Device class to use in HA
@@ -959,7 +1059,7 @@ sensor:
         type: string
         required: True
         default: dallas
-        allowed: ['dallas']
+        allowed: ["dallas"]
         meta:
           label: Platform of sensor to use. Currently only Dallas platform is supported.
       address:
@@ -1006,7 +1106,21 @@ boneio:
     device_type:
       type: string
       required: False
-      allowed: ['32x10A', '32x10', '32', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '24x16a', 'mock']
+      allowed:
+        [
+          "32x10A",
+          "32x10",
+          "32",
+          "24x16A",
+          "24x16",
+          "24",
+          "cover",
+          "cover mix",
+          "cm",
+          "32x10a",
+          "24x16a",
+          "mock",
+        ]
       coerce:
         - str
         - lower

@@ -68,11 +68,6 @@ class LocalMessageBus(MessageBus):
             finally:
                 tg.cancel_scope.cancel()
 
-    async def announce_offline(self) -> None:
-        """Announce that the device is offline."""
-        _LOGGER.info("Sending offline state.")
-        self.send_message(topic="boneio/state", payload="offline", retain=True)
-
     def is_connection_established(self) -> bool:
         return self.connection_established
 

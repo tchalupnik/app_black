@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from collections.abc import AsyncGenerator, Callable, Coroutine, Mapping
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -16,8 +16,6 @@ import aiomqtt
 import anyio
 import anyio.abc
 from aiomqtt import MqttError, Will
-from anyio import TASK_STATUS_IGNORED
-from anyio.abc import TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from paho.mqtt.properties import Properties
 
@@ -54,7 +52,7 @@ class MqttMessageBus(MessageBus):
     _mqtt_energy_listeners: dict[str, Callable[[str], Coroutine[Any, Any, None]]] = (
         field(default_factory=dict)
     )
-    _autodiscovery_messages: Mapping[
+    _autodiscovery_messages: dict[
         AutoDiscoveryMessageType, list[AutoDiscoveryMessage]
     ] = field(default_factory=lambda: defaultdict(list))
 
@@ -65,71 +63,28 @@ class MqttMessageBus(MessageBus):
     ) -> AsyncGenerator[MqttMessageBus]:
         async with anyio.create_task_group() as tg:
             # it is done that way because aiomqtt doesn't propagate exceptions.
-            client = await tg.start(cls._create_client, config)
-            send_stream, receive_stream = anyio.create_memory_object_stream[
-                StreamMessage
-            ]()
-            try:
-                this = cls(
-                    _tg=tg,
-                    client=client,
-                    config=config,
-                    event_bus=event_bus,
-                    _send_stream=send_stream,
-                    _receive_stream=receive_stream,
-                )
-                yield this
-            finally:
-                _LOGGER.info("Cleaning up MQTT...")
-                tg.cancel_scope.cancel()
+            async with _create_client(config) as client:
+                send_stream, receive_stream = anyio.create_memory_object_stream[
+                    StreamMessage
+                ]()
+                try:
+                    this = cls(
+                        _tg=tg,
+                        client=client,
+                        config=config,
+                        event_bus=event_bus,
+                        _send_stream=send_stream,
+                        _receive_stream=receive_stream,
+                    )
+                    yield this
+                finally:
+                    _LOGGER.info("Cleaning up MQTT...")
+                    tg.cancel_scope.cancel()
 
-    @classmethod
-    async def _create_client(
-        cls,
-        config: MqttConfig,
-        task_status: TaskStatus[aiomqtt.Client] = TASK_STATUS_IGNORED,
-    ) -> None:
-        reconnect_interval: int = 1
-        while True:
-            try:
-                async with aiomqtt.Client(
-                    config.host,
-                    config.port,
-                    username=config.username,
-                    password=config.password,
-                    will=Will(topic=f"{config.topic_prefix}/state", payload="offline"),
-                    clean_session=True,
-                ) as client:
-                    # yield this
-                    task_status.started(client)
-                    try:
-                        await anyio.sleep_forever()
-                    finally:
-                        topic = f"{config.topic_prefix}/state"
-                        _LOGGER.info(
-                            "Sending message topic: %s, payload: offline", topic
-                        )
-                        await client.publish(topic, payload="offline", retain=True)
-
-            except MqttError as err:
-                _LOGGER.error(
-                    "MQTT error: %s. Reconnecting in %s seconds",
-                    err,
-                    reconnect_interval,
-                )
-                await anyio.sleep(reconnect_interval)
-                reconnect_interval = reconnect_interval * 2
-
-    async def subscribe(self, receive_messages: ReceiveMessage) -> None:
+    async def subscribe(self, receive_message: ReceiveMessage) -> None:
         """Connect and subscribe to manager topics + host stats."""
         self._tg.start_soon(self._handle_publish)
-        self._tg.start_soon(self._handle_messages, receive_messages)
-
-        if not self.connection_established:
-            self.connection_established = True
-            _LOGGER.info("Sending online state.")
-            topic = f"{self.config.topic_prefix}/state"
-            self.send_message(topic=topic, payload="online", retain=True)
+        self._tg.start_soon(self._handle_messages, receive_message)
 
         topics = (
             [
@@ -143,7 +98,7 @@ class MqttMessageBus(MessageBus):
         args = [(topic, 0) for topic in topics]
         # e.g. subscribe([("my/topic", SubscribeOptions(qos=0), ("another/topic", SubscribeOptions(qos=2)])
         _LOGGER.debug("Subscribing to %s", args)
-        await self.client.subscribe(topic=args, qos=0)
+        await self.client.subscribe(topic=args)
 
     async def subscribe_and_listen(
         self, topic: str, callback: Callable[[str], Coroutine[Any, Any, None]]
@@ -172,14 +127,6 @@ class MqttMessageBus(MessageBus):
     def is_connection_established(self) -> bool:
         """State of MQTT Client."""
         return self.connection_established
-
-    async def announce_offline(self) -> None:
-        """Announce that the device is offline."""
-        await self._publish(
-            topic=f"{self.config.topic_prefix}/state",
-            payload="offline",
-            retain=True,
-        )
 
     async def _publish(
         self,
@@ -254,16 +201,51 @@ class MqttMessageBus(MessageBus):
         if not self.config.ha_discovery.enabled:
             return
         _LOGGER.debug(
-            "Sending HA discovery for %s entity, %s.",
-            message.type,
+            "Sending HA discovery for %s: %s. Topic: %s",
+            message.type.value,
             message.payload.name,
+            message.topic,
         )
         self._autodiscovery_messages[message.type].append(message)
         self.send_message(
-            topic=message.topic, payload=message.payload.model_dump_json(), retain=True
+            topic=message.topic,
+            payload=message.payload.model_dump_json(exclude_none=True),
+            retain=True,
         )
 
     def clear_autodiscovery_messages_by_type(
         self, type: AutoDiscoveryMessageType
     ) -> None:
         self._autodiscovery_messages[type] = []
+
+
+@asynccontextmanager
+async def _create_client(config: MqttConfig) -> AsyncGenerator[aiomqtt.Client]:
+    reconnect_interval: int = 1
+    while True:
+        try:
+            async with aiomqtt.Client(
+                config.host,
+                config.port,
+                username=config.username,
+                password=config.password,
+                will=Will(topic=f"{config.topic_prefix}/state", payload="offline"),
+                clean_session=True,
+            ) as client:
+                topic = f"{config.topic_prefix}/state"
+                _LOGGER.info("Sending message topic: %s, payload online.", topic)
+                await client.publish(topic, payload="online", retain=True)
+                try:
+                    yield client
+                finally:
+                    _LOGGER.info("Sending message topic: %s, payload: offline.", topic)
+                    await client.publish(topic, payload="offline", retain=True)
+
+        except MqttError as err:
+            _LOGGER.error(
+                "MQTT error: %s. Reconnecting in %s seconds",
+                err,
+                reconnect_interval,
+            )
+            await anyio.sleep(reconnect_interval)
+            reconnect_interval = reconnect_interval * 2

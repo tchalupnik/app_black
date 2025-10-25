@@ -267,7 +267,7 @@ class ModbusCoordinator:
                         write_filters=Filter(register.write_filters),
                     )
                 else:
-                    typing.assert_never(entity_type)
+                    raise ValueError("Unsupported entity type!")
                 if self.sensors_filters is not None:
                     if single_sensor.decoded_name == "temperature":
                         filters = self.sensors_filters["temperature"]

@@ -291,6 +291,8 @@ def merge_board_config(config: Tree) -> Tree:
             raise ConfigurationError("Each output must be a dict")
 
         boneio_output = output.get("boneio_output")
+        if boneio_output is None:
+            continue
         if not isinstance(boneio_output, str):
             raise ConfigurationError("boneio_output must be a string")
         mapped_output = output_mapping.get(boneio_output.lower())

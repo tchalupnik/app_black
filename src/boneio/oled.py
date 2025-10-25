@@ -84,7 +84,9 @@ def display_time(seconds: float) -> str:
 
 def get_network_info() -> dict[str, str]:
     """Fetch network info."""
-    addrs = psutil.net_if_addrs().get("eth0", [])
+    addrs = psutil.net_if_addrs()
+    # ethernet or wifi
+    addrs = addrs.get("eth0", addrs.get("en0", []))
     out = {"ip": "none", "mask": "none", "mac": "none"}
     for addr in addrs:
         if addr.family == socket.AF_INET:
@@ -502,7 +504,9 @@ class ScreenBase(ABC):
             with canvas(self.device) as draw:
                 self._draw(draw=draw)
         except DeviceNotFoundError as e:
-            _LOGGER.warning("Got an unexpected error while rendering a screen! Error=%s", str(e))
+            _LOGGER.warning(
+                "Got an unexpected error while rendering a screen! Error=%s", str(e)
+            )
         await anyio.sleep_forever()
 
 

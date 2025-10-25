@@ -44,7 +44,6 @@ class HaBaseMessage(BaseModel):
 
     # Common entity configuration
     device_class: str | None = None
-    entity_category: str | None = None
     icon: str | None = None
 
 
@@ -57,10 +56,6 @@ class HaDiscoveryMessage(HaBaseMessage):
     value_template: str | None = None
     force_update: bool = False
 
-    # Sensor-specific fields
-    unit_of_measurement: str | None = None
-    state_class: str | None = None
-
 
 class HaLightMessage(HaDiscoveryMessage):
     """Home Assistant MQTT light discovery message."""
@@ -68,7 +63,7 @@ class HaLightMessage(HaDiscoveryMessage):
     command_topic: str
     payload_off: str = "OFF"
     payload_on: str = "ON"
-    retain: bool = False
+    state_value_template: str = "{{ value_json.state }}"
 
 
 class HaLedMessage(HaLightMessage):
@@ -78,7 +73,7 @@ class HaLedMessage(HaLightMessage):
     brightness_state_topic: str
     brightness_command_topic: str
     brightness_scale: int = 65535  # Higher precision for LEDs
-    brightness_value_template: str | None = None
+    brightness_value_template: str = "{{ value_json.brightness }}"
 
 
 class HaButtonMessage(HaDiscoveryMessage):
@@ -86,6 +81,7 @@ class HaButtonMessage(HaDiscoveryMessage):
 
     command_topic: str
     payload_press: str
+    entity_category: str
 
 
 class HaSwitchMessage(HaDiscoveryMessage):
@@ -101,6 +97,12 @@ class HaValveMessage(HaDiscoveryMessage):
     """Home Assistant MQTT valve discovery message."""
 
     command_topic: str
+    payload_close: str = "OFF"
+    payload_open: str = "ON"
+    state_open: str = "ON"
+    state_closed: str = "OFF"
+    reports_position: bool = False
+    value_template: str = "{{ value_json.state }}"
 
 
 class HaEventMessage(HaDiscoveryMessage):
@@ -115,6 +117,13 @@ class HaSensorMessage(HaDiscoveryMessage):
 
     Inherits all needed fields from HaDiscoveryMessage.
     """
+
+    unit_of_measurement: str | None = None
+    # `measurement` `measurement_angle` `total` `total_increasing``
+    state_class: str | None = None
+
+    # Optional entity category (e.g., "diagnostic", "config")
+    entity_category: str | None = None
 
 
 class HaBinarySensorMessage(HaDiscoveryMessage):
@@ -151,8 +160,8 @@ class HaModbusMessage(HaDiscoveryMessage):
 class HaSelectMessage(HaModbusMessage):
     """Home Assistant MQTT select discovery message."""
 
-    options: list[str] = Field(default_factory=list)
     command_topic: str
+    options: list[str] = Field(default_factory=list)
 
 
 class AutoDiscoveryMessageType(str, Enum):
@@ -182,7 +191,7 @@ class MessageBase(ABC, BaseModel):
     type_: str
     device_id: str
     command: str
-    message: str | int | ModbusMessageValue
+    message: str | int | ModbusMessageValue | CoverSetMessageState
 
 
 class RelaySetMessage(MessageBase):
@@ -204,10 +213,19 @@ class RelayMessage(RootModel[_RelayMessage]):
     root: _RelayMessage = Field(discriminator="command")
 
 
+class CoverSetMessageState(str, Enum):
+    OPEN = "OPEN"
+    CLOSE = "CLOSE"
+    STOP = "STOP"
+    TOGGLE = "TOGGLE"
+    TOGGLE_OPEN = "TOGGLE_OPEN"
+    TOGGLE_CLOSE = "TOGGLE_CLOSE"
+
+
 class CoverSetMessage(MessageBase):
     type_: Literal["cover"] = "cover"
     command: Literal["set"] = "set"
-    message: Literal["open", "close", "stop", "toggle", "toggle_open", "toggle_close"]
+    message: CoverSetMessageState
 
 
 class CoverPosMessage(MessageBase):
@@ -277,10 +295,6 @@ class MessageBus(ABC):
     @abstractmethod
     def is_connection_established(self) -> bool:
         """Get bus state."""
-
-    @abstractmethod
-    async def announce_offline(self) -> None:
-        """Announce that the device is offline."""
 
     @abstractmethod
     async def subscribe_and_listen(

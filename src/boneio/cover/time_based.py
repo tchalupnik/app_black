@@ -23,7 +23,6 @@ class TimeBasedCover(BaseCover):
         delta: timedelta,
         target_position: int | None = None,
     ) -> None:
-        """Metoda uruchamiana w oddzielnym wątku do fizycznego ruchu rolety."""
         duration = delta.total_seconds() * 1000
         if direction == CoverDirection.OPEN:
             relay = self.open_relay
@@ -32,7 +31,7 @@ class TimeBasedCover(BaseCover):
             relay = self.close_relay
             total_steps = self.position
         else:
-            return
+            raise ValueError("Invalid cover direction!")
 
         if total_steps == 0 or duration == 0:
             self._current_operation = CoverStateOperation.IDLE

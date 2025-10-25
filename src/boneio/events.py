@@ -222,7 +222,6 @@ class EventBus:
         _LOGGER.info("Handling SIGTERM listeners...")
         for target in self.sigterm_listeners:
             try:
-                _LOGGER.debug("Invoking sigterm listener %s", target)
                 await target()
             except Exception as e:
                 _LOGGER.error("Error in sigterm listener %s: %s", target, e)

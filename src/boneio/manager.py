@@ -79,6 +79,7 @@ from boneio.message_bus import (
 from boneio.message_bus.basic import (
     AutoDiscoveryMessage,
     AutoDiscoveryMessageType,
+    CoverSetMessageState,
     HaAvailabilityTopic,
     HaBaseMessage,
     HaBinarySensorMessage,
@@ -152,7 +153,7 @@ class Manager:
     inputs: dict[str, GpioEventButtonsAndSensors] = field(
         default_factory=dict, init=False
     )
-    i2c: I2C | None = field(default=None, init=None)
+    i2c: I2C | None = field(default=None, init=False)
     outputs: dict[str, BasicRelay] = field(default_factory=dict, init=False)
     output_groups: dict[str, OutputGroup] = field(default_factory=dict, init=False)
     interlock_manager: SoftwareInterlockManager = field(
@@ -746,7 +747,6 @@ class Manager:
                             position_template="{{ value_json.position }}",
                             position_topic=f"{self.topic_prefix}/cover/{cover.id}/pos",
                         )
-
                     self.message_bus.add_autodiscovery_message(
                         message=AutoDiscoveryMessage(
                             type=AutoDiscoveryMessageType.COVER,
@@ -1616,17 +1616,17 @@ class Manager:
                 return
             if isinstance(cover_message, CoverSetMessage):
                 match cover_message.message:
-                    case "stop":
+                    case CoverSetMessageState.STOP:
                         await cover.stop()
-                    case "open":
+                    case CoverSetMessageState.OPEN:
                         await cover.open()
-                    case "close":
+                    case CoverSetMessageState.CLOSE:
                         await cover.close()
-                    case "toggle":
+                    case CoverSetMessageState.TOGGLE:
                         await cover.toggle()
-                    case "toggle_open":
+                    case CoverSetMessageState.TOGGLE_OPEN:
                         await cover.toggle_open()
-                    case "toggle_close":
+                    case CoverSetMessageState.TOGGLE_CLOSE:
                         await cover.toggle_close()
                     case _:
                         assert_never(cover_message)
