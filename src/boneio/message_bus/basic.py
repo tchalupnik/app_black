@@ -156,6 +156,10 @@ class HaModbusMessage(HaDiscoveryMessage):
     payload_off: str | None = None
     payload_on: str | None = None
 
+    unit_of_measurement: str | None = None
+    # `measurement` `measurement_angle` `total` `total_increasing``
+    state_class: str | None = None
+
 
 class HaSelectMessage(HaModbusMessage):
     """Home Assistant MQTT select discovery message."""

@@ -86,9 +86,9 @@ def get_network_info() -> dict[str, str]:
     """Fetch network info."""
     addrs = psutil.net_if_addrs()
     # ethernet or wifi
-    addrs = addrs.get("eth0", addrs.get("en0", []))
+    values = addrs.get("eth0", addrs.get("en0", []))
     out = {"ip": "none", "mask": "none", "mac": "none"}
-    for addr in addrs:
+    for addr in values:
         if addr.family == socket.AF_INET:
             out["ip"] = addr.address
             out["mask"] = addr.netmask if addr.netmask is not None else ""
@@ -250,14 +250,14 @@ class Oled:
                 event_bus=self.event_bus,
                 callback=update_default_screen(get_memory_info),
             ),
-            "swap": UpdatingScreen(
+            "swap": UpdatingScreen[DefaultScreen](
                 screen=DefaultScreen(
                     name="swap", device=self._device, data=get_swap_info()
                 ),
                 event_bus=self.event_bus,
                 callback=update_default_screen(get_swap_info),
             ),
-            "uptime": UpdatingScreen(
+            "uptime": UpdatingScreen[UptimeScreen](
                 screen=UptimeScreen(
                     name="uptime",
                     device=self._device,
@@ -382,57 +382,58 @@ class Oled:
                     f"Sensor type {extra_screen.sensor_type} not supported"
                 )
 
+        outputs_screens: list[UpdatingScreen[OutputScreen]] = []
+        if "outputs" in self.screen_order:
+
+            def update_output_screen(screen: OutputScreen) -> None:
+                screen.outputs = tuple(self.outputs.values())
+
+            outputs_batched = batched(self.outputs.values(), 24)
+            for i, outputs_chunk in enumerate(outputs_batched):
+                outputs_screens.append(
+                    UpdatingScreen(
+                        screen=OutputScreen(
+                            name=f"outputs_{i + 1}",
+                            outputs=outputs_chunk,
+                            device=self._device,
+                        ),
+                        event_bus=self.event_bus,
+                        callback=update_output_screen,
+                    )
+                )
+
+        inputs_screens: list[UpdatingScreen[InputScreen]] = []
+        if "inputs" in self.screen_order:
+
+            def update_input_screen(screen: InputScreen) -> None:
+                screen.inputs = tuple(self.inputs.values())
+
+            inputs_batched = batched(self.inputs.values(), 24)
+            for i, inputs_chunk in enumerate(inputs_batched):
+                inputs_screens.append(
+                    UpdatingScreen(
+                        screen=InputScreen(
+                            name=f"inputs_{i + 1}",
+                            inputs=inputs_chunk,
+                            device=self._device,
+                        ),
+                        event_bus=self.event_bus,
+                        callback=update_input_screen,
+                    )
+                )
+
         for screen_entry in self.screen_order:
-            screen = all_screens.get(screen_entry)
-            if screen is None:
-                _LOGGER.warning("Screen %s not found, omitting.", screen_entry)
-                continue
-            if isinstance(screen, OutputScreen):
-                if self.outputs:
-
-                    def update_output_screen(screen: OutputScreen) -> None:
-                        screen.outputs = tuple(self.outputs.values())
-
-                    outputs_batched = batched(self.outputs.values(), 24)
-                    for i, outputs_chunk in enumerate(outputs_batched):
-                        self.screens.append(
-                            UpdatingScreen(
-                                screen=OutputScreen(
-                                    name=f"outputs_{i + 1}",
-                                    outputs=outputs_chunk,
-                                    device=self._device,
-                                ),
-                                event_bus=self.event_bus,
-                                callback=update_output_screen,
-                            )
-                        )
-                else:
-                    _LOGGER.debug("No outputs configured. Omitting in screen.")
-                    continue
-            if isinstance(screen, InputScreen):
-                if self.inputs:
-
-                    def update_input_screen(screen: InputScreen) -> None:
-                        screen.inputs = tuple(self.inputs.values())
-
-                    inputs_batched = batched(self.inputs.values(), 24)
-                    for i, inputs_chunk in enumerate(inputs_batched):
-                        self.screens.append(
-                            UpdatingScreen(
-                                screen=InputScreen(
-                                    name=f"inputs_{i + 1}",
-                                    inputs=inputs_chunk,
-                                    device=self._device,
-                                ),
-                                event_bus=self.event_bus,
-                                callback=update_input_screen,
-                            )
-                        )
-                else:
-                    _LOGGER.debug("No inputs configured. Omitting in screen.")
-                    continue
+            if screen_entry == "outputs":
+                self.screens.extend(outputs_screens)
+            elif screen_entry == "inputs":
+                self.screens.extend(inputs_screens)
             else:
-                self.screens.append(screen)
+                screen = all_screens.get(screen_entry)
+                if screen is None:
+                    _LOGGER.warning("Screen %s not found, omitting.", screen_entry)
+                    continue
+                else:
+                    self.screens.append(screen)
 
         self.cycling_screens = cycle(self.screens)
 
