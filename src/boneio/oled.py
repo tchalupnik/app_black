@@ -143,7 +143,7 @@ def get_uptime() -> str:
 
 
 class Screen(Protocol):
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         """Render display."""
 
     async def render(self) -> None:
@@ -497,13 +497,12 @@ class ScreenBase(ABC):
     device: sh1106
 
     @abstractmethod
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         """Render display."""
 
     async def render(self) -> None:
         try:
-            with canvas(self.device) as draw:
-                self._draw(draw=draw)
+            self._draw()
         except DeviceNotFoundError as e:
             _LOGGER.warning(
                 "Got an unexpected error while rendering a screen! Error=%s", str(e)
@@ -525,9 +524,9 @@ class UpdatingScreen(Generic[_T]):
         default_factory=anyio.Event, init=False
     )
 
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         """Draw screen."""
-        self.screen._draw(draw=draw)
+        self.screen._draw()
 
     @property
     def name(self) -> str:
@@ -562,14 +561,13 @@ class UpdatingScreen(Generic[_T]):
 
     def trigger(self, timestamp: float) -> None:
         """Update screen."""
-        match self.event_type:
-            case EventType.HOST:
-                event = HostEvent(
-                    event_type=EventType.HOST,
-                    event_state=None,
-                    entity_id=f"{self.name}_screen",
-                )
-        self.event_bus.trigger_event(event=event)
+        if self.event_type == EventType.HOST:
+            event = HostEvent(
+                event_type=EventType.HOST,
+                event_state=None,
+                entity_id=f"{self.name}_screen",
+            )
+            self.event_bus.trigger_event(event=event)
 
 
 @dataclass(kw_only=True)
@@ -577,71 +575,73 @@ class UptimeScreen(ScreenBase):
     is_connection_established: bool
     temperature: float | None = None
 
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         """Draw uptime screen with boneIO logo."""
-        draw.text((3, 3), "bone", font=FONTS["danube"], fill="white")
-        draw.text((53, 3), "iO", font=FONTS["danube"], fill="white")
-        draw.text(
-            (3, UPTIME_ROWS[0]),
-            "host: " + socket.gethostname(),
-            font=FONTS["small"],
-            fill="white",
-        )
-        draw.text(
-            (3, UPTIME_ROWS[1]),
-            f"ver: {__version__}",
-            font=FONTS["small"],
-            fill="white",
-        )
-        draw.text(
-            (3, UPTIME_ROWS[2]),
-            f"uptime: {get_uptime()}",
-            font=FONTS["small"],
-            fill="white",
-        )
-        draw.text(
-            (60, UPTIME_ROWS[3]),
-            "MQTT: CONN" if self.is_connection_established else "MQTT: DOWN",
-            font=FONTS["small"],
-            fill="white",
-        )
-        if self.temperature is not None:
+        with canvas(self.device) as draw:
+            draw.text((3, 3), "bone", font=FONTS["danube"], fill="white")
+            draw.text((53, 3), "iO", font=FONTS["danube"], fill="white")
             draw.text(
-                (3, UPTIME_ROWS[3]),
-                f"T: {self.temperature} C",
+                (3, UPTIME_ROWS[0]),
+                "host: " + socket.gethostname(),
                 font=FONTS["small"],
                 fill="white",
             )
+            draw.text(
+                (3, UPTIME_ROWS[1]),
+                f"ver: {__version__}",
+                font=FONTS["small"],
+                fill="white",
+            )
+            draw.text(
+                (3, UPTIME_ROWS[2]),
+                f"uptime: {get_uptime()}",
+                font=FONTS["small"],
+                fill="white",
+            )
+            draw.text(
+                (60, UPTIME_ROWS[3]),
+                "MQTT: CONN" if self.is_connection_established else "MQTT: DOWN",
+                font=FONTS["small"],
+                fill="white",
+            )
+            if self.temperature is not None:
+                draw.text(
+                    (3, UPTIME_ROWS[3]),
+                    f"T: {self.temperature} C",
+                    font=FONTS["small"],
+                    fill="white",
+                )
 
 
 @dataclass(kw_only=True)
 class DefaultScreen(ScreenBase):
     data: dict[str, str]
 
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         """Draw standard information about host screen."""
-        draw.text(
-            (1, 1),
-            self.name.replace("_", " ").capitalize(),
-            font=FONTS["big"],
-            fill="white",
-        )
-        row_no = START_ROW
-        for entry in self.data:
+        with canvas(self.device) as draw:
             draw.text(
-                (3, row_no),
-                f"{entry} {self.data[entry]}",
-                font=FONTS["small"],
+                (1, 1),
+                self.name.replace("_", " ").capitalize(),
+                font=FONTS["big"],
                 fill="white",
             )
-            row_no += 15
+            row_no = START_ROW
+            for entry in self.data:
+                draw.text(
+                    (3, row_no),
+                    f"{entry} {self.data[entry]}",
+                    font=FONTS["small"],
+                    fill="white",
+                )
+                row_no += 15
 
 
 @dataclass(kw_only=True)
 class WebScreen(ScreenBase):
     url: str
 
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         """Draw QR code on the OLED display."""
         # Create QR code with box_size 2 and scale down later
         qr = qrcode.QRCode(version=1, box_size=2, border=1)
@@ -659,76 +659,73 @@ class WebScreen(ScreenBase):
         display_image = Image.new(
             "1", (128, 64), 0
         )  # Mode 1, size 128x64, black background
-        draw = ImageDraw.Draw(display_image)
 
-        # Add title text on the left side
-        # text_width = fonts["small"].getsize(title)[0]
-        draw.text((2, 2), "Scan to", font=FONTS["small"], fill="white")
-        draw.text((2, 12), "access", font=FONTS["small"], fill="white")
-        draw.text((2, 22), "webui", font=FONTS["small"], fill="white")
+        with canvas(self.device, display_image) as draw:
+            draw.text((2, 2), "Scan to", font=FONTS["small"], fill="white")
+            draw.text((2, 12), "access", font=FONTS["small"], fill="white")
+            draw.text((2, 22), "webui", font=FONTS["small"], fill="white")
 
-        # Calculate position to align QR code to right and center vertically
-        x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding
-        y = (64 - qr_image.size[1]) // 2  # Center vertically
+            # Calculate position to align QR code to right and center vertically
+            x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding
+            y = (64 - qr_image.size[1]) // 2  # Center vertically
 
-        # Paste QR code onto center of display image
-        display_image.paste(qr_image, (x, y))
-
-        # Display the centered QR code
-        self.device.display(display_image)
+            # Paste QR code onto center of display image
+            display_image.paste(qr_image, (x, y))
 
 
 @dataclass(kw_only=True)
 class InputScreen(ScreenBase):
     inputs: tuple[GpioEventButtonsAndSensors, ...]
 
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         "Draw inputs of boneIO Black."
-        cols = cycle(INPUT_COLS)
-        draw.text(
-            (1, 1),
-            f"{self.name}",
-            font=FONTS["small"],
-            fill="white",
-        )
-        i = 0
-        j = next(cols)
-        for input in self.inputs:
-            if len(INPUT_ROWS) == i:
-                j = next(cols)
-                i = 0
+        with canvas(self.device) as draw:
+            cols = cycle(INPUT_COLS)
             draw.text(
-                (j, INPUT_ROWS[i]),
-                f"{shorten_name(input.name)} {input.state}",
-                font=FONTS["extraSmall"],
+                (1, 1),
+                f"{self.name}",
+                font=FONTS["small"],
                 fill="white",
             )
-            i += 1
+            i = 0
+            j = next(cols)
+            for input in self.inputs:
+                if len(INPUT_ROWS) == i:
+                    j = next(cols)
+                    i = 0
+                draw.text(
+                    (j, INPUT_ROWS[i]),
+                    f"{shorten_name(input.name)} {input.state}",
+                    font=FONTS["extraSmall"],
+                    fill="white",
+                )
+                i += 1
 
 
 @dataclass(kw_only=True)
 class OutputScreen(ScreenBase):
     outputs: tuple[BasicRelay, ...]
 
-    def _draw(self, draw: ImageDraw.ImageDraw) -> None:
+    def _draw(self) -> None:
         "Draw outputs of GPIO/MCP relays."
-        cols = cycle(OUTPUT_COLS)
-        draw.text(
-            (1, 1),
-            f"Relay {self.name}",
-            font=FONTS["small"],
-            fill="white",
-        )
-        i = 0
-        j = next(cols)
-        for output in self.outputs:
-            if len(OUTPUT_ROWS) == i:
-                j = next(cols)
-                i = 0
+        with canvas(self.device) as draw:
+            cols = cycle(OUTPUT_COLS)
             draw.text(
-                (j, OUTPUT_ROWS[i]),
-                f"{shorten_name(output.name or output.id)} {output.state}",
-                font=FONTS["extraSmall"],
+                (1, 1),
+                f"Relay {self.name}",
+                font=FONTS["small"],
                 fill="white",
             )
-            i += 1
+            i = 0
+            j = next(cols)
+            for output in self.outputs:
+                if len(OUTPUT_ROWS) == i:
+                    j = next(cols)
+                    i = 0
+                draw.text(
+                    (j, OUTPUT_ROWS[i]),
+                    f"{shorten_name(output.name or output.id)} {output.state}",
+                    font=FONTS["extraSmall"],
+                    fill="white",
+                )
+                i += 1
