@@ -660,17 +660,17 @@ class WebScreen(ScreenBase):
             "1", (128, 64), 0
         )  # Mode 1, size 128x64, black background
 
+        # Calculate position to align QR code to right and center vertically
+        x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding
+        y = (64 - qr_image.size[1]) // 2  # Center vertically
+
+        # Paste QR code onto center of display image
+        display_image.paste(qr_image, (x, y))
+
         with canvas(self.device, display_image) as draw:
             draw.text((2, 2), "Scan to", font=FONTS["small"], fill="white")
             draw.text((2, 12), "access", font=FONTS["small"], fill="white")
             draw.text((2, 22), "webui", font=FONTS["small"], fill="white")
-
-            # Calculate position to align QR code to right and center vertically
-            x = 128 - qr_image.size[0] - 2  # Align to right with 2 pixels padding
-            y = (64 - qr_image.size[1]) // 2  # Center vertically
-
-            # Paste QR code onto center of display image
-            display_image.paste(qr_image, (x, y))
 
 
 @dataclass(kw_only=True)
